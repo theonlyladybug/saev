@@ -7,6 +7,8 @@ os.environ["WANDB__SERVICE_WAIT"] = "300"
 
 from sae_training.config import LanguageModelSAERunnerConfig
 from sae_training.lm_runner import language_model_sae_runner
+from sae_training.train_sae_on_language_model import train_sae_on_language_model
+from sae_training.utils import LMSparseAutoencoderSessionloader
 
 cfg = LanguageModelSAERunnerConfig(
 
@@ -32,7 +34,7 @@ cfg = LanguageModelSAERunnerConfig(
     
     # Activation Store Parameters
     n_batches_in_buffer = 128,
-    total_training_tokens = 1_000_000 * 300,
+    total_training_tokens = 100_000,
     store_batch_size = 32,
     
     # Dead Neurons and Sparsity
@@ -44,7 +46,7 @@ cfg = LanguageModelSAERunnerConfig(
     
     # WANDB
     log_to_wandb = True,
-    wandb_project= "mats_sae_training_gpt2",
+    wandb_project= "mats-hugo",
     wandb_entity = None,
     wandb_log_frequency=100,
     
@@ -57,3 +59,20 @@ cfg = LanguageModelSAERunnerConfig(
     )
 
 sparse_autoencoder = language_model_sae_runner(cfg)
+
+#Create an activation store with the correct database
+session_loader = LMSparseAutoencoderSessionloader(cfg)
+model = session_loader.get_model(cfg.model_name)
+activations_store = session_loader.get_activations_loader(cfg, model)
+
+sparse_autoencoder = train_sae_on_language_model(
+    model,
+    sparse_autoencoder,
+    activations_store,
+    batch_size = 1024,
+    use_wandb = True,
+)
+
+for i in range(4):
+    print()
+print("*****Done*****")
