@@ -28,7 +28,8 @@ def train_sae_on_language_model(
     use_wandb: bool = False,
     wandb_log_frequency: int = 50,
 ):
-
+    if use_wandb:
+        wandb.init(project="mats-hugo")
     if feature_sampling_method is not None:
         feature_sampling_method = feature_sampling_method.lower()
 
