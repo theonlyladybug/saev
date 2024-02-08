@@ -1,14 +1,36 @@
+import os
+import sys
 import torch
-import os 
-import sys 
+import wandb
+import json
+import plotly.express as px
+from transformer_lens import utils
+from datasets import load_dataset
+from typing import  Dict
+from pathlib import Path
 
-os.environ["TOKENIZERS_PARALLELISM"] = "false"
-os.environ["WANDB__SERVICE_WAIT"] = "300"
+from functools import partial
 
+sys.path.append("..")
+
+from sae_training.utils import LMSparseAutoencoderSessionloader
+from sae_analysis.visualizer import data_fns, html_fns
+from sae_analysis.visualizer.data_fns import get_feature_data, FeatureData
 from sae_training.config import LanguageModelSAERunnerConfig
 from sae_training.lm_runner import language_model_sae_runner
 from sae_training.train_sae_on_language_model import train_sae_on_language_model
-from sae_training.utils import LMSparseAutoencoderSessionloader
+
+if torch.backends.mps.is_available():
+    device = "mps" 
+else:
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+
+def imshow(x, **kwargs):
+    x_numpy = utils.to_numpy(x)
+    px.imshow(x_numpy, **kwargs).show()
+
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+os.environ["WANDB__SERVICE_WAIT"] = "300"
 
 cfg = LanguageModelSAERunnerConfig(
 
@@ -53,7 +75,7 @@ cfg = LanguageModelSAERunnerConfig(
     # Misc
     device = "cuda",
     seed = 42,
-    n_checkpoints = 10,
+    n_checkpoints = 0,
     checkpoint_path = "checkpoints",
     dtype = torch.float32,
     )
@@ -70,6 +92,8 @@ sparse_autoencoder = train_sae_on_language_model(
     sparse_autoencoder,
     activations_store,
     batch_size = 1024,
+    feature_sampling_window = 10,
+    feature_sampling_method = None,
     use_wandb = True,
 )
 
