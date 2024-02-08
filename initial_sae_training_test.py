@@ -158,7 +158,8 @@ all_tokens = tokenized_data["tokens"]
 
 max_batch_size = 512
 total_batch_size = 4096*5
-feature_idx = list(range(sparse_autoencoder.d_sae))
+# feature_idx = list(range(sparse_autoencoder.d_sae))
+feature_idx = list(range(10))
 # max_batch_size = 512
 # total_batch_size = 16384
 # feature_idx = list(range(1000))
