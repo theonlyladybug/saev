@@ -3,6 +3,7 @@ import sys
 import torch
 import wandb
 import json
+import pickle
 import plotly.express as px
 from transformer_lens import utils
 from datasets import load_dataset
@@ -99,8 +100,8 @@ sparse_autoencoder = train_sae_on_language_model(
 )
 
 #save a serialised verison of the sae to a file:
-with open('prelimary results/sae/sae.json', 'wb') as file:
-    json.dump(sparse_autoencoder, file)
+with open('preliminary results/sae/sae.pkl', 'wb') as file:
+    pickle.dump(sparse_autoencoder, file)
 
 
 #Evaluate the SAE in terms of the models loss and compare to zero/mean ablation.
