@@ -193,6 +193,6 @@ for test_idx in feature_idx:
     
 pbar.close()
 
-for i in range(4):
+for i in range(3):
     print()
 print("*****Done*****")
