@@ -55,6 +55,10 @@ cover/
 *.mo
 *.pot
 
+# Serialised sae and htmls
+preliminary results/
+
+
 # Django stuff:
 *.log
 local_settings.py
