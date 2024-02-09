@@ -99,6 +99,9 @@ sparse_autoencoder = train_sae_on_language_model(
     use_wandb = True,
 )
 
+if not os.path.exists("preliminary results/sae"):
+    os.makedirs("preliminary results/sae")
+
 #save a serialised verison of the sae to a file:
 with open('preliminary results/sae/sae.pkl', 'wb') as file:
     pickle.dump(sparse_autoencoder, file)
@@ -192,6 +195,9 @@ feature_data: Dict[int, FeatureData] = get_feature_data(
 )
 
 pbar=tqdm(total = len(feature_idx))
+
+if not os.path.exists("preliminary results/htmls"):
+    os.makedirs("preliminary results/htmls")
 
 for test_idx in feature_idx:
     html_str = feature_data[test_idx].get_all_html()
