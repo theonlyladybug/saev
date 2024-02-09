@@ -1,7 +1,6 @@
 import os
 import sys
 import torch
-import tqdm
 import wandb
 import json
 import plotly.express as px
@@ -9,6 +8,7 @@ from transformer_lens import utils
 from datasets import load_dataset
 from typing import  Dict
 from pathlib import Path
+from tqdm import tqdm
 
 from functools import partial
 
@@ -98,7 +98,13 @@ sparse_autoencoder = train_sae_on_language_model(
     use_wandb = True,
 )
 
+#save a serialised verison of the sae to a file:
+with open('prelimary results/sae/sae.json', 'wb') as file:
+    json.dump(sparse_autoencoder, file)
+
+
 #Evaluate the SAE in terms of the models loss and compare to zero/mean ablation.
+sparse_autoencoder.eval()
 wandb.init(project='mats-hugo', entity='hugo-fry', job_type="inference")
 
 def reconstr_hook(mlp_out, hook, new_mlp_out):
@@ -110,7 +116,7 @@ def zero_abl_hook(mlp_out, hook):
 batch_tokens = activations_store.get_batch_tokens()
 _, cache = model.run_with_cache(batch_tokens, prepend_bos=True)
 _, cache = model.run_with_cache(batch_tokens, prepend_bos=True)
-sae_out, feature_acts, loss, mse_loss, l1_loss = sparse_autoencoder(
+sae_out, feature_acts, loss, mse_loss, l1_loss, mse_loss_ghost = sparse_autoencoder(
     cache[sparse_autoencoder.cfg.hook_point]
     )
 del cache
@@ -147,8 +153,8 @@ if not vocab_dict_filepath.exists():
         
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
-data = activations_store.dataset
-tokenized_data = utils.tokenize_and_concatenate(data, model.tokenizer, max_length=128)
+new_data = load_dataset("NeelNanda/c4-code-20k", split="train") # currently use this dataset to avoid deal with tokenization while streaming
+tokenized_data = utils.tokenize_and_concatenate(new_data, model.tokenizer, max_length=128)
 tokenized_data = tokenized_data.shuffle(42)
 all_tokens = tokenized_data["tokens"]
 
@@ -172,6 +178,7 @@ feature_data: Dict[int, FeatureData] = get_feature_data(
     model=model,
     hook_point=sparse_autoencoder.cfg.hook_point,
     hook_point_layer=sparse_autoencoder.cfg.hook_point_layer,
+    hook_point_head_index=None,
     tokens=tokens,
     feature_idx=feature_idx,
     max_batch_size=max_batch_size,
@@ -187,7 +194,7 @@ pbar=tqdm(total = len(feature_idx))
 
 for test_idx in feature_idx:
     html_str = feature_data[test_idx].get_all_html()
-    with open(f"data_{test_idx:04}.html", "w") as f:
+    with open(f"preliminary results/htmls/data_{test_idx:04}.html", "w") as f:
         f.write(html_str)
     pbar.update(1)
     
