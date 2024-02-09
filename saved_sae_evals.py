@@ -82,30 +82,14 @@ cfg = LanguageModelSAERunnerConfig(
     dtype = torch.float32,
     )
 
-sparse_autoencoder = language_model_sae_runner(cfg)
-
 #Create an activation store with the correct database
 session_loader = LMSparseAutoencoderSessionloader(cfg)
 model = session_loader.get_model(cfg.model_name)
 activations_store = session_loader.get_activations_loader(cfg, model)
 
-sparse_autoencoder = train_sae_on_language_model(
-    model,
-    sparse_autoencoder,
-    activations_store,
-    batch_size = 1024,
-    feature_sampling_window = 10,
-    feature_sampling_method = None,
-    use_wandb = True,
-)
-
-if not os.path.exists("preliminary results/sae"):
-    os.makedirs("preliminary results/sae")
-
 #save a serialised verison of the sae to a file:
-with open('preliminary results/sae/sae.pkl', 'wb') as file:
-    pickle.dump(sparse_autoencoder, file)
-
+with open('preliminary results/sae/sae.pkl', 'rb') as file:
+    sparse_autoencoder = pickle.load(file)
 
 #Evaluate the SAE in terms of the models loss and compare to zero/mean ablation.
 sparse_autoencoder.eval()
@@ -173,6 +157,12 @@ feature_idx = list(range(sparse_autoencoder.d_sae))
 # feature_idx = list(range(1000))
 
 tokens = all_tokens[:total_batch_size]
+
+torch.cuda.empty_cache()
+del all_tokens
+del new_data
+del tokenized_data
+del activations_store
 
 feature_data: Dict[int, FeatureData] = get_feature_data(
     encoder=sparse_autoencoder,
