@@ -58,7 +58,7 @@ cfg = LanguageModelSAERunnerConfig(
     
     # Activation Store Parameters
     n_batches_in_buffer = 128,
-    total_training_tokens = 100_000,
+    total_training_tokens = 200_000_000,
     store_batch_size = 32,
     
     # Dead Neurons and Sparsity
@@ -168,8 +168,7 @@ all_tokens = tokenized_data["tokens"]
 
 max_batch_size = 512
 total_batch_size = 4096*5
-# feature_idx = list(range(sparse_autoencoder.d_sae))
-feature_idx = list(range(10))
+feature_idx = list(range(sparse_autoencoder.d_sae))
 # max_batch_size = 512
 # total_batch_size = 16384
 # feature_idx = list(range(1000))
