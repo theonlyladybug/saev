@@ -155,14 +155,42 @@ feature_idx = list(range(sparse_autoencoder.d_sae))
 # max_batch_size = 512
 # total_batch_size = 16384
 # feature_idx = list(range(1000))
+max_number_of_features = 512
 
 tokens = all_tokens[:total_batch_size]
+number_of_neuron_groups = len(feature_idx)//max_number_of_features + 1
 
-torch.cuda.empty_cache()
-del all_tokens
-del new_data
-del tokenized_data
-del activations_store
+for neuron_group in range(number_of_neuron_groups-1):
+    print()
+    print()
+    print(f'Starting evals for group {neuron_group + 1}.')
+    feature_data: Dict[int, FeatureData] = get_feature_data(
+        encoder=sparse_autoencoder,
+        # encoder_B=sparse_autoencoder,
+        model=model,
+        hook_point=sparse_autoencoder.cfg.hook_point,
+        hook_point_layer=sparse_autoencoder.cfg.hook_point_layer,
+        hook_point_head_index=None,
+        tokens=tokens,
+        feature_idx=feature_idx,
+        max_batch_size=max_batch_size,
+        left_hand_k = 3,
+        buffer = (5, 5),
+        n_groups = 10,
+        first_group_size = 20,
+        other_groups_size = 5,
+        verbose = True,
+    )
+    
+    if not os.path.exists("preliminary results/htmls"):
+        os.makedirs("preliminary results/htmls")
+        
+    for test_idx in feature_idx:
+        html_str = feature_data[test_idx].get_all_html()
+        with open(f"preliminary results/htmls/data_{test_idx:04}.html", "w") as f:
+            f.write(html_str)
+
+print(f'Starting evals for group {number_of_neuron_groups}.')
 
 feature_data: Dict[int, FeatureData] = get_feature_data(
     encoder=sparse_autoencoder,
@@ -182,18 +210,13 @@ feature_data: Dict[int, FeatureData] = get_feature_data(
     verbose = True,
 )
 
-pbar=tqdm(total = len(feature_idx))
-
 if not os.path.exists("preliminary results/htmls"):
     os.makedirs("preliminary results/htmls")
-
+    
 for test_idx in feature_idx:
     html_str = feature_data[test_idx].get_all_html()
     with open(f"preliminary results/htmls/data_{test_idx:04}.html", "w") as f:
         f.write(html_str)
-    pbar.update(1)
-    
-pbar.close()
 
 for i in range(3):
     print()
