@@ -166,21 +166,19 @@ all_tokens = tokenized_data["tokens"]
 # make the entire sequence indexing parallelized, but that's possibly not worth it right now.
 
 max_batch_size = 512
-total_batch_size = 4096*5
+total_batch_size = 2*4096
 feature_idx = list(range(sparse_autoencoder.d_sae))
-max_number_of_features = 512
 # max_batch_size = 512
 # total_batch_size = 16384
 # feature_idx = list(range(1000))
+max_number_of_features = 512
 
 tokens = all_tokens[:total_batch_size]
-
 number_of_neuron_groups = len(feature_idx)//max_number_of_features + 1
+number_of_extra_neurons = len(feature_idx)- (number_of_neuron_groups-1)*max_number_of_features
 
 for neuron_group in range(number_of_neuron_groups-1):
-    print()
-    print()
-    print(f'Starting evals for group {neuron_group + 1}.')
+    torch.cuda.empty_cache()
     feature_data: Dict[int, FeatureData] = get_feature_data(
         encoder=sparse_autoencoder,
         # encoder_B=sparse_autoencoder,
@@ -189,7 +187,7 @@ for neuron_group in range(number_of_neuron_groups-1):
         hook_point_layer=sparse_autoencoder.cfg.hook_point_layer,
         hook_point_head_index=None,
         tokens=tokens,
-        feature_idx=feature_idx,
+        feature_idx=feature_idx[max_number_of_features*neuron_group:max_number_of_features*(neuron_group+1)],
         max_batch_size=max_batch_size,
         left_hand_k = 3,
         buffer = (5, 5),
@@ -202,38 +200,39 @@ for neuron_group in range(number_of_neuron_groups-1):
     if not os.path.exists("preliminary results/htmls"):
         os.makedirs("preliminary results/htmls")
         
-    for test_idx in feature_idx:
+    for test_idx in tqdm(feature_idx[max_number_of_features*neuron_group:max_number_of_features*(neuron_group+1)], desc="Downloading htmls"):
         html_str = feature_data[test_idx].get_all_html()
         with open(f"preliminary results/htmls/data_{test_idx:04}.html", "w") as f:
             f.write(html_str)
+            
+if number_of_extra_neurons>0:
+    print(f'Starting evals for group {number_of_neuron_groups}.')
 
-print(f'Starting evals for group {number_of_neuron_groups}.')
+    feature_data: Dict[int, FeatureData] = get_feature_data(
+        encoder=sparse_autoencoder,
+        # encoder_B=sparse_autoencoder,
+        model=model,
+        hook_point=sparse_autoencoder.cfg.hook_point,
+        hook_point_layer=sparse_autoencoder.cfg.hook_point_layer,
+        hook_point_head_index=None,
+        tokens=tokens,
+        feature_idx=feature_idx[max_number_of_features*(number_of_neuron_groups-1):],
+        max_batch_size=max_batch_size,
+        left_hand_k = 3,
+        buffer = (5, 5),
+        n_groups = 10,
+        first_group_size = 20,
+        other_groups_size = 5,
+        verbose = True,
+    )
 
-feature_data: Dict[int, FeatureData] = get_feature_data(
-    encoder=sparse_autoencoder,
-    # encoder_B=sparse_autoencoder,
-    model=model,
-    hook_point=sparse_autoencoder.cfg.hook_point,
-    hook_point_layer=sparse_autoencoder.cfg.hook_point_layer,
-    hook_point_head_index=None,
-    tokens=tokens,
-    feature_idx=feature_idx,
-    max_batch_size=max_batch_size,
-    left_hand_k = 3,
-    buffer = (5, 5),
-    n_groups = 10,
-    first_group_size = 20,
-    other_groups_size = 5,
-    verbose = True,
-)
-
-if not os.path.exists("preliminary results/htmls"):
-    os.makedirs("preliminary results/htmls")
-    
-for test_idx in feature_idx:
-    html_str = feature_data[test_idx].get_all_html()
-    with open(f"preliminary results/htmls/data_{test_idx:04}.html", "w") as f:
-        f.write(html_str)
+    if not os.path.exists("preliminary results/htmls"):
+        os.makedirs("preliminary results/htmls")
+        
+    for test_idx in feature_idx[max_number_of_features*(number_of_neuron_groups-1):]:
+        html_str = feature_data[test_idx].get_all_html()
+        with open(f"preliminary results/htmls/data_{test_idx:04}.html", "w") as f:
+            f.write(html_str)
 
 for i in range(3):
     print()
