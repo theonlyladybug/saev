@@ -70,10 +70,23 @@ class ViTActivationsStore:
             image_batches,
             list_of_hook_locations,
         )[1][(block_layer, module_name)]
+        
+        if self.cfg.class_token:
+          # Only keep the class token
+          activations = activations[:,0,:] # See the forward(), foward_head() methods of the VisionTransformer class in timm. 
+          # Eg "x = x[:, 0]  # class token" - the [:,0] indexes the batch dimension then the token dimension
 
         return activations
+    
+    def get_sae_batches(self):
+        image_batches = self.get_image_batches()
 
-    def get_data_loader(self,) -> DataLoader:
+        sae_batches = self.get_activations(image_batches)
+        
+        return sae_batches
+        
+
+    def get_data_loader(self) -> DataLoader:
         '''
         Return a torch.utils.dataloader which you can get batches from.
         
@@ -81,12 +94,9 @@ class ViTActivationsStore:
         (better mixing if you refill and shuffle regularly).
         
         '''
-        
         batch_size = self.cfg.batch_size
-
-        image_batches = self.get_image_batches()
-
-        sae_batches = self.get_activations(image_batches)
+        
+        sae_batches = self.get_sae_batches()
         
         dataloader = iter(DataLoader(sae_batches, batch_size=batch_size, shuffle=True))
         

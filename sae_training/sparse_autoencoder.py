@@ -16,6 +16,7 @@ from torch import Tensor, nn
 from torch.distributions.categorical import Categorical
 from tqdm import tqdm
 from transformer_lens.hook_points import HookedRootModule, HookPoint
+from vit_activations_store import ViTActivationsStore
 
 from sae_training.geom_median.src.geom_median.torch import compute_geometric_median
 
@@ -149,7 +150,10 @@ class SparseAutoencoder(HookedRootModule):
     def initialize_b_dec_with_geometric_median(self, activation_store):
         
         previous_b_dec = self.b_dec.clone().cpu()
-        all_activations = activation_store.storage_buffer.detach().cpu()
+        if isinstance(activation_store, ViTActivationsStore):
+            all_activations = activation_store.get_sae_batches().detach().cpu()
+        else:
+            all_activations = activation_store.storage_buffer.detach().cpu()
         out = compute_geometric_median(
                 all_activations,
                 skip_typechecks=True, 
@@ -170,7 +174,11 @@ class SparseAutoencoder(HookedRootModule):
     def initialize_b_dec_with_mean(self, activation_store):
         
         previous_b_dec = self.b_dec.clone().cpu()
-        all_activations = activation_store.storage_buffer.detach().cpu()
+        if isinstance(activation_store, ViTActivationsStore):
+            all_activations = activation_store.get_sae_batches().detach().cpu()
+        else:
+            all_activations = activation_store.storage_buffer.detach().cpu()
+            
         out = all_activations.mean(dim=0)
         
         previous_distances = torch.norm(all_activations - previous_b_dec, dim=-1)
@@ -371,7 +379,6 @@ class SparseAutoencoder(HookedRootModule):
         # we're going to collect this many forward passes
         number_final_activations = self.cfg.resample_batches * batch_size
         # but have seq len number of tokens in each
-        number_activations_total = number_final_activations * self.cfg.context_size
         anthropic_iterator = range(0, number_final_activations, batch_size)
         anthropic_iterator = tqdm(anthropic_iterator, desc="Collecting losses for resampling...")
         
