@@ -167,7 +167,7 @@ class ViTSAERunnerConfig():
     class_token: bool = True
     image_width: int = 224
     image_height: int = 224
-    image_key: str = 'image'
+    image_key: Optional[str] = None
     model_name: str = "vit_base_patch32_clip_224"
     module_name: str = "resid"
     block_layer: int = 10
@@ -182,8 +182,8 @@ class ViTSAERunnerConfig():
 
     # Activation Store Parameters
     total_training_tokens: int = 2_000_000
-    n_batches_in_store: int = 32,
-    store_size: int = 0
+    n_batches_in_store: int = 32
+    store_size: Optional[int] = None
 
     # Misc
     device: str = "cpu"
@@ -225,6 +225,13 @@ class ViTSAERunnerConfig():
     def __post_init__(self):
         self.store_size = self.n_batches_in_store * self.batch_size
 
+        image_keys_dict={
+            'imagenet-1k': 'image',
+            'cifar100': 'img',
+        }
+
+        self.image_key = image_keys_dict[self.dataset_path]
+        
         # Autofill cached_activations_path unless the user overrode it
         if self.cached_activations_path is None:
             self.cached_activations_path = f"activations/{self.dataset_path.replace('/', '_')}/{self.model_name.replace('/', '_')}/{self.block_layer}_{self.module_name}"
@@ -233,7 +240,7 @@ class ViTSAERunnerConfig():
 
         self.run_name = f"{self.d_sae}-L1-{self.l1_coefficient}-LR-{self.lr}-Tokens-{self.total_training_tokens:3.3e}"
 
-        if self.feature_sampling_method not in [None, "l2", "anthropic"]:
+        if self.feature_sampling_method.lower() not in [None, "l2", "anthropic"]:
             raise ValueError(
                 f"feature_sampling_method must be None, l2, or anthropic. Got {self.feature_sampling_method}"
             )
@@ -268,10 +275,10 @@ class ViTSAERunnerConfig():
         n_dead_feature_samples = total_training_steps // self.dead_feature_window
         n_feature_window_samples = total_training_steps // self.feature_sampling_window
         print(
-            f"n_tokens_per_feature_sampling_window (millions): {(self.feature_sampling_window * self.context_size * self.train_batch_size) / 10 **6}"
+            f"n_tokens_per_feature_sampling_window (millions): {(self.feature_sampling_window * self.batch_size) / 10 **6}"
         )
         print(
-            f"n_tokens_per_dead_feature_window (millions): {(self.dead_feature_window * self.context_size * self.train_batch_size) / 10 **6}"
+            f"n_tokens_per_dead_feature_window (millions): {(self.dead_feature_window * self.batch_size) / 10 **6}"
         )
         if self.feature_sampling_method != None:
             print(f"We will reset neurons {n_dead_feature_samples} times.")
@@ -282,10 +289,10 @@ class ViTSAERunnerConfig():
         print(
             f"We will reset the sparsity calculation {n_feature_window_samples} times."
         )
-        print(f"Number of tokens when resampling: {self.resample_batches * self.store_batch_size}")
+        print(f"Number of tokens when resampling: {self.resample_batches * self.batch_size}")
         # print("Number tokens in dead feature calculation window: ", self.dead_feature_window * self.train_batch_size)
         print(
-            f"Number tokens in sparsity calculation window: {self.feature_sampling_window * self.train_batch_size:.2e}"
+            f"Number tokens in sparsity calculation window: {self.feature_sampling_window * self.batch_size:.2e}"
         )
 
 
