@@ -68,7 +68,7 @@ class LanguageModelSAERunnerConfig(RunnerConfig):
     # Resampling protocol args
     use_ghost_grads: bool = False  # want to change this to true on some timeline.
     feature_sampling_window: int = 2000
-    feature_sampling_method: str = "Anthropic"  # None or Anthropic
+    feature_sampling_method: str = "anthropic"  # None or Anthropic
     resample_batches: int = 32
     feature_reinit_scale: float = 0.2
     dead_feature_window: int = 1000  # unless this window is larger feature sampling,
@@ -205,7 +205,7 @@ class ViTSAERunnerConfig():
     # Resampling protocol args
     use_ghost_grads: bool = True
     feature_sampling_window: int = 2000   # May need to change this since by default I will use ghost grads
-    feature_sampling_method: str = "Anthropic"  # None or Anthropic
+    feature_sampling_method: str = "anthropic"  # None or Anthropic
     resample_batches: int = 32
     feature_reinit_scale: float = 0.2
     dead_feature_window: int = 1000  # unless this window is larger feature sampling,

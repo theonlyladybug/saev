@@ -5,7 +5,7 @@ from datasets import load_dataset
 from torch.utils.data import DataLoader
 from torchvision import transforms
 from tqdm import trange
-from hooked_vit import HookedVisionTransformer, Hook
+from sae_training.hooked_vit import HookedVisionTransformer, Hook
 
 
 class ViTActivationsStore:

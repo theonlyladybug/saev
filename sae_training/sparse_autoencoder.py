@@ -16,7 +16,7 @@ from torch import Tensor, nn
 from torch.distributions.categorical import Categorical
 from tqdm import tqdm
 from transformer_lens.hook_points import HookedRootModule, HookPoint
-from vit_activations_store import ViTActivationsStore
+from sae_training.vit_activations_store import ViTActivationsStore
 
 from sae_training.geom_median.src.geom_median.torch import compute_geometric_median
 
