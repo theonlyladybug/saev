@@ -178,7 +178,7 @@ class ViTSAERunnerConfig():
     ] = None  # Defaults to "activations/{dataset}/{model}/{full_hook_name}_{hook_point_head_index}"
 
     # SAE Parameters
-    d_in: int = 512
+    d_in: int = 768
 
     # Activation Store Parameters
     total_training_tokens: int = 2_000_000
