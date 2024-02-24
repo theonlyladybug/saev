@@ -240,7 +240,7 @@ class ViTSAERunnerConfig():
 
         self.run_name = f"{self.d_sae}-L1-{self.l1_coefficient}-LR-{self.lr}-Tokens-{self.total_training_tokens:3.3e}"
 
-        if self.feature_sampling_method.lower() not in [None, "l2", "anthropic"]:
+        if self.feature_sampling_method not in [None, "l2", "anthropic"]:
             raise ValueError(
                 f"feature_sampling_method must be None, l2, or anthropic. Got {self.feature_sampling_method}"
             )

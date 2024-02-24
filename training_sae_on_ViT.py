@@ -10,8 +10,8 @@ from datasets import load_dataset
 from typing import  Dict
 from pathlib import Path
 from tqdm import tqdm
-
 from functools import partial
+
 
 sys.path.append("..")
 
@@ -37,16 +37,16 @@ os.environ["WANDB__SERVICE_WAIT"] = "300"
 cfg = ViTSAERunnerConfig(
     
     # Data Generating Function (Model + Training Distibuion)
-    class_token = True
-    image_width = 224
-    image_height = 224
-    image_key = None
-    model_name = "vit_base_patch32_clip_224"
-    module_name = "resid"
-    block_layer = 10
-    dataset_path = "imagenet-1k"
-    use_cached_activations = False
-    cached_activations_path = None 
+    class_token = True,
+    image_width = 224,
+    image_height = 224,
+    image_key = None,
+    model_name = "vit_base_patch32_clip_224",
+    module_name = "resid",
+    block_layer = 10,
+    dataset_path = "imagenet-1k",
+    use_cached_activations = False,
+    cached_activations_path = None,
     d_in = 768,
     
     # SAE Parameters
@@ -57,11 +57,10 @@ cfg = ViTSAERunnerConfig(
     lr = 0.0004,
     l1_coefficient = 0.00008,
     lr_scheduler_name="cosineannealingwarmup",
-    batch_size = 4096,
-    context_size = 128,
+    batch_size = 512,
     lr_warm_up_steps=5000,
-    total_training_tokens = 2_000_000
-    n_batches_in_store = 32
+    total_training_tokens = 16_000,
+    n_batches_in_store = 1,
     
     # Dead Neurons and Sparsity
     use_ghost_grads=True,

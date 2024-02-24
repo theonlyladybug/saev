@@ -29,7 +29,7 @@ def vision_transformer_sae_runner(cfg):
     sparse_autoencoder = train_sae_on_vision_transformer(
         model, sparse_autoencoder, activations_loader,
         n_checkpoints=cfg.n_checkpoints,
-        batch_size = cfg.train_batch_size,
+        batch_size = cfg.batch_size,
         feature_sampling_method = cfg.feature_sampling_method,
         feature_sampling_window = cfg.feature_sampling_window,
         feature_reinit_scale = cfg.feature_reinit_scale,

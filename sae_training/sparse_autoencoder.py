@@ -17,6 +17,7 @@ from torch.distributions.categorical import Categorical
 from tqdm import tqdm
 from transformer_lens.hook_points import HookedRootModule, HookPoint
 from sae_training.vit_activations_store import ViTActivationsStore
+from sae_training.config import ViTSAERunnerConfig
 
 from sae_training.geom_median.src.geom_median.torch import compute_geometric_median
 
@@ -373,6 +374,8 @@ class SparseAutoencoder(HookedRootModule):
         """
         Collects the losses for resampling neurons (anthropic)
         """
+        if isinstance(self.cfg, ViTSAERunnerConfig):
+            raise Exception("Currently, resampling is not supported for training on ViTs.")
         
         batch_size = self.cfg.store_batch_size
         
@@ -544,5 +547,8 @@ class SparseAutoencoder(HookedRootModule):
         return instance
 
     def get_name(self):
-        sae_name = f"sparse_autoencoder_{self.cfg.model_name}_{self.cfg.hook_point}_{self.cfg.d_sae}"
+        if isinstance(self.cfg, ViTSAERunnerConfig):
+            sae_name = f"sparse_autoencoder_{self.cfg.model_name}_{self.cfg.block_layer}_{self.cfg.module_name}_{self.cfg.d_sae}"
+        else:
+            sae_name = f"sparse_autoencoder_{self.cfg.model_name}_{self.cfg.hook_point}_{self.cfg.d_sae}"
         return sae_name

@@ -115,6 +115,9 @@ class HookedVisionTransformer():
     finally:
       for handle in hook_handles:
         handle.remove()
+        
+  def to(self, device):
+    self.model = self.model.to(device)
 
   def __call__(self, input, *args, **kwargs):
     return self.forward(input, *args, **kwargs)

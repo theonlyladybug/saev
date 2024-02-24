@@ -4,7 +4,6 @@ import torch
 from datasets import load_dataset
 from torch.utils.data import DataLoader
 from torchvision import transforms
-from tqdm import trange
 from sae_training.hooked_vit import HookedVisionTransformer, Hook
 
 
@@ -52,11 +51,12 @@ class ViTActivationsStore:
         batch_size = self.cfg.store_size
         device = self.cfg.device
         images = []
-        for batch in trange(batch_size, desc = 'Loading a new batch of data for storage!'):
+        for batch in range(batch_size):
           next_image = next(self.iterable_dataset)[self.cfg.image_key]
           next_image = self.transform(next_image) # next_image is a torch tensor with size [C, W, H].
           images.append(next_image)
         batches = torch.stack(images, dim = 0) # batches has size [batch_size, C, W, H].
+        del images
         batches = batches.to(device) # move the batches tensor to the correct device.
         return batches
 
