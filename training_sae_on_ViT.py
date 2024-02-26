@@ -57,10 +57,10 @@ cfg = ViTSAERunnerConfig(
     lr = 0.0004,
     l1_coefficient = 0.00008,
     lr_scheduler_name="cosineannealingwarmup",
-    batch_size = 512,
+    batch_size = 4096,
     lr_warm_up_steps=5000,
     total_training_tokens = 16_000,
-    n_batches_in_store = 1,
+    n_batches_in_store = 8,
     
     # Dead Neurons and Sparsity
     use_ghost_grads=True,

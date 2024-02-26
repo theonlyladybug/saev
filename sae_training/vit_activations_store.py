@@ -6,6 +6,7 @@ from torch.utils.data import DataLoader
 from torchvision import transforms
 from sae_training.hooked_vit import HookedVisionTransformer, Hook
 from sae_training.config import ViTSAERunnerConfig
+from tqdm import tqdm
 
 
 class ViTActivationsStore:
@@ -37,6 +38,7 @@ class ViTActivationsStore:
         if create_dataloader:
             # fill buffer half a buffer, so we can mix it with a new buffer
             if self.cfg.class_token:
+              print("Starting to create the data loader!!!")
               self.dataloader = self.get_data_loader()
               print("Data loader created!!!")
             else:
@@ -47,20 +49,34 @@ class ViTActivationsStore:
 
     def get_image_batches(self):
         """
-        Streams a batch of tokens from a dataset.
+        Streams a batch of tokens from a dataset. returns a generator for efficient memory usage.
         """
 
         batch_size = self.cfg.store_size
+        max_batch_size = self.cfg.max_forward_pass_batch_size
+        number_of_mini_batches = batch_size//max_batch_size
+        remainder = batch_size - number_of_mini_batches*max_batch_size
         device = self.cfg.device
-        images = []
-        for batch in range(batch_size):
-          next_image = next(self.iterable_dataset)[self.cfg.image_key]
-          next_image = self.transform(next_image) # next_image is a torch tensor with size [C, W, H].
-          images.append(next_image)
-        batches = torch.stack(images, dim = 0) # batches has size [batch_size, C, W, H].
-        del images
-        batches = batches.to(device) # move the batches tensor to the correct device.
-        return batches
+        for mini_batch in range(number_of_mini_batches):
+            images=[]
+            for batch in range(max_batch_size):
+                next_image = next(self.iterable_dataset)[self.cfg.image_key]
+                next_image = self.transform(next_image) # next_image is a torch tensor with size [C, W, H].
+                images.append(next_image)
+            batches = torch.stack(images, dim = 0) # batches has size [batch_size, C, W, H].
+            del images
+            batches = batches.to(device)
+            yield batches
+        if remainder>0:
+            images=[]
+            for batch in range(remainder):
+                next_image = next(self.iterable_dataset)[self.cfg.image_key]
+                next_image = self.transform(next_image) # next_image is a torch tensor with size [C, W, H].
+                images.append(next_image)
+            batches = torch.stack(images, dim = 0) # batches has size [batch_size, C, W, H].
+            del images
+            batches = batches.to(device)
+            yield batches
 
     def get_activations(self, image_batches):
         
@@ -82,17 +98,13 @@ class ViTActivationsStore:
     
     def get_sae_batches(self):
         image_batches = self.get_image_batches()
-        # Stuff
-        max_batch_size = self.cfg.max_forward_pass_batch_size
-        number_of_mini_batches = image_batches.size()[0]//max_batch_size
-        remainder = image_batches.size()[0] - number_of_mini_batches*max_batch_size
-        sae_batches = []
-        for mini_batch in range(number_of_mini_batches):
-            sae_batch = self.get_activations(image_batches[mini_batch*max_batch_size : (mini_batch + 1)*max_batch_size])
-            sae_batches.append(sae_batch)
+        torch.cuda.empty_cache()
         
-        if remainder>0:
-            sae_batch = self.get_activations(image_batches[-remainder])
+        sae_batches = []
+        for mini_batch in tqdm(image_batches, desc = "Iterating over minibatches to create data loader."):
+            self.print_memory()
+            sae_batch = self.get_activations(mini_batch)
+            torch.cuda.empty_cache()
             sae_batches.append(sae_batch)
             
         sae_batches = torch.cat(sae_batches, dim = 0)
@@ -129,3 +141,15 @@ class ViTActivationsStore:
             # If the DataLoader is exhausted, create a new one
             self.dataloader = self.get_data_loader()
             return next(self.dataloader)
+        
+    def print_memory(self):
+        device = self.cfg.device
+        total_mem = torch.cuda.get_device_properties(device).total_memory
+        allocated_mem = torch.cuda.memory_allocated(device)
+        cached_mem = torch.cuda.memory_reserved(device)
+        available_mem = total_mem - allocated_mem
+
+        print(f"Total GPU Memory: {total_mem / 1e9} GB")
+        print(f"Allocated Memory: {allocated_mem / 1e9} GB")
+        print(f"Cached Memory: {cached_mem / 1e9} GB")
+        print(f"Available Memory: {available_mem / 1e9} GB")
