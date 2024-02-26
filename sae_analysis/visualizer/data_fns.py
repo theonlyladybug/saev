@@ -526,7 +526,6 @@ def get_feature_data(
     tokens: Int[Tensor, "batch seq"],
     feature_idx: Union[int, List[int]],
     max_batch_size: Optional[int] = None,
-
     left_hand_k: int = 3,
     buffer: Tuple[int, int] = (5, 5),
     n_groups: int = 10,
@@ -675,7 +674,6 @@ def get_feature_data(
     # If we are using MLP activations, then we'd want this one. 
     elif "resid_post" in hook_point:
         for _tokens in iterator:
-            
             model.run_with_hooks(_tokens, return_type=None, fwd_hooks=[
                 (utils.get_act_name("post", hook_point_layer), hook_fn_act_post),
                 (utils.get_act_name("resid_post", hook_point_layer), hook_fn_resid_post)
@@ -702,6 +700,7 @@ def get_feature_data(
 
     # ! Calculate all data for the left-hand column visualisations, i.e. the 3 size-3 tables
     # First, get the logits of this feature
+    # Ahhhh this does the unembedding stuff!!
     logits = einops.einsum(feature_mlp_out_dir, model.W_U, "feats d_model, d_model d_vocab -> feats d_vocab")
     # Second, get the neurons most aligned with this feature (based on output weights)
     top3_neurons_aligned = TopK(feature_out_dir.topk(dim=-1, k=left_hand_k, largest=True))

@@ -5,6 +5,7 @@ from datasets import load_dataset
 from torch.utils.data import DataLoader
 from torchvision import transforms
 from sae_training.hooked_vit import HookedVisionTransformer, Hook
+from sae_training.config import ViTSAERunnerConfig
 
 
 class ViTActivationsStore:
@@ -13,7 +14,7 @@ class ViTActivationsStore:
     while training SAEs. 
     """
     def __init__(
-        self, cfg, model: HookedVisionTransformer, create_dataloader: bool = True,
+        self, cfg: ViTSAERunnerConfig, model: HookedVisionTransformer, create_dataloader: bool = True,
     ):
         self.cfg = cfg
         self.model = model
@@ -37,6 +38,7 @@ class ViTActivationsStore:
             # fill buffer half a buffer, so we can mix it with a new buffer
             if self.cfg.class_token:
               self.dataloader = self.get_data_loader()
+              print("Data loader created!!!")
             else:
               """
               Need to implement a buffer for the image patch training.
@@ -80,9 +82,21 @@ class ViTActivationsStore:
     
     def get_sae_batches(self):
         image_batches = self.get_image_batches()
-
-        sae_batches = self.get_activations(image_batches)
+        # Stuff
+        max_batch_size = self.cfg.max_forward_pass_batch_size
+        number_of_mini_batches = image_batches.size()[0]//max_batch_size
+        remainder = image_batches.size()[0] - number_of_mini_batches*max_batch_size
+        sae_batches = []
+        for mini_batch in range(number_of_mini_batches):
+            sae_batch = self.get_activations(image_batches[mini_batch*max_batch_size : (mini_batch + 1)*max_batch_size])
+            sae_batches.append(sae_batch)
         
+        if remainder>0:
+            sae_batch = self.get_activations(image_batches[-remainder])
+            sae_batches.append(sae_batch)
+            
+        sae_batches = torch.cat(sae_batches, dim = 0)
+        sae_batches = sae_batches.to(self.cfg.device)
         return sae_batches
         
 

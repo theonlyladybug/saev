@@ -159,16 +159,13 @@ all_tokens = tokenized_data["tokens"]
 max_batch_size = 512
 total_batch_size = 2*4096
 feature_idx = list(range(sparse_autoencoder.d_sae))
-# max_batch_size = 512
-# total_batch_size = 16384
-# feature_idx = list(range(1000))
 max_number_of_features = 512
 
 tokens = all_tokens[:total_batch_size]
-number_of_neuron_groups = len(feature_idx)//max_number_of_features + 1
-number_of_extra_neurons = len(feature_idx)- (number_of_neuron_groups-1)*max_number_of_features
+number_of_neuron_groups = len(feature_idx)//max_number_of_features
+number_of_extra_neurons = len(feature_idx)- (number_of_neuron_groups)*max_number_of_features
 
-for neuron_group in range(number_of_neuron_groups-1):
+for neuron_group in range(number_of_neuron_groups):
     torch.cuda.empty_cache()
     feature_data: Dict[int, FeatureData] = get_feature_data(
         encoder=sparse_autoencoder,
