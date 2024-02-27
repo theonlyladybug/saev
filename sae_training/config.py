@@ -184,8 +184,8 @@ class ViTSAERunnerConfig():
     total_training_tokens: int = 2_000_000
     n_batches_in_store: int = 32
     store_size: Optional[int] = None
-    max_forward_pass_batch_size: int = 512 # Defines the max size of batches used to get cached activations for the dataloader. Forward passes will be computed several minibatches of this size.
-
+    max_batch_size_for_vit_forward_pass:int = 1024
+    
     # Misc
     device: str = "cpu"
     seed: int = 42

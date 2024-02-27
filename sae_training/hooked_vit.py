@@ -65,7 +65,8 @@ class HookedVisionTransformer():
   def run_with_cache(self, input_batch, list_of_hook_locations: List[Tuple[int,str]], *args, **kwargs):
     cache_dict, list_of_hooks = self.get_caching_hooks(list_of_hook_locations)
     with self.hooks(list_of_hooks) as hooked_model:
-      output = hooked_model(input_batch, *args, **kwargs)
+      with torch.no_grad():
+        output = hooked_model(input_batch, *args, **kwargs).detach()
     return output, cache_dict
 
   def get_caching_hooks(self, list_of_hook_locations: List[Tuple[int,str]]):
@@ -75,16 +76,18 @@ class HookedVisionTransformer():
     cache_dict = {}
     list_of_hooks=[]
     def save_activations(name, activations):
-      cache_dict[name] = activations
+      cache_dict[name] = activations.detach()
     for (block_layer, module_name) in list_of_hook_locations:
       hook_fn = partial(save_activations, (block_layer, module_name))
       hook = Hook(block_layer, module_name, hook_fn)
       list_of_hooks.append(hook)
     return cache_dict, list_of_hooks
 
+  @torch.no_grad
   def run_with_hooks(self, input_batch, list_of_hooks: List[Hook], *args, **kwargs):
     with self.hooks(list_of_hooks) as hooked_model:
-      output = hooked_model(input_batch, *args, **kwargs)
+      with torch.no_grad():
+        output = hooked_model(input_batch, *args, **kwargs)
     return output
 
   @contextmanager
@@ -124,3 +127,9 @@ class HookedVisionTransformer():
 
   def forward(self, input, *args, **kwargs):
     return self.model(input, *args, **kwargs)
+  
+  def eval(self):
+    self.model.eval()
+    
+  def train(self):
+    self.model.train()

@@ -60,6 +60,7 @@ class ViTSparseAutoencoderSessionloader():
         # Todo: add check that model_name is valid
         
         model = HookedVisionTransformer(model_name)
+        model.eval()
         
         return model 
     
