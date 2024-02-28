@@ -51,17 +51,17 @@ cfg = ViTSAERunnerConfig(
     d_in = 768,
     
     # SAE Parameters
-    expansion_factor = 64,
+    expansion_factor = 32,
     b_dec_init_method = "geometric_median",
     
     # Training Parameters
     lr = 0.0004,
     l1_coefficient = 0.00008,
     lr_scheduler_name="cosineannealingwarmup",
-    batch_size = 1024,
+    batch_size = 256,
     lr_warm_up_steps=5000,
     total_training_tokens = 262_114,
-    n_batches_in_store = 32,
+    n_batches_in_store = 64,
     
     # Dead Neurons and Sparsity
     use_ghost_grads=True,
