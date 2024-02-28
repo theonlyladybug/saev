@@ -22,7 +22,7 @@ class ViTActivationsStore:
         self.dataset = load_dataset(cfg.dataset_path, split="train", streaming=True)
         self.transform = transforms.Compose([
             transforms.Lambda(lambda x: x.convert("RGB")),
-            transforms.Resize((self.cfg.image_width, self.cfg.image_width)),  # Resize the image to WxH pixels
+            transforms.Resize((self.cfg.image_width, self.cfg.image_height)),  # Resize the image to WxH pixels
             transforms.ToTensor(),  # Convert the image to a PyTorch tensor
         ])
         self.iterable_dataset = iter(self.dataset)
@@ -36,7 +36,6 @@ class ViTActivationsStore:
             pass
         
         if create_dataloader:
-            # fill buffer half a buffer, so we can mix it with a new buffer
             if self.cfg.class_token:
               print("Starting to create the data loader!!!")
               self.dataloader = self.get_data_loader()
@@ -91,7 +90,7 @@ class ViTActivationsStore:
             sae_batches.append(self.get_activations(image_batches[mini_batch*max_batch_size : (mini_batch+1)*max_batch_size]))
         
         if remainder>0:
-            sae_batches.append(self.get_activations(image_batches[-remainder]))
+            sae_batches.append(self.get_activations(image_batches[-remainder:]))
             
         sae_batches = torch.cat(sae_batches, dim = 0)
         sae_batches = sae_batches.to(self.cfg.device)
