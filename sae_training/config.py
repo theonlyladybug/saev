@@ -229,6 +229,7 @@ class ViTSAERunnerConfig():
         image_keys_dict={
             'imagenet-1k': 'image',
             'cifar100': 'img',
+            'evanarlian/imagenet_1k_resized_256': 'image'
         }
 
         self.image_key = image_keys_dict[self.dataset_path]

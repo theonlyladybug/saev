@@ -45,21 +45,21 @@ cfg = ViTSAERunnerConfig(
     model_name = "vit_base_patch32_clip_224",
     module_name = "resid",
     block_layer = 10,
-    dataset_path = "imagenet-1k",
+    dataset_path = "evanarlian/imagenet_1k_resized_256",
     use_cached_activations = False,
     cached_activations_path = None,
     d_in = 768,
     
     # SAE Parameters
-    expansion_factor = 32,
-    b_dec_init_method = "geometric_median",
+    expansion_factor = 64,
+    b_dec_init_method = "mean",
     
     # Training Parameters
     lr = 0.0004,
     l1_coefficient = 0.00008,
-    lr_scheduler_name="cosineannealingwarmup",
+    lr_scheduler_name="constantwithwarmup",
     batch_size = 256,
-    lr_warm_up_steps=5000,
+    lr_warm_up_steps=500,
     total_training_tokens = 262_114,
     n_batches_in_store = 64,
     
@@ -74,7 +74,7 @@ cfg = ViTSAERunnerConfig(
     log_to_wandb = True,
     wandb_project= "mats-hugo",
     wandb_entity = None,
-    wandb_log_frequency=100,
+    wandb_log_frequency=20,
     
     # Misc
     device = "cuda",
