@@ -10,9 +10,6 @@ from sae_training.utils import ViTSparseAutoencoderSessionloader
 
 
 def vision_transformer_sae_runner(cfg):
-    """
-    
-    """
     
     if cfg.from_pretrained_path is not None:
         model, sparse_autoencoder, activations_loader = ViTSparseAutoencoderSessionloader.load_session_from_pretrained(
@@ -55,4 +52,4 @@ def vision_transformer_sae_runner(cfg):
     if cfg.log_to_wandb:
         wandb.finish()
         
-    return sparse_autoencoder
+    return sparse_autoencoder, model

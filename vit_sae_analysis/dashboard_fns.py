@@ -21,7 +21,8 @@ from jaxtyping import Float, Int
 from rich import print as rprint
 from rich.table import Table
 from torch import Tensor, topk
-from torchvision import transforms, save_image
+from torchvision import transforms
+from torchvision.utils import save_image
 from tqdm import tqdm
 from transformer_lens import utils
 from transformer_lens.hook_points import HookPoint
@@ -68,15 +69,18 @@ class FeatureData():
     diffusion_visualisation: Optional[Tensor] = None
     
     def __post_init__(self):
-        self.number_of_quantiles = len(self.quantile_activating_images)
+        if self.quantile_activating_images is not None:
+            self.number_of_quantiles = len(self.quantile_activating_images)
+        else:
+            self.number_of_quantiles = None
         
-    def save_image_data(self, directory_path: str = "../dashboard"):
-        if not os.path.exists(directory_path):
-            os.makedirs(directory_path)
-
+    def save_image_data(self, directory_path: str = "dashboard"):
+        directory_path += f'/{self.feature_idx}'
         # Loop through each image tensor and save it
         for i, img_tensor in enumerate(self.max_activating_images):
-            file_path = os.path.join(directory_path, f'{self.feature_idx}/max_activating/image_{i}.png')
+            if not os.path.exists(directory_path + f'/max_activating'):
+                os.makedirs(directory_path + f'/max_activating')
+            file_path = os.path.join(directory_path, f'max_activating/image_{i}.png')
             save_image(img_tensor, file_path)
 
 
@@ -99,7 +103,7 @@ def get_all_model_activations(image_batches, model, cfg):
     number_of_mini_batches = image_batches.size()[0] // max_batch_size
     remainder = image_batches.size()[0] % max_batch_size
     sae_batches = []
-    for mini_batch in trange(number_of_mini_batches):
+    for mini_batch in trange(number_of_mini_batches, desc = "Dashboard: forward pass images through ViT"):
         sae_batches.append(get_model_activations(image_batches[mini_batch*max_batch_size : (mini_batch+1)*max_batch_size], model, cfg))
     
     if remainder>0:
@@ -109,8 +113,8 @@ def get_all_model_activations(image_batches, model, cfg):
     sae_batches = sae_batches.to(cfg.device)
     return sae_batches
 
-def get_image_data(dataset_path, number_of_images: int, cfg: ViTSAERunnerConfig):
-    dataset = iter(load_dataset(dataset_path, streaming=True))
+def get_image_data(dataset_path, image_key, number_of_images: int, cfg: ViTSAERunnerConfig):
+    dataset = iter(load_dataset(dataset_path, split="test", streaming=True))
     transform = transforms.Compose([
         transforms.Lambda(lambda x: x.convert("RGB")),
         transforms.Resize((cfg.image_width, cfg.image_height)),  # Resize the image to WxH pixels
@@ -118,8 +122,8 @@ def get_image_data(dataset_path, number_of_images: int, cfg: ViTSAERunnerConfig)
     ])
     device = cfg.device
     images=[]
-    for batch in trange(number_of_images):
-        next_image = next(dataset)[cfg.image_key]
+    for batch in trange(number_of_images, desc = "Dashboard: loading images for evals"):
+        next_image = next(dataset)[image_key]
         next_image = transform(next_image) # next_image is a torch tensor with size [C, W, H].
         images.append(next_image)
     batches = torch.stack(images, dim = 0) # batches has size [batch_size, C, W, H].
@@ -132,7 +136,7 @@ def get_sae_activations(model_activaitons, sparse_autoencoder, feature_idx: Tens
     number_of_mini_batches = model_activaitons.size()[0] // max_batch_size
     remainder = model_activaitons.size()[0] % max_batch_size
     sae_activations = []
-    for mini_batch in trange(number_of_mini_batches):
+    for mini_batch in trange(number_of_mini_batches, desc = "Dashboard: obtaining sae activations"):
         sae_activations.append(sparse_autoencoder.run_with_cache(model_activaitons[mini_batch*max_batch_size : (mini_batch+1)*max_batch_size])[1][hook_name][:,feature_idx])
     
     if remainder>0:
@@ -148,6 +152,7 @@ def get_feature_data(
     model: HookedVisionTransformer,
     feature_idx: List[int],
     dataset_path: str = "imagenet-1k",
+    image_key: str = "image",
     number_of_images: int = 32_768,
     n_groups: int = 5,
     number_of_max_activating_images: int = 10,
@@ -181,12 +186,12 @@ def get_feature_data(
         - repeat but for different quantiles
     """
     return_data = {}
-    images = get_image_data(dataset_path, number_of_images, sparse_autoencoder.cfg) # tensor of size [batch, C, W, H]
+    images = get_image_data(dataset_path, image_key, number_of_images, sparse_autoencoder.cfg) # tensor of size [batch, C, W, H]
     model_activations = get_all_model_activations(images, model, sparse_autoencoder.cfg) # tensor of size [batch, d_resid]
     sae_activations = get_sae_activations(model_activations, sparse_autoencoder, torch.tensor(feature_idx)) # tensor of size [batch, feature_idx]
     del model_activations
     values, indices = topk(sae_activations, k = number_of_max_activating_images, dim = 0) 
-    for feature in range(len(feature_idx)):
+    for feature in trange(len(feature_idx), desc = "Dashboard: getting and saving highest activating images"):
         # Find the top activating images...
         max_image_indicees = indices[:,feature]
         max_images = images[max_image_indicees] # size [number_of_max_activating_images, C, W, H]

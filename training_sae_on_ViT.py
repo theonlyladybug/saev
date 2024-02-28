@@ -21,6 +21,7 @@ from sae_analysis.visualizer.data_fns import get_feature_data, FeatureData
 from sae_training.config import ViTSAERunnerConfig
 from sae_training.vit_runner import vision_transformer_sae_runner
 from sae_training.train_sae_on_vision_transformer import train_sae_on_vision_transformer
+from vit_sae_analysis.dashboard_fns import get_feature_data, FeatureData
 
 if torch.backends.mps.is_available():
     device = "mps" 
@@ -57,10 +58,10 @@ cfg = ViTSAERunnerConfig(
     lr = 0.0004,
     l1_coefficient = 0.00008,
     lr_scheduler_name="cosineannealingwarmup",
-    batch_size = 4096,
+    batch_size = 1024,
     lr_warm_up_steps=5000,
-    total_training_tokens = 16_000,
-    n_batches_in_store = 8,
+    total_training_tokens = 262_114,
+    n_batches_in_store = 32,
     
     # Dead Neurons and Sparsity
     use_ghost_grads=True,
@@ -83,6 +84,15 @@ cfg = ViTSAERunnerConfig(
     dtype = torch.float32,
     )
 
-sparse_autoencoder = vision_transformer_sae_runner(cfg)
+sparse_autoencoder, model = vision_transformer_sae_runner(cfg)
+sparse_autoencoder.eval()
+
+
+get_feature_data(
+    sparse_autoencoder,
+    model,
+    list(range(2000)),
+    number_of_images = 32_768,
+)
 
 print("*****Done*****")
