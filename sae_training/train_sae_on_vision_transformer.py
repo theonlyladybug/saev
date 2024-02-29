@@ -69,51 +69,6 @@ def train_sae_on_vision_transformer(
         sparse_autoencoder.train()
         # Make sure the W_dec is still zero-norm
         sparse_autoencoder.set_decoder_norm_to_unit_norm()
-
-
-        if (feature_sampling_method=="anthropic") and ((n_training_steps + 1) % dead_feature_window == 0):
-            
-            feature_sparsity = act_freq_scores / n_frac_active_tokens
-            
-            # if reset criterion is frequency in window, then then use that to generate indices.
-            if sparse_autoencoder.cfg.dead_feature_estimation_method == "no_fire":
-                dead_neuron_indices = (act_freq_scores == 0).nonzero(as_tuple=False)[:, 0]
-            elif sparse_autoencoder.cfg.dead_feature_estimation_method == "frequency":
-                dead_neuron_indices = (feature_sparsity < sparse_autoencoder.cfg.dead_feature_threshold).nonzero(as_tuple=False)[:, 0]
-            
-            if len(dead_neuron_indices) > 0:
-                
-                if len(dead_neuron_indices) > sparse_autoencoder.cfg.resample_batches * sparse_autoencoder.cfg.store_batch_size:
-                    print("Warning: more dead neurons than number of tokens. Consider sampling more tokens when resampling.")
-                
-                sparse_autoencoder.resample_neurons_anthropic(
-                    dead_neuron_indices, 
-                    model,
-                    optimizer, 
-                    activation_store
-                )
-
-                if use_wandb:
-                    n_resampled_neurons = min(len(dead_neuron_indices), sparse_autoencoder.cfg.store_batch_size * sparse_autoencoder.cfg.resample_batches)
-                    wandb.log(
-                        {
-                            "metrics/n_resampled_neurons": n_resampled_neurons,
-                        },
-                        step=n_training_steps,
-                    )
-                
-                # for now, we'll hardcode this.
-                current_lr = scheduler.get_last_lr()[0]
-                reduced_lr = current_lr / 10_000
-                increment = (current_lr - reduced_lr) / 10_000
-                optimizer.param_groups[0]['lr'] = reduced_lr
-                steps_before_reset = 10_000
-            else:
-                print("No dead neurons, skipping resampling")
-            
-        # Resample dead neurons
-        if (feature_sampling_method == "l2") and ((n_training_steps + 1) % dead_feature_window == 0):
-            print("no l2 resampling currently. Please use anthropic resampling")
             
         # after resampling, reset the sparsity:
         if (n_training_steps + 1) % feature_sampling_window == 0:
@@ -136,14 +91,7 @@ def train_sae_on_vision_transformer(
 
 
 
-        if (steps_before_reset > 0) and n_training_steps > 0:
-            steps_before_reset -= 1
-            optimizer.param_groups[0]['lr'] += increment
-            if steps_before_reset == 0:
-                optimizer.param_groups[0]['lr'] = current_lr
-        else:
-            scheduler.step()
-    
+        scheduler.step()
         optimizer.zero_grad()
         
         ghost_grad_neuron_mask = (n_forward_passes_since_fired > sparse_autoencoder.cfg.dead_feature_window).bool()
@@ -211,7 +159,7 @@ def train_sae_on_vision_transformer(
 
             # record loss frequently, but not all the time.
             if use_wandb and ((n_training_steps + 1) % (wandb_log_frequency * 10) == 0):
-                if "cuda" in str(model.cfg.device):
+                if "cuda" in str(sparse_autoencoder.cfg.device):
                     torch.cuda.empty_cache()
                 ###########################
                 # Need to sort this out!!

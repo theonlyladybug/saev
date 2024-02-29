@@ -225,14 +225,6 @@ class ViTSAERunnerConfig():
 
     def __post_init__(self):
         self.store_size = self.n_batches_in_store * self.batch_size
-
-        image_keys_dict={
-            'imagenet-1k': 'image',
-            'cifar100': 'img',
-            'evanarlian/imagenet_1k_resized_256': 'image'
-        }
-
-        self.image_key = image_keys_dict[self.dataset_path]
         
         # Autofill cached_activations_path unless the user overrode it
         if self.cached_activations_path is None:

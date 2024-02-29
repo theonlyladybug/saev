@@ -3,7 +3,7 @@ import os
 import torch
 from datasets import load_dataset
 from torch.utils.data import DataLoader
-from torchvision import transforms
+from torchvision import transforms, datasets
 from sae_training.hooked_vit import HookedVisionTransformer, Hook
 from sae_training.config import ViTSAERunnerConfig
 from tqdm import tqdm, trange
@@ -15,19 +15,18 @@ class ViTActivationsStore:
     while training SAEs. 
     """
     def __init__(
-        self, cfg: ViTSAERunnerConfig, model: HookedVisionTransformer, create_dataloader: bool = True,
+        self, cfg: ViTSAERunnerConfig, model: HookedVisionTransformer, create_dataloader: bool = True, train=True,
     ):
         self.cfg = cfg
         self.model = model
-        self.dataset = load_dataset(cfg.dataset_path, split="train", streaming=True)
         self.transform = transforms.Compose([
             transforms.Lambda(lambda x: x.convert("RGB")),
             transforms.Resize((self.cfg.image_width, self.cfg.image_height)),  # Resize the image to WxH pixels
             transforms.ToTensor(),  # Convert the image to a PyTorch tensor
         ])
+        trainset = datasets.CIFAR100(root='./data', train=train, download=True, transform=self.transform)
+        self.dataset = torch.utils.data.DataLoader(trainset, batch_size=self.cfg.store_size, shuffle=True, num_workers=2) # This is really a dataloader not a dataset...
         self.iterable_dataset = iter(self.dataset)
-
-        assert self.cfg.image_key in next(self.iterable_dataset).keys(), f'The image key \'{self.cfg.image_key}\' is not valid for this dataset.'
         
         if self.cfg.use_cached_activations:
             """
@@ -48,17 +47,14 @@ class ViTActivationsStore:
 
     def get_image_batches(self):
         """
-        Streams a batch of tokens from a dataset. returns a generator for efficient memory usage.
+        A batch of tokens from a dataset.
         """
-
-        batch_size = self.cfg.store_size
         device = self.cfg.device
-        images=[]
-        for batch in trange(batch_size):
-            next_image = next(self.iterable_dataset)[self.cfg.image_key]
-            next_image = self.transform(next_image) # next_image is a torch tensor with size [C, W, H].
-            images.append(next_image)
-        batches = torch.stack(images, dim = 0) # batches has size [batch_size, C, W, H].
+        try:
+            batches = next(self.iterable_dataset)[0]
+        except StopIteration:
+            self.iterable_dataset = iter(self.dataset)
+            batches = next(self.iterable_dataset)[0]
         batches = batches.to(device)
         return batches
 
@@ -86,7 +82,7 @@ class ViTActivationsStore:
         number_of_mini_batches = image_batches.size()[0] // max_batch_size
         remainder = image_batches.size()[0] % max_batch_size
         sae_batches = []
-        for mini_batch in trange(number_of_mini_batches):
+        for mini_batch in trange(number_of_mini_batches, desc="Getting batches for SAE"):
             sae_batches.append(self.get_activations(image_batches[mini_batch*max_batch_size : (mini_batch+1)*max_batch_size]))
         
         if remainder>0:

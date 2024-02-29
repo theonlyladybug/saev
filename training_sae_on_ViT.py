@@ -45,28 +45,28 @@ cfg = ViTSAERunnerConfig(
     model_name = "vit_base_patch32_clip_224",
     module_name = "resid",
     block_layer = 10,
-    dataset_path = "evanarlian/imagenet_1k_resized_256",
+    dataset_path = "cifar100", #"evanarlian/imagenet_1k_resized_256",
     use_cached_activations = False,
     cached_activations_path = None,
     d_in = 768,
     
     # SAE Parameters
-    expansion_factor = 64,
+    expansion_factor = 32,
     b_dec_init_method = "mean",
     
     # Training Parameters
     lr = 0.0004,
     l1_coefficient = 0.00008,
     lr_scheduler_name="constantwithwarmup",
-    batch_size = 256,
+    batch_size = 1024,
     lr_warm_up_steps=500,
-    total_training_tokens = 262_114,
+    total_training_tokens = 1_048_456,
     n_batches_in_store = 64,
     
     # Dead Neurons and Sparsity
     use_ghost_grads=True,
     feature_sampling_method = None,
-    feature_sampling_window = 1000,
+    feature_sampling_window = 100,
     dead_feature_window=5000,
     dead_feature_threshold = 1e-6,
     
