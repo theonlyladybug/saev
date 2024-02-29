@@ -15,7 +15,7 @@ class ViTActivationsStore:
     while training SAEs. 
     """
     def __init__(
-        self, cfg: ViTSAERunnerConfig, model: HookedVisionTransformer, create_dataloader: bool = True, train=True,
+        self, cfg: ViTSAERunnerConfig, model: HookedVisionTransformer, create_dataloader: bool = True, train=True, max_dataset_size: int = 250_000,
     ):
         self.cfg = cfg
         self.model = model
@@ -28,18 +28,15 @@ class ViTActivationsStore:
         
         if self.cfg.dataset_path=="cifar100":
             self.image_key = 'img'
-        elif self.cfg.dataset_path=="imagenet-1k":
-            self.image_key = 'image'
         else:
-            raise Exception("Image key error")
+            self.image_key = 'image'
         
-        def preprocess_and_load(batch):
-            batch[self.image_key] = [self.transform(image) for image in batch[self.image_key]]
-            return batch
-
-        # Adjust 'split', 'batch_size', etc., according to your needs
-        self.dataset = self.dataset.map(preprocess_and_load, batched=True, batch_size=self.cfg.store_size)
-        self.iterable_dataset = iter(torch.utils.data.DataLoader(self.dataset, batch_size=self.cfg.store_size))
+        
+        # Select a smaller dataset to process the images. By default, the datset contains at most 250_000 images
+        if len(self.dataset)>max_dataset_size:
+            self.dataset = self.dataset.shuffle(seed=42).select(range(max_dataset_size))
+            
+        self.iterable_dataset = iter(self.dataset)
         
         if self.cfg.use_cached_activations:
             """
@@ -63,13 +60,16 @@ class ViTActivationsStore:
         A batch of tokens from a dataset.
         """
         device = self.cfg.device
-        try:
-            batches = next(self.iterable_dataset)[self.image_key]
-        except StopIteration:
-            self.iterable_dataset = iter(self.dataset.shuffle())
-            batches = next(self.iterable_dataset)[self.image_key]
-        batches = batches.to(device)
-        return batches
+        batch_of_images = []
+        for image in trange(self.cfg.store_size, desc = "Filling activation store with images"):
+            try:
+                batch_of_images.append(self.transform(next(self.iterable_dataset)[self.image_key]))
+            except StopIteration:
+                self.iterable_dataset = iter(self.dataset.shuffle())
+                batch_of_images.append(self.transform(next(self.iterable_dataset)[self.image_key]))
+        batch_of_images = torch.stack(batch_of_images, dim=0)
+        batch_of_images = batch_of_images.to(device)
+        return batch_of_images
 
     def get_activations(self, image_batches):
         
