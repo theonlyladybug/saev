@@ -24,9 +24,22 @@ class ViTActivationsStore:
             transforms.Resize((self.cfg.image_width, self.cfg.image_height)),  # Resize the image to WxH pixels
             transforms.ToTensor(),  # Convert the image to a PyTorch tensor
         ])
-        trainset = datasets.CIFAR100(root='./data', train=train, download=True, transform=self.transform)
-        self.dataset = torch.utils.data.DataLoader(trainset, batch_size=self.cfg.store_size, shuffle=True, num_workers=2) # This is really a dataloader not a dataset...
-        self.iterable_dataset = iter(self.dataset)
+        self.dataset = load_dataset(self.cfg.dataset_path, split="train")
+        
+        if self.cfg.dataset_path=="cifar100":
+            self.image_key = 'img'
+        elif self.cfg.dataset_path=="imagenet-1k":
+            self.image_key = 'image'
+        else:
+            raise Exception("Image key error")
+        
+        def preprocess_and_load(batch):
+            batch[self.image_key] = [self.transform(image) for image in batch[self.image_key]]
+            return batch
+
+        # Adjust 'split', 'batch_size', etc., according to your needs
+        self.dataset = self.dataset.map(preprocess_and_load, batched=True, batch_size=self.cfg.store_size)
+        self.iterable_dataset = iter(torch.utils.data.DataLoader(self.dataset, batch_size=self.cfg.store_size))
         
         if self.cfg.use_cached_activations:
             """
@@ -51,10 +64,10 @@ class ViTActivationsStore:
         """
         device = self.cfg.device
         try:
-            batches = next(self.iterable_dataset)[0]
+            batches = next(self.iterable_dataset)[self.image_key]
         except StopIteration:
-            self.iterable_dataset = iter(self.dataset)
-            batches = next(self.iterable_dataset)[0]
+            self.iterable_dataset = iter(self.dataset.shuffle())
+            batches = next(self.iterable_dataset)[self.image_key]
         batches = batches.to(device)
         return batches
 

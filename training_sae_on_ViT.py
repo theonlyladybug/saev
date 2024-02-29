@@ -51,16 +51,16 @@ cfg = ViTSAERunnerConfig(
     d_in = 768,
     
     # SAE Parameters
-    expansion_factor = 32,
+    expansion_factor = 64,
     b_dec_init_method = "mean",
     
     # Training Parameters
     lr = 0.0004,
-    l1_coefficient = 0.00008,
+    l1_coefficient = 0.00012,
     lr_scheduler_name="constantwithwarmup",
     batch_size = 1024,
     lr_warm_up_steps=500,
-    total_training_tokens = 1_048_456,
+    total_training_tokens = 1024, #2_096_912,
     n_batches_in_store = 64,
     
     # Dead Neurons and Sparsity
@@ -84,13 +84,14 @@ cfg = ViTSAERunnerConfig(
     dtype = torch.float32,
     )
 
-sparse_autoencoder, model = vision_transformer_sae_runner(cfg)
+sparse_autoencoder, model, activations_loader = vision_transformer_sae_runner(cfg)
 sparse_autoencoder.eval()
 
 
 get_feature_data(
     sparse_autoencoder,
     model,
+    activations_loader,
     list(range(2000)),
     number_of_images = 32_768,
 )

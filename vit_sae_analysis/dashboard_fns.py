@@ -29,6 +29,7 @@ from transformer_lens.hook_points import HookPoint
 from sae_training.hooked_vit import HookedVisionTransformer, Hook
 from sae_training.sparse_autoencoder import SparseAutoencoder
 from sae_training.config import ViTSAERunnerConfig
+from sae_training.vit_activations_store import ViTActivationsStore
 
 """
 To do:
@@ -126,20 +127,6 @@ def get_all_model_activations(image_batches, model, cfg):
     sae_batches = sae_batches.to(cfg.device)
     return sae_batches
 
-def get_image_data(dataset_path, number_of_images: int, cfg: ViTSAERunnerConfig):
-    transform = transforms.Compose([
-        transforms.Lambda(lambda x: x.convert("RGB")),
-        transforms.Resize((cfg.image_width, cfg.image_height)),  # Resize the image to WxH pixels
-        transforms.ToTensor(),  # Convert the image to a PyTorch tensor
-    ])
-    trainset = datasets.CIFAR100(root='./data', train=True, download=True, transform=transform)
-    dataset = torch.utils.data.DataLoader(trainset, batch_size=number_of_images, shuffle=True, num_workers=2) # This is really a dataloader not a dataset...
-    iterable_dataset = iter(dataset)
-    device = cfg.device
-    batches = next(iterable_dataset)[0]
-    batches = batches.to(device)
-    return batches
-
 def get_sae_activations(model_activaitons, sparse_autoencoder, feature_idx: Tensor):
     hook_name = "hook_hidden_post"
     max_batch_size = sparse_autoencoder.cfg.max_batch_size_for_vit_forward_pass # Use this for the SAE too
@@ -160,6 +147,7 @@ def get_sae_activations(model_activaitons, sparse_autoencoder, feature_idx: Tens
 def get_feature_data(
     sparse_autoencoder: SparseAutoencoder,
     model: HookedVisionTransformer,
+    activations_loader: ViTActivationsStore,
     feature_idx: List[int],
     dataset_path: str = "imagenet-1k",
     number_of_images: int = 32_768,
@@ -195,9 +183,19 @@ def get_feature_data(
         - repeat but for different quantiles
     """
     return_data = {}
-    images = get_image_data(dataset_path, number_of_images, sparse_autoencoder.cfg) # tensor of size [batch, C, W, H]
+    
+    total_images = 0
+    images = []
+    while total_images< number_of_images:
+        image_batch = activations_loader.get_image_batches()
+        images.append(image_batch)
+        total_images+=activations_loader.cfg.store_size
+    images = torch.cat(images, dim = 0)
+    images = images.to(sparse_autoencoder.cfg.device)
     model_activations = get_all_model_activations(images, model, sparse_autoencoder.cfg) # tensor of size [batch, d_resid]
     sae_activations = get_sae_activations(model_activations, sparse_autoencoder, torch.tensor(feature_idx)) # tensor of size [batch, feature_idx]
+    
+    
     del model_activations
     values, indices = topk(sae_activations, k = number_of_max_activating_images, dim = 0)
     sparsity = (sae_activations>0).sum(dim = 0)/sae_activations.size()[0]

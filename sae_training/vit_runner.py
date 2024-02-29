@@ -52,4 +52,4 @@ def vision_transformer_sae_runner(cfg):
     if cfg.log_to_wandb:
         wandb.finish()
         
-    return sparse_autoencoder, model
+    return sparse_autoencoder, model, activations_loader
