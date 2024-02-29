@@ -61,14 +61,15 @@ class ViTActivationsStore:
         """
         device = self.cfg.device
         batch_of_images = []
-        for image in trange(self.cfg.store_size, desc = "Filling activation store with images"):
-            try:
-                batch_of_images.append(self.transform(next(self.iterable_dataset)[self.image_key]))
-            except StopIteration:
-                self.iterable_dataset = iter(self.dataset.shuffle())
-                batch_of_images.append(self.transform(next(self.iterable_dataset)[self.image_key]))
-        batch_of_images = torch.stack(batch_of_images, dim=0)
-        batch_of_images = batch_of_images.to(device)
+        with torch.no_grad():
+            for image in trange(self.cfg.store_size, desc = "Filling activation store with images"):
+                try:
+                    batch_of_images.append(self.transform(next(self.iterable_dataset)[self.image_key]))
+                except StopIteration:
+                    self.iterable_dataset = iter(self.dataset.shuffle())
+                    batch_of_images.append(self.transform(next(self.iterable_dataset)[self.image_key]))
+            batch_of_images = torch.stack(batch_of_images, dim=0)
+            batch_of_images = batch_of_images.to(device)
         return batch_of_images
 
     def get_activations(self, image_batches):
@@ -76,6 +77,7 @@ class ViTActivationsStore:
         module_name = self.cfg.module_name
         block_layer = self.cfg.block_layer
         list_of_hook_locations = [(block_layer, module_name)]
+
 
         activations = self.model.run_with_cache(
             image_batches,
@@ -88,6 +90,7 @@ class ViTActivationsStore:
           # Eg "x = x[:, 0]  # class token" - the [:,0] indexes the batch dimension then the token dimension
 
         return activations
+    
     
     def get_sae_batches(self):
         image_batches = self.get_image_batches()

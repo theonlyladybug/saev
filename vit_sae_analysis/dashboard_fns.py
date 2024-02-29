@@ -182,20 +182,12 @@ def get_feature_data(
         - use these indices to index the max activating images
         - repeat but for different quantiles
     """
+    torch.cuda.empty_cache()
     return_data = {}
-    
-    total_images = 0
-    images = []
-    while total_images< number_of_images:
-        image_batch = activations_loader.get_image_batches()
-        images.append(image_batch)
-        total_images+=activations_loader.cfg.store_size
-    images = torch.cat(images, dim = 0)
-    images = images.to(sparse_autoencoder.cfg.device)
+    activations_loader.cfg.store_size = number_of_images
+    images = activations_loader.get_image_batches()
     model_activations = get_all_model_activations(images, model, sparse_autoencoder.cfg) # tensor of size [batch, d_resid]
     sae_activations = get_sae_activations(model_activations, sparse_autoencoder, torch.tensor(feature_idx)) # tensor of size [batch, feature_idx]
-    
-    
     del model_activations
     values, indices = topk(sae_activations, k = number_of_max_activating_images, dim = 0)
     sparsity = (sae_activations>0).sum(dim = 0)/sae_activations.size()[0]
