@@ -60,7 +60,7 @@ cfg = ViTSAERunnerConfig(
     lr_scheduler_name="constantwithwarmup",
     batch_size = 1024,
     lr_warm_up_steps=500,
-    total_training_tokens = 2_096_912,
+    total_training_tokens = 1024, #2_096_912,
     n_batches_in_store = 64,
     
     # Dead Neurons and Sparsity
@@ -84,6 +84,7 @@ cfg = ViTSAERunnerConfig(
     dtype = torch.float32,
     )
 
+torch.cuda.empty_cache()
 sparse_autoencoder, model, activations_loader = vision_transformer_sae_runner(cfg)
 sparse_autoencoder.eval()
 
