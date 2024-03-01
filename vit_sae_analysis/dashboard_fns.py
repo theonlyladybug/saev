@@ -190,15 +190,6 @@ def get_feature_data(
 
     Returns object of class FeatureData (see that class's docstring for more info).
     '''
-    
-    """
-    To do next:
-        - Calculate the model activations to obtain a tensor of size [batch, d_resid]. Will need to do this in minibatches
-        - run the SAE with cache (inherits from HookedRootModule). Probably best to do this in mini batches too. Only calculate on feature_idx. returns tensor of size [batch, feature_idx].
-        - find top k batch indexes for each feature idx
-        - use these indices to index the max activating images
-        - repeat but for different quantiles
-    """
     torch.cuda.empty_cache()
     sparse_autoencoder.eval()
     
