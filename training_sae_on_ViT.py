@@ -45,7 +45,7 @@ cfg = ViTSAERunnerConfig(
     model_name = "vit_base_patch32_clip_224",
     module_name = "resid",
     block_layer = 10,
-    dataset_path = "cifar100", #"evanarlian/imagenet_1k_resized_256",
+    dataset_path = "evanarlian/imagenet_1k_resized_256",
     use_cached_activations = False,
     cached_activations_path = None,
     d_in = 768,
@@ -60,7 +60,7 @@ cfg = ViTSAERunnerConfig(
     lr_scheduler_name="constantwithwarmup",
     batch_size = 1024,
     lr_warm_up_steps=500,
-    total_training_tokens = 1024, #2_096_912,
+    total_training_tokens = 2_096_912,
     n_batches_in_store = 32,
     
     # Dead Neurons and Sparsity
@@ -85,15 +85,14 @@ cfg = ViTSAERunnerConfig(
     )
 
 torch.cuda.empty_cache()
-sparse_autoencoder, model, activations_loader = vision_transformer_sae_runner(cfg)
+sparse_autoencoder, model = vision_transformer_sae_runner(cfg)
 sparse_autoencoder.eval()
 
 
 get_feature_data(
     sparse_autoencoder,
     model,
-    activations_loader,
-    list(range(2000)),
+    list(range(cfg.d_sae)),
     number_of_images = 32_768,
 )
 

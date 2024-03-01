@@ -143,11 +143,28 @@ def get_sae_activations(model_activaitons, sparse_autoencoder, feature_idx: Tens
     sae_activations = sae_activations.to(sparse_autoencoder.cfg.device)
     return sae_activations
 
+
+def print_memory():
+    # Check if CUDA is available
+    if torch.cuda.is_available():
+        # Get the current device
+        device = torch.cuda.current_device()
+        total_memory = torch.cuda.get_device_properties(device).total_memory
+        allocated_memory = torch.cuda.memory_allocated(device)
+        remaining_memory = total_memory-allocated_memory
+
+        print(f"CUDA Device: {torch.cuda.get_device_name(device)}")
+        print(f"Total Memory: {total_memory / (1024**3):.2f} GB")
+        print(f"Allocated Memory: {allocated_memory / (1024**3):.2f} GB")
+        print(f"Remaining Memory: {remaining_memory / (1024**3):.2f} GB")
+    else:
+        print("CUDA is not available.")
+
+
 @torch.inference_mode()
 def get_feature_data(
     sparse_autoencoder: SparseAutoencoder,
     model: HookedVisionTransformer,
-    activations_loader: ViTActivationsStore,
     feature_idx: List[int],
     dataset_path: str = "imagenet-1k",
     number_of_images: int = 32_768,
@@ -183,25 +200,51 @@ def get_feature_data(
         - repeat but for different quantiles
     """
     torch.cuda.empty_cache()
-    return_data = {}
-    activations_loader.cfg.store_size = number_of_images
-    images = activations_loader.get_image_batches()
+    sparse_autoencoder.eval()
+    
+    transform = transforms.Compose([
+        transforms.Lambda(lambda x: x.convert("RGB")),
+        transforms.Resize((sparse_autoencoder.cfg.image_width, sparse_autoencoder.cfg.image_height)),  # Resize the image to WxH pixels
+        transforms.ToTensor(),  # Convert the image to a PyTorch tensor
+    ])
+    dataset = load_dataset(sparse_autoencoder.cfg.dataset_path, split="train")
+    
+    if sparse_autoencoder.cfg.dataset_path=="cifar100":
+        image_key = 'img'
+    else:
+        image_key = 'image'
+    
+    # Select a smaller dataset to process the images. By default, the datset contains at most 250_000 images
+    max_dataset_size = 250_000 # Put this in the cfg file
+    if len(dataset)>max_dataset_size:
+        dataset = dataset.shuffle(seed=42).select(range(max_dataset_size))
+        
+    iterable_dataset = iter(dataset)
+    images = []
+    for image in trange(number_of_images, desc = "Getting images for dashboard"):
+        with torch.no_grad():
+            try:
+                images.append(transform(next(iterable_dataset)[image_key]))
+            except StopIteration:
+                iterable_dataset = iter(dataset.shuffle())
+                images.append(transform(next(iterable_dataset)[image_key]))
+    images = torch.stack(images, dim=0)
+    images = images.to(sparse_autoencoder.cfg.device)
     model_activations = get_all_model_activations(images, model, sparse_autoencoder.cfg) # tensor of size [batch, d_resid]
     sae_activations = get_sae_activations(model_activations, sparse_autoencoder, torch.tensor(feature_idx)) # tensor of size [batch, feature_idx]
     del model_activations
     values, indices = topk(sae_activations, k = number_of_max_activating_images, dim = 0)
     sparsity = (sae_activations>0).sum(dim = 0)/sae_activations.size()[0]
     for feature in trange(len(feature_idx), desc = "Dashboard: getting and saving highest activating images"):
-        # Find the top activating images...
-        max_image_indicees = indices[:,feature]
-        max_image_values = values[:, feature]
         feature_sparsity = sparsity[feature]
-        max_images = images[max_image_indicees] # size [number_of_max_activating_images, C, W, H]
-        
-        # Find the quantile images... yet to implement
-        
-        data = FeatureData(feature_idx[feature], max_images, max_image_values, feature_sparsity)
-        data.save_image_data()
-        return_data[feature_idx[feature]] = data
-        
-    return return_data
+        if feature_sparsity>0:
+            # Find the top activating images...
+            max_image_indicees = indices[:,feature]
+            max_image_values = values[:, feature]
+            feature_sparsity = sparsity[feature]
+            max_images = images[max_image_indicees] # size [number_of_max_activating_images, C, W, H]
+            
+            # Find the quantile images... yet to implement
+            
+            data = FeatureData(feature_idx[feature], max_images, max_image_values, feature_sparsity)
+            data.save_image_data()
