@@ -167,11 +167,15 @@ cython_debug/
 wandb/
 checkpoints/
 dashboard/
+layer_10_dashboard/
 data/
 artifacts/
 activations/
 
 *.html
 *.DS_Store
+
+#random image
+PXL_20240301_032537263.jpg
 
 feature_dashboards/
