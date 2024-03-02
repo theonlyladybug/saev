@@ -1,6 +1,7 @@
 from typing import Tuple
 
 import torch
+import torch.nn as nn
 from transformer_lens import HookedTransformer
 
 from sae_training.vit_activations_store import ViTActivationsStore
@@ -31,6 +32,8 @@ class ViTSparseAutoencoderSessionloader():
         model.to(self.cfg.device) # May need to include a .to() method.
         activations_loader = self.get_activations_loader(self.cfg, model)
         sparse_autoencoder = self.initialize_sparse_autoencoder(self.cfg)
+        
+        
             
         return model, sparse_autoencoder, activations_loader
     

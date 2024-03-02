@@ -44,7 +44,7 @@ cfg = ViTSAERunnerConfig(
     image_key = None,
     model_name = "vit_base_patch32_clip_224",
     module_name = "resid",
-    block_layer = 6,
+    block_layer = 10,
     dataset_path = "evanarlian/imagenet_1k_resized_256",
     use_cached_activations = False,
     cached_activations_path = None,
@@ -56,12 +56,12 @@ cfg = ViTSAERunnerConfig(
     
     # Training Parameters
     lr = 0.0004,
-    l1_coefficient = 0.000005,
+    l1_coefficient = 0.00012,
     lr_scheduler_name="constantwithwarmup",
     batch_size = 1024,
     lr_warm_up_steps=500,
-    total_training_tokens = 524_288,
-    n_batches_in_store = 32,
+    total_training_tokens = 2_096_912,
+    n_batches_in_store = 20,
     
     # Dead Neurons and Sparsity
     use_ghost_grads=True,
@@ -93,7 +93,7 @@ get_feature_data(
     sparse_autoencoder,
     model,
     list(range(cfg.d_sae)),
-    number_of_images = 32_768,
+    number_of_images = 24_576,
 )
 
 print("*****Done*****")

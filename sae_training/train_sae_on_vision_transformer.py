@@ -90,7 +90,6 @@ def train_sae_on_vision_transformer(
             n_frac_active_tokens = 0
 
 
-
         scheduler.step()
         optimizer.zero_grad()
         
@@ -176,6 +175,7 @@ def train_sae_on_vision_transformer(
         loss.backward()
         sparse_autoencoder.remove_gradient_parallel_to_decoder_directions()
         optimizer.step()
+        
 
 
         # checkpoint if at checkpoint frequency

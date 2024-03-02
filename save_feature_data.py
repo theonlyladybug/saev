@@ -30,7 +30,7 @@ if torch.backends.mps.is_available():
 else:
     device = "cuda" if torch.cuda.is_available() else "cpu"
     
-sae_path = "checkpoints/layer_10/final_sparse_autoencoder_vit_base_patch32_clip_224_10_resid_49152.pt"
+sae_path = "checkpoints/j8ypzgjh/final_sparse_autoencoder_vit_base_patch32_clip_224_10_resid_49152.pt"
 
 loaded_object = torch.load(sae_path)
 
