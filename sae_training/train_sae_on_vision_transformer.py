@@ -156,16 +156,16 @@ def train_sae_on_vision_transformer(
                     step=n_training_steps,
                 )
 
-            # record loss frequently, but not all the time.
-            if use_wandb and ((n_training_steps + 1) % (wandb_log_frequency * 10) == 0):
-                if "cuda" in str(sparse_autoencoder.cfg.device):
-                    torch.cuda.empty_cache()
-                ###########################
-                # Need to sort this out!!
-                ###########################
-                # sparse_autoencoder.eval()
-                # run_evals(sparse_autoencoder, activation_store, model, n_training_steps)
-                # sparse_autoencoder.train()
+            # # record loss frequently, but not all the time.
+            # if use_wandb and ((n_training_steps + 1) % (wandb_log_frequency * 10) == 0):
+            #     if "cuda" in str(sparse_autoencoder.cfg.device):
+            #         torch.cuda.empty_cache()
+            #     ###########################
+            #     # Need to sort this out!!
+            #     ###########################
+            #     # sparse_autoencoder.eval()
+            #     # run_evals(sparse_autoencoder, activation_store, model, n_training_steps)
+            #     # sparse_autoencoder.train()
                 
             pbar.set_description(
                 f"{n_training_steps}| MSE Loss {mse_loss.item():.3f} | L1 {l1_loss.item():.3f}"
