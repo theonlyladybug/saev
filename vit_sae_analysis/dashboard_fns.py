@@ -94,7 +94,7 @@ class FeatureData():
             if self.max_image_values[i]>0:
                 if not os.path.exists(directory_path + f'/max_activating'):
                     os.makedirs(directory_path + f'/max_activating')
-                file_path = os.path.join(directory_path, f'max_activating/{self.max_image_values[i]:.2g}.png')
+                file_path = os.path.join(directory_path, f'max_activating/{i}_{self.max_image_values[i]:.2g}.png')
                 save_image(img_tensor, file_path)
 
 

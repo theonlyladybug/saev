@@ -93,7 +93,7 @@ get_feature_data(
     sparse_autoencoder,
     model,
     list(range(cfg.d_sae)),
-    number_of_images = 24_576,
+    number_of_images = 32_768,
 )
 
 print("*****Done*****")
