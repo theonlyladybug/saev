@@ -19,17 +19,16 @@ class ViTActivationsStore:
     ):
         self.cfg = cfg
         self.model = model
-        self.transform = transforms.Compose([
-            transforms.Lambda(lambda x: x.convert("RGB")),
-            transforms.Resize((self.cfg.image_width, self.cfg.image_height)),  # Resize the image to WxH pixels
-            transforms.ToTensor(),  # Convert the image to a PyTorch tensor
-        ])
         self.dataset = load_dataset(self.cfg.dataset_path, split="train")
         
         if self.cfg.dataset_path=="cifar100":
             self.image_key = 'img'
+            self.label_key = 'fine_label'
         else:
             self.image_key = 'image'
+            self.label_key = 'label'
+            
+        self.labels = self.dataset.features[self.label_key].names
         
         
         # Select a smaller dataset to process the images. By default, the datset contains at most 250_000 images
@@ -54,6 +53,20 @@ class ViTActivationsStore:
               Need to implement a buffer for the image patch training.
               """
               pass
+          
+    def get_batch_of_images_and_labels(self):
+        batch_size = self.cfg.max_batch_size_for_vit_forward_pass
+        images = []
+        labels = []
+        for _ in range(batch_size):
+            data = next(self.iterable_dataset)
+            image = data[self.image_key]
+            label_index = data[self.label_key]
+            images.append(image)
+            labels.append(f"A photo of a {self.labels[label_index]}.")
+        inputs = self.model.processor(images=images, text = labels, return_tensors="pt", padding = True).to(self.cfg.device)
+        return inputs
+        
 
     def get_image_batches(self):
         """
@@ -62,14 +75,12 @@ class ViTActivationsStore:
         device = self.cfg.device
         batch_of_images = []
         with torch.no_grad():
-            for image in trange(self.cfg.store_size, desc = "Filling activation store with images"):
+            for _ in trange(self.cfg.store_size, desc = "Filling activation store with images"):
                 try:
-                    batch_of_images.append(self.transform(next(self.iterable_dataset)[self.image_key]))
+                    batch_of_images.append(next(self.iterable_dataset)[self.image_key])
                 except StopIteration:
                     self.iterable_dataset = iter(self.dataset.shuffle())
-                    batch_of_images.append(self.transform(next(self.iterable_dataset)[self.image_key]))
-            batch_of_images = torch.stack(batch_of_images, dim=0)
-            batch_of_images = batch_of_images.to(device)
+                    batch_of_images.append(next(self.iterable_dataset)[self.image_key])
         return batch_of_images
 
     def get_activations(self, image_batches):
@@ -78,10 +89,11 @@ class ViTActivationsStore:
         block_layer = self.cfg.block_layer
         list_of_hook_locations = [(block_layer, module_name)]
 
+        inputs = self.model.processor(images=image_batches, text = "", return_tensors="pt", padding = True).to(self.cfg.device)
 
         activations = self.model.run_with_cache(
-            image_batches,
             list_of_hook_locations,
+            **inputs,
         )[1][(block_layer, module_name)]
         
         if self.cfg.class_token:
@@ -95,8 +107,8 @@ class ViTActivationsStore:
     def get_sae_batches(self):
         image_batches = self.get_image_batches()
         max_batch_size = self.cfg.max_batch_size_for_vit_forward_pass
-        number_of_mini_batches = image_batches.size()[0] // max_batch_size
-        remainder = image_batches.size()[0] % max_batch_size
+        number_of_mini_batches = len(image_batches) // max_batch_size
+        remainder = len(image_batches) % max_batch_size
         sae_batches = []
         for mini_batch in trange(number_of_mini_batches, desc="Getting batches for SAE"):
             sae_batches.append(self.get_activations(image_batches[mini_batch*max_batch_size : (mini_batch+1)*max_batch_size]))

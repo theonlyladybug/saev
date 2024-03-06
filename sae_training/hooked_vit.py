@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import timm
 import math
+from transformers import CLIPProcessor, CLIPModel
 from typing import Callable
 from contextlib import contextmanager
 from typing import List, Union, Dict, Tuple
@@ -17,7 +18,6 @@ class Hook():
   def __init__(self, block_layer: int, module_name: str, hook_fn: Callable):
     self.path_dict = {
         'resid': '',
-        'mlp': '.mlp.act',
     }
     assert module_name in self.path_dict.keys(), f'Module name \'{module_name}\' not recognised.'
     self.function = self.get_full_hook_fn(hook_fn, module_name)
@@ -31,7 +31,7 @@ class Hook():
     return full_hook_fn
 
   def get_attr_path(self, block_layer: int, module_name: str) -> str:
-    attr_path = f'blocks[{block_layer}]'
+    attr_path = f'vision_model.encoder.layer[{block_layer}]'
     attr_path += self.path_dict[module_name]
     return attr_path
   
@@ -42,31 +42,35 @@ class Hook():
     """
     Gets a nested attribute from an object using a dot-separated path.
     """
+    module = model
     attributes = attr_path.split(".")
     for attr in attributes:
         if '[' in attr:
             # Split at '[' and remove the trailing ']' from the index
             attr_name, index = attr[:-1].split('[')
-            module = getattr(model, attr_name)[int(index)]
+            module = getattr(module, attr_name)[int(index)]
         else:
-            module = getattr(model, attr)
+            module = getattr(module, attr)
     return module
 
 
 
 class HookedVisionTransformer():
-  def __init__(self, model_name: str, num_classes: int = -1):
-    self.model = self.get_ViT(model_name, num_classes)
+  def __init__(self, model_name: str, device = 'cuda'):
+    model, processor = self.get_ViT(model_name)
+    self.model = model.to(device)
+    self.processor = processor
 
-  def get_ViT(self, model_name, num_classes):
-    model = timm.create_model(model_name, pretrained=True, num_classes = num_classes)
-    return model
+  def get_ViT(self, model_name):
+    model = CLIPModel.from_pretrained(model_name)
+    processor = CLIPProcessor.from_pretrained(model_name)
+    return model, processor
 
-  def run_with_cache(self, input_batch, list_of_hook_locations: List[Tuple[int,str]], *args, **kwargs):
+  def run_with_cache(self, list_of_hook_locations: List[Tuple[int,str]], *args, **kwargs):
     cache_dict, list_of_hooks = self.get_caching_hooks(list_of_hook_locations)
     with self.hooks(list_of_hooks) as hooked_model:
       with torch.no_grad():
-        output = hooked_model(input_batch, *args, **kwargs).detach()
+        output = hooked_model(*args, **kwargs).detach()
     return output, cache_dict
 
   def get_caching_hooks(self, list_of_hook_locations: List[Tuple[int,str]]):
@@ -84,10 +88,10 @@ class HookedVisionTransformer():
     return cache_dict, list_of_hooks
 
   @torch.no_grad
-  def run_with_hooks(self, input_batch, list_of_hooks: List[Hook], *args, **kwargs):
+  def run_with_hooks(self, list_of_hooks: List[Hook], *args, **kwargs):
     with self.hooks(list_of_hooks) as hooked_model:
       with torch.no_grad():
-        output = hooked_model(input_batch, *args, **kwargs)
+        output = hooked_model(*args, **kwargs)
     return output
 
   @contextmanager
@@ -119,14 +123,15 @@ class HookedVisionTransformer():
       for handle in hook_handles:
         handle.remove()
         
+            
   def to(self, device):
     self.model = self.model.to(device)
 
-  def __call__(self, input, *args, **kwargs):
-    return self.forward(input, *args, **kwargs)
+  def __call__(self, *args, **kwargs):
+    return self.forward(*args, **kwargs)
 
-  def forward(self, input, *args, **kwargs):
-    return self.model(input, *args, **kwargs)
+  def forward(self, *args, **kwargs):
+    return self.model(*args, **kwargs)
   
   def eval(self):
     self.model.eval()
