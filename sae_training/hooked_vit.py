@@ -109,6 +109,7 @@ class HookedVisionTransformer():
       raise Exception(f"Unrecognised keyword argument return_type='{return_type}'. Must be either 'output' or 'loss'.")
     
   def contrastive_loss(logits_per_image: Float[Tensor, "n_images n_prompts"], logits_per_text: Float[Tensor, "n_prompts n_images"]): # Assumes square matrices
+    assert logits_per_image.size()[0]==logits_per_image.size()[1], "The number of prompts does not match the number of images."
     batch_size = logits_per_image.size()[0]
     labels = torch.arange(batch_size).long().to(logits_per_image.device)
     image_loss = F.cross_entropy(logits_per_image, labels)

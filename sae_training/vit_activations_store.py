@@ -15,13 +15,13 @@ class ViTActivationsStore:
     while training SAEs. 
     """
     def __init__(
-        self, cfg: ViTSAERunnerConfig, model: HookedVisionTransformer, create_dataloader: bool = True, train=True, max_dataset_size: int = 250_000,
+        self, cfg: ViTSAERunnerConfig, model: HookedVisionTransformer, create_dataloader: bool = True, train=True,
     ):
         self.cfg = cfg
         self.model = model
         self.dataset = load_dataset(self.cfg.dataset_path, split="train")
         
-        if self.cfg.dataset_path=="cifar100":
+        if self.cfg.dataset_path=="cifar100": # Need to put this in the cfg
             self.image_key = 'img'
             self.label_key = 'fine_label'
         else:
@@ -31,9 +31,7 @@ class ViTActivationsStore:
         self.labels = self.dataset.features[self.label_key].names
         
         
-        # Select a smaller dataset to process the images. By default, the datset contains at most 250_000 images
-        if len(self.dataset)>max_dataset_size:
-            self.dataset = self.dataset.shuffle(seed=42).select(range(max_dataset_size))
+        self.dataset = self.dataset.shuffle(seed=42)
             
         self.iterable_dataset = iter(self.dataset)
         

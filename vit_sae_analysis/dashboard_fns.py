@@ -98,30 +98,34 @@ class FeatureData():
                 save_image(img_tensor, file_path)
 
 
-def get_model_activations(image_batches, model, cfg):
+def get_model_activations(model, inputs, cfg):
     module_name = cfg.module_name
     block_layer = cfg.block_layer
     list_of_hook_locations = [(block_layer, module_name)]
 
     activations = model.run_with_cache(
-        image_batches,
         list_of_hook_locations,
+        **inputs,
     )[1][(block_layer, module_name)]
     
     activations = activations[:,0,:]
 
     return activations
 
-def get_all_model_activations(image_batches, model, cfg):
+def get_all_model_activations(model, images, cfg):
     max_batch_size = cfg.max_batch_size_for_vit_forward_pass
-    number_of_mini_batches = image_batches.size()[0] // max_batch_size
-    remainder = image_batches.size()[0] % max_batch_size
+    number_of_mini_batches = len(images) // max_batch_size
+    remainder = len(images) % max_batch_size
     sae_batches = []
     for mini_batch in trange(number_of_mini_batches, desc = "Dashboard: forward pass images through ViT"):
-        sae_batches.append(get_model_activations(image_batches[mini_batch*max_batch_size : (mini_batch+1)*max_batch_size], model, cfg))
+        image_batch = images[mini_batch*max_batch_size : (mini_batch+1)*max_batch_size]
+        inputs = model.processor(images=image_batch, text = "", return_tensors="pt", padding = True).to(model.device)
+        sae_batches.append(get_model_activations(model, inputs, cfg))
     
     if remainder>0:
-        sae_batches.append(get_model_activations(image_batches[-remainder:], model, cfg))
+        image_batch = images[-remainder:]
+        inputs = model.processor(images=image_batch, text = "", return_tensors="pt", padding = True).to(model.device)
+        sae_batches.append(get_model_activations(model, inputs, cfg))
         
     sae_batches = torch.cat(sae_batches, dim = 0)
     sae_batches = sae_batches.to(cfg.device)
@@ -193,35 +197,26 @@ def get_feature_data(
     torch.cuda.empty_cache()
     sparse_autoencoder.eval()
     
-    transform = transforms.Compose([
-        transforms.Lambda(lambda x: x.convert("RGB")),
-        transforms.Resize((sparse_autoencoder.cfg.image_width, sparse_autoencoder.cfg.image_height)),  # Resize the image to WxH pixels
-        transforms.ToTensor(),  # Convert the image to a PyTorch tensor
-    ])
     dataset = load_dataset(sparse_autoencoder.cfg.dataset_path, split="train")
     
-    if sparse_autoencoder.cfg.dataset_path=="cifar100":
+    if sparse_autoencoder.cfg.dataset_path=="cifar100": # Need to put this in the cfg
         image_key = 'img'
     else:
         image_key = 'image'
-    
-    # Select a smaller dataset to process the images. By default, the datset contains at most 250_000 images
-    max_dataset_size = 250_000 # Put this in the cfg file
-    if len(dataset)>max_dataset_size:
-        dataset = dataset.shuffle(seed=42).select(range(max_dataset_size))
         
+    dataset = dataset.shuffle(seed=42)
     iterable_dataset = iter(dataset)
+    
     images = []
     for image in trange(number_of_images, desc = "Getting images for dashboard"):
         with torch.no_grad():
             try:
-                images.append(transform(next(iterable_dataset)[image_key]))
+                images.append(next(iterable_dataset)[image_key])
             except StopIteration:
                 iterable_dataset = iter(dataset.shuffle())
-                images.append(transform(next(iterable_dataset)[image_key]))
-    images = torch.stack(images, dim=0)
-    images = images.to(sparse_autoencoder.cfg.device)
-    model_activations = get_all_model_activations(images, model, sparse_autoencoder.cfg) # tensor of size [batch, d_resid]
+                images.append(next(iterable_dataset)[image_key])
+    
+    model_activations = get_all_model_activations(model, images, sparse_autoencoder.cfg) # tensor of size [batch, d_resid]
     sae_activations = get_sae_activations(model_activations, sparse_autoencoder, torch.tensor(feature_idx)) # tensor of size [batch, feature_idx]
     del model_activations
     values, indices = topk(sae_activations, k = number_of_max_activating_images, dim = 0)
