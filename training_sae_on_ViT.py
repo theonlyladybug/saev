@@ -41,7 +41,6 @@ cfg = ViTSAERunnerConfig(
     class_token = True,
     image_width = 224,
     image_height = 224,
-    image_key = None,
     model_name = "openai/clip-vit-base-patch32",
     module_name = "resid",
     block_layer = 10,
