@@ -148,11 +148,17 @@ class HookedVisionTransformer():
   def to(self, device):
     self.model = self.model.to(device)
 
-  def __call__(self, *args, **kwargs):
-    return self.forward(*args, **kwargs)
+  def __call__(self, *args, return_type = 'output', **kwargs):
+    return self.forward(*args, return_type = return_type, **kwargs)
 
-  def forward(self, *args, **kwargs):
-    return self.model(*args, **kwargs)
+  def forward(self, *args, return_type = 'output', **kwargs):
+    if return_type=='output':
+      return self.model(*args, **kwargs)
+    elif return_type == 'loss':
+      output = self.model(*args, **kwargs)
+      return self.contrastive_loss(output.logits_per_image, output.logits_per_text)
+    else:
+      raise Exception(f"Unrecognised keyword argument return_type='{return_type}'. Must be either 'output' or 'loss'.")
   
   def eval(self):
     self.model.eval()

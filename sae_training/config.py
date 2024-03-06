@@ -167,10 +167,10 @@ class ViTSAERunnerConfig():
     class_token: bool = True
     image_width: int = 224
     image_height: int = 224
-    model_name: str = "vit_base_patch32_clip_224"
+    model_name: str = "openai/clip-vit-base-patch32"
     module_name: str = "resid"
     block_layer: int = 10
-    dataset_path: str = "cifar100"
+    dataset_path: str = "evanarlian/imagenet_1k_resized_256"
     use_cached_activations: bool = False
     cached_activations_path: Optional[
         str

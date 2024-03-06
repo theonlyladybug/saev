@@ -156,16 +156,13 @@ def train_sae_on_vision_transformer(
                     step=n_training_steps,
                 )
 
-            # # record loss frequently, but not all the time.
-            # if use_wandb and ((n_training_steps + 1) % (wandb_log_frequency * 10) == 0):
-            #     if "cuda" in str(sparse_autoencoder.cfg.device):
-            #         torch.cuda.empty_cache()
-            #     ###########################
-            #     # Need to sort this out!!
-            #     ###########################
-            #     # sparse_autoencoder.eval()
-            #     # run_evals(sparse_autoencoder, activation_store, model, n_training_steps)
-            #     # sparse_autoencoder.train()
+            # record loss frequently, but not all the time.
+            if use_wandb and ((n_training_steps + 1) % wandb_log_frequency == 0):
+                if "cuda" in str(sparse_autoencoder.cfg.device):
+                    torch.cuda.empty_cache()
+                sparse_autoencoder.eval()
+                run_evals(sparse_autoencoder, activation_store, model, n_training_steps)
+                sparse_autoencoder.train()
                 
             pbar.set_description(
                 f"{n_training_steps}| MSE Loss {mse_loss.item():.3f} | L1 {l1_loss.item():.3f}"
@@ -222,8 +219,33 @@ def train_sae_on_vision_transformer(
 
 @torch.no_grad()
 def run_evals(sparse_autoencoder: SparseAutoencoder, activation_store: ViTActivationsStore, model: HookedVisionTransformer, n_training_steps: int):
-    # Need to rewrite this function for use with ViTs. What does this function even do?
-    pass
+    def zero_ablation(activations):
+        return torch.zeros_like(activations).to(activations.device)
+    
+    def sae_hook(activations):
+        return sparse_autoencoder(activations).to(activations.device)
+    
+    model_inputs = activation_store.get_batch_of_images_and_labels()
+    original_loss = model(return_type='loss', **model_inputs).item()
+    sae_hooks = [Hook(sparse_autoencoder.cfg.block_layer, sparse_autoencoder.cfg.module_name, sae_hook)]
+    reconstruction_loss = model.run_with_hooks(sae_hooks, return_type='loss', **model_inputs).item()
+    zero_ablation_hooks = [Hook(sparse_autoencoder.cfg.block_layer, sparse_autoencoder.cfg.module_name, zero_ablation)]
+    zero_ablation_loss = model.run_with_hooks(zero_ablation_hooks, return_type='loss', **model_inputs).item()
+    
+    reconstruction_score = (reconstruction_loss - original_loss)/(zero_ablation_loss-original_loss)
+    
+    
+    wandb.log(
+        {   
+            # Contrastive Loss
+            "metrics/contrastive_loss_score": reconstruction_score,
+            "metrics/contrastive_loss_without_sae": original_loss,
+            "metrics/contrastive_loss_with_sae": reconstruction_loss,
+            "metrics/contrastive_loss_with_ablation": zero_ablation_loss,
+            
+        },
+        step=n_training_steps,
+    )
 
 
 def kl_divergence_attention(y_true, y_pred):
