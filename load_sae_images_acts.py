@@ -75,24 +75,18 @@ def load_random_images_and_activations(sae_path, num_images):
         image_key = 'image'
         
     dataset, iterable_dataset = get_dataset(sparse_autoencoder)
-        
-    transform = transforms.Compose([
-        transforms.Lambda(lambda x: x.convert("RGB")),
-        transforms.Resize((sparse_autoencoder.cfg.image_width, sparse_autoencoder.cfg.image_height)),  # Resize the image to WxH pixels
-        transforms.ToTensor(),  # Convert the image to a PyTorch tensor
-    ])
+    
+    
     images = []
     for image in trange(num_images, desc = "Getting images for dashboard"):
         with torch.no_grad():
             try:
-                images.append(transform(next(iterable_dataset)[image_key]))
+                images.append(next(iterable_dataset)[image_key])
             except StopIteration:
                 iterable_dataset = iter(dataset.shuffle())
-                images.append(transform(next(iterable_dataset)[image_key]))
-    images = torch.stack(images, dim=0)
-    images = images.to(sparse_autoencoder.cfg.device)
+                images.append(next(iterable_dataset)[image_key])
 
-    model_activations = get_all_model_activations(images, model, sparse_autoencoder.cfg) # tensor of size [batch, d_resid]
+    model_activations = get_all_model_activations(model, images, sparse_autoencoder.cfg) # tensor of size [batch, d_resid]
     sae_activations = get_sae_activations(model_activations, sparse_autoencoder, torch.tensor(range(sparse_autoencoder.cfg.d_sae))) # tensor of size [batch, feature_idx]
     del model_activations
     return (images, sae_activations)
