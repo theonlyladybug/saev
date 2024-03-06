@@ -7,6 +7,9 @@ from typing import Callable
 from contextlib import contextmanager
 from typing import List, Union, Dict, Tuple
 from functools import partial
+from torch import Tensor
+from torch.nn import functional as F
+from jaxtyping import Float
   
 
 
@@ -66,12 +69,18 @@ class HookedVisionTransformer():
     processor = CLIPProcessor.from_pretrained(model_name)
     return model, processor
 
-  def run_with_cache(self, list_of_hook_locations: List[Tuple[int,str]], *args, **kwargs):
+  def run_with_cache(self, list_of_hook_locations: List[Tuple[int,str]], *args, return_type = "output", **kwargs):
     cache_dict, list_of_hooks = self.get_caching_hooks(list_of_hook_locations)
     with self.hooks(list_of_hooks) as hooked_model:
       with torch.no_grad():
         output = hooked_model(*args, **kwargs).detach()
-    return output, cache_dict
+        
+    if return_type=="output":
+      return output, cache_dict
+    if return_type=="loss":
+      return self.contrastive_loss(output.logits_per_image, output.logits_per_text), cache_dict
+    else:
+      raise Exception(f"Unrecognised keyword argument return_type='{return_type}'. Must be either 'output' or 'loss'.")
 
   def get_caching_hooks(self, list_of_hook_locations: List[Tuple[int,str]]):
     """
@@ -88,11 +97,24 @@ class HookedVisionTransformer():
     return cache_dict, list_of_hooks
 
   @torch.no_grad
-  def run_with_hooks(self, list_of_hooks: List[Hook], *args, **kwargs):
+  def run_with_hooks(self, list_of_hooks: List[Hook], *args, return_type = "output", **kwargs):
     with self.hooks(list_of_hooks) as hooked_model:
       with torch.no_grad():
         output = hooked_model(*args, **kwargs)
-    return output
+    if return_type=="output":
+      return output
+    if return_type=="loss":
+      return self.contrastive_loss(output.logits_per_image, output.logits_per_text)
+    else:
+      raise Exception(f"Unrecognised keyword argument return_type='{return_type}'. Must be either 'output' or 'loss'.")
+    
+  def contrastive_loss(logits_per_image: Float[Tensor, "n_images n_prompts"], logits_per_text: Float[Tensor, "n_prompts n_images"]): # Assumes square matrices
+    batch_size = logits_per_image.size()[0]
+    labels = torch.arange(batch_size).long().to(logits_per_image.device)
+    image_loss = F.cross_entropy(logits_per_image, labels)
+    text_loss = F.cross_entropy(logits_per_text, labels)
+    total_loss = (image_loss + text_loss) / 2
+    return total_loss
 
   @contextmanager
   def hooks(self, hooks: List[Hook]):
@@ -122,7 +144,6 @@ class HookedVisionTransformer():
     finally:
       for handle in hook_handles:
         handle.remove()
-        
             
   def to(self, device):
     self.model = self.model.to(device)
