@@ -3,6 +3,7 @@ import os
 import torch
 
 import wandb
+import re
 
 # from sae_training.activation_store import ActivationStore
 from sae_training.train_sae_on_vision_transformer import train_sae_on_vision_transformer
@@ -43,7 +44,7 @@ def vision_transformer_sae_runner(cfg):
     # upload to wandb
     if cfg.log_to_wandb:
         model_artifact = wandb.Artifact(
-            f"{sparse_autoencoder.get_name()}", type="model", metadata=dict(cfg.__dict__)
+            f"{re.sub(r'[^a-zA-Z0-9]', '', sparse_autoencoder.get_name())}", type="model", metadata=dict(cfg.__dict__)
         )
         model_artifact.add_file(path)
         wandb.log_artifact(model_artifact, aliases=["final_model"])

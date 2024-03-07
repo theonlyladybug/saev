@@ -55,7 +55,7 @@ cfg = ViTSAERunnerConfig(
     
     # Training Parameters
     lr = 0.0004,
-    l1_coefficient = 0.00012,
+    l1_coefficient = 0.00006,
     lr_scheduler_name="constantwithwarmup",
     batch_size = 1024,
     lr_warm_up_steps=500,
