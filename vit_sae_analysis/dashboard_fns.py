@@ -119,12 +119,12 @@ def get_all_model_activations(model, images, cfg):
     sae_batches = []
     for mini_batch in trange(number_of_mini_batches, desc = "Dashboard: forward pass images through ViT"):
         image_batch = images[mini_batch*max_batch_size : (mini_batch+1)*max_batch_size]
-        inputs = model.processor(images=image_batch, text = "", return_tensors="pt", padding = True).to(model.device)
+        inputs = model.processor(images=image_batch, text = "", return_tensors="pt", padding = True).to(model.model.device)
         sae_batches.append(get_model_activations(model, inputs, cfg))
     
     if remainder>0:
         image_batch = images[-remainder:]
-        inputs = model.processor(images=image_batch, text = "", return_tensors="pt", padding = True).to(model.device)
+        inputs = model.processor(images=image_batch, text = "", return_tensors="pt", padding = True).to(model.model.device)
         sae_batches.append(get_model_activations(model, inputs, cfg))
         
     sae_batches = torch.cat(sae_batches, dim = 0)
