@@ -234,18 +234,18 @@ def run_evals(sparse_autoencoder: SparseAutoencoder, activation_store: ViTActiva
     
     reconstruction_score = (reconstruction_loss - original_loss)/(zero_ablation_loss-original_loss)
     
-    
-    wandb.log(
-        {   
-            # Contrastive Loss
-            "metrics/contrastive_loss_score": reconstruction_score,
-            "metrics/contrastive_loss_without_sae": original_loss,
-            "metrics/contrastive_loss_with_sae": reconstruction_loss,
-            "metrics/contrastive_loss_with_ablation": zero_ablation_loss,
-            
-        },
-        step=n_training_steps,
-    )
+    if sparse_autoencoder.cfg.log_to_wandb:
+        wandb.log(
+            {   
+                # Contrastive Loss
+                "metrics/contrastive_loss_score": reconstruction_score,
+                "metrics/contrastive_loss_without_sae": original_loss,
+                "metrics/contrastive_loss_with_sae": reconstruction_loss,
+                "metrics/contrastive_loss_with_ablation": zero_ablation_loss,
+                
+            },
+            step=n_training_steps,
+        )
 
 
 def kl_divergence_attention(y_true, y_pred):
