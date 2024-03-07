@@ -30,6 +30,32 @@ from sae_training.hooked_vit import HookedVisionTransformer, Hook
 from sae_training.sparse_autoencoder import SparseAutoencoder
 from sae_training.config import ViTSAERunnerConfig
 from sae_training.vit_activations_store import ViTActivationsStore
+import torchvision.transforms as transforms
+
+def convert_images_to_tensor(images, device='cuda'):
+    """
+    Convert a list of PIL images to a PyTorch tensor in RGB format with shape [B, C, H, W].
+
+    Parameters:
+    - images: List of PIL.Image objects.
+    - device: The device to store the tensor on ('cpu' or 'cuda').
+
+    Returns:
+    - A PyTorch tensor with shape [B, C, H, W].
+    """
+    # Define a transform to convert PIL images (in RGB) to tensors
+    transform = transforms.Compose([
+        transforms.Lambda(lambda img: img.convert("RGB")),  # Convert image to RGB
+        transforms.Resize((224, 224)),  # Resize the image to 224x224 pixels
+        transforms.ToTensor(),  # Convert the image to a torch tensor
+    ])
+
+    # Ensure each image is in RGB format, apply the transform, and move to the specified device
+    tensor_list = [transform(img).to(device) for img in images]
+    tensor_output = torch.stack(tensor_list, dim=0)
+
+    return tensor_output
+
 
 """
 To do:
@@ -221,7 +247,7 @@ def get_feature_data(
     del model_activations
     
     # Convert the images list to a torch tensor
-    images = model.processor(images=images, return_tensors="pt", padding = True)['pixel_values'].to(sparse_autoencoder.device)
+    images = convert_images_to_tensor(images)
     
     values, indices = topk(sae_activations, k = number_of_max_activating_images, dim = 0)
     sparsity = (sae_activations>0).sum(dim = 0)/sae_activations.size()[0]
@@ -229,10 +255,10 @@ def get_feature_data(
         feature_sparsity = sparsity[feature]
         if feature_sparsity>0:
             # Find the top activating images...
-            max_image_indicees = indices[:,feature]
+            max_image_indices = indices[:,feature]
             max_image_values = values[:, feature]
             feature_sparsity = sparsity[feature]
-            max_images = images[max_image_indicees] # size [number_of_max_activating_images, C, W, H]
+            max_images = images[max_image_indices] # size [number_of_max_activating_images, C, W, H]
             
             # Find the quantile images... yet to implement
             

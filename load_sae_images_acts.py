@@ -13,7 +13,9 @@ from functools import partial
 from vit_sae_analysis.dashboard_fns import get_feature_data, FeatureData
 from IPython.display import Image, display
 
-
+from PIL import Image
+import torch
+import torchvision.transforms as transforms
 
 sys.path.append("..")
 
@@ -32,6 +34,31 @@ from torchvision.utils import save_image
 from PIL import Image as load_image
 import os
 import shutil
+
+def convert_images_to_tensor(images, device='cuda'):
+    """
+    Convert a list of PIL images to a PyTorch tensor in RGB format with shape [B, C, H, W].
+
+    Parameters:
+    - images: List of PIL.Image objects.
+    - device: The device to store the tensor on ('cpu' or 'cuda').
+
+    Returns:
+    - A PyTorch tensor with shape [B, C, H, W].
+    """
+    # Define a transform to convert PIL images (in RGB) to tensors
+    transform = transforms.Compose([
+        transforms.Lambda(lambda img: img.convert("RGB")),  # Convert image to RGB
+        transforms.Resize((224, 224)),  # Resize the image to 224x224 pixels
+        transforms.ToTensor(),  # Convert the image to a torch tensor
+    ])
+
+    # Ensure each image is in RGB format, apply the transform, and move to the specified device
+    tensor_list = [transform(img).to(device) for img in images]
+    tensor_output = torch.stack(tensor_list, dim=0)
+
+    return tensor_output
+
 
 def get_model_and_sae(sae_path):
     if torch.backends.mps.is_available():
@@ -90,7 +117,7 @@ def load_random_images_and_activations(sae_path, num_images):
     sae_activations = get_sae_activations(model_activations, sparse_autoencoder, torch.tensor(range(sparse_autoencoder.cfg.d_sae))) # tensor of size [batch, feature_idx]
     del model_activations
     
-    images = model.processor(images=images, return_tensors="pt", padding = True)['pixel_values'].to(sparse_autoencoder.device)
+    images = convert_images_to_tensor(images)
     
     return (images, sae_activations)
 
