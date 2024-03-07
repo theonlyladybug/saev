@@ -221,7 +221,7 @@ def get_feature_data(
     del model_activations
     
     # Convert the images list to a torch tensor
-    images = model.processor(images=images, return_tensors="pt", padding = True)['pixel_values'].to(model.model.device)
+    images = model.processor(images=images, return_tensors="pt", padding = True)['pixel_values'].to(sparse_autoencoder.device)
     
     values, indices = topk(sae_activations, k = number_of_max_activating_images, dim = 0)
     sparsity = (sae_activations>0).sum(dim = 0)/sae_activations.size()[0]

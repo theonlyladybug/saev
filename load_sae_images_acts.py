@@ -89,5 +89,8 @@ def load_random_images_and_activations(sae_path, num_images):
     model_activations = get_all_model_activations(model, images, sparse_autoencoder.cfg) # tensor of size [batch, d_resid]
     sae_activations = get_sae_activations(model_activations, sparse_autoencoder, torch.tensor(range(sparse_autoencoder.cfg.d_sae))) # tensor of size [batch, feature_idx]
     del model_activations
+    
+    images = model.processor(images=images, return_tensors="pt", padding = True)['pixel_values'].to(sparse_autoencoder.device)
+    
     return (images, sae_activations)
 
