@@ -239,7 +239,7 @@ def run_evals(sparse_autoencoder: SparseAutoencoder, activation_store: ViTActiva
             {   
                 # Contrastive Loss
                 "metrics/contrastive_loss_score": reconstruction_score,
-                "metrics/contrastive_loss_without_sae": original_loss,
+                "metrics/original_contrastive_loss": original_loss,
                 "metrics/contrastive_loss_with_sae": reconstruction_loss,
                 "metrics/contrastive_loss_with_ablation": zero_ablation_loss,
                 
