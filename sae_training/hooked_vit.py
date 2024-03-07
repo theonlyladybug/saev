@@ -34,7 +34,7 @@ class Hook():
       if self.return_module_output:
         return module_output
       else:
-        return (hook_fn_output,) # Inexplicably, the module output is not a tensor of activaitons but a tuple (tensor,)...??
+        return hook_fn_output # Inexplicably, the module output is not a tensor of activaitons but a tuple (tensor,)...??
 
     return full_hook_fn
   
