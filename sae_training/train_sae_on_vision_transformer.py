@@ -227,9 +227,9 @@ def run_evals(sparse_autoencoder: SparseAutoencoder, activation_store: ViTActiva
     
     model_inputs = activation_store.get_batch_of_images_and_labels()
     original_loss = model(return_type='loss', **model_inputs).item()
-    sae_hooks = [Hook(sparse_autoencoder.cfg.block_layer, sparse_autoencoder.cfg.module_name, sae_hook)]
+    sae_hooks = [Hook(sparse_autoencoder.cfg.block_layer, sparse_autoencoder.cfg.module_name, sae_hook, return_module_output=False)]
     reconstruction_loss = model.run_with_hooks(sae_hooks, return_type='loss', **model_inputs).item()
-    zero_ablation_hooks = [Hook(sparse_autoencoder.cfg.block_layer, sparse_autoencoder.cfg.module_name, zero_ablation)]
+    zero_ablation_hooks = [Hook(sparse_autoencoder.cfg.block_layer, sparse_autoencoder.cfg.module_name, zero_ablation, return_module_output=False)]
     zero_ablation_loss = model.run_with_hooks(zero_ablation_hooks, return_type='loss', **model_inputs).item()
     
     reconstruction_score = (reconstruction_loss - original_loss)/(zero_ablation_loss-original_loss)

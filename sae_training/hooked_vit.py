@@ -18,23 +18,29 @@ from jaxtyping import Float
 # 2 - mlp activations.
 # More hooks can be added at a later date, but only post-module.
 class Hook():
-  def __init__(self, block_layer: int, module_name: str, hook_fn: Callable):
+  def __init__(self, block_layer: int, module_name: str, hook_fn: Callable, return_module_output = True):
     self.path_dict = {
         'resid': '',
     }
     assert module_name in self.path_dict.keys(), f'Module name \'{module_name}\' not recognised.'
+    self.return_module_output = return_module_output
     self.function = self.get_full_hook_fn(hook_fn, module_name)
     self.attr_path = self.get_attr_path(block_layer, module_name)
 
   def get_full_hook_fn(self, hook_fn: Callable, module_name: str):
 
     def full_hook_fn(module, module_input, module_output):
-      return hook_fn(module_output)
+      hook_fn_output = hook_fn(module_output[0])
+      if self.return_module_output:
+        return module_output
+      else:
+        return (hook_fn_output,) # Inexplicably, the module output is not a tensor of activaitons but a tuple (tensor,)...??
 
     return full_hook_fn
-
+  
+  
   def get_attr_path(self, block_layer: int, module_name: str) -> str:
-    attr_path = f'vision_model.encoder.layer[{block_layer}]'
+    attr_path = f'vision_model.encoder.layers[{block_layer}]'
     attr_path += self.path_dict[module_name]
     return attr_path
   
@@ -73,7 +79,7 @@ class HookedVisionTransformer():
     cache_dict, list_of_hooks = self.get_caching_hooks(list_of_hook_locations)
     with self.hooks(list_of_hooks) as hooked_model:
       with torch.no_grad():
-        output = hooked_model(*args, **kwargs).detach()
+        output = hooked_model(*args, **kwargs)
         
     if return_type=="output":
       return output, cache_dict
