@@ -219,6 +219,10 @@ def get_feature_data(
     model_activations = get_all_model_activations(model, images, sparse_autoencoder.cfg) # tensor of size [batch, d_resid]
     sae_activations = get_sae_activations(model_activations, sparse_autoencoder, torch.tensor(feature_idx)) # tensor of size [batch, feature_idx]
     del model_activations
+    
+    # Convert the images list to a torch tensor
+    images = model.processor(images=images, return_tensors="pt", padding = True)['pixel_values']
+    
     values, indices = topk(sae_activations, k = number_of_max_activating_images, dim = 0)
     sparsity = (sae_activations>0).sum(dim = 0)/sae_activations.size()[0]
     for feature in trange(len(feature_idx), desc = "Dashboard: getting and saving highest activating images"):
