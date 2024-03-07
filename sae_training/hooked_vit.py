@@ -24,10 +24,10 @@ class Hook():
     }
     assert module_name in self.path_dict.keys(), f'Module name \'{module_name}\' not recognised.'
     self.return_module_output = return_module_output
-    self.function = self.get_full_hook_fn(hook_fn, module_name)
+    self.function = self.get_full_hook_fn(hook_fn)
     self.attr_path = self.get_attr_path(block_layer, module_name)
 
-  def get_full_hook_fn(self, hook_fn: Callable, module_name: str):
+  def get_full_hook_fn(self, hook_fn: Callable):
 
     def full_hook_fn(module, module_input, module_output):
       hook_fn_output = hook_fn(module_output[0])
