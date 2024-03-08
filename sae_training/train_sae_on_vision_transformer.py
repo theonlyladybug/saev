@@ -220,10 +220,12 @@ def train_sae_on_vision_transformer(
 @torch.no_grad()
 def run_evals(sparse_autoencoder: SparseAutoencoder, activation_store: ViTActivationsStore, model: HookedVisionTransformer, n_training_steps: int):
     def zero_ablation(activations):
-        return (torch.zeros_like(activations).to(activations.device),)
+        activations[:,0,:] = torch.zeros_like(activations[:,0,:]).to(activations.device)
+        return (activations,) # activations of size [batch, token, dimension]
     
     def sae_hook(activations):
-        return sparse_autoencoder(activations)
+        activations[:,0,:] = sparse_autoencoder(activations[:,0,:])[0]
+        return (activations,)
     
     model_inputs = activation_store.get_batch_of_images_and_labels()
     original_loss = model(return_type='loss', **model_inputs).item()
