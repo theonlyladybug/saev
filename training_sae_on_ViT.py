@@ -47,7 +47,7 @@ cfg = ViTSAERunnerConfig(
     dataset_path = "evanarlian/imagenet_1k_resized_256",
     use_cached_activations = False,
     cached_activations_path = None,
-    d_in = 768,
+    d_in = 1024,
     
     # SAE Parameters
     expansion_factor = 64,
@@ -57,9 +57,9 @@ cfg = ViTSAERunnerConfig(
     lr = 0.0004,
     l1_coefficient = 0.00008,
     lr_scheduler_name="constantwithwarmup",
-    batch_size = 1024,
+    batch_size = 2048,
     lr_warm_up_steps=500,
-    total_training_tokens = 2_097_152,
+    total_training_tokens = 4_194_304,
     n_batches_in_store = 10,
     
     # Dead Neurons and Sparsity
