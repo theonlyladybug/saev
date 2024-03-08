@@ -41,9 +41,9 @@ cfg = ViTSAERunnerConfig(
     class_token = True,
     image_width = 224,
     image_height = 224,
-    model_name = "openai/clip-vit-base-patch32",
+    model_name = "openai/clip-vit-large-patch14",
     module_name = "resid",
-    block_layer = 10,
+    block_layer = -2,
     dataset_path = "evanarlian/imagenet_1k_resized_256",
     use_cached_activations = False,
     cached_activations_path = None,
@@ -55,12 +55,12 @@ cfg = ViTSAERunnerConfig(
     
     # Training Parameters
     lr = 0.0004,
-    l1_coefficient = 0.00006,
+    l1_coefficient = 0.00008,
     lr_scheduler_name="constantwithwarmup",
     batch_size = 1024,
     lr_warm_up_steps=500,
-    total_training_tokens = 2_096_912,
-    n_batches_in_store = 20,
+    total_training_tokens = 2_097_152,
+    n_batches_in_store = 10,
     
     # Dead Neurons and Sparsity
     use_ghost_grads=True,

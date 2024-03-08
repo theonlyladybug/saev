@@ -44,9 +44,9 @@ def app_navigation(dirs):
 
 main_directory = 'dashboard'
 sub_direcotry = 'max_activating'
-sae_path = "checkpoints/j8ypzgjh/final_sparse_autoencoder_vit_base_patch32_clip_224_10_resid_49152.pt"
-model_name = "vit_base_patch32_clip_224"
-layer = 10
+sae_path = ""
+model_name = "openai/clip-vit-large-patch14"
+layer = -2
 location = "residual stream"
 number_of_images_generated = 500
 # Displays png files in dashboard/feature_idx/test directory
