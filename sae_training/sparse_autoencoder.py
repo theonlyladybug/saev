@@ -130,8 +130,7 @@ class SparseAutoencoder(HookedRootModule):
         mse_loss_ghost_resid = mse_loss_ghost_resid.mean()
         mse_loss = mse_loss.mean()
         sparsity = torch.abs(feature_acts).sum(dim=1).mean(dim=(0,))
-        l2 = torch.norm(feature_acts, dim = 1).mean(dim=0)
-        l1_loss = self.l1_coefficient * (sparsity+l2)
+        l1_loss = self.l1_coefficient * sparsity
         loss = mse_loss + l1_loss + mse_loss_ghost_resid
 
         return sae_out, feature_acts, loss, mse_loss, l1_loss, mse_loss_ghost_resid
