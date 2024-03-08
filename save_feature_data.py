@@ -30,7 +30,7 @@ if torch.backends.mps.is_available():
 else:
     device = "cuda" if torch.cuda.is_available() else "cpu"
     
-sae_path = ""
+sae_path = "checkpoints/pcy601zk/final_sparse_autoencoder_openai/clip-vit-large-patch14_-2_resid_65536.pt"
 
 loaded_object = torch.load(sae_path)
 
@@ -54,7 +54,7 @@ get_feature_data(
     sparse_autoencoder,
     model,
     list(range(cfg.d_sae)),
-    number_of_images = 32_768,
+    number_of_images = 262_144,
 )
 
 

@@ -44,7 +44,7 @@ def app_navigation(dirs):
 
 main_directory = 'dashboard'
 sub_direcotry = 'max_activating'
-sae_path = ""
+sae_path = "checkpoints/pcy601zk/final_sparse_autoencoder_openai/clip-vit-large-patch14_-2_resid_65536.pt"
 model_name = "openai/clip-vit-large-patch14"
 layer = -2
 location = "residual stream"

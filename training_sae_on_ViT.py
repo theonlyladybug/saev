@@ -57,10 +57,10 @@ cfg = ViTSAERunnerConfig(
     lr = 0.0004,
     l1_coefficient = 0.00008,
     lr_scheduler_name="constantwithwarmup",
-    batch_size = 2048,
+    batch_size = 1024,
     lr_warm_up_steps=500,
-    total_training_tokens = 4_194_304,
-    n_batches_in_store = 10,
+    total_training_tokens = 2_097_152,
+    n_batches_in_store = 15,
     
     # Dead Neurons and Sparsity
     use_ghost_grads=True,
