@@ -238,10 +238,10 @@ def get_feature_data(
     sparse_autoencoder.eval()
     
     if sparse_autoencoder.cfg.model_name == "openai/clip-vit-large-patch14": # Need to include layernorm in the future! Also put this in a function!!
-        visual_proj = model.model.visual_projection.weight.detach().transpose(0,1)
-        text_proj = model.model.text_projection.weight.detach().transpose(0,1)
+        visual_proj = model.model.visual_projection.weight.detach()
+        text_proj = model.model.text_projection.weight.detach()
         inverse_text_proj = torch.inverse(text_proj)
-        map_to_text = torch.matmul(visual_proj, inverse_text_proj)
+        map_to_text = torch.matmul(inverse_text_proj, visual_proj)
         del visual_proj, text_proj, inverse_text_proj
     
     text_encoding = None
@@ -290,12 +290,11 @@ def get_feature_data(
                 max_images = images[max_image_indices] # size [number_of_max_activating_images, C, W, H]
                 
                 # Find the vector to condition stable difussion on
-                if number_of_images_processed==0 and sparse_autoencoder.cfg.model_name == "openai/clip-vit-large-patch14":
+                if sparse_autoencoder.cfg.model_name == "openai/clip-vit-large-patch14":
                     encoder_vector = sparse_autoencoder.W_enc[:,feature_idx[feature]]
                     encoder_vector /= torch.norm(encoder_vector).pow(2)
                     residual_vector = sparse_autoencoder.b_dec + encoder_vector * (1-sparse_autoencoder.b_enc[feature_idx[feature]])
                     text_encoding = torch.matmul(map_to_text, residual_vector)
-                    pass
                 
                 data = FeatureData(feature_idx[feature], max_images, max_image_values, feature_sparsity, text_encoding = text_encoding)
                 data.save_image_data()
