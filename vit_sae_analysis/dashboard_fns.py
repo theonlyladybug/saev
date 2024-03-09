@@ -93,10 +93,7 @@ class FeatureData():
     max_activating_images: Tensor # [Batch, C, W, H]
     max_image_values: Tensor # [Batch]
     feature_sparsity: float
-    quantile_activating_images: Optional[Dict[int, Tensor]] = None
-    text_explanation: Optional[List[str]] = None
-    feature_visualisation: Optional[Tensor] = None
-    diffusion_visualisation: Optional[Tensor] = None
+    text_encoding: Optional[Tensor] = None
     
     def __post_init__(self):
         if self.quantile_activating_images is not None:
@@ -115,6 +112,9 @@ class FeatureData():
         # Open the file in write mode ('w') and write the string
         with open(file_path, 'a') as file:
             file.write(f"Log_10 feature sparsity: {torch.log10(self.feature_sparsity)}" + "\n")
+        
+        if self.text_encoding is not None:
+            torch.save(self.text_encoding, directory_path + '/text_encoding.pt')
             
         # Check whether max activating examples exist!
         if os.path.exists(directory_path + f'/max_activating') and os.path.isdir(directory_path + f'/max_activating'):
@@ -237,6 +237,15 @@ def get_feature_data(
     torch.cuda.empty_cache()
     sparse_autoencoder.eval()
     
+    if sparse_autoencoder.cfg.model_name == "openai/clip-vit-large-patch14": # Need to include layernorm in the future! Also put this in a function!!
+        visual_proj = model.visual_projection.weight.detach().transpose(0,1)
+        text_proj = model.text_projection.weight.detach().transpose(0,1)
+        inverse_text_proj = torch.inverse(text_proj)
+        map_to_text = torch.matmul(visual_proj, inverse_text_proj)
+        del visual_proj, text_proj, inverse_text_proj
+    
+    text_encoding = None
+    
     dataset = load_dataset(sparse_autoencoder.cfg.dataset_path, split="train")
     
     if sparse_autoencoder.cfg.dataset_path=="cifar100": # Need to put this in the cfg
@@ -250,6 +259,7 @@ def get_feature_data(
     number_of_images_processed = 0
     all_images_processed=False
     while number_of_images_processed < number_of_images:
+        torch.cuda.empty_cache()
         images = []
         for image in trange(max_number_of_images_per_iteration, desc = "Getting images for dashboard"):
             with torch.no_grad():
@@ -279,11 +289,20 @@ def get_feature_data(
                 feature_sparsity = sparsity[feature]
                 max_images = images[max_image_indices] # size [number_of_max_activating_images, C, W, H]
                 
-                # Find the quantile images... yet to implement
+                # Find the vector to condition stable difussion on
+                if number_of_images_processed==0 and sparse_autoencoder.cfg.model_name == "openai/clip-vit-large-patch14":
+                    encoder_vector = sparse_autoencoder.W_enc[:,feature_idx[feature]]
+                    encoder_vector /= torch.norm(encoder_vector).pow(2)
+                    residual_vector = sparse_autoencoder.b_dec + encoder_vector * (1-sparse_autoencoder.b_enc[feature_idx[feature]])
+                    text_encoding = torch.matmul(map_to_text, residual_vector)
+                    pass
                 
-                data = FeatureData(feature_idx[feature], max_images, max_image_values, feature_sparsity)
+                data = FeatureData(feature_idx[feature], max_images, max_image_values, feature_sparsity, text_encoding = text_encoding)
                 data.save_image_data()
+                
         number_of_images_processed += max_number_of_images_per_iteration
+        
+        del images, values, indices, sparsity, sae_activations
         
         if all_images_processed:
             break
