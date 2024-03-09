@@ -94,12 +94,6 @@ class FeatureData():
     max_image_values: Tensor # [Batch]
     feature_sparsity: float
     text_encoding: Optional[Tensor] = None
-    
-    def __post_init__(self):
-        if self.quantile_activating_images is not None:
-            self.number_of_quantiles = len(self.quantile_activating_images)
-        else:
-            self.number_of_quantiles = None
         
     def save_image_data(self, directory_path: str = "dashboard", device = 'cuda'):
         directory_path += f'/{self.feature_idx}'
