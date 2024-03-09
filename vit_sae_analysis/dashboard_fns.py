@@ -238,8 +238,8 @@ def get_feature_data(
     sparse_autoencoder.eval()
     
     if sparse_autoencoder.cfg.model_name == "openai/clip-vit-large-patch14": # Need to include layernorm in the future! Also put this in a function!!
-        visual_proj = model.visual_projection.weight.detach().transpose(0,1)
-        text_proj = model.text_projection.weight.detach().transpose(0,1)
+        visual_proj = model.model.visual_projection.weight.detach().transpose(0,1)
+        text_proj = model.model.text_projection.weight.detach().transpose(0,1)
         inverse_text_proj = torch.inverse(text_proj)
         map_to_text = torch.matmul(visual_proj, inverse_text_proj)
         del visual_proj, text_proj, inverse_text_proj
