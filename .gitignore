@@ -171,6 +171,7 @@ layer_10_dashboard/
 data/
 artifacts/
 activations/
+leap_files/
 
 *.html
 *.DS_Store
