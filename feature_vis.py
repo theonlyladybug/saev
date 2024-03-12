@@ -1,17 +1,33 @@
 from torch import nn
 import torch
-from vit_sae_analysis.dashboard_fns import get_model_activations, get_sae_activations, get_all_model_activations
 from transformers import CLIPProcessor, CLIPModel
 from PIL import Image
 from leap_ie.vision import engine
 
-"""
-Need to load sae, initialise new_sae, change state_dict
-"""
-target_index=133
+import os
+import glob
 
-
+def find_subdirectories_with_pngs(directory_path = 'dashboard', threshold = 10):
+    subdirs_with_pngs = []  # List to store subdirectories meeting the criteria
     
+    # Iterate through each subdirectory in the given directory path
+    for root, dirs, files in os.walk(directory_path):
+        for subdir in dirs:
+            subdir_path = os.path.join(root, subdir + "/max_activating")  # Construct path to subdirectory
+            
+            # Use glob to find all .png files within the subdirectory
+            png_files = glob.glob(os.path.join(subdir_path, '*.png'))
+            
+            # Check if there are more than 6 .png files
+            if len(png_files) >= threshold:
+                # Add the subdirectory path to the list
+                subdirs_with_pngs.append(int(subdir))
+                
+    return subdirs_with_pngs
+
+
+alive_idxs = find_subdirectories_with_pngs()
+
 class partial_model(nn.Module):
     def __init__(self, sae_config, sae):
         super().__init__()
@@ -27,11 +43,12 @@ class partial_model(nn.Module):
     def forward(self, x):
         x = self.clip_model.vision_model.embeddings(x)
         x = self.clip_model.vision_model.pre_layrnorm(x)
+        num_layers = len(self.clip_model.vision_model.encoder.layers)
         for idx, layer in enumerate(self.clip_model.vision_model.encoder.layers):
-            if idx<=self.sae_config.block_layer:
-                x = layer(x)[0]
+            if idx<= (self.sae_config.block_layer % num_layers):
+                x = layer(x, None, None)[0]
         x = self.sae(x[:,0,:])
-        return x
+        return x[:,alive_idxs]
     
 class new_sae(nn.Module):
     def __init__(self, config):
@@ -58,7 +75,8 @@ class new_sae(nn.Module):
             own_state[name].copy_(param)
         
         
-
+target_index=133
+target_index = alive_idxs.index(target_index)
 sae_path = "checkpoints/pcy601zk/final_sparse_autoencoder_openai/clip-vit-large-patch14_-2_resid_65536.pt"
 loaded_object = torch.load(sae_path)
 cfg = loaded_object['cfg']
@@ -70,26 +88,24 @@ partial_model_instance = partial_model(cfg, sparse_autoencoder)
 partial_model_instance = partial_model_instance.to(cfg.device)
 
 #Load images:
-image = Image.open('dashboard/64081/max_activating/0_0.008484.png')
-inputs = partial_model_instance.processor(images=[image], return_tensors="pt", padding = True).to(cfg.device)
+images = [Image.open('dashboard/133/max_activating/8_14.05.png')]
+inputs = partial_model_instance.processor(images=images, return_tensors="pt", padding = True).to(cfg.device)
 
 output = partial_model_instance(inputs['pixel_values'])
-print(inputs['pixel_values'])
-input()
-print(f'l1 value: {output.sum()}')
-print(f'l0 value: {(output>0).sum()}')
+print(f'l1 value: {output.sum(dim = -1).detach()}')
+print(f'l0 value: {(output>0).sum(dim = -1).detach()}')
 
 #LEAP config
 config = {"leap_api_key": "LEAPIE908A240083F2956D8A4CF8B8C0689EB"}
 
-# res = engine.generate(
-#     project_name="MATS",
-#     model=partial_model_instance,
-#     class_list=[str(i) for i in range(1000)],
-#     config=config,
-#     target_classes=[target_index],
-#     samples=None,
-#     device='cuda',
-#     mode="pt",
-# )
+res = engine.generate(
+    project_name="MATS",
+    model=partial_model_instance,
+    class_list=[str(i) for i in range(len(alive_idxs))],
+    config=config,
+    target_classes=[target_index],
+    samples=None,
+    device='cuda',
+    mode="pt",
+)
 
