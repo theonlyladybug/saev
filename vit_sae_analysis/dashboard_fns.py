@@ -65,7 +65,7 @@ def convert_images_to_tensor(images, device='cuda'):
     # Define a transform to convert PIL images (in RGB) to tensors
     transform = transforms.Compose([
         transforms.Lambda(lambda img: img.convert("RGB")),  # Convert image to RGB
-        transforms.Resize((224, 224)),  # Resize the image to 224x224 pixels
+        transforms.Resize((256, 256)),  # Resize the image to 224x224 pixels
         transforms.ToTensor(),  # Convert the image to a torch tensor
     ])
 

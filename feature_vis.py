@@ -7,7 +7,7 @@ from leap_ie.vision import engine
 import os
 import glob
 
-def find_subdirectories_with_pngs(directory_path = 'dashboard', threshold = 10):
+def find_alive_idxs(directory_path = 'dashboard', threshold = 10):
     subdirs_with_pngs = []  # List to store subdirectories meeting the criteria
     
     # Iterate through each subdirectory in the given directory path
@@ -26,7 +26,7 @@ def find_subdirectories_with_pngs(directory_path = 'dashboard', threshold = 10):
     return subdirs_with_pngs
 
 
-alive_idxs = find_subdirectories_with_pngs()
+alive_idxs = find_alive_idxs()
 
 class partial_model(nn.Module):
     def __init__(self, sae_config, sae):
