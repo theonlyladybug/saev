@@ -3,7 +3,8 @@ import torch
 from transformers import CLIPProcessor, CLIPModel
 from PIL import Image
 from leap_ie.vision import engine
-
+from torchvision import transforms
+import shutil
 import os
 import glob
 
@@ -26,7 +27,6 @@ def find_alive_idxs(directory_path = 'dashboard', threshold = 10):
     return subdirs_with_pngs
 
 
-alive_idxs = find_alive_idxs()
 
 class partial_model(nn.Module):
     def __init__(self, sae_config, sae):
@@ -48,7 +48,7 @@ class partial_model(nn.Module):
             if idx<= (self.sae_config.block_layer % num_layers):
                 x = layer(x, None, None)[0]
         x = self.sae(x[:,0,:])
-        return x[:,alive_idxs]
+        return x
     
 class new_sae(nn.Module):
     def __init__(self, config):
@@ -61,7 +61,7 @@ class new_sae(nn.Module):
         x -= self.b_dec
         x = x @ self.W_enc.data
         x += self.b_enc
-        x = nn.functional.relu(x)
+        # x = nn.functional.relu(x)
         return x
     
     def load_my_state_dict(self, state_dict):
@@ -75,8 +75,8 @@ class new_sae(nn.Module):
             own_state[name].copy_(param)
         
         
-target_index=133
-target_index = alive_idxs.index(target_index)
+target_indices = []
+# 774, 10057, 25081, 14061
 sae_path = "checkpoints/pcy601zk/final_sparse_autoencoder_openai/clip-vit-large-patch14_-2_resid_65536.pt"
 loaded_object = torch.load(sae_path)
 cfg = loaded_object['cfg']
@@ -87,25 +87,55 @@ sparse_autoencoder = sparse_autoencoder.to(cfg.device)
 partial_model_instance = partial_model(cfg, sparse_autoencoder)
 partial_model_instance = partial_model_instance.to(cfg.device)
 
-#Load images:
-images = [Image.open('dashboard/133/max_activating/8_14.05.png')]
-inputs = partial_model_instance.processor(images=images, return_tensors="pt", padding = True).to(cfg.device)
 
-output = partial_model_instance(inputs['pixel_values'])
-print(f'l1 value: {output.sum(dim = -1).detach()}')
-print(f'l0 value: {(output>0).sum(dim = -1).detach()}')
-
+max_steps = 3000
+lr = [0.001, 0.005, 0.01,0.05]
 #LEAP config
-config = {"leap_api_key": "LEAPIE908A240083F2956D8A4CF8B8C0689EB"}
+for target_index in target_indices:
+    print(f'Starting feature viz for neuron {target_index}!')
+    for learning_rate in lr:
+        config = {"leap_api_key": "LEAPIE908A240083F2956D8A4CF8B8C0689EB","lr":0.06,"leap_logging":False,"max_steps":max_steps, "use_blur":True}
 
-res = engine.generate(
-    project_name="MATS",
-    model=partial_model_instance,
-    class_list=[str(i) for i in range(len(alive_idxs))],
-    config=config,
-    target_classes=[target_index],
-    samples=None,
-    device='cuda',
-    mode="pt",
-)
+        res = engine.generate(
+            project_name="MATS-cs_objective",
+            model=partial_model_instance,
+            class_list=[str(i) for i in range(cfg.d_sae)],
+            preprocessing = [transforms.Normalize(mean=(0.48145466, 0.4578275, 0.40821073), std=(0.26862954, 0.26130258, 0.27577711))],
+            config=config,
+            target_classes=[target_index],
+            samples=None,
+            device='cuda',
+            mode="pt",
+        )
+        
+        #Load images:
+        current_file_path = f'leap_files/prototype_{max_steps}_0_{target_index}.png'
+        images = [Image.open(f'leap_files/prototype_{max_steps}_0_{target_index}.png')]
+        inputs = partial_model_instance.processor(images=images, return_tensors="pt", padding = True).to(cfg.device)
 
+        temperature=1
+        output = nn.functional.relu(partial_model_instance(inputs['pixel_values']))
+        post_relu_logits = output[0,target_index]
+        print(f'post relu logits: {post_relu_logits}')
+        probabilities = nn.functional.softmax(output/temperature, dim = -1)
+        print(f'probability of target class: {probabilities[0,target_index]}')
+        print(f'l1 value: {output.sum(dim = -1).detach()}')
+        print(f'l0 value: {(output>0).sum(dim = -1).detach()}')
+        target_file_path = f'dashboard/{target_index}/feature_vis/{learning_rate}_{post_relu_logits:.4g}.png'
+        if post_relu_logits>1:
+            new_directory = os.path.dirname(target_file_path)
+
+            # Check if the new directory exists, create it if it doesn't
+            if not os.path.exists(new_directory):
+                os.makedirs(new_directory)
+
+            # Move the file
+            shutil.move(current_file_path, target_file_path)
+    directory_path = 'leap_files'
+    items = glob.glob(directory_path)
+
+    for item in items:
+        if os.path.isfile(item):
+            os.remove(item)
+        elif os.path.isdir(item):
+            shutil.rmtree(item)
