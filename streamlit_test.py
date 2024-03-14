@@ -1,6 +1,7 @@
 import streamlit as st
 import os
 import random
+import glob
 import PIL.Image as Image
 from load_sae_images_acts import load_random_images_and_activations
 import numpy as np
@@ -8,6 +9,18 @@ import torch
 import random
 import plotly.express as px
 
+def list_subdirs_with_more_than_n_pngs(directory, n=6):
+    # List all subdirectories of the given directory
+    subdirs = [d for d in os.listdir(directory) if os.path.isdir(os.path.join(directory, d))]
+    # Filter subdirectories containing more than n PNG files
+    subdirs_with_n_pngs = []
+    for subdir in subdirs:
+        # List all PNG files in the subdirectory
+        png_files = glob.glob(os.path.join(directory + '/' + subdir + '/' + sub_direcotry, '*.png'))
+        # Check if the number of PNG files is greater than n
+        if len(png_files) > n:
+            subdirs_with_n_pngs.append(subdir)
+    return subdirs_with_n_pngs
 
 def list_contents(path):
     """List directories and .png files in the given path"""
@@ -26,7 +39,7 @@ def list_contents(path):
 def app_navigation(dirs):
     """App navigation logic including displaying .png files in a grid"""
     if 'current_path' not in st.session_state:
-        st.session_state.current_path = dirs[5]  # Default to first directory
+        st.session_state.current_path = dirs[0]  # Default to first directory
 
     selected_path = st.selectbox("Select directory", options=dirs, index=dirs.index(st.session_state.current_path))
     st.session_state.current_path = selected_path
@@ -40,7 +53,12 @@ def app_navigation(dirs):
             with cols[idx % 3]:  # Adjust the modulus for the number of columns
                 img = Image.open(os.path.join(main_directory + "/" + st.session_state.current_path + "/" + sub_direcotry, file))
                 st.image(img, caption=file, use_column_width=True)
-                
+        # with open(main_directory + "/" + st.session_state.current_path + '/' + 'sparsity.txt', 'r') as file:
+        #     file_content = file.read()
+        # # Displaying the content on the Streamlit app
+        # st.text_area("Feature sparsity:", height = 180, value=file_content, max_chars=None, key=None, help=None, on_change=None, args=None, kwargs=None, disabled=False, placeholder=None)
+        if st.button('Next neuron'):
+            st.session_state.current_path = dirs[dirs.index(st.session_state.current_path)+1]
 
 main_directory = 'dashboard'
 sub_direcotry = 'max_activating'
@@ -51,7 +69,7 @@ location = "residual stream"
 number_of_images_generated = 500
 # Displays png files in dashboard/feature_idx/test directory
 
-directories = list_contents(main_directory)[0]
+directories = list_subdirs_with_more_than_n_pngs(main_directory)
 
 if 'list_of_images_and_activations' not in st.session_state:
     st.session_state.list_of_images_and_activations = load_random_images_and_activations(sae_path, number_of_images_generated)

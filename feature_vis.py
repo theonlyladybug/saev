@@ -75,8 +75,9 @@ class new_sae(nn.Module):
             own_state[name].copy_(param)
         
         
-target_indices = []
-# 774, 10057, 25081, 14061
+target_indices = [380,886,1773,2297,4482,11059,22604,26958,30387]
+
+# 774, 10057, 25081, 14061, 2681
 sae_path = "checkpoints/pcy601zk/final_sparse_autoencoder_openai/clip-vit-large-patch14_-2_resid_65536.pt"
 loaded_object = torch.load(sae_path)
 cfg = loaded_object['cfg']
@@ -89,7 +90,7 @@ partial_model_instance = partial_model_instance.to(cfg.device)
 
 
 max_steps = 3000
-lr = [0.001, 0.005, 0.01,0.05]
+lr = [0.001,0.005,0.01,0.05]
 #LEAP config
 for target_index in target_indices:
     print(f'Starting feature viz for neuron {target_index}!')
