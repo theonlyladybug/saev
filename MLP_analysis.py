@@ -87,6 +87,11 @@ def save_highest_activating_images(max_activating_image_indices, max_activating_
             image = dataset[int(max_activating_image_indices[neuron, max_activaitng_image].item())][image_key]
             image.save(f"{directory}/{neuron}/{max_activaitng_image}_{int(max_activating_image_indices[neuron, max_activaitng_image].item())}_{max_activating_image_values[neuron, max_activaitng_image].item():.4g}.png", "PNG")
 
+def get_mean(dataset, model, image_key, sae_config, mean_size = 16_384):
+    images = dataset[:mean_size][image_key]
+    acts = get_all_model_activations(model, images, sae_config)
+    mean_acts = torch.mean(acts, dim = 0)
+    return mean_acts
 
 @torch.inference_mode()
 def get_feature_data(
@@ -96,6 +101,7 @@ def get_feature_data(
     number_of_max_activating_images: int = 15,
     max_number_of_images_per_iteration: int = 16_384,
     load_pretrained = True,
+    seed = 1,
 ):
     '''
     Need to do the following:
@@ -104,6 +110,7 @@ def get_feature_data(
     torch.cuda.empty_cache()
     
     dataset = load_dataset(sae_config.dataset_path, split="train")
+    dataset = dataset.shuffle(seed = seed)
     directory = 'MLP'
     
     if sae_config.dataset_path=="cifar100": # Need to put this in the cfg
@@ -113,6 +120,7 @@ def get_feature_data(
     MLP_size = model.model.vision_model.config.intermediate_size
     MLP_out_weights = model.model.vision_model.encoder.layers[sae_config.block_layer].mlp.fc2.weight.detach() # size [resid_dimension, mlp_dim]
     MLP_out_weights /= torch.norm(MLP_out_weights, dim = 0, keepdim = True)
+    mean_acts = get_mean(dataset, model, image_key, sae_config)
     if load_pretrained:
         max_activating_image_indices = torch.load(f'{directory}/max_activating_image_indices.pt')
         max_activating_image_values = torch.load(f'{directory}/max_activating_image_values.pt')
@@ -144,7 +152,7 @@ def get_feature_data(
                 all_images_processed=True
                 break
             
-            model_activations = get_all_model_activations(model, images, sae_config) # tensor of size [batch, d_resid]
+            model_activations = get_all_model_activations(model, images, sae_config) - mean_acts # tensor of size [batch, d_resid], with mean removed
             MLP_basis_activations = torch.nn.functional.relu(model_activations @ MLP_out_weights).transpose(0,1) # size [MLP_dim, batch]        
             del model_activations
             
@@ -219,4 +227,6 @@ model.to(cfg.device)
 
 get_feature_data(
     cfg, 
-    model)
+    model,
+    load_pretrained=False,
+    )
