@@ -76,6 +76,17 @@ def get_new_top_k(first_values, first_indices, second_values, second_indices, k)
     new_indices = torch.gather(total_indices, 1, indices_of_indices)
     return new_values, new_indices
 
+def save_highest_activating_images(max_activating_image_indices, max_activating_image_values, directory, dataset, image_key):
+    assert max_activating_image_values.size() == max_activating_image_indices.size(), "size of max activating image indices doesn't match the size of max activing values."
+    number_of_neurons, number_of_max_activating_examples = max_activating_image_values.size()
+    for neuron in range(number_of_neurons):
+        if not os.path.exists(f"{directory}/{neuron}"):
+            os.makedirs(f"{directory}/{neuron}")
+        for max_activaitng_image in range(number_of_max_activating_examples):
+            image = dataset[max_activating_image_indices[max_activaitng_image]][image_key]
+            image.save(f"{directory}/{neuron}/{max_activaitng_image}_{max_activating_image_indices[max_activaitng_image]}_{max_activating_image_values[max_activaitng_image]:.4g}.png", "PNG")
+
+
 @torch.inference_mode()
 def get_feature_data(
     sae_config: ViTSAERunnerConfig, 
@@ -145,3 +156,5 @@ def get_feature_data(
     
     torch.save(max_activating_image_indices, '{directory}/max_activating_image_indices.pt')
     torch.save(max_activating_image_values, '{directory}/max_activating_image_values.pt')
+    
+    save_highest_activating_images(max_activating_image_indices, max_activating_image_values, directory, dataset, image_key)
