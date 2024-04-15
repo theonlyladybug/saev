@@ -34,6 +34,7 @@ from sae_training.config import ViTSAERunnerConfig
 import torchvision.transforms as transforms
 from PIL import Image
 import shutil
+from sae_training.utils import ViTSparseAutoencoderSessionloader
 
 
 def get_model_activations(model, inputs, cfg):
@@ -92,7 +93,7 @@ def get_feature_data(
     sae_config: ViTSAERunnerConfig, 
     model: HookedVisionTransformer,
     number_of_images: int = 32_768,
-    number_of_max_activating_images: int = 10,
+    number_of_max_activating_images: int = 15,
     max_number_of_images_per_iteration: int = 16_384,
 ):
     '''
@@ -158,3 +159,59 @@ def get_feature_data(
     torch.save(max_activating_image_values, '{directory}/max_activating_image_values.pt')
     
     save_highest_activating_images(max_activating_image_indices[:1000], max_activating_image_values[:1000], directory, dataset, image_key)
+
+cfg = ViTSAERunnerConfig(
+    
+    # Data Generating Function (Model + Training Distibuion)
+    class_token = True,
+    image_width = 224,
+    image_height = 224,
+    model_name = "openai/clip-vit-large-patch14",
+    module_name = "resid",
+    block_layer = -2,
+    dataset_path = "evanarlian/imagenet_1k_resized_256",
+    use_cached_activations = False,
+    cached_activations_path = None,
+    d_in = 1024,
+    
+    # SAE Parameters
+    expansion_factor = 64,
+    b_dec_init_method = "mean",
+    
+    # Training Parameters
+    lr = 0.0004,
+    l1_coefficient = 0.00008,
+    lr_scheduler_name="constantwithwarmup",
+    batch_size = 1024,
+    lr_warm_up_steps=500,
+    total_training_tokens = 2_097_152,
+    n_batches_in_store = 15,
+    
+    # Dead Neurons and Sparsity
+    use_ghost_grads=True,
+    feature_sampling_method = None,
+    feature_sampling_window = 100,
+    dead_feature_window=5000,
+    dead_feature_threshold = 1e-6,
+    
+    # WANDB
+    log_to_wandb = True,
+    wandb_project= "mats-hugo",
+    wandb_entity = None,
+    wandb_log_frequency=20,
+    
+    # Misc
+    device = "cuda",
+    seed = 42,
+    n_checkpoints = 0,
+    checkpoint_path = "checkpoints",
+    dtype = torch.float32,
+    )
+
+loader = ViTSparseAutoencoderSessionloader(cfg)
+model = loader.get_model(cfg.model_name)
+model.to(cfg.device)
+
+get_feature_data(
+    cfg, 
+    model)
