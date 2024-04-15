@@ -157,4 +157,4 @@ def get_feature_data(
     torch.save(max_activating_image_indices, '{directory}/max_activating_image_indices.pt')
     torch.save(max_activating_image_values, '{directory}/max_activating_image_values.pt')
     
-    save_highest_activating_images(max_activating_image_indices, max_activating_image_values, directory, dataset, image_key)
+    save_highest_activating_images(max_activating_image_indices[:1000], max_activating_image_values[:1000], directory, dataset, image_key)
