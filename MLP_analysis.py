@@ -100,7 +100,7 @@ def get_feature_data(
     number_of_images: int = 32_768,
     number_of_max_activating_images: int = 15,
     max_number_of_images_per_iteration: int = 16_384,
-    load_pretrained = True,
+    load_pretrained = False,
     seed = 1,
 ):
     '''

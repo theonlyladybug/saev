@@ -87,54 +87,6 @@ def delete_files_in_directory(directory_path):
             print(f'Failed to delete {file_path}. Reason: {e}')
 
 
-@dataclass
-class FeatureData():
-    feature_idx: int
-    max_activating_images: Tensor # [Batch, C, W, H]
-    max_image_values: Tensor # [Batch]
-    feature_sparsity: float
-    text_encoding: Optional[Tensor] = None
-        
-    def save_image_data(self, directory_path: str = "dashboard", device = 'cuda'):
-        directory_path += f'/{self.feature_idx}'
-        # Ensure the directory exists
-        os.makedirs(directory_path, exist_ok=True)
-
-        # Define the full path of the file
-        file_path = os.path.join(directory_path, "sparsity.txt")
-
-        # Open the file in write mode ('w') and write the string
-        with open(file_path, 'a') as file:
-            file.write(f"Log_10 feature sparsity: {torch.log10(self.feature_sparsity)}" + "\n")
-        
-        if self.text_encoding is not None:
-            torch.save(self.text_encoding, directory_path + '/text_encoding.pt')
-            
-        # Check whether max activating examples exist!
-        if os.path.exists(directory_path + f'/max_activating') and os.path.isdir(directory_path + f'/max_activating'):
-            images_tensors, activations = load_images_and_convert_to_tensors(directory_path + f'/max_activating', device=device)
-            delete_files_in_directory(directory_path + f'/max_activating')
-            number_of_images = self.max_image_values.size()[0]
-            # Merge the saved images and new images
-            self.max_activating_images = torch.concat([self.max_activating_images,images_tensors], dim = 0).to(device)
-            self.max_image_values = torch.concat([self.max_image_values,activations], dim = 0).to(device)
-            # sort the merged tensors
-            _, indices = self.max_image_values.sort(descending=True)
-            self.max_image_values = self.max_image_values[indices]
-            self.max_activating_images = self.max_activating_images[indices]
-            # Take only the top n images
-            self.max_image_values = self.max_image_values[:number_of_images]
-            self.max_activating_images = self.max_activating_images[:number_of_images]
-        
-        # Loop through each image tensor and save it
-        for i, img_tensor in enumerate(self.max_activating_images):
-            if self.max_image_values[i]>0:
-                if not os.path.exists(directory_path + f'/max_activating'):
-                    os.makedirs(directory_path + f'/max_activating')
-                file_path = os.path.join(directory_path, f'max_activating/{i}_{self.max_image_values[i]:.4g}.png')
-                save_image(img_tensor, file_path)
-
-
 def get_model_activations(model, inputs, cfg):
     module_name = cfg.module_name
     block_layer = cfg.block_layer
@@ -168,22 +120,21 @@ def get_all_model_activations(model, images, cfg):
     sae_batches = sae_batches.to(cfg.device)
     return sae_batches
 
-def get_sae_activations(model_activaitons, sparse_autoencoder, feature_idx: Tensor):
+def get_sae_activations(model_activaitons, sparse_autoencoder):
     hook_name = "hook_hidden_post"
     max_batch_size = sparse_autoencoder.cfg.max_batch_size_for_vit_forward_pass # Use this for the SAE too
     number_of_mini_batches = model_activaitons.size()[0] // max_batch_size
     remainder = model_activaitons.size()[0] % max_batch_size
     sae_activations = []
     for mini_batch in trange(number_of_mini_batches, desc = "Dashboard: obtaining sae activations"):
-        sae_activations.append(sparse_autoencoder.run_with_cache(model_activaitons[mini_batch*max_batch_size : (mini_batch+1)*max_batch_size])[1][hook_name][:,feature_idx])
+        sae_activations.append(sparse_autoencoder.run_with_cache(model_activaitons[mini_batch*max_batch_size : (mini_batch+1)*max_batch_size])[1][hook_name])
     
     if remainder>0:
-        sae_activations.append(sparse_autoencoder.run_with_cache(model_activaitons[-remainder:])[1][hook_name][:,feature_idx])
+        sae_activations.append(sparse_autoencoder.run_with_cache(model_activaitons[-remainder:])[1][hook_name])
         
     sae_activations = torch.cat(sae_activations, dim = 0)
     sae_activations = sae_activations.to(sparse_autoencoder.cfg.device)
     return sae_activations
-
 
 def print_memory():
     # Check if CUDA is available
@@ -200,18 +151,34 @@ def print_memory():
         print(f"Remaining Memory: {remaining_memory / (1024**3):.2f} GB")
     else:
         print("CUDA is not available.")
+        
+def save_highest_activating_images(max_activating_image_indices, max_activating_image_values, directory, dataset, image_key):
+    assert max_activating_image_values.size() == max_activating_image_indices.size(), "size of max activating image indices doesn't match the size of max activing values."
+    number_of_neurons, number_of_max_activating_examples = max_activating_image_values.size()
+    for neuron in trange(number_of_neurons):
+        if not os.path.exists(f"{directory}/{neuron}"):
+            os.makedirs(f"{directory}/{neuron}")
+        for max_activaitng_image in range(number_of_max_activating_examples):
+            image = dataset[int(max_activating_image_indices[neuron, max_activaitng_image].item())][image_key]
+            image.save(f"{directory}/{neuron}/{max_activaitng_image}_{int(max_activating_image_indices[neuron, max_activaitng_image].item())}_{max_activating_image_values[neuron, max_activaitng_image].item():.4g}.png", "PNG")
 
+def get_new_top_k(first_values, first_indices, second_values, second_indices, k):
+    total_values = torch.cat([first_values, second_values], dim = 1)
+    total_indices = torch.cat([first_indices, second_indices], dim = 1)
+    new_values, indices_of_indices = topk(total_values, k=k, dim=1)
+    new_indices = torch.gather(total_indices, 1, indices_of_indices)
+    return new_values, new_indices
 
 @torch.inference_mode()
 def get_feature_data(
     sparse_autoencoder: SparseAutoencoder,
     model: HookedVisionTransformer,
-    feature_idx: List[int],
     number_of_images: int = 32_768,
     number_of_max_activating_images: int = 10,
     max_number_of_images_per_iteration: int = 16_384,
     seed: int = 1,
-) -> Dict[int, FeatureData]:
+    load_pretrained = False,
+):
     '''
     Gets data that will be used to create the sequences in the HTML visualisation.
 
@@ -232,15 +199,6 @@ def get_feature_data(
     torch.cuda.empty_cache()
     sparse_autoencoder.eval()
     
-    if sparse_autoencoder.cfg.model_name == "openai/clip-vit-large-patch14": # Need to include layernorm in the future! Also put this in a function!!
-        visual_proj = model.model.visual_projection.weight.detach()
-        text_proj = model.model.text_projection.weight.detach()
-        inverse_text_proj = torch.inverse(text_proj)
-        map_to_text = torch.matmul(inverse_text_proj, visual_proj)
-        del visual_proj, text_proj, inverse_text_proj
-    
-    text_encoding = None
-    
     dataset = load_dataset(sparse_autoencoder.cfg.dataset_path, split="train")
     
     if sparse_autoencoder.cfg.dataset_path=="cifar100": # Need to put this in the cfg
@@ -248,76 +206,59 @@ def get_feature_data(
     else:
         image_key = 'image'
         
-    dataset = dataset.shuffle()
-    iterable_dataset = iter(dataset)
+    dataset = dataset.shuffle(seed = seed)
+    directory = "dashboard"
     
-    number_of_images_processed = 0
-    all_images_processed=False
-    while number_of_images_processed < number_of_images:
-        torch.cuda.empty_cache()
-        images = []
-        for image in trange(max_number_of_images_per_iteration, desc = "Getting images for dashboard"):
-            with torch.no_grad():
-                try:
-                    images.append(next(iterable_dataset)[image_key])
-                except StopIteration:
-                    print('All of the images in the dataset have been processed!')
-                    all_images_processed=True
-                    break
+    if load_pretrained:
+        max_activating_image_indices = torch.load(f'{directory}/max_activating_image_indices.pt')
+        max_activating_image_values = torch.load(f'{directory}/max_activating_image_values.pt')
+    else:
+        max_activating_image_indices = torch.zeros([sparse_autoencoder.cfg.d_sae, number_of_max_activating_images]).to(sparse_autoencoder.cfg.device)
+        max_activating_image_values = torch.zeros([sparse_autoencoder.cfg.d_sae, number_of_max_activating_images]).to(sparse_autoencoder.cfg.device)
+        sae_sparsity = torch.zeros([sparse_autoencoder.cfg.d_sae]).to(sparse_autoencoder.cfg.device)
+        number_of_images_processed = 0
+        all_images_processed=False
+        while number_of_images_processed < number_of_images:
+            torch.cuda.empty_cache()
+            try:
+                images = dataset[number_of_images_processed:number_of_images_processed + max_number_of_images_per_iteration][image_key]
+            except StopIteration:
+                print('All of the images in the dataset have been processed!')
+                all_images_processed=True
+                break
+            
+            model_activations = get_all_model_activations(model, images, sparse_autoencoder.cfg) # tensor of size [batch, d_resid]
+            sae_activations = get_sae_activations(model_activations, sparse_autoencoder).transpose(0,1) # tensor of size [feature_idx, batch]
+            del model_activations
+            
+            sae_sparsity += (sae_activations>0).sum(dim = 1)
+            
+            # Convert the images list to a torch tensor
+            values, indices = topk(sae_activations, k = number_of_max_activating_images, dim = 1) # sizes [sae_idx, images] is the size of this matrix correct?
+            indices += number_of_images_processed
+            
+            max_activating_image_values, max_activating_image_indices = get_new_top_k(max_activating_image_values, max_activating_image_indices, values, indices, number_of_max_activating_images)
+            
+            """
+            Need to implement calculations for covariance matrix but it will need an additional 16 GB of memory just to store it (32 if I am batching I think...). Could it be added and stored on the CPU? Probs not...
+            """
+            number_of_images_processed += max_number_of_images_per_iteration
         
-        model_activations = get_all_model_activations(model, images, sparse_autoencoder.cfg) # tensor of size [batch, d_resid]
-        sae_activations = get_sae_activations(model_activations, sparse_autoencoder, torch.tensor(feature_idx)) # tensor of size [batch, feature_idx]
-        del model_activations
+        sae_sparsity /= number_of_images_processed
         
-        # Convert the images list to a torch tensor
-        images = convert_images_to_tensor(images)
-        values, indices = topk(sae_activations, k = number_of_max_activating_images, dim = 0)
-        sparsity = (sae_activations>0).sum(dim = 0)/sae_activations.size()[0]
+        # Check if the directory exists
+        if not os.path.exists(directory):
+            # Create the directory if it does not exist
+            os.makedirs(directory)
         
+        torch.save(max_activating_image_indices, f'{directory}/max_activating_image_indices.pt')
+        torch.save(max_activating_image_values, f'{directory}/max_activating_image_values.pt')
+        torch.save(sae_sparsity, f'{directory}/sae_sparsity.pt')
         
-        for feature in trange(len(feature_idx), desc = "Dashboard: getting and saving highest activating images"):
-            feature_sparsity = sparsity[feature]
-            if feature_sparsity>0:
-                # Find the top activating images...
-                max_image_indices = indices[:,feature]
-                max_image_values = values[:, feature]
-                feature_sparsity = sparsity[feature]
-                max_images = images[max_image_indices] # size [number_of_max_activating_images, C, W, H]
-                
-                # Find the vector to condition stable difussion on
-                if sparse_autoencoder.cfg.model_name == "openai/clip-vit-large-patch14":
-                    encoder_vector = sparse_autoencoder.W_enc[:,feature_idx[feature]]
-                    encoder_vector /= torch.norm(encoder_vector).pow(2)
-                    residual_vector = sparse_autoencoder.b_dec + encoder_vector * (1-sparse_autoencoder.b_enc[feature_idx[feature]])
-                    text_encoding = torch.matmul(map_to_text, residual_vector)
-                
-                data = FeatureData(feature_idx[feature], max_images, max_image_values, feature_sparsity, text_encoding = text_encoding)
-                data.save_image_data()
-                
-        number_of_images_processed += max_number_of_images_per_iteration
-        
-        del images, values, indices, sparsity, sae_activations
-        
-        if all_images_processed:
-            break
-        
+        save_highest_activating_images(max_activating_image_indices[:1000], max_activating_image_values[:1000], directory, dataset, image_key)
+
+
 """
-
-def save_highest_activating_images(max_activating_image_indices, max_activating_image_values, directory, dataset, image_key):
-    assert max_activating_image_values.size() == max_activating_image_indices.size(), "size of max activating image indices doesn't match the size of max activing values."
-    number_of_neurons, number_of_max_activating_examples = max_activating_image_values.size()
-    for neuron in trange(number_of_neurons):
-        if not os.path.exists(f"{directory}/{neuron}"):
-            os.makedirs(f"{directory}/{neuron}")
-        for max_activaitng_image in range(number_of_max_activating_examples):
-            image = dataset[int(max_activating_image_indices[neuron, max_activaitng_image].item())][image_key]
-            image.save(f"{directory}/{neuron}/{max_activaitng_image}_{int(max_activating_image_indices[neuron, max_activaitng_image].item())}_{max_activating_image_values[neuron, max_activaitng_image].item():.4g}.png", "PNG")
-
-def get_mean(dataset, model, image_key, sae_config, mean_size = 16_384):
-    images = dataset[:mean_size][image_key]
-    acts = get_all_model_activations(model, images, sae_config)
-    mean_acts = torch.mean(acts, dim = 0)
-    return mean_acts
 
 @torch.inference_mode()
 def get_feature_data(
