@@ -21,27 +21,21 @@ def train_sae_on_vision_transformer(
     model: HookedVisionTransformer,
     sparse_autoencoder: SparseAutoencoder,
     activation_store: ViTActivationsStore,
-    batch_size: int = 1024, # Isn't this contained in sparse_autoencoder.cfg.batch_size??
-    n_checkpoints: int = 0,
-    feature_sampling_method: str = "l2",  # None, l2, or anthropic # This is also contained in the .cfg object!
-    feature_sampling_window: int = 1000,  # how many training steps between resampling the features / considiring neurons dead
-    feature_reinit_scale: float = 0.2,  # how much to scale the resampled features by
-    dead_feature_threshold: float = 1e-8,  # how infrequently a feature has to be active to be considered dead
-    dead_feature_window: int = 2000,  # how many training steps before a feature is considered dead
-    use_wandb: bool = False,
-    wandb_log_frequency: int = 50,
 ):
-    if use_wandb:
+    feature_sampling_method = sparse_autoencoder.cfg.feature_sampling_method
+    batch_size = sparse_autoencoder.cfg.batch_size
+    total_training_tokens = sparse_autoencoder.cfg.total_training_tokens
+    n_checkpoints = sparse_autoencoder.cfg.n_checkpoints
+    
+    if sparse_autoencoder.cfg.log_to_wandb:
         wandb.init(project="mats-hugo")
     if feature_sampling_method is not None:
         feature_sampling_method = feature_sampling_method.lower()
 
-    total_training_tokens = sparse_autoencoder.cfg.total_training_tokens
+    
     total_training_steps = total_training_tokens // batch_size
     n_training_steps = 0
     n_training_tokens = 0
-    n_resampled_neurons = 0
-    steps_before_reset = 0
     if n_checkpoints > 0:
         checkpoint_thresholds = list(range(0, total_training_tokens, total_training_tokens // n_checkpoints))[1:]
     
@@ -71,12 +65,12 @@ def train_sae_on_vision_transformer(
         sparse_autoencoder.set_decoder_norm_to_unit_norm()
             
         # after resampling, reset the sparsity:
-        if (n_training_steps + 1) % feature_sampling_window == 0:
+        if (n_training_steps + 1) % sparse_autoencoder.cfg.feature_sampling_window == 0: # feature_sampling_window divides dead_sampling_window
             
             feature_sparsity = act_freq_scores / n_frac_active_tokens
             log_feature_sparsity = torch.log10(feature_sparsity + 1e-10).detach().cpu()
 
-            if use_wandb:
+            if sparse_autoencoder.cfg.log_to_wandb:
                 wandb_histogram = wandb.Histogram(log_feature_sparsity.numpy())
                 wandb.log(
                     {   
@@ -113,7 +107,7 @@ def train_sae_on_vision_transformer(
             n_frac_active_tokens += batch_size
             feature_sparsity = act_freq_scores / n_frac_active_tokens
 
-            if use_wandb and ((n_training_steps + 1) % wandb_log_frequency == 0):
+            if sparse_autoencoder.cfg.log_to_wandb and ((n_training_steps + 1) % sparse_autoencoder.cfg.wandb_log_frequency == 0):
                 # metrics for currents acts
                 l0 = (feature_acts > 0).float().sum(-1).mean()
                 current_learning_rate = optimizer.param_groups[0]["lr"]
@@ -145,7 +139,7 @@ def train_sae_on_vision_transformer(
                         .mean()
                         .item(),
                         "sparsity/dead_features": (
-                            feature_sparsity < dead_feature_threshold
+                            feature_sparsity < sparse_autoencoder.cfg.dead_feature_threshold
                         )
                         .float()
                         .mean()
@@ -157,7 +151,7 @@ def train_sae_on_vision_transformer(
                 )
 
             # record loss frequently, but not all the time.
-            if use_wandb and ((n_training_steps + 1) % wandb_log_frequency == 0):
+            if sparse_autoencoder.cfg.log_to_wandb and ((n_training_steps + 1) % sparse_autoencoder.cfg.wandb_log_frequency == 0):
                 if "cuda" in str(sparse_autoencoder.cfg.device):
                     torch.cuda.empty_cache()
                 sparse_autoencoder.eval()

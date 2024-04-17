@@ -17,11 +17,10 @@ sys.path.append("..")
 
 from sae_training.utils import LMSparseAutoencoderSessionloader
 from sae_analysis.visualizer import data_fns, html_fns
-from sae_analysis.visualizer.data_fns import get_feature_data, FeatureData
 from sae_training.config import ViTSAERunnerConfig
 from sae_training.vit_runner import vision_transformer_sae_runner
 from sae_training.train_sae_on_vision_transformer import train_sae_on_vision_transformer
-from vit_sae_analysis.dashboard_fns import get_feature_data, FeatureData
+from vit_sae_analysis.dashboard_fns import get_feature_data
 
 if torch.backends.mps.is_available():
     device = "mps" 
@@ -65,8 +64,8 @@ cfg = ViTSAERunnerConfig(
     # Dead Neurons and Sparsity
     use_ghost_grads=True,
     feature_sampling_method = None,
-    feature_sampling_window = 100,
-    dead_feature_window=5000,
+    feature_sampling_window = 32,
+    dead_feature_window=64,
     dead_feature_threshold = 1e-6,
     
     # WANDB
