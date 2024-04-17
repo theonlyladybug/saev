@@ -49,7 +49,7 @@ cfg = ViTSAERunnerConfig(
     d_in = 1024,
     
     # SAE Parameters
-    expansion_factor = 64,
+    expansion_factor = 16,
     b_dec_init_method = "mean",
     
     # Training Parameters
@@ -58,13 +58,13 @@ cfg = ViTSAERunnerConfig(
     lr_scheduler_name="constantwithwarmup",
     batch_size = 1024,
     lr_warm_up_steps=500,
-    total_training_tokens = 2_097_152,
+    total_training_tokens = 2_621_440,
     n_batches_in_store = 15,
     
     # Dead Neurons and Sparsity
     use_ghost_grads=True,
     feature_sampling_method = None,
-    feature_sampling_window = 32,
+    feature_sampling_window = 64,
     dead_feature_window=64,
     dead_feature_threshold = 1e-6,
     

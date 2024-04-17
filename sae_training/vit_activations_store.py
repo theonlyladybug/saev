@@ -57,7 +57,11 @@ class ViTActivationsStore:
         images = []
         labels = []
         for _ in range(batch_size):
-            data = next(self.iterable_dataset)
+            try:
+                data = next(self.iterable_dataset)
+            except StopIteration:
+                self.iterable_dataset = iter(self.dataset.shuffle())
+                data = next(self.iterable_dataset)
             image = data[self.image_key]
             label_index = data[self.label_key]
             images.append(image)
