@@ -49,7 +49,7 @@ cfg = ViTSAERunnerConfig(
     d_in = 1024,
     
     # SAE Parameters
-    expansion_factor = 16,
+    expansion_factor = 64,
     b_dec_init_method = "mean",
     
     # Training Parameters
@@ -90,7 +90,8 @@ sparse_autoencoder.eval()
 get_feature_data(
     sparse_autoencoder,
     model,
-    number_of_images = 32_768,
+    number_of_images = 524_288,
+    number_of_max_activating_images = 20,
 )
 
 print("*****Done*****")

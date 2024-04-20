@@ -220,21 +220,20 @@ def get_feature_data(
         max_activating_image_indices = torch.zeros([sparse_autoencoder.cfg.d_sae, number_of_max_activating_images]).to(sparse_autoencoder.cfg.device)
         max_activating_image_values = torch.zeros([sparse_autoencoder.cfg.d_sae, number_of_max_activating_images]).to(sparse_autoencoder.cfg.device)
         sae_sparsity = torch.zeros([sparse_autoencoder.cfg.d_sae]).to(sparse_autoencoder.cfg.device)
+        sae_mean_acts = torch.zeros([sparse_autoencoder.cfg.d_sae]).to(sparse_autoencoder.cfg.device)
         number_of_images_processed = 0
-        all_images_processed=False
         while number_of_images_processed < number_of_images:
             torch.cuda.empty_cache()
             try:
                 images = dataset[number_of_images_processed:number_of_images_processed + max_number_of_images_per_iteration][image_key]
             except StopIteration:
                 print('All of the images in the dataset have been processed!')
-                all_images_processed=True
                 break
             
             model_activations = get_all_model_activations(model, images, sparse_autoencoder.cfg) # tensor of size [batch, d_resid]
             sae_activations = get_sae_activations(model_activations, sparse_autoencoder).transpose(0,1) # tensor of size [feature_idx, batch]
             del model_activations
-            
+            sae_mean_acts += sae_activations.sum(dim = 1)
             sae_sparsity += (sae_activations>0).sum(dim = 1)
             
             # Convert the images list to a torch tensor
@@ -248,15 +247,23 @@ def get_feature_data(
             """
             number_of_images_processed += max_number_of_images_per_iteration
         
+        sae_mean_acts /= sae_sparsity
         sae_sparsity /= number_of_images_processed
         
         # Check if the directory exists
         if not os.path.exists(directory):
             # Create the directory if it does not exist
             os.makedirs(directory)
-        
+            
+        # compute the label tensor
+        max_activating_image_label_indices = torch.tensor([dataset[int(index)]['label'] for index in tqdm(max_activating_image_indices.flatten(), desc = "getting image labels")])
+        # Reshape to original dimensions
+        max_activating_image_label_indices = max_activating_image_label_indices.view(max_activating_image_indices.shape)
         torch.save(max_activating_image_indices, f'{directory}/max_activating_image_indices.pt')
         torch.save(max_activating_image_values, f'{directory}/max_activating_image_values.pt')
+        torch.save(max_activating_image_label_indices, f'{directory}/max_activating_image_label_indices.pt')
         torch.save(sae_sparsity, f'{directory}/sae_sparsity.pt')
+        torch.save(sae_mean_acts, f'{directory}/sae_mean_acts.pt')
+        # Should also save label information tensor here!!!
         
-    save_highest_activating_images(max_activating_image_indices[:1000], max_activating_image_values[:1000], directory, dataset, image_key)
+    save_highest_activating_images(max_activating_image_indices[:1000,:10], max_activating_image_values[:1000,:10], directory, dataset, image_key)
