@@ -1,6 +1,7 @@
 import gzip
 import json
 import os
+import random
 import pickle
 import time
 from collections import defaultdict
@@ -37,6 +38,8 @@ from PIL import Image
 from sae_training.utils import ViTSparseAutoencoderSessionloader
 import shutil
 
+save_neurons = False
+save_images = True
 
 expansion_factor = 64
 directory = f"expansion {expansion_factor}"  # "dashboard" 
@@ -126,16 +129,49 @@ def save_highest_activating_images(neuron_index, neuron_directory):
     new_im.save(f'{neuron_directory}/highest_activating_images.png')
 
 def save_MLP_cosine_similarity(neuron_index, neuron_directory):
-    new_cosine_similarities = cosine_similarities[neuron_index]
+    new_cosine_similarities = cosine_similarities[neuron_index].clone()
     torch.save(new_cosine_similarities, f"{neuron_directory}/MLP.pt")
+    
+def save_activations_and_neurons(image, index, image_directory):
+    module_name = cfg.module_name
+    block_layer = cfg.block_layer
+    list_of_hook_locations = [(block_layer, module_name)]
+    inputs = model.processor(images=[image], text = "", return_tensors="pt", padding = True).to(cfg.device)
+    model_activations = model.run_with_cache(
+        list_of_hook_locations,
+        **inputs,
+    )[1][(block_layer, module_name)]
+    model_activations = model_activations[:,0,:]
+    _, feature_acts, _, _, _, _ = sparse_autoencoder(model_activations)
+    feature_acts = feature_acts.to('cpu')
+    feature_acts = feature_acts[0]
+    _, sae_indices = torch.topk(feature_acts, 5)
+    torch.save(feature_acts, f'{image_directory}/activations.pt')
+    torch.save(sae_indices, f'{image_directory}/top_five_indices.pt')
+    for sae_index in sae_indices:
+        if not os.path.isdir(f'web_app_{expansion_factor}/neurons/{sae_index}'):
+            raise Exception("This sae feature has not yet been saved!")
 
-for index in tqdm(indices, desc = "saving highest activating grids"):
-    index = int(index.item())
-    new_directory = f"web_app_{expansion_factor}/neurons/{index}"
-    if not os.path.exists(new_directory):
-        os.makedirs(new_directory)
-    save_highest_activating_images(index, new_directory)
-    save_MLP_cosine_similarity(index, new_directory)
-    meta_data = {'neuron index': index, 'mean activation':sae_mean_acts[index].item(), 'label entropy':entropy_list[index].item()}
-    with open(f'{new_directory}/meta_data.pkl', 'wb') as pickle_file:
-        pickle.dump(meta_data, pickle_file)
+if save_neurons:
+    for index in tqdm(indices, desc = "saving highest activating grids"):
+        index = int(index.item())
+        new_directory = f"web_app_{expansion_factor}/neurons/{index}"
+        if not os.path.exists(new_directory):
+            os.makedirs(new_directory)
+        save_highest_activating_images(index, new_directory)
+        save_MLP_cosine_similarity(index, new_directory)
+        meta_data = {'neuron index': index, 'mean activation':sae_mean_acts[index].item(), 'label entropy':entropy_list[index].item()}
+        with open(f'{new_directory}/meta_data.pkl', 'wb') as pickle_file:
+            pickle.dump(meta_data, pickle_file)
+            
+if save_images:
+    # Generating 500 distinct random integers between 500,000 and 1,000,000
+    random_indices = random.sample(range(500000, 1000001), 500)
+    images = dataset[random_indices]['image']
+    for i, image in tqdm(enumerate(images), desc = "saving images for web app"):
+        new_directory = f"web_app_{expansion_factor}/images/{i}"
+        if not os.path.exists(new_directory):
+            os.makedirs(new_directory)
+        image.save(f"{new_directory}/image.png")
+        save_activations_and_neurons(image, i, new_directory)
+        

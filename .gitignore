@@ -174,7 +174,9 @@ activations/
 leap_files/
 MLP/
 expansion 64/
-expansion 16
+expansion 16/
+web_app_64/
+web_app_16/
 
 *.html
 *.DS_Store
