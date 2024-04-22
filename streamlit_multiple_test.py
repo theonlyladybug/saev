@@ -11,6 +11,8 @@ from PIL import Image, ImageFilter
 expansion_factor = 64
 
 def ordinal(n):
+    if n ==1:
+        return ""
     if 10 <= n % 100 <= 20:
         suffix = 'th'
     else:

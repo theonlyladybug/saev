@@ -38,10 +38,10 @@ from PIL import Image
 from sae_training.utils import ViTSparseAutoencoderSessionloader
 import shutil
 
-save_neurons = True
+save_neurons = False
 save_images = True
 
-expansion_factor = 16
+expansion_factor = 64
 directory = f"expansion {expansion_factor}"  # "dashboard" 
 sparsity = torch.load(f'{directory}/sae_sparsity.pt').to('cpu') # size [n]
 max_activating_image_indices = torch.load(f'{directory}/max_activating_image_indices.pt').to('cpu').to(torch.int32)
@@ -132,7 +132,7 @@ def save_MLP_cosine_similarity(neuron_index, neuron_directory):
     new_cosine_similarities = cosine_similarities[neuron_index].clone()
     torch.save(new_cosine_similarities, f"{neuron_directory}/MLP.pt")
     
-def save_activations_and_neurons(image, index, image_directory):
+def save_activations_and_neurons(image, image_directory):
     module_name = cfg.module_name
     block_layer = cfg.block_layer
     list_of_hook_locations = [(block_layer, module_name)]
@@ -146,11 +146,32 @@ def save_activations_and_neurons(image, index, image_directory):
     feature_acts = feature_acts.to('cpu')
     feature_acts = feature_acts[0].detach()
     _, sae_indices = torch.topk(feature_acts, 5)
+    if (torch.log10(sparsity)[sae_indices]>-1.16).sum()>0:
+        raise Exception("Image is invalid!")
     torch.save(feature_acts, f'{image_directory}/activations.pt')
     torch.save(sae_indices, f'{image_directory}/top_five_indices.pt')
     for sae_index in sae_indices:
         if not os.path.isdir(f'web_app_{expansion_factor}/neurons/{sae_index}'):
             raise Exception("This sae feature has not yet been saved!")
+        
+def is_valid_image(image):
+    module_name = cfg.module_name
+    block_layer = cfg.block_layer
+    list_of_hook_locations = [(block_layer, module_name)]
+    inputs = model.processor(images=[image], text = "", return_tensors="pt", padding = True).to(cfg.device)
+    model_activations = model.run_with_cache(
+        list_of_hook_locations,
+        **inputs,
+    )[1][(block_layer, module_name)]
+    model_activations = model_activations[:,0,:]
+    _, feature_acts, _, _, _, _ = sparse_autoencoder(model_activations)
+    feature_acts = feature_acts.to('cpu')
+    feature_acts = feature_acts[0].detach()
+    _, sae_indices = torch.topk(feature_acts, 5)
+    if (torch.log10(sparsity)[sae_indices]>-1.16).sum()>0:
+        return False
+    return True
+    
 
 if save_neurons:
     new_directory = f"web_app_{expansion_factor}/neurons"
@@ -169,14 +190,18 @@ if save_neurons:
             pickle.dump(meta_data, pickle_file)
             
 if save_images:
-    # Generating 500 distinct random integers between 500,000 and 1,000,000
-    random_indices = random.sample(range(500000, 1000001), 500)
-    images = dataset[random_indices]['image']
-    for i, image in tqdm(enumerate(images), desc = "saving images for web app"):
-        new_directory = f"web_app_{expansion_factor}/images/{i}"
-        if not os.path.exists(new_directory):
-            os.makedirs(new_directory)
-        image = image.resize((224, 224)).convert('RGB') 
-        image.save(f"{new_directory}/image.png")
-        save_activations_and_neurons(image, i, new_directory)
+    indices = np.random.permutation(np.arange(500000, 1000001)).tolist()
+    num_images = 0
+    for i in tqdm(indices, desc = "saving images for web app"):
+        image = dataset[i]['image']
+        if is_valid_image(image):
+            num_images+=1
+            new_directory = f"web_app_{expansion_factor}/images/{i}"
+            if not os.path.exists(new_directory):
+                os.makedirs(new_directory)
+            save_activations_and_neurons(image, new_directory)
+            image = image.resize((224, 224)).convert('RGB') 
+            image.save(f"{new_directory}/image.png")
+            if num_images>500:
+                break
         
