@@ -41,7 +41,7 @@ import shutil
 save_neurons = True
 save_images = True
 
-expansion_factor = 64
+expansion_factor = 16
 directory = f"expansion {expansion_factor}"  # "dashboard" 
 sparsity = torch.load(f'{directory}/sae_sparsity.pt').to('cpu') # size [n]
 max_activating_image_indices = torch.load(f'{directory}/max_activating_image_indices.pt').to('cpu').to(torch.int32)
@@ -144,7 +144,7 @@ def save_activations_and_neurons(image, index, image_directory):
     model_activations = model_activations[:,0,:]
     _, feature_acts, _, _, _, _ = sparse_autoencoder(model_activations)
     feature_acts = feature_acts.to('cpu')
-    feature_acts = feature_acts[0]
+    feature_acts = feature_acts[0].detach()
     _, sae_indices = torch.topk(feature_acts, 5)
     torch.save(feature_acts, f'{image_directory}/activations.pt')
     torch.save(sae_indices, f'{image_directory}/top_five_indices.pt')
@@ -176,6 +176,7 @@ if save_images:
         new_directory = f"web_app_{expansion_factor}/images/{i}"
         if not os.path.exists(new_directory):
             os.makedirs(new_directory)
+        image = image.resize((224, 224)).convert('RGB') 
         image.save(f"{new_directory}/image.png")
         save_activations_and_neurons(image, i, new_directory)
         

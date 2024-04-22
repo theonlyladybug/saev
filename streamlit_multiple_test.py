@@ -5,10 +5,17 @@ import pickle
 import torch
 import plotly.express as px
 import random
-from PIL import Image
+from PIL import Image, ImageFilter
 
 
-expansion_factor = 64
+expansion_factor = 16
+
+def ordinal(n):
+    if 10 <= n % 100 <= 20:
+        suffix = 'th'
+    else:
+        suffix = {1: 'st', 2: 'nd', 3: 'rd'}.get(n % 10, 'th')
+    return f"{n}{suffix}"
 
 def get_neuron_indices():
     directory = f"web_app_{expansion_factor}/neurons"
@@ -21,22 +28,67 @@ def get_neuron_indices():
     random.shuffle(indices)
     return indices
 
+def get_image_indices():
+    directory = f"web_app_{expansion_factor}/images"
+    indices=[]
+    for name in os.listdir(directory):
+        full_path = os.path.join(directory, name)
+        # Check if it's a directory
+        if os.path.isdir(full_path) and name.isdigit():
+            indices.append(int(name))
+    random.shuffle(indices)
+    return indices
+
+def game_get_image(refresh_all = True):
+    image_index = st.session_state.game_image_indices[st.session_state.game_index]
+    image = Image.open(f"web_app_{expansion_factor}/images/{image_index}/image.png")
+    if st.session_state.game_blurr:
+        image = image.filter(ImageFilter.GaussianBlur(radius=40))
+    st.session_state.game_image = image
+    if refresh_all:
+        tensor = torch.load(f'web_app_{expansion_factor}/images/{image_index}/activations.pt')
+        df = pd.DataFrame({
+            'X': range(len(tensor)),
+            'Y': tensor.numpy()  # Convert tensor to numpy array
+        })
+        fig = px.line(df, x='X', y='Y', labels={
+                'X': 'SAE index',  # Custom x-axis label
+                'Y': 'Activation value'  # Custom y-axis label
+            })
+        st.session_state.game_activations = fig
+        tensor = torch.load(f'web_app_{expansion_factor}/images/{image_index}/top_five_indices.pt')
+        st.session_state.top_five_features = [Image.open(f'web_app_{expansion_factor}/neurons/{neuron_index.item()}/highest_activating_images.png') for neuron_index in tensor]
+
+def game_next_image():
+    st.session_state.game_index = (st.session_state.game_index+1)%len(st.session_state.game_image_indices)
+    st.session_state.game_blurr = True
+    game_get_image()
+
+def game_previous_image():
+    st.session_state.game_index = (st.session_state.game_index-1)%len(st.session_state.game_image_indices)
+    st.session_state.game_blurr = True
+    game_get_image()
+
+def game_unblurr():
+    if st.session_state.game_blurr:
+        st.session_state.game_blurr = False
+        game_get_image(refresh_all = False)
+
 def set_selected_neuron():
-    st.session_state.navigator_selected_neuron = st.session_state.navigator_selected_neuron_index
     set_navigator_meta_data()
     set_navigator_image_grid()
     set_navigator_mlp()
     
 def set_navigator_meta_data():
-    with open(f'web_app_{expansion_factor}/neurons/{st.session_state.navigator_selected_neuron}/meta_data.pkl', 'rb') as file:
+    with open(f'web_app_{expansion_factor}/neurons/{st.session_state.navigator_selected_neuron_index}/meta_data.pkl', 'rb') as file:
         # Load the data from the file
         st.session_state.navigator_meta_data =  pd.DataFrame([pickle.load(file)])
 
 def set_navigator_image_grid():
-    st.session_state.navigator_image_grid = Image.open(f'web_app_{expansion_factor}/neurons/{st.session_state.navigator_selected_neuron}/highest_activating_images.png')
+    st.session_state.navigator_image_grid = Image.open(f'web_app_{expansion_factor}/neurons/{st.session_state.navigator_selected_neuron_index}/highest_activating_images.png')
         
 def set_navigator_mlp():
-    tensor = torch.load(f'web_app_{expansion_factor}/neurons/{st.session_state.navigator_selected_neuron}/MLP.pt')
+    tensor = torch.load(f'web_app_{expansion_factor}/neurons/{st.session_state.navigator_selected_neuron_index}/MLP.pt')
     df = pd.DataFrame({
         'X': range(len(tensor)),
         'Y': tensor.numpy()  # Convert tensor to numpy array
@@ -50,8 +102,32 @@ def set_navigator_mlp():
     )
     st.session_state.navigator_mlp = fig
     
+def navigator_previous_neuron():
+    st.session_state.navigator_current_index = (st.session_state.navigator_current_index - 1) % len(st.session_state.navigator_current_neuron_indices)
+    st.session_state.navigator_selected_neuron_index = st.session_state.navigator_current_neuron_indices[st.session_state.navigator_current_index]
+    set_selected_neuron()
     
-
+def navigator_next_neuron():
+    st.session_state.navigator_current_index = (st.session_state.navigator_current_index + 1) % len(st.session_state.navigator_current_neuron_indices)
+    st.session_state.navigator_selected_neuron_index = st.session_state.navigator_current_neuron_indices[st.session_state.navigator_current_index]
+    set_selected_neuron()
+    
+def navigator_positive_entropy():
+    st.session_state.navigator_current_neuron_indices = st.session_state.positive_entropy_list
+    st.session_state.navigator_current_index = 0 # This is the index of the list of neuron indices
+    st.session_state.navigator_selected_neuron_index = st.session_state.navigator_current_neuron_indices[st.session_state.navigator_current_index]
+    set_selected_neuron()
+    
+def navigator_reset_entropy():
+    st.session_state.navigator_current_neuron_indices = st.session_state.navigator_all_neuron_indices
+    st.session_state.navigator_current_index = 0 # This is the index of the list of neuron indices
+    st.session_state.navigator_selected_neuron_index = st.session_state.navigator_current_neuron_indices[st.session_state.navigator_current_index]
+    set_selected_neuron()
+    
+def set_dropdown_index():
+    st.session_state.navigator_selected_neuron_index = st.session_state.navigator_dropdown_selected_neuron
+    st.session_state.navigator_current_index = st.session_state.navigator_current_neuron_indices.index(st.session_state.navigator_selected_neuron_index)
+    set_selected_neuron()
     
 
 # Define a function to render the home page
@@ -61,11 +137,11 @@ def home_page():
 
 # Define a function to render Subpage 1
 def navigator():
-    st.title('Neuron navigator')
+    st.markdown("<h1 style='text-align: center;'>Neuron navigator</h1>", unsafe_allow_html=True)
     
     if 'navigator_selected_neuron_index' not in st.session_state:
-        st.session_state.navigator_selected_neuron_index = st.session_state.navigator_current_neuron_indices[0]
-        st.session_state.navigator_selected_neuron = st.session_state.navigator_selected_neuron_index
+        st.session_state.navigator_current_index = 0 # This is the index of the list of neuron indices
+        st.session_state.navigator_selected_neuron_index = st.session_state.navigator_current_neuron_indices[st.session_state.navigator_current_index]
     
     if 'navigator_meta_data' not in st.session_state:
         set_navigator_meta_data()
@@ -75,21 +151,24 @@ def navigator():
     
     if 'navigator_mlp' not in st.session_state:
         set_navigator_mlp()
-    
-    selected_neuron = st.selectbox("Select a neuron:", st.session_state.navigator_current_neuron_indices, on_change=set_selected_neuron)
+        
     col1, col2, col3, col4= st.columns(4, gap="small")
-    if col1.button("Previous neuron", use_container_width=True): # Use on_click...?
-        navigator_previous_neuron()
+    with col1:
+        st.button("Previous neuron", use_container_width=True, on_click = navigator_previous_neuron)
         
-    if col2.button("Next neuron", use_container_width=True):
-        navigator_next_neuron()
+    with col2:
+        st.button("Next neuron", use_container_width=True, on_click = navigator_next_neuron)
         
-    if col3.button("Entropy > 0", use_container_width=True):
-        navigator_positive_entropy()
+    with col3:
+        st.button("Filter entropy > 0", use_container_width=True, on_click = navigator_positive_entropy)
         
-    if col4.button("Reset", use_container_width=True):
-        navigator_reset_entropy()
+    with col4:
+        st.button("Reset filter", use_container_width=True, on_click = navigator_reset_entropy)
     
+    st.session_state.navigator_dropdown_selected_neuron = st.selectbox("Select a neuron:", st.session_state.navigator_current_neuron_indices, index = st.session_state.navigator_current_index)
+    
+    if st.session_state.navigator_dropdown_selected_neuron != st.session_state.navigator_selected_neuron_index:
+        set_dropdown_index()
     
     # Simulated data for display
     st.header("Meta data")
@@ -102,10 +181,31 @@ def navigator():
 
 # Define a function to render Subpage 2
 def game():
-    st.title('Guess the input image!')
-    st.button("Next image")
-    st.header('SAE activations')
+    if "game_image" not in st.session_state:
+        st.session_state.game_blurr = True
+        st.session_state.game_index = 0
+        game_get_image()
+        
+    st.markdown("<h1 style='text-align: center;'>Guess the input image!</h1>", unsafe_allow_html=True)
+    
+    col1, col2 = st.columns(2, gap = "small")
+    with col1:
+        st.button("Previous image", use_container_width=True, on_click = game_previous_image) # Chnages index value, sets blurr to true, then loads new image into game_image. see above code
+    with col2:
+        st.button("Next image", use_container_width=True, on_click = game_next_image) # Chnages index value, sets blurr to true, then loads new image into game_image. see above code
+    st.button("Unblurr", use_container_width=True, on_click = game_unblurr)  # If blurr is currently True, loads same image unblurred into game_image
+    cola, colb= st.columns(2, gap = "small")
+    with cola:
+        st.markdown("<p style='text-align: center;'>Input:</p>", unsafe_allow_html=True)
+        st.image(st.session_state.game_image, use_column_width=True)
+    with colb:
+        st.markdown("<p style='text-align: center;'>SAE activations:</p>", unsafe_allow_html=True)
+        st.plotly_chart(st.session_state.game_activations, use_container_width=True)
+        
     st.header('Top SAE features')
+    for i, image in enumerate(st.session_state.top_five_features):
+        st.markdown(f"<p style='text-align: center;'>{ordinal(i+1)} highest SAE feature:</p>", unsafe_allow_html=True)
+        st.image(image, use_column_width=True)
 
 # A simple function to change the page state
 def set_page(page_name):
@@ -119,8 +219,6 @@ with st.sidebar:
     st.text("  ")  # Adding some space before subpage buttons
     st.text("  ")  # Adding some space before subpage buttons
     if st.button(" 🔎 Neuron navigator"):
-        st.session_state.navigator_all_neuron_indices = get_neuron_indices()
-        st.session_state.navigator_current_neuron_indices = st.session_state.navigator_all_neuron_indices
         set_page('navigator')
     if st.button(" 🎮 Guess the input image"):
         set_page('game')
@@ -135,13 +233,15 @@ pages = {
 # Initialize the session state for page if it's not already set
 if 'page' not in st.session_state:
     st.session_state.page = 'home'
-    
-if 'entropy' not in st.session_state:
-    st.session_state.entropy = torch.load(f'web_app_{expansion_factor}/neurons/entropy.pt')
 
-if st.session_state.page == 'navigator' and 'navigator_all_neuron_indices' not in st.session_state: # Included as a santiy check. Should be set when the navigator button is pressed.
+if st.session_state.page == 'navigator' and ('navigator_all_neuron_indices' not in st.session_state or 'positive_entropy_list' not in st.session_state): # Included as a santiy check. Should be set when the navigator button is pressed.
     st.session_state.navigator_all_neuron_indices = get_neuron_indices()
     st.session_state.navigator_current_neuron_indices = st.session_state.navigator_all_neuron_indices
+    entropy =  torch.load(f'web_app_{expansion_factor}/neurons/entropy.pt')
+    st.session_state.positive_entropy_list = [index for index in st.session_state.navigator_all_neuron_indices if entropy[index].item()>0]
 
+if st.session_state.page == "game" and "game_image_indices" not in st.session_state:
+    st.session_state.game_image_indices = get_image_indices()
+    
 # Render the current page
 pages[st.session_state.page]()
