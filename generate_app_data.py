@@ -38,7 +38,7 @@ from PIL import Image
 from sae_training.utils import ViTSparseAutoencoderSessionloader
 import shutil
 
-save_neurons = False
+save_neurons = True
 save_images = True
 
 expansion_factor = 64
@@ -153,6 +153,10 @@ def save_activations_and_neurons(image, index, image_directory):
             raise Exception("This sae feature has not yet been saved!")
 
 if save_neurons:
+    new_directory = f"web_app_{expansion_factor}/neurons"
+    if not os.path.exists(new_directory):
+        os.makedirs(new_directory)
+    torch.save(entropy_list, f"web_app_{expansion_factor}/neurons/entropy.pt")
     for index in tqdm(indices, desc = "saving highest activating grids"):
         index = int(index.item())
         new_directory = f"web_app_{expansion_factor}/neurons/{index}"
@@ -160,7 +164,7 @@ if save_neurons:
             os.makedirs(new_directory)
         save_highest_activating_images(index, new_directory)
         save_MLP_cosine_similarity(index, new_directory)
-        meta_data = {'neuron index': index, 'mean activation':sae_mean_acts[index].item(), 'label entropy':entropy_list[index].item()}
+        meta_data = {'neuron index': index, 'log 10 sparsity': torch.log10(sparsity)[index].item(), 'mean activation':sae_mean_acts[index].item(), 'label entropy':entropy_list[index].item()}
         with open(f'{new_directory}/meta_data.pkl', 'wb') as pickle_file:
             pickle.dump(meta_data, pickle_file)
             
