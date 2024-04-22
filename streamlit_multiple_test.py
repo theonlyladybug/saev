@@ -8,7 +8,7 @@ import random
 from PIL import Image, ImageFilter
 
 
-expansion_factor = 16
+expansion_factor = 64
 
 def ordinal(n):
     if 10 <= n % 100 <= 20:
