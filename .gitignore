@@ -175,8 +175,8 @@ leap_files/
 MLP/
 expansion 64/
 expansion 16/
-web_app_64/
-web_app_16/
+web_app/
+saeexplorer/
 
 *.html
 *.DS_Store

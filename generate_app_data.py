@@ -130,7 +130,20 @@ def save_highest_activating_images(neuron_index, neuron_directory):
 
 def save_MLP_cosine_similarity(neuron_index, neuron_directory):
     new_cosine_similarities = cosine_similarities[neuron_index].clone()
-    torch.save(new_cosine_similarities, f"{neuron_directory}/MLP.pt")
+    df = pd.DataFrame({
+        'X': range(len(new_cosine_similarities)),
+        'Y': new_cosine_similarities.numpy()  # Convert tensor to numpy array
+    })
+    df.to_feather(f'{neuron_directory}/MLP.feather')
+    
+    
+    # fig = px.line(df, x='X', y='Y', labels={
+    #         'X': 'MLP index',  # Custom x-axis label
+    #         'Y': 'Cosine similarity'  # Custom y-axis label
+    #     })
+    # fig.update_layout(
+    #     yaxis=dict(range=[-0.3, 0.6])  # Set the y-axis range
+    # )
     
 def save_activations_and_neurons(image, image_directory):
     module_name = cfg.module_name
@@ -148,10 +161,23 @@ def save_activations_and_neurons(image, image_directory):
     _, sae_indices = torch.topk(feature_acts, 5)
     if (torch.log10(sparsity)[sae_indices]>-1.16).sum()>0:
         raise Exception("Image is invalid!")
-    torch.save(feature_acts, f'{image_directory}/activations.pt')
-    torch.save(sae_indices, f'{image_directory}/top_five_indices.pt')
+    df = pd.DataFrame({
+        'X': range(len(feature_acts)),
+        'Y': feature_acts.numpy()  # Convert tensor to numpy array
+    })
+    df.to_feather(f'{image_directory}/activations.feather')
+    
+    # fig = px.line(df, x='X', y='Y', labels={
+    #         'X': 'SAE index',  # Custom x-axis label
+    #         'Y': 'Activation value'  # Custom y-axis label
+    #     })
+    
+    
+    sae_indices = sae_indices.squeeze().tolist()
+    with open(f'{image_directory}/top_five_indices.json', 'w') as json_file:
+        json.dump(sae_indices, json_file)
     for sae_index in sae_indices:
-        if not os.path.isdir(f'web_app_{expansion_factor}/neurons/{sae_index}'):
+        if not os.path.isdir(f'web_app/neurons/{sae_index}'):
             raise Exception("This sae feature has not yet been saved!")
         
 def is_valid_image(image):
@@ -174,16 +200,19 @@ def is_valid_image(image):
     
 
 if save_neurons:
-    new_directory = f"web_app_{expansion_factor}/neurons"
+    new_directory = f"web_app/neurons"
     if not os.path.exists(new_directory):
         os.makedirs(new_directory)
-    torch.save(entropy_list, f"web_app_{expansion_factor}/neurons/entropy.pt")
+    torch.save(entropy_list, f"web_app/neurons/entropy.pt")
     for index in tqdm(indices, desc = "saving highest activating grids"):
         index = int(index.item())
-        new_directory = f"web_app_{expansion_factor}/neurons/{index}"
+        new_directory = f"web_app/neurons/{index}"
+        external_directory = f"saeexplorer/neurons/{index}"
         if not os.path.exists(new_directory):
             os.makedirs(new_directory)
-        save_highest_activating_images(index, new_directory)
+        if not os.path.exists(external_directory):
+            os.makedirs(external_directory)
+        save_highest_activating_images(index, external_directory)
         save_MLP_cosine_similarity(index, new_directory)
         meta_data = {'neuron index': index, 'log 10 sparsity': torch.log10(sparsity)[index].item(), 'mean activation':sae_mean_acts[index].item(), 'label entropy':entropy_list[index].item()}
         with open(f'{new_directory}/meta_data.pkl', 'wb') as pickle_file:
@@ -196,14 +225,17 @@ if save_images:
         image = dataset[i]['image']
         if is_valid_image(image):
             num_images+=1
-            new_directory = f"web_app_{expansion_factor}/images/{i}"
+            new_directory = f"web_app/images/{i}"
             if not os.path.exists(new_directory):
                 os.makedirs(new_directory)
+            external_directory = f"saeexplorer/images/{i}"
+            if not os.path.exists(external_directory):
+                os.makedirs(external_directory)
             save_activations_and_neurons(image, new_directory)
             image = image.resize((224, 224)).convert('RGB') 
-            image.save(f"{new_directory}/image.png")
+            image.save(f"{external_directory}/image.png")
             image = image.filter(ImageFilter.GaussianBlur(radius=40))
-            image.save(f"{new_directory}/blurred_image.png")
+            image.save(f"{external_directory}/blurred_image.png")
             if num_images>1000:
                 break
         

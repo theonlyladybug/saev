@@ -1,14 +1,13 @@
 import streamlit as st
 import pandas as pd
 import os
+import json
 import pickle
 import torch
 import plotly.express as px
 import random
 from PIL import Image
 
-
-expansion_factor = 64
 
 def ordinal(n):
     if n ==1:
@@ -20,7 +19,7 @@ def ordinal(n):
     return f"{n}{suffix}"
 
 def get_neuron_indices():
-    directory = f"web_app_{expansion_factor}/neurons"
+    directory = f"web_app/neurons"
     indices=[]
     for name in os.listdir(directory):
         full_path = os.path.join(directory, name)
@@ -31,7 +30,7 @@ def get_neuron_indices():
     return indices
 
 def get_image_indices():
-    directory = f"web_app_{expansion_factor}/images"
+    directory = f"web_app/images"
     indices=[]
     for name in os.listdir(directory):
         full_path = os.path.join(directory, name)
@@ -44,24 +43,21 @@ def get_image_indices():
 def game_get_image(refresh_all = True):
     if st.session_state.game_blurr:
         image_index = st.session_state.game_image_indices[st.session_state.game_index]
-        image = Image.open(f"web_app_{expansion_factor}/images/{image_index}/blurred_image.png")
+        image = Image.open(f"saeexplorer/images/{image_index}/blurred_image.png")
     else:
         image_index = st.session_state.game_image_indices[st.session_state.game_index]
-        image = Image.open(f"web_app_{expansion_factor}/images/{image_index}/image.png")
+        image = Image.open(f"saeexplorer/images/{image_index}/image.png")
     st.session_state.game_image = image
     if refresh_all:
-        tensor = torch.load(f'web_app_{expansion_factor}/images/{image_index}/activations.pt')
-        df = pd.DataFrame({
-            'X': range(len(tensor)),
-            'Y': tensor.numpy()  # Convert tensor to numpy array
-        })
+        df = pd.read_feather(f'web_app/images/{image_index}/activations.feather')
         fig = px.line(df, x='X', y='Y', labels={
                 'X': 'SAE index',  # Custom x-axis label
                 'Y': 'Activation value'  # Custom y-axis label
             })
         st.session_state.game_activations = fig
-        tensor = torch.load(f'web_app_{expansion_factor}/images/{image_index}/top_five_indices.pt')
-        st.session_state.top_five_features = [Image.open(f'web_app_{expansion_factor}/neurons/{neuron_index.item()}/highest_activating_images.png') for neuron_index in tensor]
+        with open(f'web_app/images/{image_index}/top_five_indices.json', 'r') as file:
+            top_five_indices = json.load(file)
+        st.session_state.top_five_features = [Image.open(f'saeexplorer/neurons/{neuron_index}/highest_activating_images.png') for neuron_index in top_five_indices]
 
 def game_next_image():
     st.session_state.game_index = (st.session_state.game_index+1)%len(st.session_state.game_image_indices)
@@ -84,19 +80,15 @@ def set_selected_neuron():
     set_navigator_mlp()
     
 def set_navigator_meta_data():
-    with open(f'web_app_{expansion_factor}/neurons/{st.session_state.navigator_selected_neuron_index}/meta_data.pkl', 'rb') as file:
+    with open(f'web_app/neurons/{st.session_state.navigator_selected_neuron_index}/meta_data.pkl', 'rb') as file:
         # Load the data from the file
         st.session_state.navigator_meta_data =  pd.DataFrame([pickle.load(file)])
 
 def set_navigator_image_grid():
-    st.session_state.navigator_image_grid = Image.open(f'web_app_{expansion_factor}/neurons/{st.session_state.navigator_selected_neuron_index}/highest_activating_images.png')
+    st.session_state.navigator_image_grid = Image.open(f'saeexplorer/neurons/{st.session_state.navigator_selected_neuron_index}/highest_activating_images.png')
         
 def set_navigator_mlp():
-    tensor = torch.load(f'web_app_{expansion_factor}/neurons/{st.session_state.navigator_selected_neuron_index}/MLP.pt')
-    df = pd.DataFrame({
-        'X': range(len(tensor)),
-        'Y': tensor.numpy()  # Convert tensor to numpy array
-    })
+    df = pd.read_feather(f'web_app/neurons/{st.session_state.navigator_selected_neuron_index}/MLP.feather')
     fig = px.line(df, x='X', y='Y', labels={
             'X': 'MLP index',  # Custom x-axis label
             'Y': 'Cosine similarity'  # Custom y-axis label
@@ -241,7 +233,7 @@ if 'page' not in st.session_state:
 if st.session_state.page == 'navigator' and ('navigator_all_neuron_indices' not in st.session_state or 'positive_entropy_list' not in st.session_state): # Included as a santiy check. Should be set when the navigator button is pressed.
     st.session_state.navigator_all_neuron_indices = get_neuron_indices()
     st.session_state.navigator_current_neuron_indices = st.session_state.navigator_all_neuron_indices
-    entropy =  torch.load(f'web_app_{expansion_factor}/neurons/entropy.pt')
+    entropy =  torch.load(f'web_app/neurons/entropy.pt')
     st.session_state.positive_entropy_list = [index for index in st.session_state.navigator_all_neuron_indices if entropy[index].item()>0]
 
 if st.session_state.page == "game" and "game_image_indices" not in st.session_state:
