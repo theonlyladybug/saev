@@ -43,10 +43,10 @@ def get_image_indices():
 def game_get_image(refresh_all = True):
     if st.session_state.game_blurr:
         image_index = st.session_state.game_image_indices[st.session_state.game_index]
-        image = Image.open(f"saeexplorer/images/{image_index}/blurred_image.png")
+        image = f"https://saeexplorer.s3.eu-west-2.amazonaws.com/saeexplorer/images/{image_index}/blurred_image.png"
     else:
         image_index = st.session_state.game_image_indices[st.session_state.game_index]
-        image = Image.open(f"saeexplorer/images/{image_index}/image.png")
+        image = f"https://saeexplorer.s3.eu-west-2.amazonaws.com/saeexplorer/images/{image_index}/image.png"
     st.session_state.game_image = image
     if refresh_all:
         df = pd.read_feather(f'web_app/images/{image_index}/activations.feather')
@@ -57,7 +57,7 @@ def game_get_image(refresh_all = True):
         st.session_state.game_activations = fig
         with open(f'web_app/images/{image_index}/top_five_indices.json', 'r') as file:
             top_five_indices = json.load(file)
-        st.session_state.top_five_features = [Image.open(f'saeexplorer/neurons/{neuron_index}/highest_activating_images.png') for neuron_index in top_five_indices]
+        st.session_state.top_five_features = [f"https://saeexplorer.s3.eu-west-2.amazonaws.com/saeexplorer/neurons/{neuron_index}/highest_activating_images.png" for neuron_index in top_five_indices]
 
 def game_next_image():
     st.session_state.game_index = (st.session_state.game_index+1)%len(st.session_state.game_image_indices)
@@ -85,7 +85,7 @@ def set_navigator_meta_data():
         st.session_state.navigator_meta_data =  pd.DataFrame([pickle.load(file)])
 
 def set_navigator_image_grid():
-    st.session_state.navigator_image_grid = Image.open(f'saeexplorer/neurons/{st.session_state.navigator_selected_neuron_index}/highest_activating_images.png')
+    st.session_state.navigator_image_grid = f"https://saeexplorer.s3.eu-west-2.amazonaws.com/saeexplorer/neurons/{st.session_state.navigator_selected_neuron_index}/highest_activating_images.png"
         
 def set_navigator_mlp():
     df = pd.read_feather(f'web_app/neurons/{st.session_state.navigator_selected_neuron_index}/MLP.feather')
