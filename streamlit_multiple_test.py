@@ -42,10 +42,12 @@ def get_image_indices():
     return indices
 
 def game_get_image(refresh_all = True):
-    image_index = st.session_state.game_image_indices[st.session_state.game_index]
-    image = Image.open(f"web_app_{expansion_factor}/images/{image_index}/image.png")
     if st.session_state.game_blurr:
-        image = image.filter(ImageFilter.GaussianBlur(radius=40))
+        image_index = st.session_state.game_image_indices[st.session_state.game_index]
+        image = Image.open(f"web_app_{expansion_factor}/images/{image_index}/blurred_image.png")
+    else:
+        image_index = st.session_state.game_image_indices[st.session_state.game_index]
+        image = Image.open(f"web_app_{expansion_factor}/images/{image_index}/image.png")
     st.session_state.game_image = image
     if refresh_all:
         tensor = torch.load(f'web_app_{expansion_factor}/images/{image_index}/activations.pt')
@@ -134,7 +136,7 @@ def set_dropdown_index():
 
 # Define a function to render the home page
 def home_page():
-    st.title('Home Page')
+    st.markdown("<h1 style='text-align: center;'>Home Page</h1>", unsafe_allow_html=True)
     st.header('Welcome to the App!')
 
 # Define a function to render Subpage 1

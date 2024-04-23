@@ -34,11 +34,11 @@ from sae_training.sparse_autoencoder import SparseAutoencoder
 from sae_training.config import ViTSAERunnerConfig
 from sae_training.vit_activations_store import ViTActivationsStore
 import torchvision.transforms as transforms
-from PIL import Image
+from PIL import Image, ImageFilter
 from sae_training.utils import ViTSparseAutoencoderSessionloader
 import shutil
 
-save_neurons = False
+save_neurons = True
 save_images = True
 
 expansion_factor = 64
@@ -202,6 +202,8 @@ if save_images:
             save_activations_and_neurons(image, new_directory)
             image = image.resize((224, 224)).convert('RGB') 
             image.save(f"{new_directory}/image.png")
-            if num_images>500:
+            image = image.filter(ImageFilter.GaussianBlur(radius=40))
+            image.save(f"{new_directory}/blurred_image.png")
+            if num_images>1000:
                 break
         
