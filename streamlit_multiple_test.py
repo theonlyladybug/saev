@@ -5,7 +5,7 @@ import pickle
 import torch
 import plotly.express as px
 import random
-from PIL import Image, ImageFilter
+from PIL import Image
 
 
 expansion_factor = 64
