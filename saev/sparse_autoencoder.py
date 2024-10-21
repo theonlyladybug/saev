@@ -2,24 +2,26 @@ import gzip
 import os
 import pickle
 
+import beartype
 import einops
 import torch
-from transformer_lens.hook_points import HookedRootModule, HookPoint
+from torch import Tensor
+from jaxtyping import Float, jaxtyped
 
 from .activations_store import ActivationsStore
 from .config import Config
 
 
-class SparseAutoencoder(HookedRootModule):
+@beartype.beartype
+class SparseAutoencoder(torch.nn.Module):
     def __init__(self, cfg: Config):
         super().__init__()
-        self.cfg = cfg
-        self.d_in = cfg.d_in
-        if not isinstance(self.d_in, int):
+        if not isinstance(cfg.d_in, int):
             raise ValueError(
-                f"d_in must be an int but was {self.d_in=}; {type(self.d_in)=}"
+                f"d_in must be an int but was {cfg.d_in=}; {type(cfg.d_in)=}"
             )
-        self.d_sae = cfg.d_sae
+
+        self.cfg = cfg
         self.l1_coefficient = cfg.l1_coefficient
         self.dtype = cfg.dtype
         self.device = cfg.device
@@ -27,64 +29,49 @@ class SparseAutoencoder(HookedRootModule):
         # NOTE: if using resampling neurons method, you must ensure that we initialise the weights in the order W_enc, b_enc, W_dec, b_dec
         self.W_enc = torch.nn.Parameter(
             torch.nn.init.kaiming_uniform_(
-                torch.empty(self.d_in, self.d_sae, dtype=self.dtype, device=self.device)
+                torch.empty(cfg.d_in, cfg.d_sae, dtype=self.dtype, device=self.device)
             )
         )
         self.b_enc = torch.nn.Parameter(
-            torch.zeros(self.d_sae, dtype=self.dtype, device=self.device)
+            torch.zeros(cfg.d_sae, dtype=self.dtype, device=self.device)
         )
 
         self.W_dec = torch.nn.Parameter(
             torch.nn.init.kaiming_uniform_(
-                torch.empty(self.d_sae, self.d_in, dtype=self.dtype, device=self.device)
+                torch.empty(cfg.d_sae, cfg.d_in, dtype=self.dtype, device=self.device)
             )
         )
 
         with torch.no_grad():
-            # Anthropic normalize this to have unit columns
+            # Anthropic normalizes this to have unit columns
             self.W_dec.data /= torch.norm(self.W_dec.data, dim=1, keepdim=True)
 
         self.b_dec = torch.nn.Parameter(
-            torch.zeros(self.d_in, dtype=self.dtype, device=self.device)
+            torch.zeros(cfg.d_in, dtype=self.dtype, device=self.device)
         )
 
-        self.hook_sae_in = HookPoint()
-        self.hook_hidden_pre = HookPoint()
-        self.hook_hidden_post = HookPoint()
-        self.hook_sae_out = HookPoint()
-
-        self.setup()  # Required for `HookedRootModule`s
-
-    def forward(self, x, dead_neuron_mask=None):
+    @jaxtyped(typechecker=beartype.beartype)
+    def forward(self, x: Float[Tensor, "batch d_model"], dead_neuron_mask=None):
         # move x to correct dtype
         x = x.to(self.dtype)
-        sae_in = self.hook_sae_in(
-            x - self.b_dec
-        )  # Remove encoder bias as per Anthropic
 
-        hidden_pre = self.hook_hidden_pre(
+        # Remove encoder bias as per Anthropic
+        h_pre = (
             einops.einsum(
-                sae_in,
-                self.W_enc,
-                "... d_in, d_in d_sae -> ... d_sae",
+                x - self.b_dec, self.W_enc, "... d_in, d_in d_sae -> ... d_sae"
             )
             + self.b_enc
         )
-        feature_acts = self.hook_hidden_post(torch.nn.functional.relu(hidden_pre))
+        f_x = torch.nn.functional.relu(h_pre)
 
-        sae_out = self.hook_sae_out(
-            einops.einsum(
-                feature_acts,
-                self.W_dec,
-                "... d_sae, d_sae d_in -> ... d_in",
-            )
+        x_hat = (
+            einops.einsum(f_x, self.W_dec, "... d_sae, d_sae d_in -> ... d_in")
             + self.b_dec
         )
 
         # add config for whether l2 is normalized:
         mse_loss = (
-            torch.pow((sae_out - x.float()), 2)
-            / (x**2).sum(dim=-1, keepdim=True).sqrt()
+            torch.pow((x_hat - x.float()), 2) / (x**2).sum(dim=-1, keepdim=True).sqrt()
         )
 
         mse_loss_ghost_resid = torch.tensor(0.0, dtype=self.dtype, device=self.device)
@@ -95,11 +82,11 @@ class SparseAutoencoder(HookedRootModule):
             # ghost protocol
 
             # 1.
-            residual = x - sae_out
+            residual = x - x_hat
             l2_norm_residual = torch.norm(residual, dim=-1)
 
             # 2.
-            feature_acts_dead_neurons_only = torch.exp(hidden_pre[:, dead_neuron_mask])
+            feature_acts_dead_neurons_only = torch.exp(h_pre[:, dead_neuron_mask])
             ghost_out = feature_acts_dead_neurons_only @ self.W_dec[dead_neuron_mask, :]
             l2_norm_ghost_out = torch.norm(ghost_out, dim=-1)
             norm_scaling_factor = l2_norm_residual / (1e-6 + l2_norm_ghost_out * 2)
@@ -115,11 +102,11 @@ class SparseAutoencoder(HookedRootModule):
 
         mse_loss_ghost_resid = mse_loss_ghost_resid.mean()
         mse_loss = mse_loss.mean()
-        sparsity = torch.abs(feature_acts).sum(dim=1).mean(dim=(0,))
+        sparsity = torch.abs(f_x).sum(dim=1).mean(dim=(0,))
         l1_loss = self.l1_coefficient * sparsity
         loss = mse_loss + l1_loss + mse_loss_ghost_resid
 
-        return sae_out, feature_acts, loss, mse_loss, l1_loss, mse_loss_ghost_resid
+        return x_hat, f_x, loss, mse_loss, l1_loss, mse_loss_ghost_resid
 
     @torch.no_grad()
     def initialize_b_dec(self, activation_store: ActivationsStore):
@@ -139,37 +126,6 @@ class SparseAutoencoder(HookedRootModule):
         print(f"New distances: {distances.median(0).values.mean().item()}")
 
         self.b_dec.data = out.to(self.dtype).to(self.device)
-
-    @torch.no_grad()
-    def get_test_loss(self, batch_tokens, model):
-        """
-        A method for running the model with the SAE activations in order to return the loss.
-        returns per token loss when activations are substituted in.
-        """
-        head_index = self.cfg.hook_point_head_index
-
-        def standard_replacement_hook(activations, hook):
-            activations = self.forward(activations)[0].to(activations.dtype)
-            return activations
-
-        def head_replacement_hook(activations, hook):
-            new_actions = self.forward(activations[:, :, head_index])[0].to(
-                activations.dtype
-            )
-            activations[:, :, head_index] = new_actions
-            return activations
-
-        replacement_hook = (
-            standard_replacement_hook if head_index is None else head_replacement_hook
-        )
-
-        ce_loss_with_recons = model.run_with_hooks(
-            batch_tokens,
-            return_type="loss",
-            fwd_hooks=[(self.cfg.hook_point, replacement_hook)],
-        )
-
-        return ce_loss_with_recons
 
     @torch.no_grad()
     def set_decoder_norm_to_unit_norm(self):

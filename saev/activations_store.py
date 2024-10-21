@@ -16,7 +16,7 @@ def make_img_dataloader(
     cfg: Config, dataset, preprocess
 ) -> tuple[object, torch.utils.data.DataLoader]:
     @beartype.beartype
-    def add_index(example: dict[str, list], indices: list[int]):
+    def add_index(example, indices: list[int]):
         example["index"] = indices
         return example
 

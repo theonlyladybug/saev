@@ -67,8 +67,8 @@ def get_sae_acts(
 ) -> Float[Tensor, "n d_sae"]:
     sae_acts = []
     for start, end in batched_idx(len(vit_acts), sae.cfg.vit_batch_size):
-        _, cache = sae.run_with_cache(vit_acts[start:end])
-        sae_acts.append(cache["hook_hidden_post"])
+        _, f_x, *_ = sae(vit_acts[start:end])
+        sae_acts.append(f_x)
 
     sae_acts = torch.cat(sae_acts, dim=0)
     sae_acts = sae_acts.to(sae.cfg.device)
