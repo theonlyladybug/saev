@@ -29,8 +29,8 @@ So I can take each piece through step by step and see where the mistake is.
 
 | Checkpoint | Wandb | Training Code |
 |---|---|---|
-| 2dlebd60 | [samuelstevens/mats-hugo/wawwh1rj](https://wandb.ai/samuelstevens/mats-hugo/runs/wawwh1rj) | original |
-| dd991rt3 | [samuelstevens/mats-hugo/g0sqbjux](https://wandb.ai/samuelstevens/mats-hugo/runs/g0sqbjux) | updated |
+| 2dlebd60 | [samuelstevens/saev/wawwh1rj](https://wandb.ai/samuelstevens/saev/runs/wawwh1rj) | original |
+| dd991rt3 | [samuelstevens/saev/g0sqbjux](https://wandb.ai/samuelstevens/saev/runs/g0sqbjux) | updated |
 
 
 | Checkpoint | Updated Training? | Updated Analysis? | Updated App Data? | Worked? |
@@ -88,10 +88,13 @@ What a relief!
 With this in mind, there are several minor changes I want to make before I do some BioCLIP and TreeOfLife runs:
 
 1. Removing `transformer-lens` [done, commit [18612b7](https://github.com/samuelstevens/saev/commit/18612b75988c32ae8ab3db6656b44a442f3f7641)]
-2. Removing HookedViT [done, testing]
+2. Removing HookedVisionTransformer [done, commit [c7ba7c7](https://github.com/samuelstevens/saev/commit/c7ba7c72c76472fd8cf2e7b2dc668d03a15b803d)]
 3. OpenCLIP instead of huggingface `transformers`
 4. Pre-computing ViT activations
 
 I'm going to do each of these independently using a set of runs as references.
 
 # 10/22/2024
+
+* Removed HookedVisionTransformer (see above)
+* Checkpoint [v6jto37s](https://wandb.ai/samuelstevens/saev/runs/wwb20pa0) worked
