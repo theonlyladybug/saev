@@ -94,7 +94,7 @@ def get_new_topk(
 @torch.inference_mode()
 def get_feature_data(
     sae: saev.SparseAutoencoder,
-    vit: saev.HookedVisionTransformer,
+    acts_store: saev.ActivationsStore,
     *,
     n_images: int = 32_768,
     k_top_images: int = 10,
@@ -111,8 +111,6 @@ def get_feature_data(
     """
     torch.cuda.empty_cache()
     sae.eval()
-
-    acts_store = saev.ActivationsStore(sae.cfg, vit)
 
     if n_images > len(acts_store.dataset):
         logger.warning(
@@ -138,7 +136,7 @@ def get_feature_data(
         # tensor of size [batch, d_resid]
         vit_acts, indices = get_vit_acts(acts_store, images_per_it)
         # tensor of size [feature_idx, batch]
-        sae_acts = get_sae_acts(vit_acts, sae).transpose(0, 1)
+        sae_acts = get_sae_acts(vit_acts.to(sae.cfg.device), sae).transpose(0, 1)
         del vit_acts
         sae_mean_acts += sae_acts.sum(dim=1)
         sae_sparsity += (sae_acts > 0).sum(dim=1)
@@ -194,9 +192,13 @@ def main(
         n_images: number of images to use. Use a smaller number for debugging.
         k_top_images: the number of top images to store per neuron.
     """
-    vit, sae, _ = saev.utils.load_session(ckpt_path)
+    _, sae, acts_store = saev.utils.Session.from_disk(ckpt_path)
     get_feature_data(
-        sae, vit, n_images=n_images, k_top_images=k_top_images, directory=directory
+        sae,
+        acts_store,
+        n_images=n_images,
+        k_top_images=k_top_images,
+        directory=directory,
     )
 
 

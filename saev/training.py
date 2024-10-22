@@ -11,13 +11,13 @@ import wandb
 
 from .activations_store import ActivationsStore
 from .config import Config
-from .hooked_vit import HookedVisionTransformer
 from .sparse_autoencoder import SparseAutoencoder
-from .utils import new_session
+from .utils import Session
+from . import vits
 
 
-def train(cfg: Config) -> tuple[SparseAutoencoder, HookedVisionTransformer]:
-    vit, sae, activations_loader = new_session(cfg)
+def train(cfg: Config) -> tuple[SparseAutoencoder, vits.RecordedVit]:
+    vit, sae, activations_loader = Session.from_cfg(cfg)
 
     if cfg.log_to_wandb:
         wandb.init(project=cfg.wandb_project, config=cfg, name=cfg.run_name)
@@ -59,11 +59,10 @@ def train_sae(
     sae.initialize_b_dec(activation_store)
 
     sae.train()
+    sae = sae.to(sae.cfg.device)
 
     pbar = tqdm(total=total_training_tokens, desc="Training SAE")
     while n_training_tokens < total_training_tokens:
-        # Do a training step.
-        sae.train()
         # Make sure the W_dec is still zero-norm
         sae.set_decoder_norm_to_unit_norm()
 
@@ -92,7 +91,7 @@ def train_sae(
         ghost_grad_neuron_mask = (
             n_fwd_passes_since_fired > sae.cfg.dead_feature_window
         ).bool()
-        sae_in = activation_store.next_batch()
+        sae_in = activation_store.next_batch().to(sae.cfg.device)
 
         # Forward and Backward Passes
         sae_out, feature_acts, loss, mse_loss, l1_loss, ghost_grad_loss = sae(

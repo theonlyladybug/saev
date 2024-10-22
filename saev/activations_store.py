@@ -6,15 +6,18 @@ import torch
 import tqdm
 from jaxtyping import Float, Int, jaxtyped
 from torch import Tensor
+import transformers
 
 from .config import Config
-from .hooked_vit import HookedVisionTransformer
+from . import vits
 
 
 @beartype.beartype
 def make_img_dataloader(
-    cfg: Config, dataset, preprocess
+    cfg: Config, dataset
 ) -> tuple[object, torch.utils.data.DataLoader]:
+    preprocess = transformers.CLIPProcessor.from_pretrained(cfg.model_name)
+
     @beartype.beartype
     def add_index(example, indices: list[int]):
         example["index"] = indices
@@ -63,11 +66,11 @@ class ActivationsStore:
     """
 
     cfg: Config
-    vit: HookedVisionTransformer
+    vit: vits.RecordedVit
     hook_loc: tuple[int, str]
     _epoch: int = 0
 
-    def __init__(self, cfg: Config, vit: HookedVisionTransformer):
+    def __init__(self, cfg: Config, vit: vits.RecordedVit):
         self.cfg = cfg
         self.vit = vit
 
@@ -75,9 +78,7 @@ class ActivationsStore:
             self.cfg.dataset_path, split="train", trust_remote_code=True
         )
 
-        self.shuffled_dataset, self.dataloader = make_img_dataloader(
-            cfg, self.dataset, vit.processor
-        )
+        self.shuffled_dataset, self.dataloader = make_img_dataloader(cfg, self.dataset)
         self.dataloader_it = iter(self.dataloader)
 
         self.hook_loc = (cfg.block_layer, cfg.module_name)
@@ -112,11 +113,8 @@ class ActivationsStore:
         # 3. Get ViT activations.
         with torch.inference_mode():
             inputs = {key: value.to(self.cfg.device) for key, value in inputs.items()}
-            _, cache = self.vit.run_with_cache([self.hook_loc], **inputs)
-            activations = cache[self.hook_loc]
-
-            # Only keep the class token.
-            activations = activations[:, 0, :]
+            _, cache = self.vit(**inputs)
+            activations = cache[:, self.cfg.block_layer, 0, :]
 
         # Need to collect every iteration, otherwise there is a leak and we will run out of VRAM. I know this seems dumb. I know.
         gc.collect()

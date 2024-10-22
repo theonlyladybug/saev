@@ -50,7 +50,7 @@ class Config:
 
     # WANDB
     log_to_wandb: bool = True
-    wandb_project: str = "mats-hugo"
+    wandb_project: str = "saev"
     wandb_log_freq: int = 10
 
     # Misc

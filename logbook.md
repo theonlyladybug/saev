@@ -3,6 +3,8 @@
 This provides a set of notes, step-by-step, of my process developing this library.
 In combination with code comments and git blame, it's probably the best way to understand *why* a decision was made, rather than *what* decision was made.
 
+*Open science babbyyy!*
+
 # 10/11/2024
 
 Something in the post-training is not working.
@@ -85,9 +87,11 @@ What a relief!
 
 With this in mind, there are several minor changes I want to make before I do some BioCLIP and TreeOfLife runs:
 
-* OpenCLIP instead of huggingface `transformers`
-* Removing `transformer-lens`
-* Removing HookedViT
-* Pre-computing ViT activations
+1. Removing `transformer-lens` [done, commit [18612b7](https://github.com/samuelstevens/saev/commit/18612b75988c32ae8ab3db6656b44a442f3f7641)]
+2. Removing HookedViT [done, testing]
+3. OpenCLIP instead of huggingface `transformers`
+4. Pre-computing ViT activations
 
 I'm going to do each of these independently using a set of runs as references.
+
+# 10/22/2024
