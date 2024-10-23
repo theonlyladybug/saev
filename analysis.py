@@ -192,7 +192,7 @@ def main(
         n_images: number of images to use. Use a smaller number for debugging.
         k_top_images: the number of top images to store per neuron.
     """
-    _, sae, acts_store = saev.utils.Session.from_disk(ckpt_path)
+    _, sae, acts_store = saev.Session.from_disk(ckpt_path)
     get_feature_data(
         sae,
         acts_store,

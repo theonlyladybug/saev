@@ -18,4 +18,4 @@ if __name__ == "__main__":
         torch.backends.cudnn.benchmark = True
         torch.backends.cudnn.deterministic = False
 
-    saev.training.train(tyro.cli(saev.Config))
+    saev.train(tyro.cli(saev.Config))

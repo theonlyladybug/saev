@@ -89,12 +89,25 @@ With this in mind, there are several minor changes I want to make before I do so
 
 1. Removing `transformer-lens` [done, commit [18612b7](https://github.com/samuelstevens/saev/commit/18612b75988c32ae8ab3db6656b44a442f3f7641)]
 2. Removing HookedVisionTransformer [done, commit [c7ba7c7](https://github.com/samuelstevens/saev/commit/c7ba7c72c76472fd8cf2e7b2dc668d03a15b803d)]
-3. OpenCLIP instead of huggingface `transformers`
+3. OpenCLIP instead of huggingface `transformers` [done, testing]
 4. Pre-computing ViT activations
 
 I'm going to do each of these independently using a set of runs as references.
 
 # 10/22/2024
 
-* Removed HookedVisionTransformer (see above)
-* Checkpoint [v6jto37s](https://wandb.ai/samuelstevens/saev/runs/wwb20pa0) worked
+Removed HookedVisionTransformer (see above)
+Checkpoint [v6jto37s](https://wandb.ai/samuelstevens/saev/runs/wwb20pa0) worked for training, analysis, and app data.
+
+Testing an implementation using OpenCLIP instead of `transformers`.
+Assuming it works (which seems likely given that the loss curve is identical), then I will pre-compute the activations, save them as a numpy array to disk, and memmap them during training rather than computing them.
+I expect this to take a little bit because I had issues with shuffling and such in the analysis step earlier.
+I think the best strategy is to work backwards.
+The `generate_app_data.py` script doesn't need an activation store at all.
+So I will start with the `analysis.py` script and add a new activations store class that meets the same interface as the original (maybe not for the constructor).
+Then I will verify that the analysis script works correctly.
+
+Only after that will I use the new class in training.
+Working with the analysis script is a shorter feedback loop.
+
+# 10/23/2024

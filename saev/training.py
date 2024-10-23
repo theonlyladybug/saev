@@ -9,15 +9,13 @@ from tqdm import tqdm
 
 import wandb
 
-from .activations_store import ActivationsStore
-from .config import Config
-from .sparse_autoencoder import SparseAutoencoder
-from .utils import Session
-from . import vits
+from . import modeling
 
 
-def train(cfg: Config) -> tuple[SparseAutoencoder, vits.RecordedVit]:
-    vit, sae, activations_loader = Session.from_cfg(cfg)
+def train(
+    cfg: modeling.Config,
+) -> tuple[modeling.SparseAutoencoder, modeling.RecordedVit]:
+    vit, sae, activations_loader = modeling.Session.from_cfg(cfg)
 
     if cfg.log_to_wandb:
         wandb.init(project=cfg.wandb_project, config=cfg, name=cfg.run_name)
@@ -37,8 +35,8 @@ def train(cfg: Config) -> tuple[SparseAutoencoder, vits.RecordedVit]:
 
 @beartype.beartype
 def train_sae(
-    sae: SparseAutoencoder, activation_store: ActivationsStore
-) -> SparseAutoencoder:
+    sae: modeling.SparseAutoencoder, activation_store: modeling.ActivationsStore
+) -> modeling.SparseAutoencoder:
     batch_size = sae.cfg.batch_size
     total_training_tokens = sae.cfg.total_training_tokens
 
