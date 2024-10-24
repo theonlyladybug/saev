@@ -5,12 +5,12 @@ import sys
 
 import beartype
 import torch
-import tqdm
 import tyro
 from jaxtyping import Float, Int, jaxtyped
 from torch import Tensor
 
 import saev
+from saev import helpers
 
 # Fix pickle renaming errors.
 sys.modules["sae_training"] = saev
@@ -39,7 +39,7 @@ def batched_idx(
 
 @jaxtyped(typechecker=beartype.beartype)
 def get_vit_acts(
-    acts_store: saev.ActivationsStore, n: int
+    acts_store: saev.CachedActivationsStore, n: int
 ) -> tuple[Float[Tensor, "n d_model"], Int[Tensor, " n"]]:
     """
     Args:
@@ -54,7 +54,6 @@ def get_vit_acts(
         batches.append(batch)
         indices.append(i)
         n_seen += len(batch)
-        logger.info("Got batch of size %d (%d total).", len(batch), n_seen)
 
     batches = torch.cat(batches, dim=0)
     indices = torch.cat(indices, dim=0)
@@ -94,7 +93,7 @@ def get_new_topk(
 @torch.inference_mode()
 def get_feature_data(
     sae: saev.SparseAutoencoder,
-    acts_store: saev.ActivationsStore,
+    acts_store: saev.CachedActivationsStore,
     *,
     n_images: int = 32_768,
     k_top_images: int = 10,
@@ -112,14 +111,14 @@ def get_feature_data(
     torch.cuda.empty_cache()
     sae.eval()
 
-    if n_images > len(acts_store.dataset):
+    if n_images > len(acts_store):
         logger.warning(
             "The dataset '%s' only has %d images, but you requested %d images.",
             sae.cfg.dataset_path,
-            len(acts_store.dataset),
+            len(acts_store),
             n_images,
         )
-        n_images = len(acts_store.dataset)
+        n_images = len(acts_store)
 
     top_values = torch.zeros((sae.cfg.d_sae, k_top_images)).to(sae.cfg.device)
     top_indices = torch.zeros((sae.cfg.d_sae, k_top_images), dtype=torch.int)
@@ -128,13 +127,18 @@ def get_feature_data(
     sae_sparsity = torch.zeros((sae.cfg.d_sae,)).to(sae.cfg.device)
     sae_mean_acts = torch.zeros((sae.cfg.d_sae,)).to(sae.cfg.device)
 
-    n_seen = 0
+    dataloader = torch.utils.data.DataLoader(
+        acts_store,
+        batch_size=images_per_it,
+        shuffle=True,
+        num_workers=sae.cfg.n_workers,
+        drop_last=True,
+    )
 
-    while n_seen < n_images:
+    for batch in helpers.progress(dataloader):
         torch.cuda.empty_cache()
+        vit_acts, indices = batch
 
-        # tensor of size [batch, d_resid]
-        vit_acts, indices = get_vit_acts(acts_store, images_per_it)
         # tensor of size [feature_idx, batch]
         sae_acts = get_sae_acts(vit_acts.to(sae.cfg.device), sae).transpose(0, 1)
         del vit_acts
@@ -149,24 +153,18 @@ def get_feature_data(
             top_values, top_indices, values, indices, k_top_images
         )
 
-        n_seen += images_per_it
-        logger.info("%d/%d (%.1f%%)", n_seen, n_images, n_seen / n_images * 100)
-
     sae_mean_acts /= sae_sparsity
-    sae_sparsity /= n_images
+    sae_sparsity /= len(acts_store)
 
     # Check if the directory exists
     if not os.path.exists(directory):
         # Create the directory if it does not exist
         os.makedirs(directory)
 
-    # compute the label tensor
-    top_image_label_indices = torch.tensor([
-        acts_store.dataset[int(index)]["label"]
-        for index in tqdm.tqdm(top_indices.flatten(), desc="Getting labels")
-    ])
-    # Reshape to original dimensions
-    top_image_label_indices = top_image_label_indices.view(top_indices.shape)
+    # Compute the label tensor
+    top_image_label_indices = acts_store.labels[top_indices.view(-1).cpu()].view(
+        top_indices.shape
+    )
     torch.save(top_indices, f"{directory}/max_activating_image_indices.pt")
     torch.save(top_values, f"{directory}/max_activating_image_values.pt")
     torch.save(

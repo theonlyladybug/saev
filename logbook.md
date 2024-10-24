@@ -89,8 +89,8 @@ With this in mind, there are several minor changes I want to make before I do so
 
 1. Removing `transformer-lens` [done, commit [18612b7](https://github.com/samuelstevens/saev/commit/18612b75988c32ae8ab3db6656b44a442f3f7641)]
 2. Removing HookedVisionTransformer [done, commit [c7ba7c7](https://github.com/samuelstevens/saev/commit/c7ba7c72c76472fd8cf2e7b2dc668d03a15b803d)]
-3. OpenCLIP instead of huggingface `transformers` [done, testing]
-4. Pre-computing ViT activations
+3. OpenCLIP instead of huggingface `transformers` [done, commit [d362f64](https://github.com/samuelstevens/saev/commit/d362f64437b3599f56bb698136712d7590ee897b)]
+4. Pre-computing ViT activations [done, commit [ee79f5b](https://github.com/samuelstevens/saev/commit/ee79f5b84186e655b2e5d485e972fe69bb73dd65)]
 
 I'm going to do each of these independently using a set of runs as references.
 
@@ -111,3 +111,23 @@ Only after that will I use the new class in training.
 Working with the analysis script is a shorter feedback loop.
 
 # 10/23/2024
+
+OpenCLIP instead of transformers works (training, analysis, generate).
+So now I am pre-computing activations.
+I'm waiting on the activations to be saved (~3 hours).
+
+CachedActivationsStore produced some duplicates in the analysis step.
+Why is that?
+
+For example, neuron 78 has the same image for image 6 and 7 (1-indexed, images 5 and 6 if zero-indexed).
+
+Fixed it.
+We no longer randomly sample batches; instead, we use a dataloader and `__getitem__`.
+
+With training, however, the metrics no longer match the reference metrics.
+Why is that?
+We can find out by comparing to the original activations store.
+Likely, we will need to build a custom data order using `np.random.default_rng(seed=cfg.seed)`.
+
+My strategy for calculating the mean activations only used 15 examples instead of 15 x 1024.
+With 15 x 1024 examples, the b_dec is better initialized and it works exactly like before.

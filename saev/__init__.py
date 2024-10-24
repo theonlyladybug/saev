@@ -1,5 +1,6 @@
 from .modeling import (
     ActivationsStore,
+    CachedActivationsStore,
     Config,
     RecordedVit,
     Session,
@@ -9,6 +10,7 @@ from .training import train
 
 __all__ = [
     "ActivationsStore",
+    "CachedActivationsStore",
     "Config",
     "RecordedVit",
     "SparseAutoencoder",

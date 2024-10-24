@@ -21,6 +21,32 @@ def safe_load(path: str) -> object:
 
 
 @beartype.beartype
+def make_img_grid(imgs: list):
+    # Resize to 224x224
+    img_width, img_height = 224, 224
+    imgs = [img.resize((img_width, img_height)).convert("RGB") for img in imgs]
+
+    # Create an image grid
+    grid_size = 4
+    border_size = 2  # White border thickness
+
+    # Create a new image with white background
+    grid_width = grid_size * img_width + (grid_size - 1) * border_size
+    grid_height = grid_size * img_height + (grid_size - 1) * border_size
+    img_grid = Image.new("RGB", (grid_width, grid_height), "white")
+
+    # Paste images in the grid
+    x_offset, y_offset = 0, 0
+    for i, img in enumerate(imgs):
+        img_grid.paste(img, (x_offset, y_offset))
+        x_offset += img_width + border_size
+        if (i + 1) % grid_size == 0:
+            x_offset = 0
+            y_offset += img_height + border_size
+    return img_grid
+
+
+@beartype.beartype
 def main(ckpt_path: str, in_dir: str = "dashboard", out_dir: str = "web_app"):
     """
     Args:
@@ -84,31 +110,6 @@ def main(ckpt_path: str, in_dir: str = "dashboard", out_dir: str = "web_app"):
     )
     indices = torch.tensor([i for i in range(n_neurons)])
     indices = list(indices[mask])
-
-    @beartype.beartype
-    def make_img_grid(imgs: list):
-        # Resize to 224x224
-        img_width, img_height = 224, 224
-        imgs = [img.resize((img_width, img_height)).convert("RGB") for img in imgs]
-
-        # Create an image grid
-        grid_size = 4
-        border_size = 2  # White border thickness
-
-        # Create a new image with white background
-        grid_width = grid_size * img_width + (grid_size - 1) * border_size
-        grid_height = grid_size * img_height + (grid_size - 1) * border_size
-        img_grid = Image.new("RGB", (grid_width, grid_height), "white")
-
-        # Paste images in the grid
-        x_offset, y_offset = 0, 0
-        for i, img in enumerate(imgs):
-            img_grid.paste(img, (x_offset, y_offset))
-            x_offset += img_width + border_size
-            if (i + 1) % grid_size == 0:
-                x_offset = 0
-                y_offset += img_height + border_size
-        return img_grid
 
     os.makedirs(f"{out_dir}/neurons", exist_ok=True)
     torch.save(entropies, f"{out_dir}/neurons/entropy.pt")

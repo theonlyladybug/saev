@@ -1,6 +1,6 @@
 import dataclasses
-import gc
 import gzip
+import hashlib
 import logging
 import os
 import pickle
@@ -9,13 +9,15 @@ import typing
 import beartype
 import datasets
 import einops
+import numpy as np
 import open_clip
 import torch
-import tqdm
 from jaxtyping import Float, Int, jaxtyped
 from torch import Tensor
 
 import wandb
+
+from . import helpers
 
 ###########
 # HELPERS #
@@ -24,6 +26,7 @@ import wandb
 
 @beartype.beartype
 def get_cache_dir() -> str:
+    """Get cache directory from environment variables, defaulting to the current working directory (.)"""
     cache_dir = ""
     for var in ("SAEV_CACHE", "HF_HOME", "HF_HUB_CACHE"):
         cache_dir = cache_dir or os.environ.get(var, "")
@@ -55,7 +58,7 @@ class Config:
     d_in: int = 1024
 
     # Activation Store Parameters
-    total_training_tokens: int = 2_621_440
+    n_epochs: int = 3
     n_batches_in_store: int = 15
     vit_batch_size: int = 1024
 
@@ -98,7 +101,9 @@ class Config:
 
     @property
     def run_name(self) -> str:
-        return f"{self.d_sae}-L1-{self.l1_coefficient}-LR-{self.lr}-Tokens-{self.total_training_tokens:3.3e}"
+        return (
+            f"{self.d_sae}-L1-{self.l1_coefficient}-LR-{self.lr}-epochs-{self.n_epochs}"
+        )
 
     def __post_init__(self):
         unique_id = wandb.util.generate_id()
@@ -186,89 +191,78 @@ class RecordedVit(torch.nn.Module):
         return torch.clone(self._storage).cpu()
 
 
-####################
-# ActivationsStore #
-####################
+##########################
+# CachedActivationsStore #
+##########################
 # Depends on Config and RecordedViT so has to come after them.
 
 
 @jaxtyped(typechecker=beartype.beartype)
-class ActivationsStore:
-    """
-    Class for streaming tokens and generating and storing activations while training SAEs.
-
-    Uses a multiprocess torch DataLoader to preprocess images (resize, crop, etc) faster, but still uses the main process to convert images (as tensors) into ViT activations.
-    """
-
+class CachedActivationsStore(torch.utils.data.Dataset):
     cfg: Config
-    vit: RecordedVit
-    _epoch: int = 0
+    shape: tuple[int, int]
 
-    def __init__(self, cfg: Config, vit: RecordedVit):
+    def __init__(self, cfg: Config, vit: RecordedVit, *, on_missing: str = "error"):
         self.cfg = cfg
-        self.vit = vit
+        self._acts_filepath = get_acts_filepath(cfg)
 
-        self._dataset = datasets.load_dataset(
-            self.cfg.dataset_path, split="train", trust_remote_code=True
+        # Try to load the activations from disk. If they are missing, do something based on what 'on_missing' is.
+        if os.path.isfile(self._acts_filepath):
+            # Don't need to do anything if the file exists.
+            pass
+        elif on_missing == "error":
+            raise RuntimeError(f"Activations are not saved at '{self._acts_filepath}'.")
+        elif on_missing == "make":
+            save_acts(cfg, vit)
+        else:
+            raise ValueError(f"Invalid value '{on_missing}' for arg 'on_missing'.")
+
+        # Need the original dataset to calculate the length and save the class labels.
+        dataset = datasets.load_dataset(
+            cfg.dataset_path, split="train", trust_remote_code=True
         )
 
-        self.shuffled_dataset, self.dataloader = make_img_dataloader(
-            cfg, self.dataset, vit
+        self.shape = (len(dataset), cfg.d_in)
+        self.labels = torch.tensor(dataset["label"])
+        self._acts = np.memmap(
+            self._acts_filepath, mode="r", dtype=np.float32, shape=self.shape
         )
-        self.dataloader_it = iter(self.dataloader)
 
-        assert cfg.vit_batch_size == cfg.batch_size
+    def __getitem__(self, i: int) -> tuple[Float[Tensor, " d_model"], Int[Tensor, ""]]:
+        # TODO: also works with numpy arrays. How can we document this behavior in the typesystem?
+        return torch.from_numpy(self._acts[i]), torch.tensor(i)
 
-    @property
-    def dataset(self):
-        return self._dataset
-
-    def get_sae_batches(self) -> Float[Tensor, "store_size d_model"]:
-        n_examples = 0
-        examples = []
-        pbar = tqdm.tqdm(total=self.cfg.store_size, desc="Getting SAE batches")
-        while n_examples < self.cfg.store_size:
-            batch = self.next_batch().cpu()
-            examples.append(batch)
-            n_examples += len(batch)
-            pbar.update(len(batch))
-
-        examples = torch.cat(examples, dim=0)
-        examples = examples[: self.cfg.store_size]
-        return examples
-
-    def next_indexed_batch(
-        self,
-    ) -> tuple[Float[Tensor, "batch d_model"], Int[Tensor, " batch"]]:
-        try:
-            inputs = next(self.dataloader_it)
-        except StopIteration:
-            self._epoch += 1
-            self.shuffled_dataset.set_epoch(self._epoch)
-            self.dataloader_it = iter(self.dataloader)
-            inputs = next(self.dataloader_it)
-        index = inputs.pop("index")
-
-        # 3. Get ViT activations.
-        with torch.inference_mode():
-            images = inputs["image"].to(self.cfg.device)
-            _, cache = self.vit(images)
-            activations = cache[:, self.cfg.block_layer, 0, :]
-
-        # Need to collect every iteration, otherwise there is a leak and we will run out of VRAM. I know this seems dumb. I know.
-        gc.collect()
-
-        return activations, index
-
-    def next_batch(self) -> Float[Tensor, "batch d_model"]:
-        batch, _ = self.next_indexed_batch()
-        return batch
+    def __len__(self) -> int:
+        length, _ = self.shape
+        return length
 
 
 @beartype.beartype
-def make_img_dataloader(
-    cfg: Config, dataset, vit: RecordedVit
-) -> tuple[object, torch.utils.data.DataLoader]:
+def get_acts_filepath(cfg: Config) -> str:
+    cfg_str = (
+        str(cfg.image_width)
+        + str(cfg.image_height)
+        + cfg.model
+        + cfg.module_name
+        + str(cfg.block_layer)
+        + cfg.dataset_path
+    )
+    acts_hash = hashlib.sha256(cfg_str.encode("utf-8")).hexdigest()
+    return os.path.join(get_cache_dir(), "saev-acts", acts_hash, "acts.bin")
+
+
+@beartype.beartype
+def save_acts(cfg: Config, vit: RecordedVit):
+    # Make filepath.
+    filepath = get_acts_filepath(cfg)
+    dirpath = os.path.dirname(filepath)
+    os.makedirs(dirpath, exist_ok=True)
+
+    # Get dataloader
+    dataset = datasets.load_dataset(
+        cfg.dataset_path, split="train", trust_remote_code=True
+    )
+
     preprocess = vit.make_img_transform()
 
     @beartype.beartype
@@ -283,13 +277,12 @@ def make_img_dataloader(
 
     dataset = (
         dataset.map(add_index, with_indices=True, batched=True)
-        .shuffle(seed=cfg.seed)
         .to_iterable_dataset(num_shards=cfg.n_workers or 8)
         .map(map_fn, batched=True, batch_size=32)
         .with_format("torch")
     )
 
-    return dataset, torch.utils.data.DataLoader(
+    dataloader = torch.utils.data.DataLoader(
         dataset=dataset,
         batch_size=cfg.batch_size,
         drop_last=False,
@@ -298,34 +291,43 @@ def make_img_dataloader(
         shuffle=False,
         pin_memory=False,
     )
+    n_batches = len(dataset) // cfg.vit_batch_size + 1
 
+    # Make memmap'ed file.
+    acts = np.memmap(
+        filepath, mode="w+", dtype=np.float32, shape=(len(dataset), cfg.d_in)
+    )
 
-@jaxtyped(typechecker=beartype.beartype)
-class CachedActivationsStore:
-    def __init__(self):
-        pass
-
-    @property
-    def dataset(self):
-        pass
-
-    def get_sae_batches(self) -> Float[Tensor, "store_size d_model"]:
-        pass
-
-    def next_indexed_batch(
-        self,
-    ) -> tuple[Float[Tensor, "batch d_model"], Int[Tensor, " batch"]]:
-        pass
-
-    def next_batch(self) -> Float[Tensor, "batch d_model"]:
-        batch, _ = self.next_indexed_batch()
-        return batch
+    # Calculate and write ViT activations.
+    with torch.inference_mode():
+        for batch in helpers.progress(dataloader, total=n_batches):
+            index = batch.pop("index")
+            images = batch.pop("image").to(cfg.device)
+            _, cache = vit(images)
+            acts[index] = cache[:, cfg.block_layer, 0, :]
+    acts.flush()
 
 
 #####################
 # SparseAutoencoder #
 #####################
-# Depends on Config and ActivationsStore so has to come after them.
+# Depends on Config and CachedActivationsStore so has to come after them.
+
+
+@jaxtyped(typechecker=beartype.beartype)
+def get_sae_batches(
+    cfg: Config, acts_store: CachedActivationsStore
+) -> Float[Tensor, "store_size d_model"]:
+    """
+    Get a batch of vit activations
+    """
+    examples = []
+    perm = np.random.default_rng(seed=cfg.seed).permutation(len(acts_store))
+    perm = perm[: cfg.store_size]
+
+    examples, _ = acts_store[perm]
+
+    return examples
 
 
 @beartype.beartype
@@ -425,10 +427,10 @@ class SparseAutoencoder(torch.nn.Module):
         return x_hat, f_x, loss, mse_loss, l1_loss, mse_loss_ghost_resid
 
     @torch.no_grad()
-    def initialize_b_dec(self, activation_store: ActivationsStore):
+    def initialize_b_dec(self, acts_store: CachedActivationsStore):
         previous_b_dec = self.b_dec.clone().cpu()
-        assert isinstance(activation_store, ActivationsStore)
-        all_activations = activation_store.get_sae_batches().detach().cpu()
+        assert isinstance(acts_store, CachedActivationsStore)
+        all_activations = get_sae_batches(self.cfg, acts_store).detach().cpu()
 
         out = all_activations.mean(dim=0)
 
@@ -546,14 +548,14 @@ class SparseAutoencoder(torch.nn.Module):
 ###########
 # Session #
 ###########
-# Depends on Config, RecordedVit, SparseAutoencoder and ActivationsStore so has to come after them.
+# Depends on Config, RecordedVit, SparseAutoencoder and CachedActivationsStore so has to come after them.
 
 
 @beartype.beartype
 class Session(typing.NamedTuple):
     vit: RecordedVit
     sae: SparseAutoencoder
-    acts_store: ActivationsStore
+    acts_store: CachedActivationsStore
 
     @classmethod
     def from_cfg(cls, cfg: Config) -> "Session":
@@ -564,7 +566,7 @@ class Session(typing.NamedTuple):
         vit.to(cfg.device)
 
         sae = SparseAutoencoder(cfg)
-        acts_store = ActivationsStore(cfg, vit)
+        acts_store = CachedActivationsStore(cfg, vit, on_missing="error")
 
         return cls(vit, sae, acts_store)
 
