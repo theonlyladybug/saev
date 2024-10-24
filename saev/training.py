@@ -4,9 +4,8 @@ import os
 import beartype
 import torch
 import torch.optim.lr_scheduler as lr_scheduler
-from torch.optim import Adam
-
 import wandb
+from torch.optim import Adam
 
 from . import config, modeling
 

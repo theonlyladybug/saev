@@ -16,6 +16,7 @@ dependencies = [
     "tqdm>=4.66.5",
     "tyro>=0.8.12",
     "wandb>=0.18.5",
+    "webdataset>=0.2.100",
 ]
 
 [tool.ruff.lint]

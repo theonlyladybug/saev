@@ -43,10 +43,6 @@ hljs.highlightAll();
 <dd>
 <div class="desc"></div>
 </dd>
-<dt><code class="name"><a title="saev.jobs" href="jobs.html">saev.jobs</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
 <dt><code class="name"><a title="saev.modeling" href="modeling.html">saev.modeling</a></code></dt>
 <dd>
 <div class="desc"></div>
@@ -101,6 +97,7 @@ class Config:
     block_layer: int = -2
     data: Huggingface | Webdataset = dataclasses.field(default_factory=Huggingface)
     n_workers: int = 8
+    &#34;&#34;&#34;Number of dataloader workers.&#34;&#34;&#34;
 
     # SAE Parameters
     d_in: int = 1024
@@ -249,7 +246,7 @@ class Config:
 </dd>
 <dt id="saev.Config.n_workers"><code class="name">var <span class="ident">n_workers</span> : int</code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Number of dataloader workers.</p></div>
 </dd>
 <dt id="saev.Config.resample_batches"><code class="name">var <span class="ident">resample_batches</span> : int</code></dt>
 <dd>
@@ -331,7 +328,6 @@ def store_size(self) -&gt; int:
 <li><code><a title="saev.analysis" href="analysis.html">saev.analysis</a></code></li>
 <li><code><a title="saev.config" href="config.html">saev.config</a></code></li>
 <li><code><a title="saev.helpers" href="helpers.html">saev.helpers</a></code></li>
-<li><code><a title="saev.jobs" href="jobs.html">saev.jobs</a></code></li>
 <li><code><a title="saev.modeling" href="modeling.html">saev.modeling</a></code></li>
 <li><code><a title="saev.sessions" href="sessions.html">saev.sessions</a></code></li>
 <li><code><a title="saev.training" href="training.html">saev.training</a></code></li>

@@ -10,13 +10,39 @@ class Huggingface:
 
     name: str = "ILSVRC/imagenet-1k"
 
+    @property
+    def n_imgs(self) -> int:
+        import datasets
+
+        dataset = datasets.load_dataset(
+            self.name, split="train", trust_remote_code=True
+        )
+        return len(dataset)
+
 
 @beartype.beartype
 @dataclasses.dataclass(frozen=True)
 class Webdataset:
-    """Configuration for webdataset (like TreeOfLife-10M)."""
+    """
+    Configuration for webdataset (like TreeOfLife-10M).
 
-    url: str
+    Webdatasets are designed for random sampling of the entire dataset so that over multiple epochs, every sample is seen, on average, the same number of times. However, for training sparse autoencoders, we need to calculate ViT activations exactly once for each example in the dataset. Webdatasets support this through the [`wids`](https://github.com/webdataset/webdataset?tab=readme-ov-file#the-wids-library-for-indexed-webdatasets) library.
+
+    Here is a short discussion of the steps required to use saev with webdatasets.
+
+    First, you will need to use `widsindex` (installed with the webdataset library) to create an metadata file used by wids. You can see an example file [here](https://storage.googleapis.com/webdataset/fake-imagenet/imagenet-train.json). To generate my own metadata file, I ran this command:
+
+    ```
+    uv run widsindex create --name treeoflife-10m --output meta.json '/fs/ess/PAS2136/open_clip/data/evobio10m-v3.3/224x224/train/shard-{000000..000159}.tar'
+    ```
+
+    It took a long time (more than an hour) and generated a `meta.json` file.
+    """
+
+    url: str = "/fs/ess/PAS2136/open_clip/data/evobio10m-v3.3/224x224/train/shard-{000000..000159}.tar"
+    """Path to dataset shards."""
+    n_imgs: int = 9562377
+    """Number of images in dataset."""
 
 
 @beartype.beartype
@@ -34,6 +60,7 @@ class Config:
     block_layer: int = -2
     data: Huggingface | Webdataset = dataclasses.field(default_factory=Huggingface)
     n_workers: int = 8
+    """Number of dataloader workers."""
 
     # SAE Parameters
     d_in: int = 1024

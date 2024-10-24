@@ -62,6 +62,7 @@ class Config:
     block_layer: int = -2
     data: Huggingface | Webdataset = dataclasses.field(default_factory=Huggingface)
     n_workers: int = 8
+    &#34;&#34;&#34;Number of dataloader workers.&#34;&#34;&#34;
 
     # SAE Parameters
     d_in: int = 1024
@@ -210,7 +211,7 @@ class Config:
 </dd>
 <dt id="saev.config.Config.n_workers"><code class="name">var <span class="ident">n_workers</span> : int</code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Number of dataloader workers.</p></div>
 </dd>
 <dt id="saev.config.Config.resample_batches"><code class="name">var <span class="ident">resample_batches</span> : int</code></dt>
 <dd>
@@ -294,7 +295,16 @@ def store_size(self) -&gt; int:
 class Huggingface:
     &#34;&#34;&#34;Configuration for datasets from HuggingFace.&#34;&#34;&#34;
 
-    name: str = &#34;ILSVRC/imagenet-1k&#34;</code></pre>
+    name: str = &#34;ILSVRC/imagenet-1k&#34;
+
+    @property
+    def n_imgs(self) -&gt; int:
+        import datasets
+
+        dataset = datasets.load_dataset(
+            self.name, split=&#34;train&#34;, trust_remote_code=True
+        )
+        return len(dataset)</code></pre>
 </details>
 <h3>Class variables</h3>
 <dl>
@@ -303,13 +313,39 @@ class Huggingface:
 <div class="desc"></div>
 </dd>
 </dl>
+<h3>Instance variables</h3>
+<dl>
+<dt id="saev.config.Huggingface.n_imgs"><code class="name">prop <span class="ident">n_imgs</span> : int</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def n_imgs(self) -&gt; int:
+    import datasets
+
+    dataset = datasets.load_dataset(
+        self.name, split=&#34;train&#34;, trust_remote_code=True
+    )
+    return len(dataset)</code></pre>
+</details>
+</dd>
+</dl>
 </dd>
 <dt id="saev.config.Webdataset"><code class="flex name class">
 <span>class <span class="ident">Webdataset</span></span>
-<span>(</span><span>url: str)</span>
+<span>(</span><span>url: str = '/fs/ess/PAS2136/open_clip/data/evobio10m-v3.3/224x224/train/shard-{000000..000159}.tar', n_imgs: int = 9562377)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Configuration for webdataset (like TreeOfLife-10M).</p></div>
+<div class="desc"><p>Configuration for webdataset (like TreeOfLife-10M).</p>
+<p>Webdatasets are designed for random sampling of the entire dataset so that over multiple epochs, every sample is seen, on average, the same number of times. However, for training sparse autoencoders, we need to calculate ViT activations exactly once for each example in the dataset. Webdatasets support this through the <a href="https://github.com/webdataset/webdataset?tab=readme-ov-file#the-wids-library-for-indexed-webdatasets"><code>wids</code></a> library.</p>
+<p>Here is a short discussion of the steps required to use saev with webdatasets.</p>
+<p>First, you will need to use <code>widsindex</code> (installed with the webdataset library) to create an metadata file used by wids. You can see an example file <a href="https://storage.googleapis.com/webdataset/fake-imagenet/imagenet-train.json">here</a>. To generate my own metadata file, I ran this command:</p>
+<pre><code>uv run widsindex create --name treeoflife-10m --output meta.json '/fs/ess/PAS2136/open_clip/data/evobio10m-v3.3/224x224/train/shard-{000000..000159}.tar'
+</code></pre>
+<p>It took a long time (more than an hour) and generated a <code>meta.json</code> file.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -317,15 +353,36 @@ class Huggingface:
 <pre><code class="python">@beartype.beartype
 @dataclasses.dataclass(frozen=True)
 class Webdataset:
-    &#34;&#34;&#34;Configuration for webdataset (like TreeOfLife-10M).&#34;&#34;&#34;
+    &#34;&#34;&#34;
+    Configuration for webdataset (like TreeOfLife-10M).
 
-    url: str</code></pre>
+    Webdatasets are designed for random sampling of the entire dataset so that over multiple epochs, every sample is seen, on average, the same number of times. However, for training sparse autoencoders, we need to calculate ViT activations exactly once for each example in the dataset. Webdatasets support this through the [`wids`](https://github.com/webdataset/webdataset?tab=readme-ov-file#the-wids-library-for-indexed-webdatasets) library.
+
+    Here is a short discussion of the steps required to use saev with webdatasets.
+
+    First, you will need to use `widsindex` (installed with the webdataset library) to create an metadata file used by wids. You can see an example file [here](https://storage.googleapis.com/webdataset/fake-imagenet/imagenet-train.json). To generate my own metadata file, I ran this command:
+
+    ```
+    uv run widsindex create --name treeoflife-10m --output meta.json &#39;/fs/ess/PAS2136/open_clip/data/evobio10m-v3.3/224x224/train/shard-{000000..000159}.tar&#39;
+    ```
+
+    It took a long time (more than an hour) and generated a `meta.json` file.
+    &#34;&#34;&#34;
+
+    url: str = &#34;/fs/ess/PAS2136/open_clip/data/evobio10m-v3.3/224x224/train/shard-{000000..000159}.tar&#34;
+    &#34;&#34;&#34;Path to dataset shards.&#34;&#34;&#34;
+    n_imgs: int = 9562377
+    &#34;&#34;&#34;Number of images in dataset.&#34;&#34;&#34;</code></pre>
 </details>
 <h3>Class variables</h3>
 <dl>
+<dt id="saev.config.Webdataset.n_imgs"><code class="name">var <span class="ident">n_imgs</span> : int</code></dt>
+<dd>
+<div class="desc"><p>Number of images in dataset.</p></div>
+</dd>
 <dt id="saev.config.Webdataset.url"><code class="name">var <span class="ident">url</span> : str</code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Path to dataset shards.</p></div>
 </dd>
 </dl>
 </dd>
@@ -385,12 +442,14 @@ class Webdataset:
 <li>
 <h4><code><a title="saev.config.Huggingface" href="#saev.config.Huggingface">Huggingface</a></code></h4>
 <ul class="">
+<li><code><a title="saev.config.Huggingface.n_imgs" href="#saev.config.Huggingface.n_imgs">n_imgs</a></code></li>
 <li><code><a title="saev.config.Huggingface.name" href="#saev.config.Huggingface.name">name</a></code></li>
 </ul>
 </li>
 <li>
 <h4><code><a title="saev.config.Webdataset" href="#saev.config.Webdataset">Webdataset</a></code></h4>
 <ul class="">
+<li><code><a title="saev.config.Webdataset.n_imgs" href="#saev.config.Webdataset.n_imgs">n_imgs</a></code></li>
 <li><code><a title="saev.config.Webdataset.url" href="#saev.config.Webdataset.url">url</a></code></li>
 </ul>
 </li>

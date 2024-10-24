@@ -9,6 +9,7 @@ import beartype
 import einops
 import numpy as np
 import torch
+import wids
 from jaxtyping import Float, Int, jaxtyped
 from torch import Tensor
 
@@ -139,15 +140,11 @@ class CachedActivationsStore(torch.utils.data.Dataset):
         else:
             raise ValueError(f"Invalid value '{on_missing}' for arg 'on_missing'.")
 
-        import datasets
+        self.shape = (cfg.data.n_imgs, cfg.d_in)
+        # TODO
+        # self.labels = torch.tensor(dataset["label"])
+        self.labels = None
 
-        # Need the original dataset to calculate the length and save the class labels.
-        dataset = datasets.load_dataset(
-            cfg.dataset_path, split="train", trust_remote_code=True
-        )
-
-        self.shape = (len(dataset), cfg.d_in)
-        self.labels = torch.tensor(dataset["label"])
         self._acts = np.memmap(
             self._acts_filepath, mode="r", dtype=np.float32, shape=self.shape
         )
@@ -169,27 +166,19 @@ def get_acts_filepath(cfg: config.Config) -> str:
         + cfg.model
         + cfg.module_name
         + str(cfg.block_layer)
-        + cfg.dataset_path
+        + str(cfg.data)
     )
     acts_hash = hashlib.sha256(cfg_str.encode("utf-8")).hexdigest()
     return os.path.join(get_cache_dir(), "saev-acts", acts_hash, "acts.bin")
 
 
 @beartype.beartype
-def save_acts(cfg: config.Config, vit: RecordedVit):
+def get_hf_dataloader(cfg: config.Config, preprocess) -> torch.utils.data.DataLoader:
     import datasets
 
-    # Make filepath.
-    filepath = get_acts_filepath(cfg)
-    dirpath = os.path.dirname(filepath)
-    os.makedirs(dirpath, exist_ok=True)
-
-    # Get dataloader
     dataset = datasets.load_dataset(
-        cfg.dataset_path, split="train", trust_remote_code=True
+        cfg.data.name, split="train", trust_remote_code=True
     )
-
-    preprocess = vit.make_img_transform()
 
     @beartype.beartype
     def add_index(example, indices: list[int]):
@@ -217,12 +206,69 @@ def save_acts(cfg: config.Config, vit: RecordedVit):
         shuffle=False,
         pin_memory=False,
     )
-    n_batches = len(dataset) // cfg.vit_batch_size + 1
+    return dataloader
+
+
+def filter_no_caption_or_no_image(sample):
+    has_caption = any("txt" in key for key in sample)
+    has_image = (
+        "png" in sample or "jpg" in sample or "jpeg" in sample or "webp" in sample
+    )
+    return has_caption and has_image
+
+
+def log_and_continue(exn):
+    """Call in an exception handler to ignore any exception, issue a warning, and continue."""
+    logging.warning(f"Handling webdataset error ({repr(exn)}). Ignoring.")
+    return True
+
+
+@beartype.beartype
+def get_wds_dataloader(cfg: config.Config, preprocess) -> torch.utils.data.DataLoader:
+    """ """
+
+    def transform(sample: dict):
+        breakpoint()
+
+    dataset = wids.ShardListDataset(cfg.data.url).add_transform(transform)
+
+    breakpoint()
+
+    dataloader = torch.utils.data.DataLoader(
+        dataset,
+        batch_size=None,
+        shuffle=False,
+        num_workers=cfg.n_workers,
+        persistent_workers=False,
+    )
+
+    return dataloader
+
+
+@beartype.beartype
+def save_acts(cfg: config.Config, vit: RecordedVit):
+    # Make filepath.
+    filepath = get_acts_filepath(cfg)
+    dirpath = os.path.dirname(filepath)
+    os.makedirs(dirpath, exist_ok=True)
+
+    # Get dataloader
+    preprocess = vit.make_img_transform()
+    if isinstance(cfg.data, config.Huggingface):
+        dataloader = get_hf_dataloader(cfg, preprocess)
+    elif isinstance(cfg.data, config.Webdataset):
+        dataloader = get_wds_dataloader(cfg, preprocess)
+    else:
+        typing.assert_never(cfg.data)
 
     # Make memmap'ed file.
     acts = np.memmap(
-        filepath, mode="w+", dtype=np.float32, shape=(len(dataset), cfg.d_in)
+        filepath, mode="w+", dtype=np.float32, shape=(cfg.data.n_imgs, cfg.d_in)
     )
+
+    n_batches = cfg.data.n_imgs // cfg.vit_batch_size + 1
+
+    breakpoint()
 
     # Calculate and write ViT activations.
     with torch.inference_mode():
