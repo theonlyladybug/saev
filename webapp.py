@@ -11,14 +11,13 @@ def __():
     import random
 
     import marimo as mo
+
     return mo, os, pickle, random
 
 
 @app.cell
 def __():
-    # webapp_dir = "webapp/jp7xtqeu"
-    # webapp_dir = "webapp/p9jmneyb"
-    webapp_dir = "/local/scratch/stevens.994/sae-webapp/dd991rt3-updated-analysis/updated-generate/webapp"
+    webapp_dir = "/local/scratch/stevens.994/sae-webapp/b822y437-analysis/updated-generate/webapp"
     return (webapp_dir,)
 
 
@@ -62,6 +61,7 @@ def __(mo, pickle, webapp_dir):
 
     def format_metadata(metadata: dict[str, float | int]):
         return mo.table([metadata])
+
     return format_metadata, get_metadata
 
 

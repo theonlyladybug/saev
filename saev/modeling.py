@@ -1,4 +1,3 @@
-import dataclasses
 import gzip
 import hashlib
 import logging
@@ -7,17 +6,13 @@ import pickle
 import typing
 
 import beartype
-import datasets
 import einops
 import numpy as np
-import open_clip
 import torch
 from jaxtyping import Float, Int, jaxtyped
 from torch import Tensor
 
-import wandb
-
-from . import helpers
+from . import config, helpers
 
 ###########
 # HELPERS #
@@ -33,83 +28,6 @@ def get_cache_dir() -> str:
     return cache_dir or "."
 
 
-##########
-# Config #
-##########
-
-
-@beartype.beartype
-@dataclasses.dataclass
-class Config:
-    """
-    Configuration for training a sparse autoencoder on a vision transformer.
-    """
-
-    # Data Generating Function (Model + Training Distibuion)
-    image_width: int = 224
-    image_height: int = 224
-    model: str = "ViT-L-14/openai"
-    module_name: str = "resid"
-    block_layer: int = -2
-    dataset_path: str = "ILSVRC/imagenet-1k"
-    n_workers: int = 8
-
-    # SAE Parameters
-    d_in: int = 1024
-
-    # Activation Store Parameters
-    n_epochs: int = 3
-    n_batches_in_store: int = 15
-    vit_batch_size: int = 1024
-
-    # SAE Parameters
-    expansion_factor: int = 64
-
-    # Training Parameters
-    l1_coefficient: float = 0.00008
-    lr: float = 0.0004
-    lr_warm_up_steps: int = 500
-    batch_size: int = 1024
-
-    # Resampling protocol args
-    use_ghost_grads: bool = True
-    feature_sampling_window: int = 64
-    resample_batches: int = 32
-    feature_reinit_scale: float = 0.2
-    dead_feature_window: int = 64
-    dead_feature_estimation_method: str = "no_fire"
-    dead_feature_threshold: float = 1e-6
-
-    # WANDB
-    log_to_wandb: bool = True
-    wandb_project: str = "saev"
-    wandb_log_freq: int = 10
-
-    # Misc
-    device: str = "cuda"
-    seed: int = 42
-    dtype: torch.dtype = torch.float32
-    checkpoint_path: str = "checkpoints"
-
-    @property
-    def store_size(self) -> int:
-        return self.n_batches_in_store * self.batch_size
-
-    @property
-    def d_sae(self) -> int:
-        return self.d_in * self.expansion_factor
-
-    @property
-    def run_name(self) -> str:
-        return (
-            f"{self.d_sae}-L1-{self.l1_coefficient}-LR-{self.lr}-epochs-{self.n_epochs}"
-        )
-
-    def __post_init__(self):
-        unique_id = wandb.util.generate_id()
-        self.checkpoint_path = f"{self.checkpoint_path}/{unique_id}"
-
-
 ###############
 # RecordedVit #
 ###############
@@ -121,8 +39,10 @@ class RecordedVit(torch.nn.Module):
     n_layers: int
     model: torch.nn.Module
 
-    def __init__(self, cfg: Config):
+    def __init__(self, cfg: config.Config):
         super().__init__()
+
+        import open_clip
 
         if cfg.model.startswith("hf-hub:"):
             clip, _img_transform = open_clip.create_model_from_pretrained(cfg.model)
@@ -199,10 +119,12 @@ class RecordedVit(torch.nn.Module):
 
 @jaxtyped(typechecker=beartype.beartype)
 class CachedActivationsStore(torch.utils.data.Dataset):
-    cfg: Config
+    cfg: config.Config
     shape: tuple[int, int]
 
-    def __init__(self, cfg: Config, vit: RecordedVit, *, on_missing: str = "error"):
+    def __init__(
+        self, cfg: config.Config, vit: RecordedVit, *, on_missing: str = "error"
+    ):
         self.cfg = cfg
         self._acts_filepath = get_acts_filepath(cfg)
 
@@ -216,6 +138,8 @@ class CachedActivationsStore(torch.utils.data.Dataset):
             save_acts(cfg, vit)
         else:
             raise ValueError(f"Invalid value '{on_missing}' for arg 'on_missing'.")
+
+        import datasets
 
         # Need the original dataset to calculate the length and save the class labels.
         dataset = datasets.load_dataset(
@@ -238,7 +162,7 @@ class CachedActivationsStore(torch.utils.data.Dataset):
 
 
 @beartype.beartype
-def get_acts_filepath(cfg: Config) -> str:
+def get_acts_filepath(cfg: config.Config) -> str:
     cfg_str = (
         str(cfg.image_width)
         + str(cfg.image_height)
@@ -252,7 +176,9 @@ def get_acts_filepath(cfg: Config) -> str:
 
 
 @beartype.beartype
-def save_acts(cfg: Config, vit: RecordedVit):
+def save_acts(cfg: config.Config, vit: RecordedVit):
+    import datasets
+
     # Make filepath.
     filepath = get_acts_filepath(cfg)
     dirpath = os.path.dirname(filepath)
@@ -316,7 +242,7 @@ def save_acts(cfg: Config, vit: RecordedVit):
 
 @jaxtyped(typechecker=beartype.beartype)
 def get_sae_batches(
-    cfg: Config, acts_store: CachedActivationsStore
+    cfg: config.Config, acts_store: CachedActivationsStore
 ) -> Float[Tensor, "store_size d_model"]:
     """
     Get a batch of vit activations
@@ -332,7 +258,7 @@ def get_sae_batches(
 
 @beartype.beartype
 class SparseAutoencoder(torch.nn.Module):
-    def __init__(self, cfg: Config):
+    def __init__(self, cfg: config.Config):
         super().__init__()
         if not isinstance(cfg.d_in, int):
             raise ValueError(
@@ -541,7 +467,7 @@ class SparseAutoencoder(torch.nn.Module):
         return instance
 
     def get_name(self):
-        assert isinstance(self.cfg, Config)
+        assert isinstance(self.cfg, config.Config)
         return f"sparse_autoencoder_{self.cfg.model}_{self.cfg.block_layer}_{self.cfg.module_name}_{self.cfg.d_sae}"
 
 
@@ -558,7 +484,7 @@ class Session(typing.NamedTuple):
     acts_store: CachedActivationsStore
 
     @classmethod
-    def from_cfg(cls, cfg: Config) -> "Session":
+    def from_cfg(cls, cfg: config.Config) -> "Session":
         vit = RecordedVit(cfg)
         vit.eval()
         for parameter in vit.model.parameters():

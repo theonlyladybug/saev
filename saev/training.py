@@ -5,38 +5,28 @@ import beartype
 import torch
 import torch.optim.lr_scheduler as lr_scheduler
 from torch.optim import Adam
-from tqdm import tqdm
 
 import wandb
 
-from . import modeling
+from . import config, modeling
 
 
-def train(
-    cfg: modeling.Config,
-) -> tuple[modeling.SparseAutoencoder, modeling.RecordedVit]:
+@beartype.beartype
+def main(cfg: config.Config) -> tuple[modeling.SparseAutoencoder, modeling.RecordedVit]:
+    if torch.cuda.is_available():
+        # This enables tf32 on Ampere GPUs which is only 8% slower than
+        # float16 and almost as accurate as float32
+        # This was a default in pytorch until 1.12
+        torch.backends.cuda.matmul.allow_tf32 = True
+        torch.backends.cudnn.benchmark = True
+        torch.backends.cudnn.deterministic = False
+
     vit, sae, acts_store = modeling.Session.from_cfg(cfg)
 
     if cfg.log_to_wandb:
         wandb.init(project=cfg.wandb_project, config=cfg, name=cfg.run_name)
 
     # train SAE
-    sae = train_sae(sae, acts_store)
-
-    # save sae to checkpoints folder
-    path = f"{cfg.checkpoint_path}/final_{sae.get_name()}.pt"
-    sae.save_model(path)
-
-    if cfg.log_to_wandb:
-        wandb.finish()
-
-    return sae, vit
-
-
-@beartype.beartype
-def train_sae(
-    sae: modeling.SparseAutoencoder, acts_store: modeling.CachedActivationsStore
-) -> modeling.SparseAutoencoder:
     batch_size = sae.cfg.batch_size
 
     n_training_tokens = 0
@@ -183,4 +173,11 @@ def train_sae(
 
             n_steps += 1
 
-    return sae
+    # save sae to checkpoints folder
+    path = f"{cfg.checkpoint_path}/{wandb.run.id}/final_{sae.get_name()}.pt"
+    sae.save_model(path)
+
+    if cfg.log_to_wandb:
+        wandb.finish()
+
+    return sae, vit

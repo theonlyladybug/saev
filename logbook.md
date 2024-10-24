@@ -129,5 +129,16 @@ Why is that?
 We can find out by comparing to the original activations store.
 Likely, we will need to build a custom data order using `np.random.default_rng(seed=cfg.seed)`.
 
+
+# 10/24/2024
+
 My strategy for calculating the mean activations only used 15 examples instead of 15 x 1024.
 With 15 x 1024 examples, the b_dec is better initialized and it works exactly like before.
+
+Now I have a complete training strategy.
+The goal now is to train a SAE on BioCLIP's patch-level activations from TreeOfLife-10M.
+How do we do this?
+
+1. Train an SAE on ViT-L-14/openai image-level activations on *TreeOfLife-10M*.
+2. Train an SAE on *BioCLIP* image-level activations on TreeOfLife-10M.
+3. Train an SAE on BioCLIP *patch*-level activations on TreeOfLife-10M.

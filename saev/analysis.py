@@ -1,7 +1,6 @@
 import collections.abc
 import logging
 import os
-import sys
 
 import beartype
 import torch
@@ -9,11 +8,7 @@ import tyro
 from jaxtyping import Float, Int, jaxtyped
 from torch import Tensor
 
-import saev
-from saev import helpers
-
-# Fix pickle renaming errors.
-sys.modules["sae_training"] = saev
+from . import helpers, modeling
 
 logger = logging.getLogger("analysis")
 
@@ -39,7 +34,7 @@ def batched_idx(
 
 @jaxtyped(typechecker=beartype.beartype)
 def get_vit_acts(
-    acts_store: saev.CachedActivationsStore, n: int
+    acts_store: modeling.CachedActivationsStore, n: int
 ) -> tuple[Float[Tensor, "n d_model"], Int[Tensor, " n"]]:
     """
     Args:
@@ -62,7 +57,7 @@ def get_vit_acts(
 
 @jaxtyped(typechecker=beartype.beartype)
 def get_sae_acts(
-    vit_acts: Float[Tensor, "n d_model"], sae: saev.SparseAutoencoder
+    vit_acts: Float[Tensor, "n d_model"], sae: modeling.SparseAutoencoder
 ) -> Float[Tensor, "n d_sae"]:
     sae_acts = []
     for start, end in batched_idx(len(vit_acts), sae.cfg.vit_batch_size):
@@ -92,8 +87,8 @@ def get_new_topk(
 @beartype.beartype
 @torch.inference_mode()
 def get_feature_data(
-    sae: saev.SparseAutoencoder,
-    acts_store: saev.CachedActivationsStore,
+    sae: modeling.SparseAutoencoder,
+    acts_store: modeling.CachedActivationsStore,
     *,
     n_images: int = 32_768,
     k_top_images: int = 10,
@@ -190,7 +185,7 @@ def main(
         n_images: number of images to use. Use a smaller number for debugging.
         k_top_images: the number of top images to store per neuron.
     """
-    _, sae, acts_store = saev.Session.from_disk(ckpt_path)
+    _, sae, acts_store = modeling.Session.from_disk(ckpt_path)
     get_feature_data(
         sae,
         acts_store,

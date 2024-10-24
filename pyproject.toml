@@ -20,3 +20,8 @@ dependencies = [
 
 [tool.ruff.lint]
 ignore = ["F722"]
+
+[tool.uv]
+dev-dependencies = [
+    "pdoc3>=0.11.1",
+]
