@@ -5,8 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
 <meta name="generator" content="pdoc3 0.11.1">
 <title>saev.modeling API documentation</title>
-<meta name="description" content="modeling is the main module for the saev package and contains all the important non-config classes.
-It&#39;s fine for this package to be slow to import …">
+<meta name="description" content="modeling is the main module for the saev package and contains all the important non-config classes …">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/sanitize.min.css" integrity="sha512-y1dtMcuvtTMJc1yPgEqF0ZjQbhnc/bFhyvIyVNb9Zk5mIGtqVaAB1Ttl28su8AvFMOY0EwRbAe+HCLqj6W7/KA==" crossorigin>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/typography.min.css" integrity="sha512-Y1DYSb995BAfxobCkKepB1BqJJTPrOp3zPL74AWFugHHmmdcvO+C48WLrUOlhGMc0QG7AE3f7gmvvcrmX2fDoA==" crossorigin>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css" crossorigin>
@@ -28,8 +27,8 @@ hljs.highlightAll();
 <h1 class="title">Module <code>saev.modeling</code></h1>
 </header>
 <section id="section-intro">
-<p>modeling is the main module for the saev package and contains all the important non-config classes.
-It's fine for this package to be slow to import (see <code><a title="saev.config" href="config.html">saev.config</a></code> for a discussion of import times).</p>
+<p>modeling is the main module for the saev package and contains all the important non-config classes.</p>
+<p>It's fine for this package to be slow to import (see <code><a title="saev.config" href="config.html">saev.config</a></code> for a discussion of import times).</p>
 </section>
 <section>
 </section>
@@ -61,16 +60,27 @@ It's fine for this package to be slow to import (see <code><a title="saev.config
 <span>def <span class="ident">get_cache_dir</span></span>(<span>) ‑> str</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Get cache directory from environment variables, defaulting to the current working directory (.)</p></div>
+<div class="desc"><p>Get cache directory from environment variables, defaulting to the current working directory (.)</p>
+<h2 id="returns">Returns</h2>
+<p>A path to a cache directory (might not exist yet).</p></div>
 </dd>
 <dt id="saev.modeling.get_imagenet_dataloader"><code class="name flex">
 <span>def <span class="ident">get_imagenet_dataloader</span></span>(<span>cfg: <a title="saev.config.Config" href="config.html#saev.config.Config">Config</a>, preprocess) ‑> torch.utils.data.dataloader.DataLoader</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Get a dataloader for Imagenet loaded from Huggingface.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>cfg</code></strong></dt>
+<dd>Config.</dd>
+<dt><strong><code>preprocess</code></strong></dt>
+<dd>Image transform to be applied to each image.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>A PyTorch Dataloader that yields dictionaries with <code>'image'</code> keys containing image batches, <code>'index'</code> keys containing original dataset indices and <code>'label'</code> keys containing label batches.</p></div>
 </dd>
 <dt id="saev.modeling.get_sae_batches"><code class="name flex">
-<span>def <span class="ident">get_sae_batches</span></span>(<span>cfg: <a title="saev.config.Config" href="config.html#saev.config.Config">Config</a>, acts_store: <a title="saev.modeling.CachedActivationsStore" href="#saev.modeling.CachedActivationsStore">CachedActivationsStore</a>) ‑> jaxtyping.Float[Tensor, 'store_size d_model']</span>
+<span>def <span class="ident">get_sae_batches</span></span>(<span>cfg: <a title="saev.config.Config" href="config.html#saev.config.Config">Config</a>, acts_store: <a title="saev.modeling.CachedActivationsStore" href="#saev.modeling.CachedActivationsStore">CachedActivationsStore</a>) ‑> jaxtyping.Float[Tensor, 'reinit_size d_model']</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Get a batch of vit activations to re-initialize the SAE.</p>
@@ -400,7 +410,17 @@ class Session(typing.NamedTuple):
     acts_store: CachedActivationsStore
 
     @classmethod
-    def from_cfg(cls, cfg: config.Config) -&gt; &#34;Session&#34;:
+    def from_cfg(cls, cfg: config.Config, *, on_missing: str = &#34;error&#34;) -&gt; &#34;Session&#34;:
+        &#34;&#34;&#34;
+        Load a new session from an existing config.
+
+        Args:
+            cfg: Confg.
+            on_missing: passed to the `CachedActivationsStore`.
+
+        Returns:
+            A session with a config, ViT, SAE and activation store.
+        &#34;&#34;&#34;
         vit = RecordedVit(cfg)
         vit.eval()
         for parameter in vit.model.parameters():
@@ -408,7 +428,7 @@ class Session(typing.NamedTuple):
         vit.to(cfg.device)
 
         sae = SparseAutoencoder(cfg)
-        acts_store = CachedActivationsStore(cfg, vit, on_missing=&#34;error&#34;)
+        acts_store = CachedActivationsStore(cfg, vit, on_missing=on_missing)
 
         return cls(cfg, vit, sae, acts_store)
 
@@ -430,10 +450,19 @@ class Session(typing.NamedTuple):
 <h3>Static methods</h3>
 <dl>
 <dt id="saev.modeling.Session.from_cfg"><code class="name flex">
-<span>def <span class="ident">from_cfg</span></span>(<span>cls, cfg: <a title="saev.config.Config" href="config.html#saev.config.Config">Config</a>) ‑> <a title="saev.modeling.Session" href="#saev.modeling.Session">Session</a></span>
+<span>def <span class="ident">from_cfg</span></span>(<span>cls, cfg: <a title="saev.config.Config" href="config.html#saev.config.Config">Config</a>, *, on_missing: str = 'error') ‑> <a title="saev.modeling.Session" href="#saev.modeling.Session">Session</a></span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Load a new session from an existing config.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>cfg</code></strong></dt>
+<dd>Confg.</dd>
+<dt><strong><code>on_missing</code></strong></dt>
+<dd>passed to the <code><a title="saev.modeling.CachedActivationsStore" href="#saev.modeling.CachedActivationsStore">CachedActivationsStore</a></code>.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>A session with a config, ViT, SAE and activation store.</p></div>
 </dd>
 <dt id="saev.modeling.Session.from_disk"><code class="name flex">
 <span>def <span class="ident">from_disk</span></span>(<span>cls, path) ‑> <a title="saev.modeling.Session" href="#saev.modeling.Session">Session</a></span>
