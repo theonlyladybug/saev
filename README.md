@@ -10,3 +10,6 @@ It also includes an interactive webapp for looking through a trained SAE's featu
 Originally forked from [HugoFry](https://github.com/HugoFry/mats_sae_training_for_ViTs) who forked it from [Joseph Bloom](https://github.com/jbloomAus/SAELens).
 
 Read [logbook.md](logbook.md) for a detailed log of my thought process.
+
+See [related-work.md](related-work.md) for a list of works training SAEs on vision models.
+Please open an issue or a PR if there is missing work.
