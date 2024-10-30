@@ -1,3 +1,13 @@
+"""
+Configs for saev experiments.
+
+## Import Times
+
+This module should be very fast to import so that `python main.py --help` is fast.
+This means that the top-level imports should not include big packages like numpy, torch, etc.
+For example, `TreeOfLife.n_imgs` imports numpy when it's needed, rather than importing it at the top level.
+"""
+
 import dataclasses
 
 import beartype
@@ -5,13 +15,15 @@ import beartype
 
 @beartype.beartype
 @dataclasses.dataclass(frozen=True)
-class Huggingface:
-    """Configuration for datasets from HuggingFace."""
+class Imagenet:
+    """Configuration for HuggingFace Imagenet."""
 
     name: str = "ILSVRC/imagenet-1k"
+    """Dataset name. Probably don't want to change this."""
 
     @property
     def n_imgs(self) -> int:
+        """Number of images in the dataset. Calculated on the fly, but is non-trivial to calculate because it requires loading the dataset. If you need to reference this number very often, cache it in a local variable."""
         import datasets
 
         dataset = datasets.load_dataset(
@@ -22,9 +34,9 @@ class Huggingface:
 
 @beartype.beartype
 @dataclasses.dataclass(frozen=True)
-class Webdataset:
+class TreeOfLife:
     """
-    Configuration for webdataset (like TreeOfLife-10M).
+    Configuration for the TreeOfLife-10M webdataset.
 
     Webdatasets are designed for random sampling of the entire dataset so that over multiple epochs, every sample is seen, on average, the same number of times. However, for training sparse autoencoders, we need to calculate ViT activations exactly once for each example in the dataset. Webdatasets support this through the [`wids`](https://github.com/webdataset/webdataset?tab=readme-ov-file#the-wids-library-for-indexed-webdatasets) library.
 
@@ -32,17 +44,33 @@ class Webdataset:
 
     First, you will need to use `widsindex` (installed with the webdataset library) to create an metadata file used by wids. You can see an example file [here](https://storage.googleapis.com/webdataset/fake-imagenet/imagenet-train.json). To generate my own metadata file, I ran this command:
 
-    ```
-    uv run widsindex create --name treeoflife-10m --output meta.json '/fs/ess/PAS2136/open_clip/data/evobio10m-v3.3/224x224/train/shard-{000000..000159}.tar'
+    ```sh
+    uv run widsindex create --name treeoflife-10m --output treeoflife-10m.json '/fs/ess/PAS2136/open_clip/data/evobio10m-v3.3/224x224/train/shard-{000000..000159}.tar'
     ```
 
-    It took a long time (more than an hour) and generated a `meta.json` file.
+    It took a long time (more than an hour, less than 3 hours) and generated a `treeoflife-10m.json` file.
     """
 
-    url: str = "/fs/ess/PAS2136/open_clip/data/evobio10m-v3.3/224x224/train/shard-{000000..000159}.tar"
+    metadata: str = "treeoflife-10m.json"
     """Path to dataset shards."""
-    n_imgs: int = 9562377
-    """Number of images in dataset."""
+    label_key: str = ".taxonomic_name.txt"
+    """Which key to use as the label."""
+
+    @property
+    def n_imgs(self) -> int:
+        """Return number of images in the dataset by reading the metadata file and summing the `nsamples` fields."""
+        import json
+
+        import numpy as np
+
+        with open(self.metadata) as fd:
+            metadata = json.load(fd)
+
+        return (
+            np.array([shard["nsamples"] for shard in metadata["shardlist"]])
+            .sum()
+            .item()
+        )
 
 
 @beartype.beartype
@@ -54,61 +82,77 @@ class Config:
 
     # Data Generating Function (Model + Training Distibuion)
     image_width: int = 224
+
     image_height: int = 224
+
     model: str = "ViT-L-14/openai"
+    """Model string, for use with open_clip."""
     module_name: str = "resid"
+
     block_layer: int = -2
-    data: Huggingface | Webdataset = dataclasses.field(default_factory=Huggingface)
+
+    data: Imagenet | TreeOfLife = dataclasses.field(default_factory=Imagenet)
+    """Which dataset to use."""
     n_workers: int = 8
     """Number of dataloader workers."""
+    d_vit: int = 1024
+    """Dimension of the ViT activations (depends on model, module_name, and block_layer)."""
 
-    # SAE Parameters
-    d_in: int = 1024
-
-    # Activation Store Parameters
+    # Training
+    n_reinit_batches: int = 15
+    """Number of batches to use for SAE re-init."""
     n_epochs: int = 3
-    n_batches_in_store: int = 15
+    """Number of SAE training epochs."""
     vit_batch_size: int = 1024
+    """Batch size for ViT inference."""
+    exp_factor: int = 64
+    """Expansion factor for SAE."""
+    l1_coeff: float = 0.00008
 
-    # SAE Parameters
-    expansion_factor: int = 64
-
-    # Training Parameters
-    l1_coefficient: float = 0.00008
     lr: float = 0.0004
-    lr_warm_up_steps: int = 500
-    batch_size: int = 1024
+    """Learning rate."""
+    n_lr_warmup: int = 500
+    """Number of learning rate warmup steps."""
+    sae_batch_size: int = 1024
+    """Batch size for SAE training."""
 
-    # Resampling protocol args
     use_ghost_grads: bool = True
+
     feature_sampling_window: int = 64
+
     resample_batches: int = 32
-    feature_reinit_scale: float = 0.2
+
     dead_feature_window: int = 64
-    dead_feature_estimation_method: str = "no_fire"
+
     dead_feature_threshold: float = 1e-6
 
-    # WANDB
-    log_to_wandb: bool = True
+    # Logging
+    track: bool = True
+    """Whether to track with WandB."""
     wandb_project: str = "saev"
-    wandb_log_freq: int = 10
 
-    # Misc
+    log_every: int = 10
+    """How often to log to WandB."""
+    ckpt_path: str = "checkpoints"
+
+    # Misc.
     device: str = "cuda"
+
     seed: int = 42
+    """Random seed."""
     dtype: str = "float32"
-    checkpoint_path: str = "checkpoints"
+
+    slurm: bool = False
+    """Whether to use `submitit` to run jobs on a Slurm cluster."""
+    slurm_acct: str = "PAS2136"
+    """Slurm account string."""
+    log_to: str = "./logs"
+    """Where to log Slurm job stdout/stderr."""
 
     @property
-    def store_size(self) -> int:
-        return self.n_batches_in_store * self.batch_size
+    def reinit_size(self) -> int:
+        return self.n_reinit_batches * self.sae_batch_size
 
     @property
     def d_sae(self) -> int:
-        return self.d_in * self.expansion_factor
-
-    @property
-    def run_name(self) -> str:
-        return (
-            f"{self.d_sae}-L1-{self.l1_coefficient}-LR-{self.lr}-epochs-{self.n_epochs}"
-        )
+        return self.d_vit * self.exp_factor

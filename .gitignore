@@ -5,3 +5,6 @@ wandb/
 artifacts/
 checkpoints/
 metrics/
+logs/
+web/
+data/

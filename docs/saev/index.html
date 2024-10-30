@@ -68,7 +68,7 @@ hljs.highlightAll();
 <dl>
 <dt id="saev.Config"><code class="flex name class">
 <span>class <span class="ident">Config</span></span>
-<span>(</span><span>image_width: int = 224, image_height: int = 224, model: str = 'ViT-L-14/openai', module_name: str = 'resid', block_layer: int = -2, data: <a title="saev.config.Imagenet" href="config.html#saev.config.Imagenet">Imagenet</a> | <a title="saev.config.TreeOfLife" href="config.html#saev.config.TreeOfLife">TreeOfLife</a> = &lt;factory&gt;, n_workers: int = 8, d_vit: int = 1024, n_epochs: int = 3, n_reinit_batches: int = 15, vit_batch_size: int = 1024, exp_factor: int = 64, l1_coeff: float = 8e-05, lr: float = 0.0004, n_lr_warmup: int = 500, sae_batch_size: int = 1024, use_ghost_grads: bool = True, feature_sampling_window: int = 64, resample_batches: int = 32, dead_feature_window: int = 64, dead_feature_threshold: float = 1e-06, log_to_wandb: bool = True, wandb_project: str = 'saev', wandb_log_freq: int = 10, device: str = 'cuda', seed: int = 42, dtype: str = 'float32', checkpoint_path: str = 'checkpoints', slurm: bool = False, slurm_acct: str = 'PAS2136', log_to: str = './logs')</span>
+<span>(</span><span>image_width: int = 224, image_height: int = 224, model: str = 'ViT-L-14/openai', module_name: str = 'resid', block_layer: int = -2, data: <a title="saev.config.Imagenet" href="config.html#saev.config.Imagenet">Imagenet</a> | <a title="saev.config.TreeOfLife" href="config.html#saev.config.TreeOfLife">TreeOfLife</a> = &lt;factory&gt;, n_workers: int = 8, d_vit: int = 1024, n_reinit_batches: int = 15, n_epochs: int = 3, vit_batch_size: int = 1024, exp_factor: int = 64, l1_coeff: float = 8e-05, lr: float = 0.0004, n_lr_warmup: int = 500, sae_batch_size: int = 1024, use_ghost_grads: bool = True, feature_sampling_window: int = 64, resample_batches: int = 32, dead_feature_window: int = 64, dead_feature_threshold: float = 1e-06, track: bool = True, wandb_project: str = 'saev', log_every: int = 10, ckpt_path: str = 'checkpoints', device: str = 'cuda', seed: int = 42, dtype: str = 'float32', slurm: bool = False, slurm_acct: str = 'PAS2136', log_to: str = './logs')</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Configuration for training a sparse autoencoder on a vision transformer.</p></div>
@@ -100,14 +100,16 @@ class Config:
     &#34;&#34;&#34;Number of dataloader workers.&#34;&#34;&#34;
     d_vit: int = 1024
     &#34;&#34;&#34;Dimension of the ViT activations (depends on model, module_name, and block_layer).&#34;&#34;&#34;
-    n_epochs: int = 3
-    &#34;&#34;&#34;Number of SAE training epochs.&#34;&#34;&#34;
+
+    # Training
     n_reinit_batches: int = 15
     &#34;&#34;&#34;Number of batches to use for SAE re-init.&#34;&#34;&#34;
+    n_epochs: int = 3
+    &#34;&#34;&#34;Number of SAE training epochs.&#34;&#34;&#34;
     vit_batch_size: int = 1024
     &#34;&#34;&#34;Batch size for ViT inference.&#34;&#34;&#34;
     exp_factor: int = 64
-
+    &#34;&#34;&#34;Expansion factor for SAE.&#34;&#34;&#34;
     l1_coeff: float = 0.00008
 
     lr: float = 0.0004
@@ -127,19 +129,21 @@ class Config:
 
     dead_feature_threshold: float = 1e-6
 
-    log_to_wandb: bool = True
-
+    # Logging
+    track: bool = True
+    &#34;&#34;&#34;Whether to track with WandB.&#34;&#34;&#34;
     wandb_project: str = &#34;saev&#34;
 
-    wandb_log_freq: int = 10
+    log_every: int = 10
+    &#34;&#34;&#34;How often to log to WandB.&#34;&#34;&#34;
+    ckpt_path: str = &#34;checkpoints&#34;
 
+    # Misc.
     device: str = &#34;cuda&#34;
 
     seed: int = 42
-
+    &#34;&#34;&#34;Random seed.&#34;&#34;&#34;
     dtype: str = &#34;float32&#34;
-
-    checkpoint_path: str = &#34;checkpoints&#34;
 
     slurm: bool = False
     &#34;&#34;&#34;Whether to use `submitit` to run jobs on a Slurm cluster.&#34;&#34;&#34;
@@ -154,13 +158,7 @@ class Config:
 
     @property
     def d_sae(self) -&gt; int:
-        return self.d_vit * self.exp_factor
-
-    @property
-    def run_name(self) -&gt; str:
-        return (
-            f&#34;{self.d_sae}-L1-{self.l1_coefficient}-LR-{self.lr}-epochs-{self.n_epochs}&#34;
-        )</code></pre>
+        return self.d_vit * self.exp_factor</code></pre>
 </details>
 <h3>Class variables</h3>
 <dl>
@@ -168,7 +166,7 @@ class Config:
 <dd>
 <div class="desc"></div>
 </dd>
-<dt id="saev.Config.checkpoint_path"><code class="name">var <span class="ident">checkpoint_path</span> : str</code></dt>
+<dt id="saev.Config.ckpt_path"><code class="name">var <span class="ident">ckpt_path</span> : str</code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
@@ -198,7 +196,7 @@ class Config:
 </dd>
 <dt id="saev.Config.exp_factor"><code class="name">var <span class="ident">exp_factor</span> : int</code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Expansion factor for SAE.</p></div>
 </dd>
 <dt id="saev.Config.feature_sampling_window"><code class="name">var <span class="ident">feature_sampling_window</span> : int</code></dt>
 <dd>
@@ -216,13 +214,13 @@ class Config:
 <dd>
 <div class="desc"></div>
 </dd>
+<dt id="saev.Config.log_every"><code class="name">var <span class="ident">log_every</span> : int</code></dt>
+<dd>
+<div class="desc"><p>How often to log to WandB.</p></div>
+</dd>
 <dt id="saev.Config.log_to"><code class="name">var <span class="ident">log_to</span> : str</code></dt>
 <dd>
 <div class="desc"><p>Where to log Slurm job stdout/stderr.</p></div>
-</dd>
-<dt id="saev.Config.log_to_wandb"><code class="name">var <span class="ident">log_to_wandb</span> : bool</code></dt>
-<dd>
-<div class="desc"></div>
 </dd>
 <dt id="saev.Config.lr"><code class="name">var <span class="ident">lr</span> : float</code></dt>
 <dd>
@@ -262,7 +260,7 @@ class Config:
 </dd>
 <dt id="saev.Config.seed"><code class="name">var <span class="ident">seed</span> : int</code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Random seed.</p></div>
 </dd>
 <dt id="saev.Config.slurm"><code class="name">var <span class="ident">slurm</span> : bool</code></dt>
 <dd>
@@ -272,6 +270,10 @@ class Config:
 <dd>
 <div class="desc"><p>Slurm account string.</p></div>
 </dd>
+<dt id="saev.Config.track"><code class="name">var <span class="ident">track</span> : bool</code></dt>
+<dd>
+<div class="desc"><p>Whether to track with WandB.</p></div>
+</dd>
 <dt id="saev.Config.use_ghost_grads"><code class="name">var <span class="ident">use_ghost_grads</span> : bool</code></dt>
 <dd>
 <div class="desc"></div>
@@ -279,10 +281,6 @@ class Config:
 <dt id="saev.Config.vit_batch_size"><code class="name">var <span class="ident">vit_batch_size</span> : int</code></dt>
 <dd>
 <div class="desc"><p>Batch size for ViT inference.</p></div>
-</dd>
-<dt id="saev.Config.wandb_log_freq"><code class="name">var <span class="ident">wandb_log_freq</span> : int</code></dt>
-<dd>
-<div class="desc"></div>
 </dd>
 <dt id="saev.Config.wandb_project"><code class="name">var <span class="ident">wandb_project</span> : str</code></dt>
 <dd>
@@ -315,20 +313,6 @@ def reinit_size(self) -&gt; int:
     return self.n_reinit_batches * self.sae_batch_size</code></pre>
 </details>
 </dd>
-<dt id="saev.Config.run_name"><code class="name">prop <span class="ident">run_name</span> : str</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@property
-def run_name(self) -&gt; str:
-    return (
-        f&#34;{self.d_sae}-L1-{self.l1_coefficient}-LR-{self.lr}-epochs-{self.n_epochs}&#34;
-    )</code></pre>
-</details>
-</dd>
 </dl>
 </dd>
 </dl>
@@ -355,7 +339,7 @@ def run_name(self) -&gt; str:
 <h4><code><a title="saev.Config" href="#saev.Config">Config</a></code></h4>
 <ul class="">
 <li><code><a title="saev.Config.block_layer" href="#saev.Config.block_layer">block_layer</a></code></li>
-<li><code><a title="saev.Config.checkpoint_path" href="#saev.Config.checkpoint_path">checkpoint_path</a></code></li>
+<li><code><a title="saev.Config.ckpt_path" href="#saev.Config.ckpt_path">ckpt_path</a></code></li>
 <li><code><a title="saev.Config.d_sae" href="#saev.Config.d_sae">d_sae</a></code></li>
 <li><code><a title="saev.Config.d_vit" href="#saev.Config.d_vit">d_vit</a></code></li>
 <li><code><a title="saev.Config.data" href="#saev.Config.data">data</a></code></li>
@@ -368,8 +352,8 @@ def run_name(self) -&gt; str:
 <li><code><a title="saev.Config.image_height" href="#saev.Config.image_height">image_height</a></code></li>
 <li><code><a title="saev.Config.image_width" href="#saev.Config.image_width">image_width</a></code></li>
 <li><code><a title="saev.Config.l1_coeff" href="#saev.Config.l1_coeff">l1_coeff</a></code></li>
+<li><code><a title="saev.Config.log_every" href="#saev.Config.log_every">log_every</a></code></li>
 <li><code><a title="saev.Config.log_to" href="#saev.Config.log_to">log_to</a></code></li>
-<li><code><a title="saev.Config.log_to_wandb" href="#saev.Config.log_to_wandb">log_to_wandb</a></code></li>
 <li><code><a title="saev.Config.lr" href="#saev.Config.lr">lr</a></code></li>
 <li><code><a title="saev.Config.model" href="#saev.Config.model">model</a></code></li>
 <li><code><a title="saev.Config.module_name" href="#saev.Config.module_name">module_name</a></code></li>
@@ -379,14 +363,13 @@ def run_name(self) -&gt; str:
 <li><code><a title="saev.Config.n_workers" href="#saev.Config.n_workers">n_workers</a></code></li>
 <li><code><a title="saev.Config.reinit_size" href="#saev.Config.reinit_size">reinit_size</a></code></li>
 <li><code><a title="saev.Config.resample_batches" href="#saev.Config.resample_batches">resample_batches</a></code></li>
-<li><code><a title="saev.Config.run_name" href="#saev.Config.run_name">run_name</a></code></li>
 <li><code><a title="saev.Config.sae_batch_size" href="#saev.Config.sae_batch_size">sae_batch_size</a></code></li>
 <li><code><a title="saev.Config.seed" href="#saev.Config.seed">seed</a></code></li>
 <li><code><a title="saev.Config.slurm" href="#saev.Config.slurm">slurm</a></code></li>
 <li><code><a title="saev.Config.slurm_acct" href="#saev.Config.slurm_acct">slurm_acct</a></code></li>
+<li><code><a title="saev.Config.track" href="#saev.Config.track">track</a></code></li>
 <li><code><a title="saev.Config.use_ghost_grads" href="#saev.Config.use_ghost_grads">use_ghost_grads</a></code></li>
 <li><code><a title="saev.Config.vit_batch_size" href="#saev.Config.vit_batch_size">vit_batch_size</a></code></li>
-<li><code><a title="saev.Config.wandb_log_freq" href="#saev.Config.wandb_log_freq">wandb_log_freq</a></code></li>
 <li><code><a title="saev.Config.wandb_project" href="#saev.Config.wandb_project">wandb_project</a></code></li>
 </ul>
 </li>

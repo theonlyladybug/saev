@@ -36,17 +36,17 @@ hljs.highlightAll();
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
 <dt id="saev.webapp.main"><code class="name flex">
-<span>def <span class="ident">main</span></span>(<span>ckpt_path: str, in_dir: str = 'dashboard', out_dir: str = 'web_app')</span>
+<span>def <span class="ident">main</span></span>(<span>cfg: <a title="saev.config.Config" href="config.html#saev.config.Config">Config</a>, load_from: str, dump_to: str)</span>
 </code></dt>
 <dd>
 <div class="desc"><h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>in_dir</code></strong></dt>
+<dt><strong><code>cfg</code></strong></dt>
+<dd>Experimental config.</dd>
+<dt><strong><code>load_from</code></strong></dt>
 <dd>Where to load the results of analysis.py from.</dd>
-<dt><strong><code>out_dir</code></strong></dt>
+<dt><strong><code>dump_to</code></strong></dt>
 <dd>Where to write the results.</dd>
-<dt><strong><code>ckpt_path</code></strong></dt>
-<dd>The specific checkpoint to load to get the original dataset.</dd>
 </dl></div>
 </dd>
 <dt id="saev.webapp.make_img_grid"><code class="name flex">

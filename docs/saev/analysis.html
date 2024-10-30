@@ -50,24 +50,6 @@ hljs.highlightAll();
 <h2 id="returns">Returns</h2>
 <p>A generator of (int, int) tuples that can slice up a list or a tensor.</p></div>
 </dd>
-<dt id="saev.analysis.get_feature_data"><code class="name flex">
-<span>def <span class="ident">get_feature_data</span></span>(<span>sae: <a title="saev.modeling.SparseAutoencoder" href="modeling.html#saev.modeling.SparseAutoencoder">SparseAutoencoder</a>, acts_store: <a title="saev.modeling.CachedActivationsStore" href="modeling.html#saev.modeling.CachedActivationsStore">CachedActivationsStore</a>, *, n_images: int = 32768, k_top_images: int = 10, images_per_it: int = 16384, directory: str = 'data')</span>
-</code></dt>
-<dd>
-<div class="desc"><h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>sae</code></strong></dt>
-<dd>The sparse autoencoder to use</dd>
-<dt><strong><code>vit</code></strong></dt>
-<dd>The vision transformer to apply the SAE to.</dd>
-<dt><strong><code>n_images</code></strong></dt>
-<dd>How many images to look at.</dd>
-<dt><strong><code>k_top_images</code></strong></dt>
-<dd>How many images per neuron (SAE feature) to keep.</dd>
-<dt><strong><code>directory</code></strong></dt>
-<dd>Where to write this data.</dd>
-</dl></div>
-</dd>
 <dt id="saev.analysis.get_new_topk"><code class="name flex">
 <span>def <span class="ident">get_new_topk</span></span>(<span>first_values: jaxtyping.Float[Tensor, 'd_sae k'], first_indices: jaxtyping.Int[Tensor, 'd_sae k'], second_values: jaxtyping.Float[Tensor, 'd_sae k'], second_indices: jaxtyping.Int[Tensor, 'd_sae k'], k: int) ‑> tuple[jaxtyping.Float[Tensor, 'd_sae k'], jaxtyping.Int[Tensor, 'd_sae k']]</span>
 </code></dt>
@@ -75,32 +57,35 @@ hljs.highlightAll();
 <div class="desc"></div>
 </dd>
 <dt id="saev.analysis.get_sae_acts"><code class="name flex">
-<span>def <span class="ident">get_sae_acts</span></span>(<span>vit_acts: jaxtyping.Float[Tensor, 'n d_model'], sae: <a title="saev.modeling.SparseAutoencoder" href="modeling.html#saev.modeling.SparseAutoencoder">SparseAutoencoder</a>) ‑> jaxtyping.Float[Tensor, 'n d_sae']</span>
+<span>def <span class="ident">get_sae_acts</span></span>(<span>vit_acts: jaxtyping.Float[Tensor, 'n d_vit'], sae: <a title="saev.modeling.SparseAutoencoder" href="modeling.html#saev.modeling.SparseAutoencoder">SparseAutoencoder</a>, cfg: <a title="saev.config.Config" href="config.html#saev.config.Config">Config</a>) ‑> jaxtyping.Float[Tensor, 'n d_sae']</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
-</dd>
-<dt id="saev.analysis.get_vit_acts"><code class="name flex">
-<span>def <span class="ident">get_vit_acts</span></span>(<span>acts_store: <a title="saev.modeling.CachedActivationsStore" href="modeling.html#saev.modeling.CachedActivationsStore">CachedActivationsStore</a>, n: int) ‑> tuple[jaxtyping.Float[Tensor, 'n d_model'], jaxtyping.Int[Tensor, 'n']]</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Args:</p>
-<h2 id="returns">Returns</h2>
-<p>activation tensor for all images.</p></div>
-</dd>
-<dt id="saev.analysis.main"><code class="name flex">
-<span>def <span class="ident">main</span></span>(<span>ckpt_path: str, n_images: int = 524288, k_top_images: int = 20, directory: str = 'data')</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Runs the primary function in this file: <code><a title="saev.analysis.get_feature_data" href="#saev.analysis.get_feature_data">get_feature_data()</a></code>.</p>
+<div class="desc"><p>Get SAE hidden layer activations for a batch of ViT activations.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>ckpt_path</code></strong></dt>
-<dd>The SAE checkpoint to use.</dd>
-<dt><strong><code>n_images</code></strong></dt>
-<dd>number of images to use. Use a smaller number for debugging.</dd>
-<dt><strong><code>k_top_images</code></strong></dt>
+<dt><strong><code>vit_acts</code></strong></dt>
+<dd>Batch of ViT activations</dd>
+<dt><strong><code>sae</code></strong></dt>
+<dd>Sparse autoencder.</dd>
+<dt><strong><code>cfg</code></strong></dt>
+<dd>Experimental config.</dd>
+</dl></div>
+</dd>
+<dt id="saev.analysis.main"><code class="name flex">
+<span>def <span class="ident">main</span></span>(<span>cfg: <a title="saev.config.Config" href="config.html#saev.config.Config">Config</a>, run_id: str, *, top_k: int, root: str)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Runs the primary function in this file: <code>get_feature_data()</code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>cfg</code></strong></dt>
+<dd>Experimental config.</dd>
+<dt><strong><code>run_id</code></strong></dt>
+<dd>The SAE run you want to analyze.</dd>
+<dt><strong><code>top_k</code></strong></dt>
 <dd>the number of top images to store per neuron.</dd>
+<dt><strong><code>root</code></strong></dt>
+<dd>Root directory save information to.</dd>
 </dl></div>
 </dd>
 </dl>
@@ -119,12 +104,10 @@ hljs.highlightAll();
 </ul>
 </li>
 <li><h3><a href="#header-functions">Functions</a></h3>
-<ul class="two-column">
+<ul class="">
 <li><code><a title="saev.analysis.batched_idx" href="#saev.analysis.batched_idx">batched_idx</a></code></li>
-<li><code><a title="saev.analysis.get_feature_data" href="#saev.analysis.get_feature_data">get_feature_data</a></code></li>
 <li><code><a title="saev.analysis.get_new_topk" href="#saev.analysis.get_new_topk">get_new_topk</a></code></li>
 <li><code><a title="saev.analysis.get_sae_acts" href="#saev.analysis.get_sae_acts">get_sae_acts</a></code></li>
-<li><code><a title="saev.analysis.get_vit_acts" href="#saev.analysis.get_vit_acts">get_vit_acts</a></code></li>
 <li><code><a title="saev.analysis.main" href="#saev.analysis.main">main</a></code></li>
 </ul>
 </li>

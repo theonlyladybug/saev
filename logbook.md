@@ -142,3 +142,68 @@ How do we do this?
 1. Train an SAE on ViT-L-14/openai image-level activations on *TreeOfLife-10M*.
 2. Train an SAE on *BioCLIP* image-level activations on TreeOfLife-10M.
 3. Train an SAE on BioCLIP *patch*-level activations on TreeOfLife-10M.
+
+# 10/29/2024
+
+I want to write a paper that does a bunch of introductory experiments for SAEs applied to vision.
+Such a paper would be a good reference for new researchers hoping to train SAEs on vision models.
+So I can make a set of experiments and slowly knock them off.
+But I should think clearly about what specific graphs/figures I would want to make.
+Then I can rank them in terms of difficulty, compute and reward (novelty, bits of information gained, etc) and work on the most important experiments first.
+
+How do we know if an SAE is good?
+This will enable us to say whether a recipe is good or bad.
+So what does prior work do on automatically evaluating SAE quality?
+
+# 10/30/2024
+
+Here's a rough set of contributions + experiments:
+
+We make the first comprehensive effort to train SAEs on vision models.
+
+Contributions:
+
+* Experimental findings.
+* Code package to reproduce and extend.
+* Trained SAE checkpoints + interactive explorer (web tool).
+
+Experiments:
+
+1. Activations: Compare [CLS] token activations vs patch-level activations.
+2. Pretraining Task: Compare effects of supervised pre-training (classification), vision-only self-supervised (DINOv2, MAE) and vision-language (CLIP, SigLIP).
+3. Pretraining Corpus: Compare various CLIP models (LAION, BioCLIP, PubmedCLIP, etc.)
+4. Vision Architecture: Compare vision model architectures (ResNet, ViTs, ConvNeXt, etc.)
+5. SAE Architecture: Compare SAE architectures and objectives (L1, TopK, Gated, JumpReLU, etc.)
+
+
+
+The OpenAI paper (Scaling and evaluating sparse autoencoders) proposes four evaluation metrics:
+
+1. Downstream loss: replace the original model representations with SAE reconstructions and calculate loss.
+2. Probe loss: They train a 1D binary probe for specific, curated tasks. They pick features from SAEs that minimize loss on the task, and a low loss indicates that the SAE has learned the true feature used for the binary classification task.
+3. Explanability:
+4. Ablation sparsity:
+
+Overall, I felt that these evaluation metrics are still not very good.
+I think that we can use delta imagenet-1k linear probing accuracy as a measure of an SAE's performance, along with another dataset (iNat21? ToL-1M?) to verify that this approach is generalizable.
+We also should include some qualitative study of the features to ensure that they are meaningful.
+What will that qualitative study be?
+Maybe a decision tree trained on SAE features to predict imagenet-1k classes?
+We could use heuristics to pick out non-trivial SAE features; that is, we don't want features that are perfectly correlated with a class label.
+Or we could use LAION as an example dataset.
+ToL-10M was 37GB for one token.
+LAION-400M would be 40x larger, so 1.4TB.
+If we also stored patch-level activations, that would be 257x larger, or 360TB.
+This is unfeasible.
+But if we train on 1B tokens per autoencoder, that's 1B x 1024 floats x 4 bytes/float = ~4.1TB.
+Which I think is not unreasonable.
+
+In fact, it is very reasonable given our limits (100TB/user) on OSC.
+Recall, however, that it's 4.1TB per vision backbone that I want to analyze.
+So I can analyze about 23 backbones (realistically 20, given that we don't want to bump up against limits).
+
+So what would I do?
+
+1. Record 1B activations for DINOv2, OpenCLIP, and a pretrained ViT-L/14 that's hopefully trained on classification from reLAION datasets. This will let us first compare the 
+2. Train a bunch of SAEs on these models. Explore different activations, L1 coefficients, etc.
+3. Measure ImageNet performance using linear classification on reconstructed ImageNet activations.

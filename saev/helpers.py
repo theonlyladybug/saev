@@ -1,4 +1,3 @@
-import collections.abc
 import logging
 import time
 
@@ -24,6 +23,12 @@ class progress:
 
     def __iter__(self):
         start = time.time()
+
+        try:
+            total = len(self)
+        except TypeError:
+            total = None
+
         for i, obj in enumerate(self.it):
             yield obj
 
@@ -32,13 +37,13 @@ class progress:
                 duration_s = now - start
                 per_min = (i + 1) / (duration_s / 60)
 
-                if isinstance(self.it, collections.abc.Sized):
-                    pred_min = (len(self) - (i + 1)) / per_min
+                if total is not None:
+                    pred_min = (total - (i + 1)) / per_min
                     self.logger.info(
                         "%d/%d (%.1f%%) | %.1f it/m (expected finish in %.1fm)",
                         i + 1,
-                        len(self),
-                        (i + 1) / len(self) * 100,
+                        total,
+                        (i + 1) / total * 100,
                         per_min,
                         pred_min,
                     )

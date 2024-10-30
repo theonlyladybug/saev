@@ -1,8 +1,14 @@
-import gzip
+"""
+modeling is the main module for the saev package and contains all the important non-config classes.
+
+It's fine for this package to be slow to import (see `saev.config` for a discussion of import times).
+"""
+
 import hashlib
+import io
+import json
 import logging
 import os
-import pickle
 import typing
 
 import beartype
@@ -15,6 +21,10 @@ from torch import Tensor
 
 from . import config, helpers
 
+log_format = "[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s"
+logging.basicConfig(level=logging.INFO, format=log_format)
+
+
 ###########
 # HELPERS #
 ###########
@@ -22,7 +32,12 @@ from . import config, helpers
 
 @beartype.beartype
 def get_cache_dir() -> str:
-    """Get cache directory from environment variables, defaulting to the current working directory (.)"""
+    """
+    Get cache directory from environment variables, defaulting to the current working directory (.)
+
+    Returns:
+        A path to a cache directory (might not exist yet).
+    """
     cache_dir = ""
     for var in ("SAEV_CACHE", "HF_HOME", "HF_HUB_CACHE"):
         cache_dir = cache_dir or os.environ.get(var, "")
@@ -39,6 +54,7 @@ def get_cache_dir() -> str:
 class RecordedVit(torch.nn.Module):
     n_layers: int
     model: torch.nn.Module
+    _storage: Float[Tensor, "batch n_layers 1 dim"] | None
 
     def __init__(self, cfg: config.Config):
         super().__init__()
@@ -124,7 +140,7 @@ class CachedActivationsStore(torch.utils.data.Dataset):
     shape: tuple[int, int]
 
     def __init__(
-        self, cfg: config.Config, vit: RecordedVit, *, on_missing: str = "error"
+        self, cfg: config.Config, vit: RecordedVit | None, *, on_missing: str = "error"
     ):
         self.cfg = cfg
         self._acts_filepath = get_acts_filepath(cfg)
@@ -136,11 +152,13 @@ class CachedActivationsStore(torch.utils.data.Dataset):
         elif on_missing == "error":
             raise RuntimeError(f"Activations are not saved at '{self._acts_filepath}'.")
         elif on_missing == "make":
-            save_acts(cfg, vit)
+            if vit is None:
+                raise RuntimeError("Need a ViT in order to dump activations.")
+            dump_acts(cfg, vit)
         else:
             raise ValueError(f"Invalid value '{on_missing}' for arg 'on_missing'.")
 
-        self.shape = (cfg.data.n_imgs, cfg.d_in)
+        self.shape = (cfg.data.n_imgs, cfg.d_vit)
         # TODO
         # self.labels = torch.tensor(dataset["label"])
         self.labels = None
@@ -160,6 +178,15 @@ class CachedActivationsStore(torch.utils.data.Dataset):
 
 @beartype.beartype
 def get_acts_filepath(cfg: config.Config) -> str:
+    """
+    Return the activations filepath based on the relevant values of a config.
+
+    Args:
+        cfg: Config for experiment.
+
+    Returns:
+        Filepath to where activations should be dumped/loaded from.
+    """
     cfg_str = (
         str(cfg.image_width)
         + str(cfg.image_height)
@@ -173,7 +200,21 @@ def get_acts_filepath(cfg: config.Config) -> str:
 
 
 @beartype.beartype
-def get_hf_dataloader(cfg: config.Config, preprocess) -> torch.utils.data.DataLoader:
+def get_imagenet_dataloader(
+    cfg: config.Config, preprocess
+) -> torch.utils.data.DataLoader:
+    """
+    Get a dataloader for Imagenet loaded from Huggingface.
+
+    Args:
+        cfg: Config.
+        preprocess: Image transform to be applied to each image.
+
+    Returns:
+        A PyTorch Dataloader that yields dictionaries with `'image'` keys containing image batches, `'index'` keys containing original dataset indices and `'label'` keys containing label batches.
+    """
+    assert isinstance(cfg.data, config.Imagenet)
+
     import datasets
 
     dataset = datasets.load_dataset(
@@ -199,7 +240,7 @@ def get_hf_dataloader(cfg: config.Config, preprocess) -> torch.utils.data.DataLo
 
     dataloader = torch.utils.data.DataLoader(
         dataset=dataset,
-        batch_size=cfg.batch_size,
+        batch_size=cfg.vit_batch_size,
         drop_last=False,
         num_workers=cfg.n_workers,
         persistent_workers=cfg.n_workers > 0,
@@ -209,34 +250,30 @@ def get_hf_dataloader(cfg: config.Config, preprocess) -> torch.utils.data.DataLo
     return dataloader
 
 
-def filter_no_caption_or_no_image(sample):
-    has_caption = any("txt" in key for key in sample)
-    has_image = (
-        "png" in sample or "jpg" in sample or "jpeg" in sample or "webp" in sample
-    )
-    return has_caption and has_image
-
-
-def log_and_continue(exn):
-    """Call in an exception handler to ignore any exception, issue a warning, and continue."""
-    logging.warning(f"Handling webdataset error ({repr(exn)}). Ignoring.")
-    return True
-
-
 @beartype.beartype
-def get_wds_dataloader(cfg: config.Config, preprocess) -> torch.utils.data.DataLoader:
-    """ """
+def get_tol_dataloader(cfg: config.Config, preprocess) -> torch.utils.data.DataLoader:
+    """
+    Get a dataloader for the TreeOfLife-10M dataset.
+
+    Currently does not include a true index or label in the loaded examples.
+
+    Args:
+        cfg: Config.
+        preprocess: Image transform to be applied to each image.
+
+    Returns:
+        A PyTorch Dataloader that yields dictionaries with `'image'` keys containing image batches.
+    """
+    assert isinstance(cfg.data, config.TreeOfLife)
 
     def transform(sample: dict):
-        breakpoint()
+        return {"image": preprocess(sample[".jpg"]), "index": sample["__key__"]}
 
-    dataset = wids.ShardListDataset(cfg.data.url).add_transform(transform)
-
-    breakpoint()
+    dataset = wids.ShardListDataset(cfg.data.metadata).add_transform(transform)
 
     dataloader = torch.utils.data.DataLoader(
         dataset,
-        batch_size=None,
+        batch_size=cfg.vit_batch_size,
         shuffle=False,
         num_workers=cfg.n_workers,
         persistent_workers=False,
@@ -246,7 +283,7 @@ def get_wds_dataloader(cfg: config.Config, preprocess) -> torch.utils.data.DataL
 
 
 @beartype.beartype
-def save_acts(cfg: config.Config, vit: RecordedVit):
+def dump_acts(cfg: config.Config, vit: RecordedVit):
     # Make filepath.
     filepath = get_acts_filepath(cfg)
     dirpath = os.path.dirname(filepath)
@@ -254,29 +291,32 @@ def save_acts(cfg: config.Config, vit: RecordedVit):
 
     # Get dataloader
     preprocess = vit.make_img_transform()
-    if isinstance(cfg.data, config.Huggingface):
-        dataloader = get_hf_dataloader(cfg, preprocess)
-    elif isinstance(cfg.data, config.Webdataset):
-        dataloader = get_wds_dataloader(cfg, preprocess)
+    if isinstance(cfg.data, config.Imagenet):
+        dataloader = get_imagenet_dataloader(cfg, preprocess)
+    elif isinstance(cfg.data, config.TreeOfLife):
+        dataloader = get_tol_dataloader(cfg, preprocess)
     else:
         typing.assert_never(cfg.data)
 
     # Make memmap'ed file.
     acts = np.memmap(
-        filepath, mode="w+", dtype=np.float32, shape=(cfg.data.n_imgs, cfg.d_in)
+        filepath, mode="w+", dtype=np.float32, shape=(cfg.data.n_imgs, cfg.d_vit)
     )
 
     n_batches = cfg.data.n_imgs // cfg.vit_batch_size + 1
 
-    breakpoint()
+    vit = vit.to(cfg.device)
 
     # Calculate and write ViT activations.
     with torch.inference_mode():
-        for batch in helpers.progress(dataloader, total=n_batches):
-            index = batch.pop("index")
+        for i, batch in helpers.progress(enumerate(dataloader), total=n_batches):
             images = batch.pop("image").to(cfg.device)
+            index = np.arange(
+                i * cfg.vit_batch_size, i * cfg.vit_batch_size + len(images)
+            )
             _, cache = vit(images)
             acts[index] = cache[:, cfg.block_layer, 0, :]
+
     acts.flush()
 
 
@@ -289,13 +329,17 @@ def save_acts(cfg: config.Config, vit: RecordedVit):
 @jaxtyped(typechecker=beartype.beartype)
 def get_sae_batches(
     cfg: config.Config, acts_store: CachedActivationsStore
-) -> Float[Tensor, "store_size d_model"]:
+) -> Float[Tensor, "reinit_size d_model"]:
     """
-    Get a batch of vit activations
+    Get a batch of vit activations to re-initialize the SAE.
+
+    Args:
+        cfg: Config.
+        acts_store: Activation store.
     """
     examples = []
     perm = np.random.default_rng(seed=cfg.seed).permutation(len(acts_store))
-    perm = perm[: cfg.store_size]
+    perm = perm[: cfg.reinit_size]
 
     examples, _ = acts_store[perm]
 
@@ -304,58 +348,49 @@ def get_sae_batches(
 
 @beartype.beartype
 class SparseAutoencoder(torch.nn.Module):
-    def __init__(self, cfg: config.Config):
+    """
+    Sparse auto-encoder (SAE) using L1 sparsity penalty.
+    """
+
+    l1_coeff: float
+    use_ghost_grads: bool
+
+    def __init__(self, d_vit: int, d_sae: int, l1_coeff: float, use_ghost_grads: bool):
         super().__init__()
-        if not isinstance(cfg.d_in, int):
-            raise ValueError(
-                f"d_in must be an int but was {cfg.d_in=}; {type(cfg.d_in)=}"
-            )
 
-        self.cfg = cfg
-        self.l1_coefficient = cfg.l1_coefficient
-        self.dtype = cfg.dtype
-        self.device = cfg.device
+        self.l1_coeff = l1_coeff
+        self.use_ghost_grads = use_ghost_grads
 
+        # Initialize the weights.
         # NOTE: if using resampling neurons method, you must ensure that we initialise the weights in the order W_enc, b_enc, W_dec, b_dec
         self.W_enc = torch.nn.Parameter(
-            torch.nn.init.kaiming_uniform_(
-                torch.empty(cfg.d_in, cfg.d_sae, dtype=self.dtype, device=self.device)
-            )
+            torch.nn.init.kaiming_uniform_(torch.empty(d_vit, d_sae))
         )
-        self.b_enc = torch.nn.Parameter(
-            torch.zeros(cfg.d_sae, dtype=self.dtype, device=self.device)
-        )
+        self.b_enc = torch.nn.Parameter(torch.zeros(d_sae))
 
         self.W_dec = torch.nn.Parameter(
-            torch.nn.init.kaiming_uniform_(
-                torch.empty(cfg.d_sae, cfg.d_in, dtype=self.dtype, device=self.device)
-            )
+            torch.nn.init.kaiming_uniform_(torch.empty(d_sae, d_vit))
         )
 
         with torch.no_grad():
             # Anthropic normalizes this to have unit columns
             self.W_dec.data /= torch.norm(self.W_dec.data, dim=1, keepdim=True)
 
-        self.b_dec = torch.nn.Parameter(
-            torch.zeros(cfg.d_in, dtype=self.dtype, device=self.device)
-        )
+        self.b_dec = torch.nn.Parameter(torch.zeros(d_vit))
 
     @jaxtyped(typechecker=beartype.beartype)
     def forward(self, x: Float[Tensor, "batch d_model"], dead_neuron_mask=None):
-        # move x to correct dtype
-        x = x.to(self.dtype)
-
         # Remove encoder bias as per Anthropic
         h_pre = (
             einops.einsum(
-                x - self.b_dec, self.W_enc, "... d_in, d_in d_sae -> ... d_sae"
+                x - self.b_dec, self.W_enc, "... d_vit, d_vit d_sae -> ... d_sae"
             )
             + self.b_enc
         )
         f_x = torch.nn.functional.relu(h_pre)
 
         x_hat = (
-            einops.einsum(f_x, self.W_dec, "... d_sae, d_sae d_in -> ... d_in")
+            einops.einsum(f_x, self.W_dec, "... d_sae, d_sae d_vit -> ... d_vit")
             + self.b_dec
         )
 
@@ -364,9 +399,9 @@ class SparseAutoencoder(torch.nn.Module):
             torch.pow((x_hat - x.float()), 2) / (x**2).sum(dim=-1, keepdim=True).sqrt()
         )
 
-        mse_loss_ghost_resid = torch.tensor(0.0, dtype=self.dtype, device=self.device)
+        ghost_loss = torch.tensor(0.0, dtype=mse_loss.dtype, device=mse_loss.device)
         # gate on config and training so evals is not slowed down.
-        if self.cfg.use_ghost_grads and self.training and dead_neuron_mask.sum() > 0:
+        if self.use_ghost_grads and self.training and dead_neuron_mask.sum() > 0:
             assert dead_neuron_mask is not None
 
             # ghost protocol
@@ -380,42 +415,38 @@ class SparseAutoencoder(torch.nn.Module):
             ghost_out = feature_acts_dead_neurons_only @ self.W_dec[dead_neuron_mask, :]
             l2_norm_ghost_out = torch.norm(ghost_out, dim=-1)
             norm_scaling_factor = l2_norm_residual / (1e-6 + l2_norm_ghost_out * 2)
-            ghost_out = ghost_out * norm_scaling_factor[:, None].detach()
+            ghost_out *= norm_scaling_factor[:, None].detach()
 
             # 3.
-            mse_loss_ghost_resid = (
+            ghost_loss = (
                 torch.pow((ghost_out - residual.detach().float()), 2)
                 / (residual.detach() ** 2).sum(dim=-1, keepdim=True).sqrt()
             )
-            mse_rescaling_factor = (mse_loss / (mse_loss_ghost_resid + 1e-6)).detach()
-            mse_loss_ghost_resid = mse_rescaling_factor * mse_loss_ghost_resid
+            mse_rescaling_factor = (mse_loss / (ghost_loss + 1e-6)).detach()
+            ghost_loss *= mse_rescaling_factor
 
-        mse_loss_ghost_resid = mse_loss_ghost_resid.mean()
+        ghost_loss = ghost_loss.mean()
         mse_loss = mse_loss.mean()
         sparsity = torch.abs(f_x).sum(dim=1).mean(dim=(0,))
-        l1_loss = self.l1_coefficient * sparsity
-        loss = mse_loss + l1_loss + mse_loss_ghost_resid
+        l1_loss = self.l1_coeff * sparsity
+        loss = mse_loss + l1_loss + ghost_loss
 
-        return x_hat, f_x, loss, mse_loss, l1_loss, mse_loss_ghost_resid
+        return x_hat, f_x, loss, mse_loss, l1_loss, ghost_loss
 
     @torch.no_grad()
-    def initialize_b_dec(self, acts_store: CachedActivationsStore):
+    def init_b_dec(self, cfg: config.Config, acts_store: CachedActivationsStore):
         previous_b_dec = self.b_dec.clone().cpu()
-        assert isinstance(acts_store, CachedActivationsStore)
-        all_activations = get_sae_batches(self.cfg, acts_store).detach().cpu()
 
-        out = all_activations.mean(dim=0)
+        all_activations = get_sae_batches(cfg, acts_store).detach().cpu()
+        mean = all_activations.mean(dim=0)
 
         previous_distances = torch.norm(all_activations - previous_b_dec, dim=-1)
-        distances = torch.norm(all_activations - out, dim=-1)
+        distances = torch.norm(all_activations - mean, dim=-1)
 
-        print("Reinitializing b_dec with mean of activations")
-        print(
-            f"Previous distances: {previous_distances.median(0).values.mean().item()}"
-        )
-        print(f"New distances: {distances.median(0).values.mean().item()}")
+        print(f"Prev dist: {previous_distances.median(0).values.mean().item()}")
+        print(f"New dist: {distances.median(0).values.mean().item()}")
 
-        self.b_dec.data = out.to(self.dtype).to(self.device)
+        self.b_dec.data = mean.to(self.b_dec.dtype).to(self.b_dec.device)
 
     @torch.no_grad()
     def set_decoder_norm_to_unit_norm(self):
@@ -425,96 +456,52 @@ class SparseAutoencoder(torch.nn.Module):
     def remove_gradient_parallel_to_decoder_directions(self):
         """
         Update grads so that they remove the parallel component
-            (d_sae, d_in) shape
+            (d_sae, d_vit) shape
         """
 
         parallel_component = einops.einsum(
             self.W_dec.grad,
             self.W_dec.data,
-            "d_sae d_in, d_sae d_in -> d_sae",
+            "d_sae d_vit, d_sae d_vit -> d_sae",
         )
 
         self.W_dec.grad -= einops.einsum(
             parallel_component,
             self.W_dec.data,
-            "d_sae, d_sae d_in -> d_sae d_in",
+            "d_sae, d_sae d_vit -> d_sae d_vit",
         )
 
-    def save_model(self, path: str):
-        """
-        Basic save function for the model. Saves the model's state_dict and the config used to train it.
-        """
 
-        # check if path exists
-        folder = os.path.dirname(path)
-        os.makedirs(folder, exist_ok=True)
+@beartype.beartype
+def dump(cfg: config.Config, sae: SparseAutoencoder, run_id: str):
+    filepath = f"{cfg.ckpt_path}/{run_id}/sae.pt"
 
-        state_dict = {"cfg": self.cfg, "state_dict": self.state_dict()}
+    sae_kwargs = dict(
+        d_vit=cfg.d_vit,
+        d_sae=cfg.d_sae,
+        l1_coeff=cfg.l1_coeff,
+        use_ghost_grads=cfg.use_ghost_grads,
+    )
 
-        if path.endswith(".pt"):
-            torch.save(state_dict, path)
-        elif path.endswith("pkl.gz"):
-            with gzip.open(path, "wb") as f:
-                pickle.dump(state_dict, f)
-        else:
-            raise ValueError(
-                f"Unexpected file extension: {path}, supported extensions are .pt and .pkl.gz"
-            )
+    os.makedirs(os.path.dirname(filepath), exist_ok=True)
+    with open(filepath, "wb") as fd:
+        kwargs_str = json.dumps(sae_kwargs)
+        fd.write((kwargs_str + "\n").encode("utf-8"))
+        torch.save(sae.state_dict(), fd)
 
-        print(f"Saved model to {path}")
 
-    @classmethod
-    def load_from_pretrained(cls, path: str):
-        """
-        Load function for the model. Loads the model's state_dict and the config used to train it.
-        This method can be called directly on the class, without needing an instance.
-        """
+@beartype.beartype
+def load(cfg: config.Config, run_id: str) -> SparseAutoencoder:
+    filepath = f"{cfg.ckpt_path}/{run_id}/sae.pt"
 
-        # Ensure the file exists
-        if not os.path.isfile(path):
-            raise FileNotFoundError(f"No file found at specified path: {path}")
+    with open(filepath, "rb") as fd:
+        kwargs = json.loads(fd.readline().decode())
+        buffer = io.BytesIO(fd.read())
 
-        # Load the state dictionary
-        if path.endswith(".pt"):
-            try:
-                state_dict = torch.load(path, weights_only=False)
-            except Exception as e:
-                raise IOError(f"Error loading the state dictionary from .pt file: {e}")
-
-        elif path.endswith(".pkl.gz"):
-            try:
-                with gzip.open(path, "rb") as f:
-                    state_dict = pickle.load(f)
-            except Exception as e:
-                raise IOError(
-                    f"Error loading the state dictionary from .pkl.gz file: {e}"
-                )
-        elif path.endswith(".pkl"):
-            try:
-                with open(path, "rb") as f:
-                    state_dict = pickle.load(f)
-            except Exception as e:
-                raise IOError(f"Error loading the state dictionary from .pkl file: {e}")
-        else:
-            raise ValueError(
-                f"Unexpected file extension: {path}, supported extensions are .pt, .pkl, and .pkl.gz"
-            )
-
-        # Ensure the loaded state contains both 'cfg' and 'state_dict'
-        if "cfg" not in state_dict or "state_dict" not in state_dict:
-            raise ValueError(
-                "The loaded state dictionary must contain 'cfg' and 'state_dict' keys"
-            )
-
-        # Create an instance of the class using the loaded configuration
-        instance = cls(cfg=state_dict["cfg"])
-        instance.load_state_dict(state_dict["state_dict"])
-
-        return instance
-
-    def get_name(self):
-        assert isinstance(self.cfg, config.Config)
-        return f"sparse_autoencoder_{self.cfg.model}_{self.cfg.block_layer}_{self.cfg.module_name}_{self.cfg.d_sae}"
+    model = SparseAutoencoder(**kwargs)
+    state_dict = torch.load(buffer, weights_only=True, map_location=cfg.device)
+    model.load_state_dict(state_dict)
+    return model
 
 
 ###########
@@ -525,22 +512,37 @@ class SparseAutoencoder(torch.nn.Module):
 
 @beartype.beartype
 class Session(typing.NamedTuple):
+    """
+    Session is a group of instances of the main classes for saev experiments.
+    """
+
+    cfg: config.Config
     vit: RecordedVit
     sae: SparseAutoencoder
     acts_store: CachedActivationsStore
 
     @classmethod
-    def from_cfg(cls, cfg: config.Config) -> "Session":
+    def from_cfg(cls, cfg: config.Config, *, on_missing: str = "error") -> "Session":
+        """
+        Load a new session from an existing config.
+
+        Args:
+            cfg: Confg.
+            on_missing: passed to the `CachedActivationsStore`.
+
+        Returns:
+            A session with a config, ViT, SAE and activation store.
+        """
         vit = RecordedVit(cfg)
         vit.eval()
         for parameter in vit.model.parameters():
             parameter.requires_grad_(False)
         vit.to(cfg.device)
 
-        sae = SparseAutoencoder(cfg)
-        acts_store = CachedActivationsStore(cfg, vit, on_missing="error")
+        sae = SparseAutoencoder(cfg.d_vit, cfg.d_sae, cfg.l1_coeff, cfg.use_ghost_grads)
+        acts_store = CachedActivationsStore(cfg, vit, on_missing=on_missing)
 
-        return cls(vit, sae, acts_store)
+        return cls(cfg, vit, sae, acts_store)
 
     @classmethod
     def from_disk(cls, path) -> "Session":
@@ -549,6 +551,6 @@ class Session(typing.NamedTuple):
         else:
             cfg = torch.load(path, map_location="cpu", weights_only=False)["cfg"]
 
-        vit, _, acts_store = cls.from_cfg(cfg)
+        cfg, vit, _, acts_store = cls.from_cfg(cfg)
         sae = SparseAutoencoder.load_from_pretrained(path)
-        return cls(vit, sae, acts_store)
+        return cls(cfg, vit, sae, acts_store)

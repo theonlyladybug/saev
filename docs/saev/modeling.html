@@ -38,7 +38,13 @@ hljs.highlightAll();
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
 <dt id="saev.modeling.dump"><code class="name flex">
-<span>def <span class="ident">dump</span></span>(<span>filename: str, model_kwargs: dict[str, object], model: torch.nn.modules.module.Module)</span>
+<span>def <span class="ident">dump</span></span>(<span>cfg: <a title="saev.config.Config" href="config.html#saev.config.Config">Config</a>, sae: <a title="saev.modeling.SparseAutoencoder" href="#saev.modeling.SparseAutoencoder">SparseAutoencoder</a>, run_id: str)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="saev.modeling.dump_acts"><code class="name flex">
+<span>def <span class="ident">dump_acts</span></span>(<span>cfg: <a title="saev.config.Config" href="config.html#saev.config.Config">Config</a>, vit: <a title="saev.modeling.RecordedVit" href="#saev.modeling.RecordedVit">RecordedVit</a>)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -109,13 +115,7 @@ hljs.highlightAll();
 <p>A PyTorch Dataloader that yields dictionaries with <code>'image'</code> keys containing image batches.</p></div>
 </dd>
 <dt id="saev.modeling.load"><code class="name flex">
-<span>def <span class="ident">load</span></span>(<span>filename, cls: type[torch.nn.modules.module.Module]) ‑> torch.nn.modules.module.Module</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt id="saev.modeling.save_acts"><code class="name flex">
-<span>def <span class="ident">save_acts</span></span>(<span>cfg: <a title="saev.config.Config" href="config.html#saev.config.Config">Config</a>, vit: <a title="saev.modeling.RecordedVit" href="#saev.modeling.RecordedVit">RecordedVit</a>)</span>
+<span>def <span class="ident">load</span></span>(<span>cfg: <a title="saev.config.Config" href="config.html#saev.config.Config">Config</a>, run_id: str) ‑> <a title="saev.modeling.SparseAutoencoder" href="#saev.modeling.SparseAutoencoder">SparseAutoencoder</a></span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -127,7 +127,7 @@ hljs.highlightAll();
 <dl>
 <dt id="saev.modeling.CachedActivationsStore"><code class="flex name class">
 <span>class <span class="ident">CachedActivationsStore</span></span>
-<span>(</span><span>cfg: <a title="saev.config.Config" href="config.html#saev.config.Config">Config</a>, vit: <a title="saev.modeling.RecordedVit" href="#saev.modeling.RecordedVit">RecordedVit</a>, *, on_missing: str = 'error')</span>
+<span>(</span><span>cfg: <a title="saev.config.Config" href="config.html#saev.config.Config">Config</a>, vit: <a title="saev.modeling.RecordedVit" href="#saev.modeling.RecordedVit">RecordedVit</a> | None, *, on_missing: str = 'error')</span>
 </code></dt>
 <dd>
 <div class="desc"><p>An abstract class representing a :class:<code>Dataset</code>.</p>
@@ -157,7 +157,7 @@ class CachedActivationsStore(torch.utils.data.Dataset):
     shape: tuple[int, int]
 
     def __init__(
-        self, cfg: config.Config, vit: RecordedVit, *, on_missing: str = &#34;error&#34;
+        self, cfg: config.Config, vit: RecordedVit | None, *, on_missing: str = &#34;error&#34;
     ):
         self.cfg = cfg
         self._acts_filepath = get_acts_filepath(cfg)
@@ -169,7 +169,9 @@ class CachedActivationsStore(torch.utils.data.Dataset):
         elif on_missing == &#34;error&#34;:
             raise RuntimeError(f&#34;Activations are not saved at &#39;{self._acts_filepath}&#39;.&#34;)
         elif on_missing == &#34;make&#34;:
-            save_acts(cfg, vit)
+            if vit is None:
+                raise RuntimeError(&#34;Need a ViT in order to dump activations.&#34;)
+            dump_acts(cfg, vit)
         else:
             raise ValueError(f&#34;Invalid value &#39;{on_missing}&#39; for arg &#39;on_missing&#39;.&#34;)
 
@@ -248,6 +250,7 @@ evaluation mode.
 class RecordedVit(torch.nn.Module):
     n_layers: int
     model: torch.nn.Module
+    _storage: Float[Tensor, &#34;batch n_layers 1 dim&#34;] | None
 
     def __init__(self, cfg: config.Config):
         super().__init__()
@@ -427,7 +430,7 @@ class Session(typing.NamedTuple):
             parameter.requires_grad_(False)
         vit.to(cfg.device)
 
-        sae = SparseAutoencoder(cfg)
+        sae = SparseAutoencoder(cfg.d_vit, cfg.d_sae, cfg.l1_coeff, cfg.use_ghost_grads)
         acts_store = CachedActivationsStore(cfg, vit, on_missing=on_missing)
 
         return cls(cfg, vit, sae, acts_store)
@@ -439,7 +442,7 @@ class Session(typing.NamedTuple):
         else:
             cfg = torch.load(path, map_location=&#34;cpu&#34;, weights_only=False)[&#34;cfg&#34;]
 
-        vit, _, acts_store = cls.from_cfg(cfg)
+        cfg, vit, _, acts_store = cls.from_cfg(cfg)
         sae = SparseAutoencoder.load_from_pretrained(path)
         return cls(cfg, vit, sae, acts_store)</code></pre>
 </details>
@@ -590,7 +593,7 @@ class SparseAutoencoder(torch.nn.Module):
         return x_hat, f_x, loss, mse_loss, l1_loss, ghost_loss
 
     @torch.no_grad()
-    def initialize_b_dec(self, cfg: config.Config, acts_store: CachedActivationsStore):
+    def init_b_dec(self, cfg: config.Config, acts_store: CachedActivationsStore):
         previous_b_dec = self.b_dec.clone().cpu()
 
         all_activations = get_sae_batches(cfg, acts_store).detach().cpu()
@@ -650,8 +653,8 @@ class SparseAutoencoder(torch.nn.Module):
 <dd>
 <div class="desc"></div>
 </dd>
-<dt id="saev.modeling.SparseAutoencoder.initialize_b_dec"><code class="name flex">
-<span>def <span class="ident">initialize_b_dec</span></span>(<span>self, cfg: <a title="saev.config.Config" href="config.html#saev.config.Config">Config</a>, acts_store: <a title="saev.modeling.CachedActivationsStore" href="#saev.modeling.CachedActivationsStore">CachedActivationsStore</a>)</span>
+<dt id="saev.modeling.SparseAutoencoder.init_b_dec"><code class="name flex">
+<span>def <span class="ident">init_b_dec</span></span>(<span>self, cfg: <a title="saev.config.Config" href="config.html#saev.config.Config">Config</a>, acts_store: <a title="saev.modeling.CachedActivationsStore" href="#saev.modeling.CachedActivationsStore">CachedActivationsStore</a>)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -687,13 +690,13 @@ class SparseAutoencoder(torch.nn.Module):
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="">
 <li><code><a title="saev.modeling.dump" href="#saev.modeling.dump">dump</a></code></li>
+<li><code><a title="saev.modeling.dump_acts" href="#saev.modeling.dump_acts">dump_acts</a></code></li>
 <li><code><a title="saev.modeling.get_acts_filepath" href="#saev.modeling.get_acts_filepath">get_acts_filepath</a></code></li>
 <li><code><a title="saev.modeling.get_cache_dir" href="#saev.modeling.get_cache_dir">get_cache_dir</a></code></li>
 <li><code><a title="saev.modeling.get_imagenet_dataloader" href="#saev.modeling.get_imagenet_dataloader">get_imagenet_dataloader</a></code></li>
 <li><code><a title="saev.modeling.get_sae_batches" href="#saev.modeling.get_sae_batches">get_sae_batches</a></code></li>
 <li><code><a title="saev.modeling.get_tol_dataloader" href="#saev.modeling.get_tol_dataloader">get_tol_dataloader</a></code></li>
 <li><code><a title="saev.modeling.load" href="#saev.modeling.load">load</a></code></li>
-<li><code><a title="saev.modeling.save_acts" href="#saev.modeling.save_acts">save_acts</a></code></li>
 </ul>
 </li>
 <li><h3><a href="#header-classes">Classes</a></h3>
@@ -732,7 +735,7 @@ class SparseAutoencoder(torch.nn.Module):
 <h4><code><a title="saev.modeling.SparseAutoencoder" href="#saev.modeling.SparseAutoencoder">SparseAutoencoder</a></code></h4>
 <ul class="">
 <li><code><a title="saev.modeling.SparseAutoencoder.forward" href="#saev.modeling.SparseAutoencoder.forward">forward</a></code></li>
-<li><code><a title="saev.modeling.SparseAutoencoder.initialize_b_dec" href="#saev.modeling.SparseAutoencoder.initialize_b_dec">initialize_b_dec</a></code></li>
+<li><code><a title="saev.modeling.SparseAutoencoder.init_b_dec" href="#saev.modeling.SparseAutoencoder.init_b_dec">init_b_dec</a></code></li>
 <li><code><a title="saev.modeling.SparseAutoencoder.l1_coeff" href="#saev.modeling.SparseAutoencoder.l1_coeff">l1_coeff</a></code></li>
 <li><code><a title="saev.modeling.SparseAutoencoder.remove_gradient_parallel_to_decoder_directions" href="#saev.modeling.SparseAutoencoder.remove_gradient_parallel_to_decoder_directions">remove_gradient_parallel_to_decoder_directions</a></code></li>
 <li><code><a title="saev.modeling.SparseAutoencoder.set_decoder_norm_to_unit_norm" href="#saev.modeling.SparseAutoencoder.set_decoder_norm_to_unit_norm">set_decoder_norm_to_unit_norm</a></code></li>

@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.9.10"
+__generated_with = "0.9.14"
 app = marimo.App(width="full")
 
 
@@ -17,19 +17,17 @@ def __():
 
 @app.cell
 def __():
-    webapp_dir = "/local/scratch/stevens.994/sae-webapp/b822y437-analysis/updated-generate/webapp"
+    webapp_dir = "web"
     return (webapp_dir,)
 
 
 @app.cell
-def __(get_metadata, os, webapp_dir):
+def __(os, webapp_dir):
     neuron_indices = [
         int(name) for name in os.listdir(f"{webapp_dir}/neurons") if name.isdigit()
     ]
     neuron_indices = sorted(neuron_indices)
-
-    metadatas = [get_metadata(i) for i in neuron_indices]
-    return metadatas, neuron_indices
+    return (neuron_indices,)
 
 
 @app.cell
@@ -56,7 +54,7 @@ def __(mo, set_neuron_i):
 @app.cell
 def __(mo, pickle, webapp_dir):
     def get_metadata(neuron: int):
-        with open(f"{webapp_dir}/neurons/{neuron}/meta_data.pkl", "rb") as fd:
+        with open(f"{webapp_dir}/neurons/{neuron}/metadata.pkl", "rb") as fd:
             return pickle.load(fd)
 
     def format_metadata(metadata: dict[str, float | int]):
@@ -78,8 +76,8 @@ def __(get_neuron_i, mo, neuron_indices):
 
 
 @app.cell
-def __(get_neuron_i, metadatas, mo):
-    mo.ui.table([metadatas[get_neuron_i()]], selection=None)
+def __(get_metadata, get_neuron_i, mo, neuron_indices):
+    mo.ui.table([get_metadata(neuron_indices[get_neuron_i()])], selection=None)
     return
 
 
