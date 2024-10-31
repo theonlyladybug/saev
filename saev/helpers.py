@@ -1,6 +1,6 @@
+import collections
 import logging
 import os
-import collections
 import time
 import typing
 

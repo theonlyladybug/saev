@@ -245,4 +245,9 @@ Then it's 5TB.
 Still too big.
 But I can debug these processes on the lab servers.
 
+With a ViT-B/32, saving the last 3 layers, ImagetNet-1K is
 
+1.2M x 3 x 50 x 768 x 4 bytes/float = 553GB
+
+It seems that training is working well.
+I can train on 100M patches in about 40m on an A6000, which is good because it's 10x more tokens than 10M and about 10x slower (40m vs 4m).

@@ -18,11 +18,18 @@ class SparseAutoencoder(torch.nn.Module):
     Sparse auto-encoder (SAE) using L1 sparsity penalty.
     """
 
+    d_vit: int
+    exp_factor: int
     l1_coeff: float
     use_ghost_grads: bool
 
-    def __init__(self, d_vit: int, d_sae: int, l1_coeff: float, use_ghost_grads: bool):
+    def __init__(
+        self, d_vit: int, exp_factor: int, l1_coeff: float, use_ghost_grads: bool
+    ):
         super().__init__()
+
+        self.d_vit = d_vit
+        self.exp_factor = exp_factor
 
         self.l1_coeff = l1_coeff
         self.use_ghost_grads = use_ghost_grads
@@ -30,12 +37,12 @@ class SparseAutoencoder(torch.nn.Module):
         # Initialize the weights.
         # NOTE: if using resampling neurons method, you must ensure that we initialise the weights in the order W_enc, b_enc, W_dec, b_dec
         self.W_enc = torch.nn.Parameter(
-            torch.nn.init.kaiming_uniform_(torch.empty(d_vit, d_sae))
+            torch.nn.init.kaiming_uniform_(torch.empty(d_vit, self.d_sae))
         )
-        self.b_enc = torch.nn.Parameter(torch.zeros(d_sae))
+        self.b_enc = torch.nn.Parameter(torch.zeros(self.d_sae))
 
         self.W_dec = torch.nn.Parameter(
-            torch.nn.init.kaiming_uniform_(torch.empty(d_sae, d_vit))
+            torch.nn.init.kaiming_uniform_(torch.empty(self.d_sae, d_vit))
         )
 
         with torch.no_grad():
@@ -43,6 +50,10 @@ class SparseAutoencoder(torch.nn.Module):
             self.W_dec.data /= torch.norm(self.W_dec.data, dim=1, keepdim=True)
 
         self.b_dec = torch.nn.Parameter(torch.zeros(d_vit))
+
+    @property
+    def d_sae(self) -> int:
+        return self.d_vit * self.exp_factor
 
     @jaxtyped(typechecker=beartype.beartype)
     def forward(self, x: Float[Tensor, "batch d_model"], dead_neuron_mask=None):
@@ -100,12 +111,10 @@ class SparseAutoencoder(torch.nn.Module):
         return x_hat, f_x, loss, mse_loss, l1_loss, ghost_loss
 
     @torch.no_grad()
-    def init_b_dec(
-        self, cfg: config.Config, acts_store: activations.CachedActivationsStore
-    ):
+    def init_b_dec(self, cfg: config.Train, dataset: activations.Dataset):
         previous_b_dec = self.b_dec.clone().cpu()
 
-        all_activations = get_sae_batches(cfg, acts_store).detach().cpu()
+        all_activations = get_sae_batches(cfg, dataset).detach().cpu()
         mean = all_activations.mean(dim=0)
 
         previous_distances = torch.norm(all_activations - previous_b_dec, dim=-1)
@@ -140,41 +149,35 @@ class SparseAutoencoder(torch.nn.Module):
         )
 
 
-#####################
-# SparseAutoencoder #
-#####################
-# Depends on Config and CachedActivationsStore so has to come after them.
-
-
 @jaxtyped(typechecker=beartype.beartype)
 def get_sae_batches(
-    cfg: config.Config, acts_store: activations.CachedActivationsStore
+    cfg: config.Train, dataset: activations.Dataset
 ) -> Float[Tensor, "reinit_size d_model"]:
     """
     Get a batch of vit activations to re-initialize the SAE.
 
     Args:
-        cfg: Config.
-        acts_store: Activation store.
+        cfg: Train.
+        dataset: Dataset.
     """
     examples = []
-    perm = np.random.default_rng(seed=cfg.seed).permutation(len(acts_store))
+    perm = np.random.default_rng(seed=cfg.seed).permutation(len(dataset))
     perm = perm[: cfg.reinit_size]
 
-    examples, _ = acts_store[perm]
+    examples, _ = dataset[perm]
 
     return examples
 
 
 @beartype.beartype
-def dump(cfg: config.Config, sae: SparseAutoencoder, run_id: str):
+def dump(cfg: config.Train, sae: SparseAutoencoder, run_id: str):
     filepath = f"{cfg.ckpt_path}/{run_id}/sae.pt"
 
     sae_kwargs = dict(
-        d_vit=cfg.d_vit,
-        d_sae=cfg.d_sae,
-        l1_coeff=cfg.l1_coeff,
-        use_ghost_grads=cfg.use_ghost_grads,
+        d_vit=sae.d_vit,
+        exp_factor=sae.exp_factor,
+        l1_coeff=sae.l1_coeff,
+        use_ghost_grads=sae.use_ghost_grads,
     )
 
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
@@ -185,7 +188,7 @@ def dump(cfg: config.Config, sae: SparseAutoencoder, run_id: str):
 
 
 @beartype.beartype
-def load(cfg: config.Config, run_id: str) -> SparseAutoencoder:
+def load(cfg: config.Train, run_id: str) -> SparseAutoencoder:
     filepath = f"{cfg.ckpt_path}/{run_id}/sae.pt"
 
     with open(filepath, "rb") as fd:

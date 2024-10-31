@@ -114,9 +114,9 @@ class Activations:
     """Dimension of the ViT activations (depends on model)."""
     n_layers: int = 6
     """How many of the last ViT layers to save."""
-    n_patches: int = 256
-    """Dimension of the ViT patches (depends on model)."""
-    n_per_shard: int = 2_400_000
+    n_patches_per_img: int = 256
+    """Number of ViT patches per image (depends on model)."""
+    n_patches_per_shard: int = 2_400_000
     """Number of activations per shard; 2.4M is approximately 10GB for 1024-dimensional 4-byte activations."""
 
     seed: int = 42
@@ -142,13 +142,16 @@ class Train:
     Configuration for training a sparse autoencoder on a vision transformer.
     """
 
+    shard_root: str = os.path.join(".", "shards")
+    """Directory with .bin shards and a metadata.json file."""
+    n_workers: int = 8
+    """Number of dataloader workers."""
+
     # Training
-    d_vit: int = 1024
-    """Dimension of the ViT activations (depends on model, module_name, and block_layer)."""
     n_reinit_batches: int = 15
     """Number of batches to use for SAE re-init."""
-    n_epochs: int = 3
-    """Number of SAE training epochs."""
+    n_patches: int = 1_000_000_000
+    """Number of SAE training examples."""
     exp_factor: int = 64
     """Expansion factor for SAE."""
     l1_coeff: float = 0.00008
@@ -177,26 +180,22 @@ class Train:
 
     log_every: int = 10
     """How often to log to WandB."""
-    ckpt_path: str = "checkpoints"
+    ckpt_path: str = os.path.join(".", "checkpoints")
+    """Where to save checkpoints."""
 
     # Misc.
     device: str = "cuda"
 
     seed: int = 42
     """Random seed."""
-    dtype: str = "float32"
 
     slurm: bool = False
     """Whether to use `submitit` to run jobs on a Slurm cluster."""
     slurm_acct: str = "PAS2136"
     """Slurm account string."""
-    log_to: str = "./logs"
+    log_to: str = os.path.join(".", "logs")
     """Where to log Slurm job stdout/stderr."""
 
     @property
     def reinit_size(self) -> int:
         return self.n_reinit_batches * self.sae_batch_size
-
-    @property
-    def d_sae(self) -> int:
-        return self.d_vit * self.exp_factor
