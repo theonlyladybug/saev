@@ -234,3 +234,15 @@ This opens up questions like:
 
 I forgot that I probably want to record activations for every layer and every patch.
 For ViT-L-14 that's 24 layers, which means one ViT will fill up my storage completely.
+
+# 10/31/2024 (Happy Halloween)
+
+For ImageNet-1K, with 1.2M images, how big is a set of ViT-L/14 activations?
+1.2M images x 24 layers x 257 patches x 1024 floats x 4 bytes/float = 30TB.
+Still too big to put on my lab servers.
+But with only 4 layers?
+Then it's 5TB.
+Still too big.
+But I can debug these processes on the lab servers.
+
+

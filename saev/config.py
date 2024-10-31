@@ -109,6 +109,8 @@ class Activations:
 
     vit_batch_size: int = 1024
     """Batch size for ViT inference."""
+    layer_fraction: float = 0.25
+    """Saves only the last `layer_fraction` fraction of layers to disk."""
     n_workers: int = 8
     """Number of dataloader workers."""
     d_vit: int = 1024

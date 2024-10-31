@@ -14,11 +14,10 @@ def activations(
     cfg: typing.Annotated[saev.ActivationsConfig, tyro.conf.arg(name="")],
 ):
     """
-    Save ViT activations for use later on.
+    Save vision model activations for use later on.
 
     Args:
-        cfg: Configuration for experiment.
-        disable_ssl: Whether to ignore ssl when downloading models and such.
+        cfg: Configuration for dumping activations.
     """
     if not cfg.ssl:
         logger.warning("Ignoring SSL certs. Try not to do this!")
@@ -31,23 +30,6 @@ def activations(
     import saev.activations
 
     saev.activations.dump(cfg)
-
-    # import submitit
-    # if cfg.slurm:
-    #     executor = submitit.SlurmExecutor(folder=cfg.log_to)
-    #     executor.update_parameters(
-    #         time=30 * 60,  # 30 hours
-    #         partition="gpu",
-    #         gpus_per_node=1,
-    #         cpus_per_task=16,
-    #         stderr_to_stdout=True,
-    #         account=cfg.slurm_acct,
-    #     )
-    # else:
-    #     executor = submitit.DebugExecutor(folder=cfg.log_to)
-
-    # job = executor.submit(fn)
-    # job.result()
 
 
 def train(cfg: typing.Annotated[saev.TrainConfig, tyro.conf.arg(name="")]):
