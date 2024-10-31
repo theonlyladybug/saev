@@ -95,8 +95,7 @@ class RecordedVit(torch.nn.Module):
                 (batch, self.n_layers, self.n_patches + 1, dim), device=output.device
             )
 
-        # Image token only.
-        self._storage[:, self._i] = output
+        self._storage[:, self._i] = output.detach()
         self._i += 1
 
     def reset(self):
@@ -106,7 +105,7 @@ class RecordedVit(torch.nn.Module):
     def activations(self) -> Float[Tensor, "batch n_layers n_patches+1 dim"]:
         if self._storage is None:
             raise RuntimeError("First call model()")
-        return torch.clone(self._storage).cpu()
+        return self._storage.cpu()
 
 
 @jaxtyped(typechecker=beartype.beartype)
@@ -441,9 +440,9 @@ def worker_fn(cfg: config.Activations):
     vit = RecordedVit(cfg)
     dataloader = get_dataloader(cfg, vit.make_img_transform())
 
-    writer = ShardWriter(cfg)
-
     n_batches = cfg.data.n_imgs // cfg.vit_batch_size + 1
+
+    writer = ShardWriter(cfg)
 
     if cfg.device == "cuda" and not torch.cuda.is_available():
         logger.warning("No CUDA device available, using CPU.")
@@ -457,7 +456,9 @@ def worker_fn(cfg: config.Activations):
         for batch in helpers.progress(dataloader, total=n_batches):
             images = batch.pop("image").to(cfg.device)
             # cache has shape [batch size, n layers, n patches + 1, d vit]
-            _, cache = vit(images)
+            out, cache = vit(images)
+            del out
+
             writer[i : i + len(cache)] = cache
             i += len(cache)
 
@@ -475,6 +476,7 @@ class ShardWriter:
     shard: int
     acts_path: str
     acts: Float[np.ndarray, "n n_layers n_patches+1 d_vit"] | None
+    filled: int
 
     def __init__(self, cfg: config.Activations):
         self.logger = logging.getLogger("shard-writer")
@@ -500,20 +502,30 @@ class ShardWriter:
             # We have run out of space in this mmap'ed file. Let's fill it as much as we can.
             n_fit = offset + self.n_per_shard - a
             self.acts[a - offset : a - offset + n_fit] = val[:n_fit]
+            self.filled = a - offset + n_fit
 
             self.next_shard()
 
-            n_rest = len(val) - n_fit
-            self.acts[:n_rest] = val[n_fit:]
+            # Recursively call __setitem__ in case we need *another* shard
+            self[a + n_fit : b] = val[n_fit:]
         else:
             msg = f"0 <= {a} - {offset} <= {offset} + {self.n_per_shard}"
             assert 0 <= a - offset <= offset + self.n_per_shard, msg
             msg = f"0 <= {b} - {offset} <= {offset} + {self.n_per_shard}"
             assert 0 <= b - offset <= offset + self.n_per_shard, msg
             self.acts[a - offset : b - offset] = val
+            self.filled = b - offset
 
     def flush(self) -> None:
         if self.acts is not None:
+            if 0 < self.filled < self.n_per_shard:
+                breakpoint()
+                # We need to resize the memmap'ed file on disk.
+                _, n_layers, n_patches_plus_one, d_vit = self.shape
+                resized_shape = (self.filled, n_layers, n_patches_plus_one, d_vit)
+                self.logger.info("Shrinking memmap'ed file '%s' to %s.", resized_shape)
+                self.acts.resize(resized_shape, refcheck=False)
+
             self.acts.flush()
 
         self.acts = None
@@ -527,6 +539,7 @@ class ShardWriter:
         self.acts = np.memmap(
             self.acts_path, mode="w+", dtype=np.float32, shape=self.shape
         )
+        self.filled = 0
 
         self.logger.info("Opened shard '%s'.", self.acts_path)
 
