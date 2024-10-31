@@ -4,6 +4,7 @@ To save lots of activations, we want to do things in parallel, with lots of slur
 This module handles that additional complexity.
 """
 
+import json
 import dataclasses
 import hashlib
 import logging
@@ -405,6 +406,7 @@ def dump(cfg: config.Activations):
     Args:
         cfg: Config for activations.
     """
+    logger = logging.getLogger("dump")
 
     # Run any setup steps.
     setup(cfg)
@@ -424,6 +426,7 @@ def dump(cfg: config.Activations):
         )
 
         job = executor.submit(worker_fn, cfg)
+        logger.info("Running job '%s'.", job.job_id)
         job.result()
 
     else:
@@ -441,9 +444,10 @@ def worker_fn(cfg: config.Activations):
     vit = RecordedVit(cfg)
     dataloader = get_dataloader(cfg, vit.make_img_transform())
 
-    n_batches = cfg.data.n_imgs // cfg.vit_batch_size + 1
-
     writer = ShardWriter(cfg)
+
+    n_batches = cfg.data.n_imgs // cfg.vit_batch_size + 1
+    logger.info("Dumping %d batches of %d examples.", n_batches, cfg.vit_batch_size)
 
     if cfg.device == "cuda" and not torch.cuda.is_available():
         logger.warning("No CUDA device available, using CPU.")
@@ -519,13 +523,6 @@ class ShardWriter:
 
     def flush(self) -> None:
         if self.acts is not None:
-            if 0 < self.filled < self.n_per_shard:
-                # We need to resize the memmap'ed file on disk.
-                _, n_layers, n_patches_plus_one, d_vit = self.shape
-                resized_shape = (self.filled, n_layers, n_patches_plus_one, d_vit)
-                self.logger.info("Shrinking memmap'ed file '%s' to %s.", resized_shape)
-                self.acts.resize(resized_shape, refcheck=False)
-
             self.acts.flush()
 
         self.acts = None
@@ -548,6 +545,7 @@ class ShardWriter:
 def get_acts_dir(cfg: config.Activations) -> str:
     """
     Return the activations filepath based on the relevant values of a config.
+    Also saves a metadata.json file to that directory for human reference.
 
     Args:
         cfg: Config for experiment.
@@ -555,14 +553,22 @@ def get_acts_dir(cfg: config.Activations) -> str:
     Returns:
         Directory to where activations should be dumped/loaded from.
     """
-    cfg_str = (
-        str(cfg.width)
-        + str(cfg.height)
-        + cfg.model
-        + str(cfg.n_layers)
-        + str(cfg.data)
-        + str(cfg.n_per_shard)
-        + str(cfg.seed)
-    )
+    metadata = {
+        "width": cfg.width,
+        "height": cfg.height,
+        "model": cfg.model,
+        "data": str(cfg.data),
+        "n_per_shard": cfg.n_per_shard,
+        "n_layers": cfg.n_layers,
+        "seed": cfg.seed,
+    }
+
+    cfg_str = json.dumps(metadata, sort_keys=True)
     acts_hash = hashlib.sha256(cfg_str.encode("utf-8")).hexdigest()
-    return os.path.join(helpers.get_cache_dir(), "saev-acts", acts_hash)
+    acts_dir = os.path.join(helpers.get_cache_dir(), "saev-acts", acts_hash)
+    os.makedirs(acts_dir, exist_ok=True)
+
+    with open(os.path.join(acts_dir, "metadata.json"), "w") as fd:
+        json.dump(metadata, fd)
+
+    return acts_dir
