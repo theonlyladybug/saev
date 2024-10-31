@@ -106,17 +106,14 @@ class Activations:
     """Image height."""
     model: str = "ViT-L-14/openai"
     """Model string, for use with open_clip."""
-
     vit_batch_size: int = 1024
     """Batch size for ViT inference."""
-    layer_fraction: float = 0.25
-    """Saves only the last `layer_fraction` fraction of layers to disk."""
     n_workers: int = 8
     """Number of dataloader workers."""
     d_vit: int = 1024
     """Dimension of the ViT activations (depends on model)."""
-    n_layers: int = 24
-    """Number of ViT layers (depends on model)."""
+    n_layers: int = 6
+    """How many of the last ViT layers to save."""
     n_patches: int = 256
     """Dimension of the ViT patches (depends on model)."""
     n_per_shard: int = 2_400_000

@@ -52,16 +52,17 @@ class RecordedVit(torch.nn.Module):
         self._storage = None
         self._i = 0
 
-        self.n_layers = 0
-        for layer in self.model.transformer.resblocks:
+        for layer in helpers.tail(cfg.n_layers, self.model.transformer.resblocks):
             layer.register_forward_hook(self.hook)
-            self.n_layers += 1
 
         pw, ph = self.model.patch_size
         w, h = self.model.image_size
         assert w % pw == 0
         assert h % ph == 0
         self.n_patches = (w // pw) * (h // pw)
+        msg = f"ViT has {self.n_patches} patches; config has {cfg.n_patches} n_patches."
+        assert self.n_patches == cfg.n_patches, msg
+        self.n_layers = cfg.n_layers
 
         self.logger = logging.getLogger("recorder")
 
@@ -519,7 +520,6 @@ class ShardWriter:
     def flush(self) -> None:
         if self.acts is not None:
             if 0 < self.filled < self.n_per_shard:
-                breakpoint()
                 # We need to resize the memmap'ed file on disk.
                 _, n_layers, n_patches_plus_one, d_vit = self.shape
                 resized_shape = (self.filled, n_layers, n_patches_plus_one, d_vit)
@@ -559,6 +559,7 @@ def get_acts_dir(cfg: config.Activations) -> str:
         str(cfg.width)
         + str(cfg.height)
         + cfg.model
+        + str(cfg.n_layers)
         + str(cfg.data)
         + str(cfg.n_per_shard)
         + str(cfg.seed)

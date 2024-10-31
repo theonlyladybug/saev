@@ -1,8 +1,27 @@
 import logging
 import os
+import collections
 import time
+import typing
 
 import beartype
+
+T = typing.TypeVar("T")
+
+
+@beartype.beartype
+def tail(n: int, iterable: typing.Iterable[T]) -> typing.Iterator[T]:
+    """
+    Return an iterator over the last n items.
+    From https://docs.python.org/3/library/itertools.html#itertools-recipes
+
+    tail(3, 'ABCDEFG') → E F G
+
+    Args:
+        n: number of items
+        iterable: iterable to take the tail of.
+    """
+    return iter(collections.deque(iterable, maxlen=n))
 
 
 @beartype.beartype
