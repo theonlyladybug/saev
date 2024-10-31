@@ -176,7 +176,6 @@ Experiments:
 5. SAE Architecture: Compare SAE architectures and objectives (L1, TopK, Gated, JumpReLU, etc.)
 
 
-
 The OpenAI paper (Scaling and evaluating sparse autoencoders) proposes four evaluation metrics:
 
 1. Downstream loss: replace the original model representations with SAE reconstructions and calculate loss.
@@ -204,6 +203,34 @@ So I can analyze about 23 backbones (realistically 20, given that we don't want 
 
 So what would I do?
 
-1. Record 1B activations for DINOv2, OpenCLIP, and a pretrained ViT-L/14 that's hopefully trained on classification from reLAION datasets. This will let us first compare the 
+1. Record 1B activations for DINOv2, OpenCLIP, and a pretrained ViT-L/14 that's hopefully trained on classification from reLAION datasets. This will let us first compare the effect of pretraining objective on SAE reconstruction, which I think is the most interesting.
 2. Train a bunch of SAEs on these models. Explore different activations, L1 coefficients, etc.
 3. Measure ImageNet performance using linear classification on reconstructed ImageNet activations.
+
+What graphs and figures would I put in this paper?
+
+* I want qualitative comparisons of features discovered across different objectives. One specific question is: do vision-only pretrained model learn abstract concepts like "love" or "taking care of their young"? I can also try to answer this question with specific, hand-crafted experiments.
+* I want to see if particular vision architectures have significantly different MSE-L0 tradeoffs.
+* Do different pre-training corpuses lead to meaningfully different features? Probably?
+
+In some regard, I like the idea of a hand-crafted task with a linear probe to measure whether an SAE is learning a particular feature that can accurately predict a task.
+Is there a neuron that reliably distinguishes between pictures of love and other pictures?
+Such tasks would be naturally biased and arbitrary, but I think we can try to construct evals that lead to meaningful differences between models and their SAEs.
+What are some examples of such tasks?
+
+1. Love (abstract concept in ImageNet)
+2. Groups of animals (abstract concept in ToL-10M)
+3. Geographic areas/cultures - We know CLIP can do this already, but can DINOv2?
+4. Taxonomic trees: is this a mammal, is this a bird, etc. Probably to a finer degree (is this a feline, is this a hawk, etc).
+
+But again, if you can reliably make linear ImageNet performance go down using the SAE reconstructions, *probably* the SAE is of higher quality.
+I would be very surprised if this is not the case.
+
+This opens up questions like:
+
+* At what layer do you get best ImageNet performance?
+* Is this the same layer when using the model activations directly?
+* Do you do better when training an SAE on all patches and all layers, or better to train patch-specific, layer-specific SAEs (similar to GemmaScope).
+
+I forgot that I probably want to record activations for every layer and every patch.
+For ViT-L-14 that's 24 layers, which means one ViT will fill up my storage completely.

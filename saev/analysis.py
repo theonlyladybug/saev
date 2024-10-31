@@ -7,7 +7,7 @@ import torch
 from jaxtyping import Float, Int, jaxtyped
 from torch import Tensor
 
-from . import config, helpers, modeling
+from . import activations, config, helpers, nn
 
 logger = logging.getLogger("analysis")
 
@@ -34,7 +34,7 @@ def batched_idx(
 @jaxtyped(typechecker=beartype.beartype)
 def get_sae_acts(
     vit_acts: Float[Tensor, "n d_vit"],
-    sae: modeling.SparseAutoencoder,
+    sae: nn.SparseAutoencoder,
     cfg: config.Config,
 ) -> Float[Tensor, "n d_sae"]:
     """
@@ -83,8 +83,8 @@ def main(cfg: config.Config, run_id: str, *, top_k: int, root: str):
         root: Root directory save information to.
     """
 
-    sae = modeling.load(cfg, run_id)
-    acts_store = modeling.CachedActivationsStore(cfg, None, on_missing="error")
+    sae = nn.load(cfg, run_id)
+    acts_store = activations.CachedActivationsStore(cfg, None, on_missing="error")
 
     torch.cuda.empty_cache()
 

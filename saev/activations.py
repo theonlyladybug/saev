@@ -1,0 +1,554 @@
+"""
+To save lots of activations, we want to do things in parallel, with lots of slurm jobs, and save multiple files, rather than just one.
+
+This module handles that additional complexity.
+"""
+
+import dataclasses
+import hashlib
+import logging
+import os
+import shutil
+import typing
+
+import beartype
+import numpy as np
+import torch
+import wids
+from jaxtyping import Float, Int, jaxtyped
+from torch import Tensor
+
+from . import config, helpers
+
+log_format = "[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s"
+logging.basicConfig(level=logging.INFO, format=log_format)
+
+
+@jaxtyped(typechecker=beartype.beartype)
+class RecordedVit(torch.nn.Module):
+    n_layers: int
+    n_patches: int
+    model: torch.nn.Module
+    _storage: Float[Tensor, "batch n_layers n_patches+1 dim"] | None
+
+    def __init__(self, cfg: config.Activations):
+        super().__init__()
+
+        import open_clip
+
+        if cfg.model.startswith("hf-hub:"):
+            clip, _img_transform = open_clip.create_model_from_pretrained(cfg.model)
+        else:
+            arch, ckpt = cfg.model.split("/")
+            clip, _img_transform = open_clip.create_model_from_pretrained(
+                arch, pretrained=ckpt, cache_dir=helpers.get_cache_dir()
+            )
+
+        self.model = clip.visual
+        self.model.proj = None
+        self.model.output_tokens = True  # type: ignore
+        self._img_transform = _img_transform
+
+        self._storage = None
+        self._i = 0
+
+        self.n_layers = 0
+        for layer in self.model.transformer.resblocks:
+            layer.register_forward_hook(self.hook)
+            self.n_layers += 1
+
+        pw, ph = self.model.patch_size
+        w, h = self.model.image_size
+        assert w % pw == 0
+        assert h % ph == 0
+        self.n_patches = (w // pw) * (h // pw)
+
+        self.logger = logging.getLogger("recorder")
+
+    def make_img_transform(self):
+        return self._img_transform
+
+    def forward(
+        self, *args, **kwargs
+    ) -> tuple[typing.Any, Float[Tensor, "batch n_layers 1 dim"]]:
+        self.reset()
+        output = self.model(*args, **kwargs)
+        return output, self.activations
+
+    def hook(
+        self, module, args: tuple, output: Float[Tensor, "batch n_layers dim"]
+    ) -> None:
+        if self._storage is None:
+            batch, _, dim = output.shape
+            self._storage = torch.zeros(
+                (batch, self.n_layers, self.n_patches + 1, dim), device=output.device
+            )
+
+        if self._storage[:, self._i, 0, :].shape != output[:, 0, :].shape:
+            batch, _, dim = output.shape
+
+            old_batch, _, _, old_dim = self._storage.shape
+            msg = "Output shape does not match storage shape: (batch) %d != %d or (dim) %d != %d"
+            self.logger.warning(msg, old_batch, batch, old_dim, dim)
+
+            self._storage = torch.zeros(
+                (batch, self.n_layers, self.n_patches + 1, dim), device=output.device
+            )
+
+        # Image token only.
+        self._storage[:, self._i] = output
+        self._i += 1
+
+    def reset(self):
+        self._i = 0
+
+    @property
+    def activations(self) -> Float[Tensor, "batch n_layers n_patches+1 dim"]:
+        if self._storage is None:
+            raise RuntimeError("First call model()")
+        return torch.clone(self._storage).cpu()
+
+
+@jaxtyped(typechecker=beartype.beartype)
+class ShardedMmapTensor(torch.utils.data.Dataset):
+    cfg: config.Activations
+    root: str
+
+    def __init__(self, cfg: config.Activations):
+        self.cfg = cfg
+        self._len = cfg.data.n_imgs
+        self.root = get_acts_dir(cfg)
+
+        if not os.path.isdir(self._root):
+            raise RuntimeError(f"Activations are not saved at '{self._root}'.")
+
+        self._length = cfg.data.n_imgs
+
+    @typing.overload
+    def __getitem__(self, i: int) -> tuple[Float[Tensor, " d_model"], Int[Tensor, ""]]:
+        breakpoint()
+        shard = i // self.cfg.n_per_shard
+        # for meta in self.metas:
+        #     if meta.lower <= i <= meta.upper:
+        #         acts = np.memmap(
+        #             meta.path, mode="r", dtype=np.float32, shape=meta.flattened
+        #         )
+        #         return torch.from_numpy(acts[i]), torch.tensor(i)
+
+        # raise IndexError(f"Index {i} not in range [0, {len(self)}).")
+
+    def __len__(self) -> int:
+        return self._length
+
+
+@beartype.beartype
+def setup(cfg: config.Activations):
+    """
+    Run dataset-specific setup. These setup functions can assume they are the only job running, but they should be idempotent; they should be safe (and ideally cheap) to run multiple times in a row.
+    """
+    if isinstance(cfg.data, config.Imagenet):
+        setup_imagenet(cfg)
+    elif isinstance(cfg.data, config.TreeOfLife):
+        setup_tol(cfg)
+    elif isinstance(cfg.data, config.Laion):
+        setup_laion(cfg)
+    else:
+        typing.assert_never(cfg.data)
+
+
+@beartype.beartype
+def setup_imagenet(cfg: config.Activations):
+    pass
+
+
+@beartype.beartype
+def setup_tol(cfg: config.Activations):
+    pass
+
+
+@beartype.beartype
+def setup_laion(cfg: config.Activations):
+    """
+    Do setup for LAION dataloader.
+
+
+    """
+    assert isinstance(cfg.data, config.Laion)
+
+    import datasets
+    import img2dataset
+    import submitit
+
+    logger = logging.getLogger("laion")
+
+    # 1. Download cfg.data.n_imgs data urls.
+
+    # Check if URL list exists.
+    n_urls = 0
+    if os.path.isfile(cfg.data.url_list_filepath):
+
+        def blocks(files, size=65536):
+            while True:
+                b = files.read(size)
+                if not b:
+                    break
+                yield b
+
+        with open(cfg.data.url_list_filepath, "r") as fd:
+            n_urls = sum(bl.count("\n") for bl in blocks(fd))
+
+    # We use -1 just in case there's something wrong with our n_urls count.
+    dumped_urls = n_urls >= cfg.data.n_imgs - 1
+
+    # If we don't have all the image urls written, need to dump to a file.
+    if not dumped_urls:
+        logger.info("Dumping URLs to '%s'.", cfg.data.url_list_filepath)
+
+        if os.path.isfile(cfg.data.url_list_filepath):
+            logger.warning(
+                "Overwriting existing list of %d URLs because we want %d URLs.",
+                n_urls,
+                cfg.data.n_imgs,
+            )
+
+        dataset = (
+            datasets.load_dataset(cfg.data.name, streaming=True, split="train")
+            .shuffle(cfg.seed)
+            .filter(
+                lambda example: example["status"] == "success"
+                and example["height"] >= 256
+                and example["width"] >= 256
+            )
+            .take(cfg.data.n_imgs)
+        )
+
+        with open(cfg.data.url_list_filepath, "w") as fd:
+            for example in helpers.progress(
+                dataset, every=5_000, desc="Writing URLs", total=cfg.data.n_imgs
+            ):
+                fd.write(f'{{"url": "{example["url"]}", "key": "{example["key"]}"}}\n')
+
+    # 2. Download the images to a webdatset format using img2dataset
+    # TODO: check whether images are downloaded. Read all the _stats.json files and see if we have all 10M.
+    imgs_downloaded = False
+
+    if not imgs_downloaded:
+
+        def download(n_processes: int, n_threads: int):
+            assert isinstance(cfg.data, config.Laion)
+
+            if os.path.exists(cfg.data.tar_dir):
+                shutil.rmtree(cfg.data.tar_dir)
+
+            img2dataset.download(
+                url_list=cfg.data.url_list_filepath,
+                input_format="jsonl",
+                image_size=256,
+                output_folder=cfg.data.tar_dir,
+                processes_count=n_processes,
+                thread_count=n_threads,
+                resize_mode="keep_ratio",
+                encode_quality=100,
+                encode_format="webp",
+                output_format="webdataset",
+                oom_shard_count=6,
+                ignore_ssl=not cfg.ssl,
+            )
+
+        if cfg.slurm:
+            executor = submitit.SlurmExecutor(folder=cfg.log_to)
+            executor.update_parameters(
+                time=12 * 60,
+                partition="cpuonly",
+                cpus_per_task=64,
+                stderr_to_stdout=True,
+                account=cfg.slurm_acct,
+            )
+            job = executor.submit(download, 64, 256)
+            job.result()
+        else:
+            download(8, 32)
+
+
+@beartype.beartype
+def get_dataloader(cfg: config.Activations, preprocess):
+    """
+    Gets the dataloader for the current experiment; delegates dataloader construction to dataset-specific functions.
+
+    Args:
+        cfg: Experiment config.
+        preprocess: Image transform to be applied to each image.
+
+    Returns:
+        A PyTorch Dataloader that yields dictionaries with `'image'` keys containing image batches.
+    """
+    if isinstance(cfg.data, config.Imagenet):
+        dataloader = get_imagenet_dataloader(cfg, preprocess)
+    elif isinstance(cfg.data, config.TreeOfLife):
+        dataloader = get_tol_dataloader(cfg, preprocess)
+    elif isinstance(cfg.data, config.Laion):
+        dataloader = get_laion_dataloader(cfg, preprocess)
+    else:
+        typing.assert_never(cfg.data)
+
+    return dataloader
+
+
+@beartype.beartype
+def get_laion_dataloader(
+    cfg: config.Activations, preprocess
+) -> torch.utils.data.DataLoader:
+    """
+    Get a dataloader for a subset of the LAION datasets.
+
+    This requires several steps:
+
+    1. Download list of image URLs
+    2. Use img2dataset to download these images to webdataset format.
+    3. Create a dataloader from these webdataset tar files.
+
+    So that we don't have to redo any of these steps, we check on the existence of various files to check if this stuff is done already.
+    """
+    # 3. Create a webdataset loader over these images.
+    # TODO: somehow we need to know which images are in the dataloader. Like, a way to actually go back to the original image. The HF dataset has a "key" column that is likely unique.
+    breakpoint()
+
+
+@beartype.beartype
+def get_tol_dataloader(
+    cfg: config.Activations, preprocess
+) -> torch.utils.data.DataLoader:
+    """
+    Get a dataloader for the TreeOfLife-10M dataset.
+
+    Currently does not include a true index or label in the loaded examples.
+
+    Args:
+        cfg: Config for loading activations.
+        preprocess: Image transform to be applied to each image.
+
+    Returns:
+        A PyTorch Dataloader that yields dictionaries with `'image'` keys containing image batches.
+    """
+    assert isinstance(cfg.data, config.TreeOfLife)
+
+    def transform(sample: dict):
+        return {"image": preprocess(sample[".jpg"]), "index": sample["__key__"]}
+
+    dataset = wids.ShardListDataset(cfg.data.metadata).add_transform(transform)
+
+    dataloader = torch.utils.data.DataLoader(
+        dataset,
+        batch_size=cfg.vit_batch_size,
+        shuffle=False,
+        num_workers=cfg.n_workers,
+        persistent_workers=False,
+    )
+
+    return dataloader
+
+
+@beartype.beartype
+def get_imagenet_dataloader(
+    cfg: config.Activations, preprocess
+) -> torch.utils.data.DataLoader:
+    """
+    Get a dataloader for Imagenet loaded from Huggingface.
+
+    Args:
+        cfg: Config.
+        preprocess: Image transform to be applied to each image.
+
+    Returns:
+        A PyTorch Dataloader that yields dictionaries with `'image'` keys containing image batches, `'index'` keys containing original dataset indices and `'label'` keys containing label batches.
+    """
+    assert isinstance(cfg.data, config.Imagenet)
+
+    import datasets
+
+    dataset = datasets.load_dataset(
+        cfg.data.name, split="train", trust_remote_code=True
+    )
+
+    @beartype.beartype
+    def add_index(example, indices: list[int]):
+        example["index"] = indices
+        return example
+
+    @beartype.beartype
+    def map_fn(example: dict[str, list]):
+        example["image"] = [preprocess(img) for img in example["image"]]
+        return example
+
+    dataset = (
+        dataset.map(add_index, with_indices=True, batched=True)
+        .to_iterable_dataset(num_shards=cfg.n_workers or 8)
+        .map(map_fn, batched=True, batch_size=32)
+        .with_format("torch")
+    )
+
+    dataloader = torch.utils.data.DataLoader(
+        dataset=dataset,
+        batch_size=cfg.vit_batch_size,
+        drop_last=False,
+        num_workers=cfg.n_workers,
+        persistent_workers=cfg.n_workers > 0,
+        shuffle=False,
+        pin_memory=False,
+    )
+    return dataloader
+
+
+@beartype.beartype
+def dump(cfg: config.Activations):
+    """
+    Args:
+        cfg: Config for activations.
+    """
+
+    # Run any setup steps.
+    setup(cfg)
+
+    # Actually record activations.
+    if cfg.slurm:
+        import submitit
+
+        executor = submitit.SlurmExecutor(folder=cfg.log_to)
+        executor.update_parameters(
+            time=12 * 60,
+            partition="gpu",
+            gpus_per_node=1,
+            cpus_per_task=cfg.n_workers + 4,
+            stderr_to_stdout=True,
+            account=cfg.slurm_acct,
+        )
+
+        job = executor.submit(worker_fn, cfg)
+        job.result()
+
+    else:
+        worker_fn(cfg)
+
+
+@beartype.beartype
+def worker_fn(cfg: config.Activations):
+    """
+    Args:
+        cfg: Config for activations.
+    """
+    logger = logging.getLogger("dump")
+
+    vit = RecordedVit(cfg)
+    dataloader = get_dataloader(cfg, vit.make_img_transform())
+
+    writer = ShardWriter(cfg)
+
+    n_batches = cfg.data.n_imgs // cfg.vit_batch_size + 1
+
+    if cfg.device == "cuda" and not torch.cuda.is_available():
+        logger.warning("No CUDA device available, using CPU.")
+        cfg = dataclasses.replace(cfg, device="cpu")
+
+    vit = vit.to(cfg.device)
+
+    i = 0
+    # Calculate and write ViT activations.
+    with torch.inference_mode():
+        for batch in helpers.progress(dataloader, total=n_batches):
+            images = batch.pop("image").to(cfg.device)
+            # cache has shape [batch size, n layers, n patches + 1, d vit]
+            _, cache = vit(images)
+            writer[i : i + len(cache)] = cache
+            i += len(cache)
+
+    writer.flush()
+
+
+@beartype.beartype
+class ShardWriter:
+    """
+    ShardWriter is a stateful object that handles sharded activation writing to disk.
+    """
+
+    root: str
+    shape: tuple[int, int, int, int]
+    shard: int
+    acts_path: str
+    acts: Float[np.ndarray, "n n_layers n_patches+1 d_vit"] | None
+
+    def __init__(self, cfg: config.Activations):
+        self.logger = logging.getLogger("shard-writer")
+
+        self.root = get_acts_dir(cfg)
+        os.makedirs(self.root, exist_ok=True)
+
+        self.n_per_shard = cfg.n_per_shard // cfg.n_layers // (cfg.n_patches + 1)
+        self.shape = (self.n_per_shard, cfg.n_layers, cfg.n_patches + 1, cfg.d_vit)
+
+        self.shard = -1
+        self.acts = None
+        self.next_shard()
+
+    def __setitem__(self, i: slice, val) -> None:
+        assert i.step is None
+        a, b = i.start, i.stop
+        assert len(val) == b - a
+
+        offset = self.n_per_shard * self.shard
+
+        if b >= offset + self.n_per_shard:
+            # We have run out of space in this mmap'ed file. Let's fill it as much as we can.
+            n_fit = offset + self.n_per_shard - a
+            self.acts[a - offset : a - offset + n_fit] = val[:n_fit]
+
+            self.next_shard()
+
+            n_rest = len(val) - n_fit
+            self.acts[:n_rest] = val[n_fit:]
+        else:
+            msg = f"0 <= {a} - {offset} <= {offset} + {self.n_per_shard}"
+            assert 0 <= a - offset <= offset + self.n_per_shard, msg
+            msg = f"0 <= {b} - {offset} <= {offset} + {self.n_per_shard}"
+            assert 0 <= b - offset <= offset + self.n_per_shard, msg
+            self.acts[a - offset : b - offset] = val
+
+    def flush(self) -> None:
+        if self.acts is not None:
+            self.acts.flush()
+
+        self.acts = None
+
+    def next_shard(self) -> None:
+        self.flush()
+
+        self.shard += 1
+        self._count = 0
+        self.acts_path = os.path.join(self.root, f"acts{self.shard:06}.bin")
+        self.acts = np.memmap(
+            self.acts_path, mode="w+", dtype=np.float32, shape=self.shape
+        )
+
+        self.logger.info("Opened shard '%s'.", self.acts_path)
+
+
+@beartype.beartype
+def get_acts_dir(cfg: config.Activations) -> str:
+    """
+    Return the activations filepath based on the relevant values of a config.
+
+    Args:
+        cfg: Config for experiment.
+
+    Returns:
+        Directory to where activations should be dumped/loaded from.
+    """
+    cfg_str = (
+        str(cfg.width)
+        + str(cfg.height)
+        + cfg.model
+        + str(cfg.data)
+        + str(cfg.n_per_shard)
+        + str(cfg.seed)
+    )
+    acts_hash = hashlib.sha256(cfg_str.encode("utf-8")).hexdigest()
+    return os.path.join(helpers.get_cache_dir(), "saev-acts", acts_hash)

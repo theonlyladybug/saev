@@ -9,6 +9,7 @@ For example, `TreeOfLife.n_imgs` imports numpy when it's needed, rather than imp
 """
 
 import dataclasses
+import os
 
 import beartype
 
@@ -19,7 +20,7 @@ class Imagenet:
     """Configuration for HuggingFace Imagenet."""
 
     name: str = "ILSVRC/imagenet-1k"
-    """Dataset name. Probably don't want to change this."""
+    """Dataset name. Don't need to change this."""
 
     @property
     def n_imgs(self) -> int:
@@ -75,36 +76,80 @@ class TreeOfLife:
 
 @beartype.beartype
 @dataclasses.dataclass(frozen=True)
-class Config:
+class Laion:
+    name: str = "laion/relaion2B-multi-research-safe"
+    """Name of dataset on HuggingFace."""
+    cache_dir: str = "/fs/scratch/PAS2136/samuelstevens/cache/laion"
+    """Where to save the webdataset files that are downloaded."""
+    n_imgs: int = 10_000_000
+    """Number of images in this dataset (fixed at 10M)."""
+
+    @property
+    def url_list_filepath(self) -> str:
+        """Path to file with list of URLs."""
+        return os.path.join(self.cache_dir, "urls.jsonl")
+
+    @property
+    def tar_dir(self) -> str:
+        return os.path.join(self.cache_dir, "shards")
+
+
+@beartype.beartype
+@dataclasses.dataclass(frozen=True)
+class Activations:
+    # Data Generating Function (Model + Training Distibuion)
+    data: Imagenet | TreeOfLife | Laion = dataclasses.field(default_factory=Imagenet)
+    """Which dataset to use."""
+    width: int = 224
+    """Image width."""
+    height: int = 224
+    """Image height."""
+    model: str = "ViT-L-14/openai"
+    """Model string, for use with open_clip."""
+
+    vit_batch_size: int = 1024
+    """Batch size for ViT inference."""
+    n_workers: int = 8
+    """Number of dataloader workers."""
+    d_vit: int = 1024
+    """Dimension of the ViT activations (depends on model)."""
+    n_layers: int = 24
+    """Number of ViT layers (depends on model)."""
+    n_patches: int = 256
+    """Dimension of the ViT patches (depends on model)."""
+    n_per_shard: int = 2_400_000
+    """Number of activations per shard; 2.4M is approximately 10GB for 1024-dimensional 4-byte activations."""
+
+    seed: int = 42
+    """Random seed."""
+    ssl: bool = True
+    """Whether to use SSL."""
+
+    # Hardware
+    device: str = "cuda"
+    """Which device to use."""
+    slurm: bool = False
+    """Whether to use `submitit` to run jobs on a Slurm cluster."""
+    slurm_acct: str = "PAS2136"
+    """Slurm account string."""
+    log_to: str = "./logs"
+    """Where to log Slurm job stdout/stderr."""
+
+
+@beartype.beartype
+@dataclasses.dataclass(frozen=True)
+class Train:
     """
     Configuration for training a sparse autoencoder on a vision transformer.
     """
 
-    # Data Generating Function (Model + Training Distibuion)
-    image_width: int = 224
-
-    image_height: int = 224
-
-    model: str = "ViT-L-14/openai"
-    """Model string, for use with open_clip."""
-    module_name: str = "resid"
-
-    block_layer: int = -2
-
-    data: Imagenet | TreeOfLife = dataclasses.field(default_factory=Imagenet)
-    """Which dataset to use."""
-    n_workers: int = 8
-    """Number of dataloader workers."""
+    # Training
     d_vit: int = 1024
     """Dimension of the ViT activations (depends on model, module_name, and block_layer)."""
-
-    # Training
     n_reinit_batches: int = 15
     """Number of batches to use for SAE re-init."""
     n_epochs: int = 3
     """Number of SAE training epochs."""
-    vit_batch_size: int = 1024
-    """Batch size for ViT inference."""
     exp_factor: int = 64
     """Expansion factor for SAE."""
     l1_coeff: float = 0.00008

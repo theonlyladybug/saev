@@ -9,7 +9,7 @@ from torch.optim import Adam
 
 import wandb
 
-from . import config, modeling
+from . import activations, config, nn
 
 log_format = "[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s"
 logging.basicConfig(level=logging.INFO, format=log_format)
@@ -26,7 +26,8 @@ def main(cfg: config.Config):
         torch.backends.cudnn.benchmark = True
         torch.backends.cudnn.deterministic = False
 
-    _, _, sae, acts_store = modeling.Session.from_cfg(cfg)
+    sae = nn.SparseAutoencoder(cfg.d_vit, cfg.d_sae, cfg.l1_coeff, cfg.use_ghost_grads)
+    acts_store = activations.CachedActivationsStore(cfg, vit=None, on_missing="error")
 
     mode = "online" if cfg.track else "disabled"
     run = wandb.init(project=cfg.wandb_project, config=cfg, mode=mode)
@@ -177,5 +178,5 @@ def main(cfg: config.Config):
 
             n_steps += 1
 
-    modeling.dump(cfg, sae, run.id)
+    nn.dump(cfg, sae, run.id)
     run.finish()

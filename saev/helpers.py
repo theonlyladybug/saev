@@ -1,7 +1,22 @@
 import logging
+import os
 import time
 
 import beartype
+
+
+@beartype.beartype
+def get_cache_dir() -> str:
+    """
+    Get cache directory from environment variables, defaulting to the current working directory (.)
+
+    Returns:
+        A path to a cache directory (might not exist yet).
+    """
+    cache_dir = ""
+    for var in ("SAEV_CACHE", "HF_HOME", "HF_HUB_CACHE"):
+        cache_dir = cache_dir or os.environ.get(var, "")
+    return cache_dir or "."
 
 
 @beartype.beartype
