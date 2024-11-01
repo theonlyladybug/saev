@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
 <meta name="generator" content="pdoc3 0.11.1">
 <title>saev.config API documentation</title>
-<meta name="description" content="Configs for saev experiments …">
+<meta name="description" content="All configs for all saev jobs …">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/sanitize.min.css" integrity="sha512-y1dtMcuvtTMJc1yPgEqF0ZjQbhnc/bFhyvIyVNb9Zk5mIGtqVaAB1Ttl28su8AvFMOY0EwRbAe+HCLqj6W7/KA==" crossorigin>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/typography.min.css" integrity="sha512-Y1DYSb995BAfxobCkKepB1BqJJTPrOp3zPL74AWFugHHmmdcvO+C48WLrUOlhGMc0QG7AE3f7gmvvcrmX2fDoA==" crossorigin>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css" crossorigin>
@@ -27,11 +27,11 @@ hljs.highlightAll();
 <h1 class="title">Module <code>saev.config</code></h1>
 </header>
 <section id="section-intro">
-<p>Configs for saev experiments.</p>
+<p>All configs for all saev jobs.</p>
 <h2 id="import-times">Import Times</h2>
 <p>This module should be very fast to import so that <code>python main.py --help</code> is fast.
 This means that the top-level imports should not include big packages like numpy, torch, etc.
-For example, <code><a title="saev.config.TreeOfLife.n_imgs" href="#saev.config.TreeOfLife.n_imgs">TreeOfLife.n_imgs</a></code> imports numpy when it's needed, rather than importing it at the top level.</p>
+For example, <code>TreeOfLife.n_imgs</code> imports numpy when it's needed, rather than importing it at the top level.</p>
 </section>
 <section>
 </section>
@@ -42,9 +42,379 @@ For example, <code><a title="saev.config.TreeOfLife.n_imgs" href="#saev.config.T
 <section>
 <h2 class="section-title" id="header-classes">Classes</h2>
 <dl>
-<dt id="saev.config.Config"><code class="flex name class">
-<span>class <span class="ident">Config</span></span>
-<span>(</span><span>image_width: int = 224, image_height: int = 224, model: str = 'ViT-L-14/openai', module_name: str = 'resid', block_layer: int = -2, data: <a title="saev.config.Imagenet" href="#saev.config.Imagenet">Imagenet</a> | <a title="saev.config.TreeOfLife" href="#saev.config.TreeOfLife">TreeOfLife</a> = &lt;factory&gt;, n_workers: int = 8, d_vit: int = 1024, n_reinit_batches: int = 15, n_epochs: int = 3, vit_batch_size: int = 1024, exp_factor: int = 64, l1_coeff: float = 8e-05, lr: float = 0.0004, n_lr_warmup: int = 500, sae_batch_size: int = 1024, use_ghost_grads: bool = True, feature_sampling_window: int = 64, resample_batches: int = 32, dead_feature_window: int = 64, dead_feature_threshold: float = 1e-06, track: bool = True, wandb_project: str = 'saev', log_every: int = 10, ckpt_path: str = 'checkpoints', device: str = 'cuda', seed: int = 42, dtype: str = 'float32', slurm: bool = False, slurm_acct: str = 'PAS2136', log_to: str = './logs')</span>
+<dt id="saev.config.Activations"><code class="flex name class">
+<span>class <span class="ident">Activations</span></span>
+<span>(</span><span>data: <a title="saev.config.ImagenetDataset" href="#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.TreeOfLifeDataset" href="#saev.config.TreeOfLifeDataset">TreeOfLifeDataset</a> | <a title="saev.config.LaionDataset" href="#saev.config.LaionDataset">LaionDataset</a> = &lt;factory&gt;, width: int = 224, height: int = 224, model: str = 'ViT-L-14/openai', vit_batch_size: int = 1024, n_workers: int = 8, d_vit: int = 1024, n_layers: int = 6, n_patches_per_img: int = 256, n_patches_per_shard: int = 2400000, seed: int = 42, ssl: bool = True, device: str = 'cuda', slurm: bool = False, slurm_acct: str = 'PAS2136', log_to: str = './logs')</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Activations(data: saev.config.ImagenetDataset | saev.config.TreeOfLifeDataset | saev.config.LaionDataset = <factory>, width: int = 224, height: int = 224, model: str = 'ViT-L-14/openai', vit_batch_size: int = 1024, n_workers: int = 8, d_vit: int = 1024, n_layers: int = 6, n_patches_per_img: int = 256, n_patches_per_shard: int = 2400000, seed: int = 42, ssl: bool = True, device: str = 'cuda', slurm: bool = False, slurm_acct: str = 'PAS2136', log_to: str = './logs')</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@beartype.beartype
+@dataclasses.dataclass(frozen=True)
+class Activations:
+    # Data Generating Function (Model + Training Distibuion)
+    data: ImagenetDataset | TreeOfLifeDataset | LaionDataset = dataclasses.field(
+        default_factory=ImagenetDataset
+    )
+    &#34;&#34;&#34;Which dataset to use.&#34;&#34;&#34;
+    width: int = 224
+    &#34;&#34;&#34;Image width.&#34;&#34;&#34;
+    height: int = 224
+    &#34;&#34;&#34;Image height.&#34;&#34;&#34;
+    model: str = &#34;ViT-L-14/openai&#34;
+    &#34;&#34;&#34;Model string, for use with open_clip.&#34;&#34;&#34;
+    vit_batch_size: int = 1024
+    &#34;&#34;&#34;Batch size for ViT inference.&#34;&#34;&#34;
+    n_workers: int = 8
+    &#34;&#34;&#34;Number of dataloader workers.&#34;&#34;&#34;
+    d_vit: int = 1024
+    &#34;&#34;&#34;Dimension of the ViT activations (depends on model).&#34;&#34;&#34;
+    n_layers: int = 6
+    &#34;&#34;&#34;How many of the last ViT layers to save.&#34;&#34;&#34;
+    n_patches_per_img: int = 256
+    &#34;&#34;&#34;Number of ViT patches per image (depends on model).&#34;&#34;&#34;
+    n_patches_per_shard: int = 2_400_000
+    &#34;&#34;&#34;Number of activations per shard; 2.4M is approximately 10GB for 1024-dimensional 4-byte activations.&#34;&#34;&#34;
+
+    seed: int = 42
+    &#34;&#34;&#34;Random seed.&#34;&#34;&#34;
+    ssl: bool = True
+    &#34;&#34;&#34;Whether to use SSL.&#34;&#34;&#34;
+
+    # Hardware
+    device: str = &#34;cuda&#34;
+    &#34;&#34;&#34;Which device to use.&#34;&#34;&#34;
+    slurm: bool = False
+    &#34;&#34;&#34;Whether to use `submitit` to run jobs on a Slurm cluster.&#34;&#34;&#34;
+    slurm_acct: str = &#34;PAS2136&#34;
+    &#34;&#34;&#34;Slurm account string.&#34;&#34;&#34;
+    log_to: str = &#34;./logs&#34;
+    &#34;&#34;&#34;Where to log Slurm job stdout/stderr.&#34;&#34;&#34;</code></pre>
+</details>
+<h3>Class variables</h3>
+<dl>
+<dt id="saev.config.Activations.d_vit"><code class="name">var <span class="ident">d_vit</span> : int</code></dt>
+<dd>
+<div class="desc"><p>Dimension of the ViT activations (depends on model).</p></div>
+</dd>
+<dt id="saev.config.Activations.data"><code class="name">var <span class="ident">data</span> : <a title="saev.config.ImagenetDataset" href="#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.TreeOfLifeDataset" href="#saev.config.TreeOfLifeDataset">TreeOfLifeDataset</a> | <a title="saev.config.LaionDataset" href="#saev.config.LaionDataset">LaionDataset</a></code></dt>
+<dd>
+<div class="desc"><p>Which dataset to use.</p></div>
+</dd>
+<dt id="saev.config.Activations.device"><code class="name">var <span class="ident">device</span> : str</code></dt>
+<dd>
+<div class="desc"><p>Which device to use.</p></div>
+</dd>
+<dt id="saev.config.Activations.height"><code class="name">var <span class="ident">height</span> : int</code></dt>
+<dd>
+<div class="desc"><p>Image height.</p></div>
+</dd>
+<dt id="saev.config.Activations.log_to"><code class="name">var <span class="ident">log_to</span> : str</code></dt>
+<dd>
+<div class="desc"><p>Where to log Slurm job stdout/stderr.</p></div>
+</dd>
+<dt id="saev.config.Activations.model"><code class="name">var <span class="ident">model</span> : str</code></dt>
+<dd>
+<div class="desc"><p>Model string, for use with open_clip.</p></div>
+</dd>
+<dt id="saev.config.Activations.n_layers"><code class="name">var <span class="ident">n_layers</span> : int</code></dt>
+<dd>
+<div class="desc"><p>How many of the last ViT layers to save.</p></div>
+</dd>
+<dt id="saev.config.Activations.n_patches_per_img"><code class="name">var <span class="ident">n_patches_per_img</span> : int</code></dt>
+<dd>
+<div class="desc"><p>Number of ViT patches per image (depends on model).</p></div>
+</dd>
+<dt id="saev.config.Activations.n_patches_per_shard"><code class="name">var <span class="ident">n_patches_per_shard</span> : int</code></dt>
+<dd>
+<div class="desc"><p>Number of activations per shard; 2.4M is approximately 10GB for 1024-dimensional 4-byte activations.</p></div>
+</dd>
+<dt id="saev.config.Activations.n_workers"><code class="name">var <span class="ident">n_workers</span> : int</code></dt>
+<dd>
+<div class="desc"><p>Number of dataloader workers.</p></div>
+</dd>
+<dt id="saev.config.Activations.seed"><code class="name">var <span class="ident">seed</span> : int</code></dt>
+<dd>
+<div class="desc"><p>Random seed.</p></div>
+</dd>
+<dt id="saev.config.Activations.slurm"><code class="name">var <span class="ident">slurm</span> : bool</code></dt>
+<dd>
+<div class="desc"><p>Whether to use <code>submitit</code> to run jobs on a Slurm cluster.</p></div>
+</dd>
+<dt id="saev.config.Activations.slurm_acct"><code class="name">var <span class="ident">slurm_acct</span> : str</code></dt>
+<dd>
+<div class="desc"><p>Slurm account string.</p></div>
+</dd>
+<dt id="saev.config.Activations.ssl"><code class="name">var <span class="ident">ssl</span> : bool</code></dt>
+<dd>
+<div class="desc"><p>Whether to use SSL.</p></div>
+</dd>
+<dt id="saev.config.Activations.vit_batch_size"><code class="name">var <span class="ident">vit_batch_size</span> : int</code></dt>
+<dd>
+<div class="desc"><p>Batch size for ViT inference.</p></div>
+</dd>
+<dt id="saev.config.Activations.width"><code class="name">var <span class="ident">width</span> : int</code></dt>
+<dd>
+<div class="desc"><p>Image width.</p></div>
+</dd>
+</dl>
+</dd>
+<dt id="saev.config.Evaluate"><code class="flex name class">
+<span>class <span class="ident">Evaluate</span></span>
+<span>(</span><span>imagenet: <a title="saev.config.ImagenetEvaluate" href="#saev.config.ImagenetEvaluate">ImagenetEvaluate</a> = &lt;factory&gt;, slurm: bool = False, slurm_acct: str = 'PAS2136', log_to: str = './logs')</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Evaluate(imagenet: saev.config.ImagenetEvaluate = <factory>, slurm: bool = False, slurm_acct: str = 'PAS2136', log_to: str = './logs')</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@beartype.beartype
+@dataclasses.dataclass(frozen=True)
+class Evaluate:
+    imagenet: ImagenetEvaluate = dataclasses.field(default_factory=ImagenetEvaluate)
+    &#34;&#34;&#34;ImageNet-1K config.&#34;&#34;&#34;
+
+    slurm: bool = False
+    &#34;&#34;&#34;Whether to use `submitit` to run jobs on a Slurm cluster.&#34;&#34;&#34;
+    slurm_acct: str = &#34;PAS2136&#34;
+    &#34;&#34;&#34;Slurm account string.&#34;&#34;&#34;
+    log_to: str = &#34;./logs&#34;
+    &#34;&#34;&#34;Where to log Slurm job stdout/stderr.&#34;&#34;&#34;</code></pre>
+</details>
+<h3>Class variables</h3>
+<dl>
+<dt id="saev.config.Evaluate.imagenet"><code class="name">var <span class="ident">imagenet</span> : <a title="saev.config.ImagenetEvaluate" href="#saev.config.ImagenetEvaluate">ImagenetEvaluate</a></code></dt>
+<dd>
+<div class="desc"><p>ImageNet-1K config.</p></div>
+</dd>
+<dt id="saev.config.Evaluate.log_to"><code class="name">var <span class="ident">log_to</span> : str</code></dt>
+<dd>
+<div class="desc"><p>Where to log Slurm job stdout/stderr.</p></div>
+</dd>
+<dt id="saev.config.Evaluate.slurm"><code class="name">var <span class="ident">slurm</span> : bool</code></dt>
+<dd>
+<div class="desc"><p>Whether to use <code>submitit</code> to run jobs on a Slurm cluster.</p></div>
+</dd>
+<dt id="saev.config.Evaluate.slurm_acct"><code class="name">var <span class="ident">slurm_acct</span> : str</code></dt>
+<dd>
+<div class="desc"><p>Slurm account string.</p></div>
+</dd>
+</dl>
+</dd>
+<dt id="saev.config.ImagenetDataset"><code class="flex name class">
+<span>class <span class="ident">ImagenetDataset</span></span>
+<span>(</span><span>name: str = 'ILSVRC/imagenet-1k', split: str = 'train')</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Configuration for HuggingFace Imagenet.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@beartype.beartype
+@dataclasses.dataclass(frozen=True)
+class ImagenetDataset:
+    &#34;&#34;&#34;Configuration for HuggingFace Imagenet.&#34;&#34;&#34;
+
+    name: str = &#34;ILSVRC/imagenet-1k&#34;
+    &#34;&#34;&#34;Dataset name. Don&#39;t need to change this.&#34;&#34;&#34;
+    split: str = &#34;train&#34;
+    &#34;&#34;&#34;Dataset split. For the default ImageNet-1K dataset, can either be &#39;train&#39;, &#39;validation&#39; or &#39;test&#39;.&#34;&#34;&#34;
+
+    @property
+    def n_imgs(self) -&gt; int:
+        &#34;&#34;&#34;Number of images in the dataset. Calculated on the fly, but is non-trivial to calculate because it requires loading the dataset. If you need to reference this number very often, cache it in a local variable.&#34;&#34;&#34;
+        import datasets
+
+        dataset = datasets.load_dataset(
+            self.name, split=self.split, trust_remote_code=True
+        )
+        return len(dataset)</code></pre>
+</details>
+<h3>Class variables</h3>
+<dl>
+<dt id="saev.config.ImagenetDataset.name"><code class="name">var <span class="ident">name</span> : str</code></dt>
+<dd>
+<div class="desc"><p>Dataset name. Don't need to change this.</p></div>
+</dd>
+<dt id="saev.config.ImagenetDataset.split"><code class="name">var <span class="ident">split</span> : str</code></dt>
+<dd>
+<div class="desc"><p>Dataset split. For the default ImageNet-1K dataset, can either be 'train', 'validation' or 'test'.</p></div>
+</dd>
+</dl>
+<h3>Instance variables</h3>
+<dl>
+<dt id="saev.config.ImagenetDataset.n_imgs"><code class="name">prop <span class="ident">n_imgs</span> : int</code></dt>
+<dd>
+<div class="desc"><p>Number of images in the dataset. Calculated on the fly, but is non-trivial to calculate because it requires loading the dataset. If you need to reference this number very often, cache it in a local variable.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def n_imgs(self) -&gt; int:
+    &#34;&#34;&#34;Number of images in the dataset. Calculated on the fly, but is non-trivial to calculate because it requires loading the dataset. If you need to reference this number very often, cache it in a local variable.&#34;&#34;&#34;
+    import datasets
+
+    dataset = datasets.load_dataset(
+        self.name, split=self.split, trust_remote_code=True
+    )
+    return len(dataset)</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+<dt id="saev.config.ImagenetEvaluate"><code class="flex name class">
+<span>class <span class="ident">ImagenetEvaluate</span></span>
+<span>(</span><span>ckpt_path: str = './checkpoints/abcdefg', train_shard_root: str = './imagenet1k-train-shards', val_shard_root: str = './imagenet1k-val-shards', n_workers: int = 16, sgd_batch_size: int = 16384, n_steps: int = 12500, device: str = 'cuda', log_every: int = 5)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>ImagenetEvaluate(ckpt_path: str = './checkpoints/abcdefg', train_shard_root: str = './imagenet1k-train-shards', val_shard_root: str = './imagenet1k-val-shards', n_workers: int = 16, sgd_batch_size: int = 16384, n_steps: int = 12500, device: str = 'cuda', log_every: int = 5)</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@beartype.beartype
+@dataclasses.dataclass(frozen=True)
+class ImagenetEvaluate:
+    # Model
+    ckpt_path: str = os.path.join(&#34;.&#34;, &#34;checkpoints&#34;, &#34;abcdefg&#34;)
+    &#34;&#34;&#34;Path to the sae.pt file.&#34;&#34;&#34;
+    # Data
+    train_shard_root: str = os.path.join(&#34;.&#34;, &#34;imagenet1k-train-shards&#34;)
+    &#34;&#34;&#34;Directory with sharded activations for training split.&#34;&#34;&#34;
+    val_shard_root: str = os.path.join(&#34;.&#34;, &#34;imagenet1k-val-shards&#34;)
+    &#34;&#34;&#34;Directory with sharded activations for validation split.&#34;&#34;&#34;
+    n_workers: int = 16
+    &#34;&#34;&#34;Number of dataloader workers.&#34;&#34;&#34;
+    # Optimization
+    sgd_batch_size: int = 1024 * 16
+    &#34;&#34;&#34;Batch size for linear classifier.&#34;&#34;&#34;
+    n_steps: int = 12500
+    &#34;&#34;&#34;Number of SGD steps.&#34;&#34;&#34;
+    # Hardware
+    device: str = &#34;cuda&#34;
+    &#34;&#34;&#34;Which accelerator to use.&#34;&#34;&#34;
+    # Misc
+    log_every: int = 5
+    &#34;&#34;&#34;How often to log progress.&#34;&#34;&#34;</code></pre>
+</details>
+<h3>Class variables</h3>
+<dl>
+<dt id="saev.config.ImagenetEvaluate.ckpt_path"><code class="name">var <span class="ident">ckpt_path</span> : str</code></dt>
+<dd>
+<div class="desc"><p>Path to the sae.pt file.</p></div>
+</dd>
+<dt id="saev.config.ImagenetEvaluate.device"><code class="name">var <span class="ident">device</span> : str</code></dt>
+<dd>
+<div class="desc"><p>Which accelerator to use.</p></div>
+</dd>
+<dt id="saev.config.ImagenetEvaluate.log_every"><code class="name">var <span class="ident">log_every</span> : int</code></dt>
+<dd>
+<div class="desc"><p>How often to log progress.</p></div>
+</dd>
+<dt id="saev.config.ImagenetEvaluate.n_steps"><code class="name">var <span class="ident">n_steps</span> : int</code></dt>
+<dd>
+<div class="desc"><p>Number of SGD steps.</p></div>
+</dd>
+<dt id="saev.config.ImagenetEvaluate.n_workers"><code class="name">var <span class="ident">n_workers</span> : int</code></dt>
+<dd>
+<div class="desc"><p>Number of dataloader workers.</p></div>
+</dd>
+<dt id="saev.config.ImagenetEvaluate.sgd_batch_size"><code class="name">var <span class="ident">sgd_batch_size</span> : int</code></dt>
+<dd>
+<div class="desc"><p>Batch size for linear classifier.</p></div>
+</dd>
+<dt id="saev.config.ImagenetEvaluate.train_shard_root"><code class="name">var <span class="ident">train_shard_root</span> : str</code></dt>
+<dd>
+<div class="desc"><p>Directory with sharded activations for training split.</p></div>
+</dd>
+<dt id="saev.config.ImagenetEvaluate.val_shard_root"><code class="name">var <span class="ident">val_shard_root</span> : str</code></dt>
+<dd>
+<div class="desc"><p>Directory with sharded activations for validation split.</p></div>
+</dd>
+</dl>
+</dd>
+<dt id="saev.config.LaionDataset"><code class="flex name class">
+<span>class <span class="ident">LaionDataset</span></span>
+<span>(</span><span>name: str = 'laion/relaion2B-multi-research-safe', cache_dir: str = '/fs/scratch/PAS2136/samuelstevens/cache/laion', n_imgs: int = 10000000)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>LaionDataset(name: str = 'laion/relaion2B-multi-research-safe', cache_dir: str = '/fs/scratch/PAS2136/samuelstevens/cache/laion', n_imgs: int = 10000000)</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@beartype.beartype
+@dataclasses.dataclass(frozen=True)
+class LaionDataset:
+    name: str = &#34;laion/relaion2B-multi-research-safe&#34;
+    &#34;&#34;&#34;Name of dataset on HuggingFace.&#34;&#34;&#34;
+    cache_dir: str = &#34;/fs/scratch/PAS2136/samuelstevens/cache/laion&#34;
+    &#34;&#34;&#34;Where to save the webdataset files that are downloaded.&#34;&#34;&#34;
+    n_imgs: int = 10_000_000
+    &#34;&#34;&#34;Number of images in this dataset (fixed at 10M).&#34;&#34;&#34;
+
+    @property
+    def url_list_filepath(self) -&gt; str:
+        &#34;&#34;&#34;Path to file with list of URLs.&#34;&#34;&#34;
+        return os.path.join(self.cache_dir, &#34;urls.jsonl&#34;)
+
+    @property
+    def tar_dir(self) -&gt; str:
+        return os.path.join(self.cache_dir, &#34;shards&#34;)</code></pre>
+</details>
+<h3>Class variables</h3>
+<dl>
+<dt id="saev.config.LaionDataset.cache_dir"><code class="name">var <span class="ident">cache_dir</span> : str</code></dt>
+<dd>
+<div class="desc"><p>Where to save the webdataset files that are downloaded.</p></div>
+</dd>
+<dt id="saev.config.LaionDataset.n_imgs"><code class="name">var <span class="ident">n_imgs</span> : int</code></dt>
+<dd>
+<div class="desc"><p>Number of images in this dataset (fixed at 10M).</p></div>
+</dd>
+<dt id="saev.config.LaionDataset.name"><code class="name">var <span class="ident">name</span> : str</code></dt>
+<dd>
+<div class="desc"><p>Name of dataset on HuggingFace.</p></div>
+</dd>
+</dl>
+<h3>Instance variables</h3>
+<dl>
+<dt id="saev.config.LaionDataset.tar_dir"><code class="name">prop <span class="ident">tar_dir</span> : str</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def tar_dir(self) -&gt; str:
+    return os.path.join(self.cache_dir, &#34;shards&#34;)</code></pre>
+</details>
+</dd>
+<dt id="saev.config.LaionDataset.url_list_filepath"><code class="name">prop <span class="ident">url_list_filepath</span> : str</code></dt>
+<dd>
+<div class="desc"><p>Path to file with list of URLs.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def url_list_filepath(self) -&gt; str:
+    &#34;&#34;&#34;Path to file with list of URLs.&#34;&#34;&#34;
+    return os.path.join(self.cache_dir, &#34;urls.jsonl&#34;)</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+<dt id="saev.config.Train"><code class="flex name class">
+<span>class <span class="ident">Train</span></span>
+<span>(</span><span>shard_root: str = './shards', n_workers: int = 8, n_reinit_batches: int = 15, n_patches: int = 1000000000, exp_factor: int = 64, l1_coeff: float = 8e-05, lr: float = 0.0004, n_lr_warmup: int = 500, sae_batch_size: int = 1024, use_ghost_grads: bool = True, feature_sampling_window: int = 64, resample_batches: int = 32, dead_feature_window: int = 64, dead_feature_threshold: float = 1e-06, track: bool = True, wandb_project: str = 'saev', log_every: int = 10, ckpt_path: str = './checkpoints', device: str = 'cuda', seed: int = 42, slurm: bool = False, slurm_acct: str = 'PAS2136', log_to: str = './logs')</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Configuration for training a sparse autoencoder on a vision transformer.</p></div>
@@ -54,36 +424,21 @@ For example, <code><a title="saev.config.TreeOfLife.n_imgs" href="#saev.config.T
 </summary>
 <pre><code class="python">@beartype.beartype
 @dataclasses.dataclass(frozen=True)
-class Config:
+class Train:
     &#34;&#34;&#34;
     Configuration for training a sparse autoencoder on a vision transformer.
     &#34;&#34;&#34;
 
-    # Data Generating Function (Model + Training Distibuion)
-    image_width: int = 224
-
-    image_height: int = 224
-
-    model: str = &#34;ViT-L-14/openai&#34;
-    &#34;&#34;&#34;Model string, for use with open_clip.&#34;&#34;&#34;
-    module_name: str = &#34;resid&#34;
-
-    block_layer: int = -2
-
-    data: Imagenet | TreeOfLife = dataclasses.field(default_factory=Imagenet)
-    &#34;&#34;&#34;Which dataset to use.&#34;&#34;&#34;
+    shard_root: str = os.path.join(&#34;.&#34;, &#34;shards&#34;)
+    &#34;&#34;&#34;Directory with .bin shards and a metadata.json file.&#34;&#34;&#34;
     n_workers: int = 8
     &#34;&#34;&#34;Number of dataloader workers.&#34;&#34;&#34;
-    d_vit: int = 1024
-    &#34;&#34;&#34;Dimension of the ViT activations (depends on model, module_name, and block_layer).&#34;&#34;&#34;
 
     # Training
     n_reinit_batches: int = 15
     &#34;&#34;&#34;Number of batches to use for SAE re-init.&#34;&#34;&#34;
-    n_epochs: int = 3
-    &#34;&#34;&#34;Number of SAE training epochs.&#34;&#34;&#34;
-    vit_batch_size: int = 1024
-    &#34;&#34;&#34;Batch size for ViT inference.&#34;&#34;&#34;
+    n_patches: int = 1_000_000_000
+    &#34;&#34;&#34;Number of SAE training examples.&#34;&#34;&#34;
     exp_factor: int = 64
     &#34;&#34;&#34;Expansion factor for SAE.&#34;&#34;&#34;
     l1_coeff: float = 0.00008
@@ -112,172 +467,124 @@ class Config:
 
     log_every: int = 10
     &#34;&#34;&#34;How often to log to WandB.&#34;&#34;&#34;
-    ckpt_path: str = &#34;checkpoints&#34;
+    ckpt_path: str = os.path.join(&#34;.&#34;, &#34;checkpoints&#34;)
+    &#34;&#34;&#34;Where to save checkpoints.&#34;&#34;&#34;
 
     # Misc.
     device: str = &#34;cuda&#34;
 
     seed: int = 42
     &#34;&#34;&#34;Random seed.&#34;&#34;&#34;
-    dtype: str = &#34;float32&#34;
 
     slurm: bool = False
     &#34;&#34;&#34;Whether to use `submitit` to run jobs on a Slurm cluster.&#34;&#34;&#34;
     slurm_acct: str = &#34;PAS2136&#34;
     &#34;&#34;&#34;Slurm account string.&#34;&#34;&#34;
-    log_to: str = &#34;./logs&#34;
+    log_to: str = os.path.join(&#34;.&#34;, &#34;logs&#34;)
     &#34;&#34;&#34;Where to log Slurm job stdout/stderr.&#34;&#34;&#34;
 
     @property
     def reinit_size(self) -&gt; int:
-        return self.n_reinit_batches * self.sae_batch_size
-
-    @property
-    def d_sae(self) -&gt; int:
-        return self.d_vit * self.exp_factor</code></pre>
+        return self.n_reinit_batches * self.sae_batch_size</code></pre>
 </details>
 <h3>Class variables</h3>
 <dl>
-<dt id="saev.config.Config.block_layer"><code class="name">var <span class="ident">block_layer</span> : int</code></dt>
+<dt id="saev.config.Train.ckpt_path"><code class="name">var <span class="ident">ckpt_path</span> : str</code></dt>
+<dd>
+<div class="desc"><p>Where to save checkpoints.</p></div>
+</dd>
+<dt id="saev.config.Train.dead_feature_threshold"><code class="name">var <span class="ident">dead_feature_threshold</span> : float</code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
-<dt id="saev.config.Config.ckpt_path"><code class="name">var <span class="ident">ckpt_path</span> : str</code></dt>
+<dt id="saev.config.Train.dead_feature_window"><code class="name">var <span class="ident">dead_feature_window</span> : int</code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
-<dt id="saev.config.Config.d_vit"><code class="name">var <span class="ident">d_vit</span> : int</code></dt>
-<dd>
-<div class="desc"><p>Dimension of the ViT activations (depends on model, module_name, and block_layer).</p></div>
-</dd>
-<dt id="saev.config.Config.data"><code class="name">var <span class="ident">data</span> : <a title="saev.config.Imagenet" href="#saev.config.Imagenet">Imagenet</a> | <a title="saev.config.TreeOfLife" href="#saev.config.TreeOfLife">TreeOfLife</a></code></dt>
-<dd>
-<div class="desc"><p>Which dataset to use.</p></div>
-</dd>
-<dt id="saev.config.Config.dead_feature_threshold"><code class="name">var <span class="ident">dead_feature_threshold</span> : float</code></dt>
+<dt id="saev.config.Train.device"><code class="name">var <span class="ident">device</span> : str</code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
-<dt id="saev.config.Config.dead_feature_window"><code class="name">var <span class="ident">dead_feature_window</span> : int</code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt id="saev.config.Config.device"><code class="name">var <span class="ident">device</span> : str</code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt id="saev.config.Config.dtype"><code class="name">var <span class="ident">dtype</span> : str</code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt id="saev.config.Config.exp_factor"><code class="name">var <span class="ident">exp_factor</span> : int</code></dt>
+<dt id="saev.config.Train.exp_factor"><code class="name">var <span class="ident">exp_factor</span> : int</code></dt>
 <dd>
 <div class="desc"><p>Expansion factor for SAE.</p></div>
 </dd>
-<dt id="saev.config.Config.feature_sampling_window"><code class="name">var <span class="ident">feature_sampling_window</span> : int</code></dt>
+<dt id="saev.config.Train.feature_sampling_window"><code class="name">var <span class="ident">feature_sampling_window</span> : int</code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
-<dt id="saev.config.Config.image_height"><code class="name">var <span class="ident">image_height</span> : int</code></dt>
+<dt id="saev.config.Train.l1_coeff"><code class="name">var <span class="ident">l1_coeff</span> : float</code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
-<dt id="saev.config.Config.image_width"><code class="name">var <span class="ident">image_width</span> : int</code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt id="saev.config.Config.l1_coeff"><code class="name">var <span class="ident">l1_coeff</span> : float</code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt id="saev.config.Config.log_every"><code class="name">var <span class="ident">log_every</span> : int</code></dt>
+<dt id="saev.config.Train.log_every"><code class="name">var <span class="ident">log_every</span> : int</code></dt>
 <dd>
 <div class="desc"><p>How often to log to WandB.</p></div>
 </dd>
-<dt id="saev.config.Config.log_to"><code class="name">var <span class="ident">log_to</span> : str</code></dt>
+<dt id="saev.config.Train.log_to"><code class="name">var <span class="ident">log_to</span> : str</code></dt>
 <dd>
 <div class="desc"><p>Where to log Slurm job stdout/stderr.</p></div>
 </dd>
-<dt id="saev.config.Config.lr"><code class="name">var <span class="ident">lr</span> : float</code></dt>
+<dt id="saev.config.Train.lr"><code class="name">var <span class="ident">lr</span> : float</code></dt>
 <dd>
 <div class="desc"><p>Learning rate.</p></div>
 </dd>
-<dt id="saev.config.Config.model"><code class="name">var <span class="ident">model</span> : str</code></dt>
-<dd>
-<div class="desc"><p>Model string, for use with open_clip.</p></div>
-</dd>
-<dt id="saev.config.Config.module_name"><code class="name">var <span class="ident">module_name</span> : str</code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt id="saev.config.Config.n_epochs"><code class="name">var <span class="ident">n_epochs</span> : int</code></dt>
-<dd>
-<div class="desc"><p>Number of SAE training epochs.</p></div>
-</dd>
-<dt id="saev.config.Config.n_lr_warmup"><code class="name">var <span class="ident">n_lr_warmup</span> : int</code></dt>
+<dt id="saev.config.Train.n_lr_warmup"><code class="name">var <span class="ident">n_lr_warmup</span> : int</code></dt>
 <dd>
 <div class="desc"><p>Number of learning rate warmup steps.</p></div>
 </dd>
-<dt id="saev.config.Config.n_reinit_batches"><code class="name">var <span class="ident">n_reinit_batches</span> : int</code></dt>
+<dt id="saev.config.Train.n_patches"><code class="name">var <span class="ident">n_patches</span> : int</code></dt>
+<dd>
+<div class="desc"><p>Number of SAE training examples.</p></div>
+</dd>
+<dt id="saev.config.Train.n_reinit_batches"><code class="name">var <span class="ident">n_reinit_batches</span> : int</code></dt>
 <dd>
 <div class="desc"><p>Number of batches to use for SAE re-init.</p></div>
 </dd>
-<dt id="saev.config.Config.n_workers"><code class="name">var <span class="ident">n_workers</span> : int</code></dt>
+<dt id="saev.config.Train.n_workers"><code class="name">var <span class="ident">n_workers</span> : int</code></dt>
 <dd>
 <div class="desc"><p>Number of dataloader workers.</p></div>
 </dd>
-<dt id="saev.config.Config.resample_batches"><code class="name">var <span class="ident">resample_batches</span> : int</code></dt>
+<dt id="saev.config.Train.resample_batches"><code class="name">var <span class="ident">resample_batches</span> : int</code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
-<dt id="saev.config.Config.sae_batch_size"><code class="name">var <span class="ident">sae_batch_size</span> : int</code></dt>
+<dt id="saev.config.Train.sae_batch_size"><code class="name">var <span class="ident">sae_batch_size</span> : int</code></dt>
 <dd>
 <div class="desc"><p>Batch size for SAE training.</p></div>
 </dd>
-<dt id="saev.config.Config.seed"><code class="name">var <span class="ident">seed</span> : int</code></dt>
+<dt id="saev.config.Train.seed"><code class="name">var <span class="ident">seed</span> : int</code></dt>
 <dd>
 <div class="desc"><p>Random seed.</p></div>
 </dd>
-<dt id="saev.config.Config.slurm"><code class="name">var <span class="ident">slurm</span> : bool</code></dt>
+<dt id="saev.config.Train.shard_root"><code class="name">var <span class="ident">shard_root</span> : str</code></dt>
+<dd>
+<div class="desc"><p>Directory with .bin shards and a metadata.json file.</p></div>
+</dd>
+<dt id="saev.config.Train.slurm"><code class="name">var <span class="ident">slurm</span> : bool</code></dt>
 <dd>
 <div class="desc"><p>Whether to use <code>submitit</code> to run jobs on a Slurm cluster.</p></div>
 </dd>
-<dt id="saev.config.Config.slurm_acct"><code class="name">var <span class="ident">slurm_acct</span> : str</code></dt>
+<dt id="saev.config.Train.slurm_acct"><code class="name">var <span class="ident">slurm_acct</span> : str</code></dt>
 <dd>
 <div class="desc"><p>Slurm account string.</p></div>
 </dd>
-<dt id="saev.config.Config.track"><code class="name">var <span class="ident">track</span> : bool</code></dt>
+<dt id="saev.config.Train.track"><code class="name">var <span class="ident">track</span> : bool</code></dt>
 <dd>
 <div class="desc"><p>Whether to track with WandB.</p></div>
 </dd>
-<dt id="saev.config.Config.use_ghost_grads"><code class="name">var <span class="ident">use_ghost_grads</span> : bool</code></dt>
+<dt id="saev.config.Train.use_ghost_grads"><code class="name">var <span class="ident">use_ghost_grads</span> : bool</code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
-<dt id="saev.config.Config.vit_batch_size"><code class="name">var <span class="ident">vit_batch_size</span> : int</code></dt>
-<dd>
-<div class="desc"><p>Batch size for ViT inference.</p></div>
-</dd>
-<dt id="saev.config.Config.wandb_project"><code class="name">var <span class="ident">wandb_project</span> : str</code></dt>
+<dt id="saev.config.Train.wandb_project"><code class="name">var <span class="ident">wandb_project</span> : str</code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
 </dl>
 <h3>Instance variables</h3>
 <dl>
-<dt id="saev.config.Config.d_sae"><code class="name">prop <span class="ident">d_sae</span> : int</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@property
-def d_sae(self) -&gt; int:
-    return self.d_vit * self.exp_factor</code></pre>
-</details>
-</dd>
-<dt id="saev.config.Config.reinit_size"><code class="name">prop <span class="ident">reinit_size</span> : int</code></dt>
+<dt id="saev.config.Train.reinit_size"><code class="name">prop <span class="ident">reinit_size</span> : int</code></dt>
 <dd>
 <div class="desc"></div>
 <details class="source">
@@ -291,65 +598,8 @@ def reinit_size(self) -&gt; int:
 </dd>
 </dl>
 </dd>
-<dt id="saev.config.Imagenet"><code class="flex name class">
-<span>class <span class="ident">Imagenet</span></span>
-<span>(</span><span>name: str = 'ILSVRC/imagenet-1k')</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Configuration for HuggingFace Imagenet.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@beartype.beartype
-@dataclasses.dataclass(frozen=True)
-class Imagenet:
-    &#34;&#34;&#34;Configuration for HuggingFace Imagenet.&#34;&#34;&#34;
-
-    name: str = &#34;ILSVRC/imagenet-1k&#34;
-    &#34;&#34;&#34;Dataset name. Probably don&#39;t want to change this.&#34;&#34;&#34;
-
-    @property
-    def n_imgs(self) -&gt; int:
-        &#34;&#34;&#34;Number of images in the dataset. Calculated on the fly, but is non-trivial to calculate because it requires loading the dataset. If you need to reference this number very often, cache it in a local variable.&#34;&#34;&#34;
-        import datasets
-
-        dataset = datasets.load_dataset(
-            self.name, split=&#34;train&#34;, trust_remote_code=True
-        )
-        return len(dataset)</code></pre>
-</details>
-<h3>Class variables</h3>
-<dl>
-<dt id="saev.config.Imagenet.name"><code class="name">var <span class="ident">name</span> : str</code></dt>
-<dd>
-<div class="desc"><p>Dataset name. Probably don't want to change this.</p></div>
-</dd>
-</dl>
-<h3>Instance variables</h3>
-<dl>
-<dt id="saev.config.Imagenet.n_imgs"><code class="name">prop <span class="ident">n_imgs</span> : int</code></dt>
-<dd>
-<div class="desc"><p>Number of images in the dataset. Calculated on the fly, but is non-trivial to calculate because it requires loading the dataset. If you need to reference this number very often, cache it in a local variable.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@property
-def n_imgs(self) -&gt; int:
-    &#34;&#34;&#34;Number of images in the dataset. Calculated on the fly, but is non-trivial to calculate because it requires loading the dataset. If you need to reference this number very often, cache it in a local variable.&#34;&#34;&#34;
-    import datasets
-
-    dataset = datasets.load_dataset(
-        self.name, split=&#34;train&#34;, trust_remote_code=True
-    )
-    return len(dataset)</code></pre>
-</details>
-</dd>
-</dl>
-</dd>
-<dt id="saev.config.TreeOfLife"><code class="flex name class">
-<span>class <span class="ident">TreeOfLife</span></span>
+<dt id="saev.config.TreeOfLifeDataset"><code class="flex name class">
+<span>class <span class="ident">TreeOfLifeDataset</span></span>
 <span>(</span><span>metadata: str = 'treeoflife-10m.json', label_key: str = '.taxonomic_name.txt')</span>
 </code></dt>
 <dd>
@@ -366,7 +616,7 @@ def n_imgs(self) -&gt; int:
 </summary>
 <pre><code class="python">@beartype.beartype
 @dataclasses.dataclass(frozen=True)
-class TreeOfLife:
+class TreeOfLifeDataset:
     &#34;&#34;&#34;
     Configuration for the TreeOfLife-10M webdataset.
 
@@ -406,18 +656,18 @@ class TreeOfLife:
 </details>
 <h3>Class variables</h3>
 <dl>
-<dt id="saev.config.TreeOfLife.label_key"><code class="name">var <span class="ident">label_key</span> : str</code></dt>
+<dt id="saev.config.TreeOfLifeDataset.label_key"><code class="name">var <span class="ident">label_key</span> : str</code></dt>
 <dd>
 <div class="desc"><p>Which key to use as the label.</p></div>
 </dd>
-<dt id="saev.config.TreeOfLife.metadata"><code class="name">var <span class="ident">metadata</span> : str</code></dt>
+<dt id="saev.config.TreeOfLifeDataset.metadata"><code class="name">var <span class="ident">metadata</span> : str</code></dt>
 <dd>
 <div class="desc"><p>Path to dataset shards.</p></div>
 </dd>
 </dl>
 <h3>Instance variables</h3>
 <dl>
-<dt id="saev.config.TreeOfLife.n_imgs"><code class="name">prop <span class="ident">n_imgs</span> : int</code></dt>
+<dt id="saev.config.TreeOfLifeDataset.n_imgs"><code class="name">prop <span class="ident">n_imgs</span> : int</code></dt>
 <dd>
 <div class="desc"><p>Return number of images in the dataset by reading the metadata file and summing the <code>nsamples</code> fields.</p></div>
 <details class="source">
@@ -461,56 +711,101 @@ def n_imgs(self) -&gt; int:
 <li><h3><a href="#header-classes">Classes</a></h3>
 <ul>
 <li>
-<h4><code><a title="saev.config.Config" href="#saev.config.Config">Config</a></code></h4>
-<ul class="">
-<li><code><a title="saev.config.Config.block_layer" href="#saev.config.Config.block_layer">block_layer</a></code></li>
-<li><code><a title="saev.config.Config.ckpt_path" href="#saev.config.Config.ckpt_path">ckpt_path</a></code></li>
-<li><code><a title="saev.config.Config.d_sae" href="#saev.config.Config.d_sae">d_sae</a></code></li>
-<li><code><a title="saev.config.Config.d_vit" href="#saev.config.Config.d_vit">d_vit</a></code></li>
-<li><code><a title="saev.config.Config.data" href="#saev.config.Config.data">data</a></code></li>
-<li><code><a title="saev.config.Config.dead_feature_threshold" href="#saev.config.Config.dead_feature_threshold">dead_feature_threshold</a></code></li>
-<li><code><a title="saev.config.Config.dead_feature_window" href="#saev.config.Config.dead_feature_window">dead_feature_window</a></code></li>
-<li><code><a title="saev.config.Config.device" href="#saev.config.Config.device">device</a></code></li>
-<li><code><a title="saev.config.Config.dtype" href="#saev.config.Config.dtype">dtype</a></code></li>
-<li><code><a title="saev.config.Config.exp_factor" href="#saev.config.Config.exp_factor">exp_factor</a></code></li>
-<li><code><a title="saev.config.Config.feature_sampling_window" href="#saev.config.Config.feature_sampling_window">feature_sampling_window</a></code></li>
-<li><code><a title="saev.config.Config.image_height" href="#saev.config.Config.image_height">image_height</a></code></li>
-<li><code><a title="saev.config.Config.image_width" href="#saev.config.Config.image_width">image_width</a></code></li>
-<li><code><a title="saev.config.Config.l1_coeff" href="#saev.config.Config.l1_coeff">l1_coeff</a></code></li>
-<li><code><a title="saev.config.Config.log_every" href="#saev.config.Config.log_every">log_every</a></code></li>
-<li><code><a title="saev.config.Config.log_to" href="#saev.config.Config.log_to">log_to</a></code></li>
-<li><code><a title="saev.config.Config.lr" href="#saev.config.Config.lr">lr</a></code></li>
-<li><code><a title="saev.config.Config.model" href="#saev.config.Config.model">model</a></code></li>
-<li><code><a title="saev.config.Config.module_name" href="#saev.config.Config.module_name">module_name</a></code></li>
-<li><code><a title="saev.config.Config.n_epochs" href="#saev.config.Config.n_epochs">n_epochs</a></code></li>
-<li><code><a title="saev.config.Config.n_lr_warmup" href="#saev.config.Config.n_lr_warmup">n_lr_warmup</a></code></li>
-<li><code><a title="saev.config.Config.n_reinit_batches" href="#saev.config.Config.n_reinit_batches">n_reinit_batches</a></code></li>
-<li><code><a title="saev.config.Config.n_workers" href="#saev.config.Config.n_workers">n_workers</a></code></li>
-<li><code><a title="saev.config.Config.reinit_size" href="#saev.config.Config.reinit_size">reinit_size</a></code></li>
-<li><code><a title="saev.config.Config.resample_batches" href="#saev.config.Config.resample_batches">resample_batches</a></code></li>
-<li><code><a title="saev.config.Config.sae_batch_size" href="#saev.config.Config.sae_batch_size">sae_batch_size</a></code></li>
-<li><code><a title="saev.config.Config.seed" href="#saev.config.Config.seed">seed</a></code></li>
-<li><code><a title="saev.config.Config.slurm" href="#saev.config.Config.slurm">slurm</a></code></li>
-<li><code><a title="saev.config.Config.slurm_acct" href="#saev.config.Config.slurm_acct">slurm_acct</a></code></li>
-<li><code><a title="saev.config.Config.track" href="#saev.config.Config.track">track</a></code></li>
-<li><code><a title="saev.config.Config.use_ghost_grads" href="#saev.config.Config.use_ghost_grads">use_ghost_grads</a></code></li>
-<li><code><a title="saev.config.Config.vit_batch_size" href="#saev.config.Config.vit_batch_size">vit_batch_size</a></code></li>
-<li><code><a title="saev.config.Config.wandb_project" href="#saev.config.Config.wandb_project">wandb_project</a></code></li>
+<h4><code><a title="saev.config.Activations" href="#saev.config.Activations">Activations</a></code></h4>
+<ul class="two-column">
+<li><code><a title="saev.config.Activations.d_vit" href="#saev.config.Activations.d_vit">d_vit</a></code></li>
+<li><code><a title="saev.config.Activations.data" href="#saev.config.Activations.data">data</a></code></li>
+<li><code><a title="saev.config.Activations.device" href="#saev.config.Activations.device">device</a></code></li>
+<li><code><a title="saev.config.Activations.height" href="#saev.config.Activations.height">height</a></code></li>
+<li><code><a title="saev.config.Activations.log_to" href="#saev.config.Activations.log_to">log_to</a></code></li>
+<li><code><a title="saev.config.Activations.model" href="#saev.config.Activations.model">model</a></code></li>
+<li><code><a title="saev.config.Activations.n_layers" href="#saev.config.Activations.n_layers">n_layers</a></code></li>
+<li><code><a title="saev.config.Activations.n_patches_per_img" href="#saev.config.Activations.n_patches_per_img">n_patches_per_img</a></code></li>
+<li><code><a title="saev.config.Activations.n_patches_per_shard" href="#saev.config.Activations.n_patches_per_shard">n_patches_per_shard</a></code></li>
+<li><code><a title="saev.config.Activations.n_workers" href="#saev.config.Activations.n_workers">n_workers</a></code></li>
+<li><code><a title="saev.config.Activations.seed" href="#saev.config.Activations.seed">seed</a></code></li>
+<li><code><a title="saev.config.Activations.slurm" href="#saev.config.Activations.slurm">slurm</a></code></li>
+<li><code><a title="saev.config.Activations.slurm_acct" href="#saev.config.Activations.slurm_acct">slurm_acct</a></code></li>
+<li><code><a title="saev.config.Activations.ssl" href="#saev.config.Activations.ssl">ssl</a></code></li>
+<li><code><a title="saev.config.Activations.vit_batch_size" href="#saev.config.Activations.vit_batch_size">vit_batch_size</a></code></li>
+<li><code><a title="saev.config.Activations.width" href="#saev.config.Activations.width">width</a></code></li>
 </ul>
 </li>
 <li>
-<h4><code><a title="saev.config.Imagenet" href="#saev.config.Imagenet">Imagenet</a></code></h4>
+<h4><code><a title="saev.config.Evaluate" href="#saev.config.Evaluate">Evaluate</a></code></h4>
 <ul class="">
-<li><code><a title="saev.config.Imagenet.n_imgs" href="#saev.config.Imagenet.n_imgs">n_imgs</a></code></li>
-<li><code><a title="saev.config.Imagenet.name" href="#saev.config.Imagenet.name">name</a></code></li>
+<li><code><a title="saev.config.Evaluate.imagenet" href="#saev.config.Evaluate.imagenet">imagenet</a></code></li>
+<li><code><a title="saev.config.Evaluate.log_to" href="#saev.config.Evaluate.log_to">log_to</a></code></li>
+<li><code><a title="saev.config.Evaluate.slurm" href="#saev.config.Evaluate.slurm">slurm</a></code></li>
+<li><code><a title="saev.config.Evaluate.slurm_acct" href="#saev.config.Evaluate.slurm_acct">slurm_acct</a></code></li>
 </ul>
 </li>
 <li>
-<h4><code><a title="saev.config.TreeOfLife" href="#saev.config.TreeOfLife">TreeOfLife</a></code></h4>
+<h4><code><a title="saev.config.ImagenetDataset" href="#saev.config.ImagenetDataset">ImagenetDataset</a></code></h4>
 <ul class="">
-<li><code><a title="saev.config.TreeOfLife.label_key" href="#saev.config.TreeOfLife.label_key">label_key</a></code></li>
-<li><code><a title="saev.config.TreeOfLife.metadata" href="#saev.config.TreeOfLife.metadata">metadata</a></code></li>
-<li><code><a title="saev.config.TreeOfLife.n_imgs" href="#saev.config.TreeOfLife.n_imgs">n_imgs</a></code></li>
+<li><code><a title="saev.config.ImagenetDataset.n_imgs" href="#saev.config.ImagenetDataset.n_imgs">n_imgs</a></code></li>
+<li><code><a title="saev.config.ImagenetDataset.name" href="#saev.config.ImagenetDataset.name">name</a></code></li>
+<li><code><a title="saev.config.ImagenetDataset.split" href="#saev.config.ImagenetDataset.split">split</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="saev.config.ImagenetEvaluate" href="#saev.config.ImagenetEvaluate">ImagenetEvaluate</a></code></h4>
+<ul class="two-column">
+<li><code><a title="saev.config.ImagenetEvaluate.ckpt_path" href="#saev.config.ImagenetEvaluate.ckpt_path">ckpt_path</a></code></li>
+<li><code><a title="saev.config.ImagenetEvaluate.device" href="#saev.config.ImagenetEvaluate.device">device</a></code></li>
+<li><code><a title="saev.config.ImagenetEvaluate.log_every" href="#saev.config.ImagenetEvaluate.log_every">log_every</a></code></li>
+<li><code><a title="saev.config.ImagenetEvaluate.n_steps" href="#saev.config.ImagenetEvaluate.n_steps">n_steps</a></code></li>
+<li><code><a title="saev.config.ImagenetEvaluate.n_workers" href="#saev.config.ImagenetEvaluate.n_workers">n_workers</a></code></li>
+<li><code><a title="saev.config.ImagenetEvaluate.sgd_batch_size" href="#saev.config.ImagenetEvaluate.sgd_batch_size">sgd_batch_size</a></code></li>
+<li><code><a title="saev.config.ImagenetEvaluate.train_shard_root" href="#saev.config.ImagenetEvaluate.train_shard_root">train_shard_root</a></code></li>
+<li><code><a title="saev.config.ImagenetEvaluate.val_shard_root" href="#saev.config.ImagenetEvaluate.val_shard_root">val_shard_root</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="saev.config.LaionDataset" href="#saev.config.LaionDataset">LaionDataset</a></code></h4>
+<ul class="">
+<li><code><a title="saev.config.LaionDataset.cache_dir" href="#saev.config.LaionDataset.cache_dir">cache_dir</a></code></li>
+<li><code><a title="saev.config.LaionDataset.n_imgs" href="#saev.config.LaionDataset.n_imgs">n_imgs</a></code></li>
+<li><code><a title="saev.config.LaionDataset.name" href="#saev.config.LaionDataset.name">name</a></code></li>
+<li><code><a title="saev.config.LaionDataset.tar_dir" href="#saev.config.LaionDataset.tar_dir">tar_dir</a></code></li>
+<li><code><a title="saev.config.LaionDataset.url_list_filepath" href="#saev.config.LaionDataset.url_list_filepath">url_list_filepath</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="saev.config.Train" href="#saev.config.Train">Train</a></code></h4>
+<ul class="">
+<li><code><a title="saev.config.Train.ckpt_path" href="#saev.config.Train.ckpt_path">ckpt_path</a></code></li>
+<li><code><a title="saev.config.Train.dead_feature_threshold" href="#saev.config.Train.dead_feature_threshold">dead_feature_threshold</a></code></li>
+<li><code><a title="saev.config.Train.dead_feature_window" href="#saev.config.Train.dead_feature_window">dead_feature_window</a></code></li>
+<li><code><a title="saev.config.Train.device" href="#saev.config.Train.device">device</a></code></li>
+<li><code><a title="saev.config.Train.exp_factor" href="#saev.config.Train.exp_factor">exp_factor</a></code></li>
+<li><code><a title="saev.config.Train.feature_sampling_window" href="#saev.config.Train.feature_sampling_window">feature_sampling_window</a></code></li>
+<li><code><a title="saev.config.Train.l1_coeff" href="#saev.config.Train.l1_coeff">l1_coeff</a></code></li>
+<li><code><a title="saev.config.Train.log_every" href="#saev.config.Train.log_every">log_every</a></code></li>
+<li><code><a title="saev.config.Train.log_to" href="#saev.config.Train.log_to">log_to</a></code></li>
+<li><code><a title="saev.config.Train.lr" href="#saev.config.Train.lr">lr</a></code></li>
+<li><code><a title="saev.config.Train.n_lr_warmup" href="#saev.config.Train.n_lr_warmup">n_lr_warmup</a></code></li>
+<li><code><a title="saev.config.Train.n_patches" href="#saev.config.Train.n_patches">n_patches</a></code></li>
+<li><code><a title="saev.config.Train.n_reinit_batches" href="#saev.config.Train.n_reinit_batches">n_reinit_batches</a></code></li>
+<li><code><a title="saev.config.Train.n_workers" href="#saev.config.Train.n_workers">n_workers</a></code></li>
+<li><code><a title="saev.config.Train.reinit_size" href="#saev.config.Train.reinit_size">reinit_size</a></code></li>
+<li><code><a title="saev.config.Train.resample_batches" href="#saev.config.Train.resample_batches">resample_batches</a></code></li>
+<li><code><a title="saev.config.Train.sae_batch_size" href="#saev.config.Train.sae_batch_size">sae_batch_size</a></code></li>
+<li><code><a title="saev.config.Train.seed" href="#saev.config.Train.seed">seed</a></code></li>
+<li><code><a title="saev.config.Train.shard_root" href="#saev.config.Train.shard_root">shard_root</a></code></li>
+<li><code><a title="saev.config.Train.slurm" href="#saev.config.Train.slurm">slurm</a></code></li>
+<li><code><a title="saev.config.Train.slurm_acct" href="#saev.config.Train.slurm_acct">slurm_acct</a></code></li>
+<li><code><a title="saev.config.Train.track" href="#saev.config.Train.track">track</a></code></li>
+<li><code><a title="saev.config.Train.use_ghost_grads" href="#saev.config.Train.use_ghost_grads">use_ghost_grads</a></code></li>
+<li><code><a title="saev.config.Train.wandb_project" href="#saev.config.Train.wandb_project">wandb_project</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="saev.config.TreeOfLifeDataset" href="#saev.config.TreeOfLifeDataset">TreeOfLifeDataset</a></code></h4>
+<ul class="">
+<li><code><a title="saev.config.TreeOfLifeDataset.label_key" href="#saev.config.TreeOfLifeDataset.label_key">label_key</a></code></li>
+<li><code><a title="saev.config.TreeOfLifeDataset.metadata" href="#saev.config.TreeOfLifeDataset.metadata">metadata</a></code></li>
+<li><code><a title="saev.config.TreeOfLifeDataset.n_imgs" href="#saev.config.TreeOfLifeDataset.n_imgs">n_imgs</a></code></li>
 </ul>
 </li>
 </ul>

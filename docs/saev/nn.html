@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
+<meta name="generator" content="pdoc3 0.11.1">
+<title>saev.nn API documentation</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/sanitize.min.css" integrity="sha512-y1dtMcuvtTMJc1yPgEqF0ZjQbhnc/bFhyvIyVNb9Zk5mIGtqVaAB1Ttl28su8AvFMOY0EwRbAe+HCLqj6W7/KA==" crossorigin>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/typography.min.css" integrity="sha512-Y1DYSb995BAfxobCkKepB1BqJJTPrOp3zPL74AWFugHHmmdcvO+C48WLrUOlhGMc0QG7AE3f7gmvvcrmX2fDoA==" crossorigin>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css" crossorigin>
+<style>:root{--highlight-color:#fe9}.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:1.5em;overflow:hidden}#sidebar > *:last-child{margin-bottom:2cm}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:2em 0 .50em 0}h3{font-size:1.4em;margin:1.6em 0 .7em 0}h4{margin:0;font-size:105%}h1:target,h2:target,h3:target,h4:target,h5:target,h6:target{background:var(--highlight-color);padding:.2em 0}a{color:#058;text-decoration:none;transition:color .2s ease-in-out}a:visited{color:#503}a:hover{color:#b62}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900;font-weight:bold}pre code{font-size:.8em;line-height:1.4em;padding:1em;display:block}code{background:#f3f3f3;font-family:"DejaVu Sans Mono",monospace;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{margin-top:.6em;font-weight:bold}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}dt:target .name{background:var(--highlight-color)}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}td{padding:0 .5em}.admonition{padding:.1em 1em;margin-bottom:1em}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
+<style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%;height:100vh;overflow:auto;position:sticky;top:0}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul ul{padding-left:1em}.toc > ul > li{margin-top:.5em}}</style>
+<style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
+<script type="text/x-mathjax-config">MathJax.Hub.Config({ tex2jax: { inlineMath: [ ['$','$'], ["\\(","\\)"] ], processEscapes: true } });</script>
+<script async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS_CHTML" integrity="sha256-kZafAc6mZvK3W3v1pHOcUix30OHQN6pU/NO2oFkqZVw=" crossorigin></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js" integrity="sha512-D9gUyxqja7hBtkWpPWGt9wfbfaMGVt9gnyCvYa+jojwwPHLCzUm5i8rpk7vD7wNee9bA35eYIjobYPaQuKS1MQ==" crossorigin></script>
+<script>window.addEventListener('DOMContentLoaded', () => {
+hljs.configure({languages: ['bash', 'css', 'diff', 'graphql', 'ini', 'javascript', 'json', 'plaintext', 'python', 'python-repl', 'rust', 'shell', 'sql', 'typescript', 'xml', 'yaml']});
+hljs.highlightAll();
+})</script>
+</head>
+<body>
+<main>
+<article id="content">
+<header>
+<h1 class="title">Module <code>saev.nn</code></h1>
+</header>
+<section id="section-intro">
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-functions">Functions</h2>
+<dl>
+<dt id="saev.nn.dump"><code class="name flex">
+<span>def <span class="ident">dump</span></span>(<span>cfg: <a title="saev.config.Train" href="config.html#saev.config.Train">Train</a>, sae: <a title="saev.nn.SparseAutoencoder" href="#saev.nn.SparseAutoencoder">SparseAutoencoder</a>, run_id: str)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="saev.nn.get_sae_batches"><code class="name flex">
+<span>def <span class="ident">get_sae_batches</span></span>(<span>cfg: <a title="saev.config.Train" href="config.html#saev.config.Train">Train</a>, dataset: <a title="saev.activations.Dataset" href="activations.html#saev.activations.Dataset">Dataset</a>) ‑> jaxtyping.Float[Tensor, 'reinit_size d_model']</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Get a batch of vit activations to re-initialize the SAE.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>cfg</code></strong></dt>
+<dd>Train.</dd>
+<dt><strong><code>dataset</code></strong></dt>
+<dd>Dataset.</dd>
+</dl></div>
+</dd>
+<dt id="saev.nn.load"><code class="name flex">
+<span>def <span class="ident">load</span></span>(<span>cfg: <a title="saev.config.Train" href="config.html#saev.config.Train">Train</a>, run_id: str) ‑> <a title="saev.nn.SparseAutoencoder" href="#saev.nn.SparseAutoencoder">SparseAutoencoder</a></span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+</section>
+<section>
+<h2 class="section-title" id="header-classes">Classes</h2>
+<dl>
+<dt id="saev.nn.SparseAutoencoder"><code class="flex name class">
+<span>class <span class="ident">SparseAutoencoder</span></span>
+<span>(</span><span>d_vit: int, exp_factor: int, l1_coeff: float, use_ghost_grads: bool)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Sparse auto-encoder (SAE) using L1 sparsity penalty.</p>
+<p>Initialize internal Module state, shared by both nn.Module and ScriptModule.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@beartype.beartype
+class SparseAutoencoder(torch.nn.Module):
+    &#34;&#34;&#34;
+    Sparse auto-encoder (SAE) using L1 sparsity penalty.
+    &#34;&#34;&#34;
+
+    d_vit: int
+    exp_factor: int
+    l1_coeff: float
+    use_ghost_grads: bool
+
+    def __init__(
+        self, d_vit: int, exp_factor: int, l1_coeff: float, use_ghost_grads: bool
+    ):
+        super().__init__()
+
+        self.d_vit = d_vit
+        self.exp_factor = exp_factor
+
+        self.l1_coeff = l1_coeff
+        self.use_ghost_grads = use_ghost_grads
+
+        # Initialize the weights.
+        # NOTE: if using resampling neurons method, you must ensure that we initialise the weights in the order W_enc, b_enc, W_dec, b_dec
+        self.W_enc = torch.nn.Parameter(
+            torch.nn.init.kaiming_uniform_(torch.empty(d_vit, self.d_sae))
+        )
+        self.b_enc = torch.nn.Parameter(torch.zeros(self.d_sae))
+
+        self.W_dec = torch.nn.Parameter(
+            torch.nn.init.kaiming_uniform_(torch.empty(self.d_sae, d_vit))
+        )
+
+        with torch.no_grad():
+            # Anthropic normalizes this to have unit columns
+            self.W_dec.data /= torch.norm(self.W_dec.data, dim=1, keepdim=True)
+
+        self.b_dec = torch.nn.Parameter(torch.zeros(d_vit))
+
+    @property
+    def d_sae(self) -&gt; int:
+        return self.d_vit * self.exp_factor
+
+    @jaxtyped(typechecker=beartype.beartype)
+    def forward(self, x: Float[Tensor, &#34;batch d_model&#34;], dead_neuron_mask=None):
+        # Remove encoder bias as per Anthropic
+        h_pre = (
+            einops.einsum(
+                x - self.b_dec, self.W_enc, &#34;... d_vit, d_vit d_sae -&gt; ... d_sae&#34;
+            )
+            + self.b_enc
+        )
+        f_x = torch.nn.functional.relu(h_pre)
+
+        x_hat = (
+            einops.einsum(f_x, self.W_dec, &#34;... d_sae, d_sae d_vit -&gt; ... d_vit&#34;)
+            + self.b_dec
+        )
+
+        # add config for whether l2 is normalized:
+        mse_loss = (
+            torch.pow((x_hat - x.float()), 2) / (x**2).sum(dim=-1, keepdim=True).sqrt()
+        )
+
+        ghost_loss = torch.tensor(0.0, dtype=mse_loss.dtype, device=mse_loss.device)
+        # gate on config and training so evals is not slowed down.
+        if self.use_ghost_grads and self.training and dead_neuron_mask.sum() &gt; 0:
+            assert dead_neuron_mask is not None
+
+            # ghost protocol
+
+            # 1.
+            residual = x - x_hat
+            l2_norm_residual = torch.norm(residual, dim=-1)
+
+            # 2.
+            feature_acts_dead_neurons_only = torch.exp(h_pre[:, dead_neuron_mask])
+            ghost_out = feature_acts_dead_neurons_only @ self.W_dec[dead_neuron_mask, :]
+            l2_norm_ghost_out = torch.norm(ghost_out, dim=-1)
+            norm_scaling_factor = l2_norm_residual / (1e-6 + l2_norm_ghost_out * 2)
+            ghost_out *= norm_scaling_factor[:, None].detach()
+
+            # 3.
+            ghost_loss = (
+                torch.pow((ghost_out - residual.detach().float()), 2)
+                / (residual.detach() ** 2).sum(dim=-1, keepdim=True).sqrt()
+            )
+            mse_rescaling_factor = (mse_loss / (ghost_loss + 1e-6)).detach()
+            ghost_loss *= mse_rescaling_factor
+
+        ghost_loss = ghost_loss.mean()
+        mse_loss = mse_loss.mean()
+        sparsity = torch.abs(f_x).sum(dim=1).mean(dim=(0,))
+        l1_loss = self.l1_coeff * sparsity
+        loss = mse_loss + l1_loss + ghost_loss
+
+        return x_hat, f_x, loss, mse_loss, l1_loss, ghost_loss
+
+    @torch.no_grad()
+    def init_b_dec(self, cfg: config.Train, dataset: activations.Dataset):
+        previous_b_dec = self.b_dec.clone().cpu()
+
+        all_activations = get_sae_batches(cfg, dataset).detach().cpu()
+        mean = all_activations.mean(dim=0)
+
+        previous_distances = torch.norm(all_activations - previous_b_dec, dim=-1)
+        distances = torch.norm(all_activations - mean, dim=-1)
+
+        print(f&#34;Prev dist: {previous_distances.median(0).values.mean().item()}&#34;)
+        print(f&#34;New dist: {distances.median(0).values.mean().item()}&#34;)
+
+        self.b_dec.data = mean.to(self.b_dec.dtype).to(self.b_dec.device)
+
+    @torch.no_grad()
+    def set_decoder_norm_to_unit_norm(self):
+        self.W_dec.data /= torch.norm(self.W_dec.data, dim=1, keepdim=True)
+
+    @torch.no_grad()
+    def remove_gradient_parallel_to_decoder_directions(self):
+        &#34;&#34;&#34;
+        Update grads so that they remove the parallel component
+            (d_sae, d_vit) shape
+        &#34;&#34;&#34;
+
+        parallel_component = einops.einsum(
+            self.W_dec.grad,
+            self.W_dec.data,
+            &#34;d_sae d_vit, d_sae d_vit -&gt; d_sae&#34;,
+        )
+
+        self.W_dec.grad -= einops.einsum(
+            parallel_component,
+            self.W_dec.data,
+            &#34;d_sae, d_sae d_vit -&gt; d_sae d_vit&#34;,
+        )</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>torch.nn.modules.module.Module</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="saev.nn.SparseAutoencoder.d_vit"><code class="name">var <span class="ident">d_vit</span> : int</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="saev.nn.SparseAutoencoder.exp_factor"><code class="name">var <span class="ident">exp_factor</span> : int</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="saev.nn.SparseAutoencoder.l1_coeff"><code class="name">var <span class="ident">l1_coeff</span> : float</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="saev.nn.SparseAutoencoder.use_ghost_grads"><code class="name">var <span class="ident">use_ghost_grads</span> : bool</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+<h3>Instance variables</h3>
+<dl>
+<dt id="saev.nn.SparseAutoencoder.d_sae"><code class="name">prop <span class="ident">d_sae</span> : int</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def d_sae(self) -&gt; int:
+    return self.d_vit * self.exp_factor</code></pre>
+</details>
+</dd>
+</dl>
+<h3>Methods</h3>
+<dl>
+<dt id="saev.nn.SparseAutoencoder.forward"><code class="name flex">
+<span>def <span class="ident">forward</span></span>(<span>self, x: jaxtyping.Float[Tensor, 'batch d_model'], dead_neuron_mask=None) ‑> Callable[..., Any]</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="saev.nn.SparseAutoencoder.init_b_dec"><code class="name flex">
+<span>def <span class="ident">init_b_dec</span></span>(<span>self, cfg: <a title="saev.config.Train" href="config.html#saev.config.Train">Train</a>, dataset: <a title="saev.activations.Dataset" href="activations.html#saev.activations.Dataset">Dataset</a>)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="saev.nn.SparseAutoencoder.remove_gradient_parallel_to_decoder_directions"><code class="name flex">
+<span>def <span class="ident">remove_gradient_parallel_to_decoder_directions</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Update grads so that they remove the parallel component
+(d_sae, d_vit) shape</p></div>
+</dd>
+<dt id="saev.nn.SparseAutoencoder.set_decoder_norm_to_unit_norm"><code class="name flex">
+<span>def <span class="ident">set_decoder_norm_to_unit_norm</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+</dd>
+</dl>
+</section>
+</article>
+<nav id="sidebar">
+<div class="toc">
+<ul></ul>
+</div>
+<ul id="index">
+<li><h3>Super-module</h3>
+<ul>
+<li><code><a title="saev" href="index.html">saev</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-functions">Functions</a></h3>
+<ul class="">
+<li><code><a title="saev.nn.dump" href="#saev.nn.dump">dump</a></code></li>
+<li><code><a title="saev.nn.get_sae_batches" href="#saev.nn.get_sae_batches">get_sae_batches</a></code></li>
+<li><code><a title="saev.nn.load" href="#saev.nn.load">load</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-classes">Classes</a></h3>
+<ul>
+<li>
+<h4><code><a title="saev.nn.SparseAutoencoder" href="#saev.nn.SparseAutoencoder">SparseAutoencoder</a></code></h4>
+<ul class="">
+<li><code><a title="saev.nn.SparseAutoencoder.d_sae" href="#saev.nn.SparseAutoencoder.d_sae">d_sae</a></code></li>
+<li><code><a title="saev.nn.SparseAutoencoder.d_vit" href="#saev.nn.SparseAutoencoder.d_vit">d_vit</a></code></li>
+<li><code><a title="saev.nn.SparseAutoencoder.exp_factor" href="#saev.nn.SparseAutoencoder.exp_factor">exp_factor</a></code></li>
+<li><code><a title="saev.nn.SparseAutoencoder.forward" href="#saev.nn.SparseAutoencoder.forward">forward</a></code></li>
+<li><code><a title="saev.nn.SparseAutoencoder.init_b_dec" href="#saev.nn.SparseAutoencoder.init_b_dec">init_b_dec</a></code></li>
+<li><code><a title="saev.nn.SparseAutoencoder.l1_coeff" href="#saev.nn.SparseAutoencoder.l1_coeff">l1_coeff</a></code></li>
+<li><code><a title="saev.nn.SparseAutoencoder.remove_gradient_parallel_to_decoder_directions" href="#saev.nn.SparseAutoencoder.remove_gradient_parallel_to_decoder_directions">remove_gradient_parallel_to_decoder_directions</a></code></li>
+<li><code><a title="saev.nn.SparseAutoencoder.set_decoder_norm_to_unit_norm" href="#saev.nn.SparseAutoencoder.set_decoder_norm_to_unit_norm">set_decoder_norm_to_unit_norm</a></code></li>
+<li><code><a title="saev.nn.SparseAutoencoder.use_ghost_grads" href="#saev.nn.SparseAutoencoder.use_ghost_grads">use_ghost_grads</a></code></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</nav>
+</main>
+<footer id="footer">
+<p>Generated by <a href="https://pdoc3.github.io/pdoc" title="pdoc: Python API documentation generator"><cite>pdoc</cite> 0.11.1</a>.</p>
+</footer>
+</body>
+</html>

@@ -33,6 +33,32 @@ hljs.highlightAll();
 <section>
 </section>
 <section>
+<h2 class="section-title" id="header-functions">Functions</h2>
+<dl>
+<dt id="saev.helpers.get_cache_dir"><code class="name flex">
+<span>def <span class="ident">get_cache_dir</span></span>(<span>) ‑> str</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Get cache directory from environment variables, defaulting to the current working directory (.)</p>
+<h2 id="returns">Returns</h2>
+<p>A path to a cache directory (might not exist yet).</p></div>
+</dd>
+<dt id="saev.helpers.tail"><code class="name flex">
+<span>def <span class="ident">tail</span></span>(<span>n: int, iterable: collections.abc.Iterable[~T]) ‑> collections.abc.Iterator[~T]</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Return an iterator over the last n items.
+From <a href="https://docs.python.org/3/library/itertools.html#itertools-recipes">https://docs.python.org/3/library/itertools.html#itertools-recipes</a></p>
+<p>tail(3, 'ABCDEFG') → E F G</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>n</code></strong></dt>
+<dd>number of items</dd>
+<dt><strong><code>iterable</code></strong></dt>
+<dd>iterable to take the tail of.</dd>
+</dl></div>
+</dd>
+</dl>
 </section>
 <section>
 <h2 class="section-title" id="header-classes">Classes</h2>
@@ -123,6 +149,12 @@ class progress:
 <li><h3>Super-module</h3>
 <ul>
 <li><code><a title="saev" href="index.html">saev</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-functions">Functions</a></h3>
+<ul class="">
+<li><code><a title="saev.helpers.get_cache_dir" href="#saev.helpers.get_cache_dir">get_cache_dir</a></code></li>
+<li><code><a title="saev.helpers.tail" href="#saev.helpers.tail">tail</a></code></li>
 </ul>
 </li>
 <li><h3><a href="#header-classes">Classes</a></h3>

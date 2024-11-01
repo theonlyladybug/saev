@@ -251,3 +251,39 @@ With a ViT-B/32, saving the last 3 layers, ImagetNet-1K is
 
 It seems that training is working well.
 I can train on 100M patches in about 40m on an A6000, which is good because it's 10x more tokens than 10M and about 10x slower (40m vs 4m).
+
+Now I need to make sure training still works when only using the [CLS] token.
+Then I need to work on evaluation to get the entire pipeline works.
+
+How do we evaluate?
+
+1. Log sparsity histograms
+2. Delta ImageNet-1K linear classification accuracy
+3. Large-scale linear probing tasks using existing datasets
+4. Hand-crafted linear probing tasks
+
+# 11/01/2024
+
+Notes on evaluation
+
+[Open Source Sparse Autoencoders for all Residual Stream Layers of GPT2-Small](https://www.lesswrong.com/posts/f9EgfLSurAiqRJySD/open-source-sparse-autoencoders-for-all-residual-stream#General_Advice_for_Training_SAEs)
+
+> Since we don’t have good metrics for interpretability / reconstruction quality, it’s hard to know when we are actually optimizing what we care about. 
+
+> On top of this, we’re trying to pick a good point on the pareto frontier between interpretability and reconstruction quality which is a hard thing to assess well.
+
+> The main objective is to have your Sparse Autoencoder learn a population of sparse features (which are likely to be interpretable) without having some **dense features** (features which activate all the time and are likely uninterpretable) or too many **dead features** (features which never fire).
+
+> Too Dense:  dense features will occur at a frequency > 1 / 100. Some dense-ish features are likely fine (such as a feature representing that a token begins with a space) but too many is likely an issue.
+
+> Too Sparse: Dead features won’t be sampled so will turn up at log10(epsilon), for epsilon added to avoid logging 0 numbers. Too many of these mean you’re over penalizing with L1. 
+
+This is only in the validation set. 
+It's unlikely to have dead features in your entire training set (I think).
+
+> Just-Right: Without too many dead or dense features, we see a distribution that has most mass between -5 or -4 and -3 log10 feature sparsity. The exact range can vary depending on the model / SAE size but the dense or dead features tend to stick out. 
+
+This post suggests that the historgrams are one of the best ways to quickly determine whether an SAE is good or not.
+We can automate this to some degree by counting the number of dead features and the number of dense features. 
+A better SAE will have fewer dead features and fewer dense features than a worse SAE.
+So that's a very easy and quick way to evaluate models.

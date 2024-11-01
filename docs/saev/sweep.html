@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
 <meta name="generator" content="pdoc3 0.11.1">
-<title>saev.training API documentation</title>
-<meta name="description" content="">
+<title>saev.sweep API documentation</title>
+<meta name="description" content="Expands dicts with lists into a list of dicts …">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/sanitize.min.css" integrity="sha512-y1dtMcuvtTMJc1yPgEqF0ZjQbhnc/bFhyvIyVNb9Zk5mIGtqVaAB1Ttl28su8AvFMOY0EwRbAe+HCLqj6W7/KA==" crossorigin>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/typography.min.css" integrity="sha512-Y1DYSb995BAfxobCkKepB1BqJJTPrOp3zPL74AWFugHHmmdcvO+C48WLrUOlhGMc0QG7AE3f7gmvvcrmX2fDoA==" crossorigin>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css" crossorigin>
@@ -24,9 +24,11 @@ hljs.highlightAll();
 <main>
 <article id="content">
 <header>
-<h1 class="title">Module <code>saev.training</code></h1>
+<h1 class="title">Module <code>saev.sweep</code></h1>
 </header>
 <section id="section-intro">
+<p>Expands dicts with lists into a list of dicts.</p>
+<p>Might be expanded in the future to support pseudo-random sampling from distributions to support random hyperparameter search, as in <a href="https://github.com/samuelstevens/sax/blob/main/sax/sweep.py">this file</a>.</p>
 </section>
 <section>
 </section>
@@ -35,57 +37,15 @@ hljs.highlightAll();
 <section>
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
-<dt id="saev.training.train"><code class="name flex">
-<span>def <span class="ident">train</span></span>(<span>cfg: <a title="saev.config.Train" href="config.html#saev.config.Train">Train</a>) ‑> str</span>
+<dt id="saev.sweep.expand"><code class="name flex">
+<span>def <span class="ident">expand</span></span>(<span>config: dict[str, float | int | bool | str | list[float | int | bool | str]]) ‑> collections.abc.Iterator[dict[str, float | int | bool | str]]</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Expands dicts with lists into a list of dicts.</p></div>
 </dd>
 </dl>
 </section>
 <section>
-<h2 class="section-title" id="header-classes">Classes</h2>
-<dl>
-<dt id="saev.training.BatchLimiter"><code class="flex name class">
-<span>class <span class="ident">BatchLimiter</span></span>
-<span>(</span><span>dataloader: torch.utils.data.dataloader.DataLoader, n_samples: int)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Limits the number of batches to only return <code>n_samples</code> total samples.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">class BatchLimiter:
-    &#34;&#34;&#34;
-    Limits the number of batches to only return `n_samples` total samples.
-    &#34;&#34;&#34;
-
-    def __init__(self, dataloader: torch.utils.data.DataLoader, n_samples: int):
-        self.dataloader = dataloader
-        self.n_samples = n_samples
-        self.batch_size = dataloader.batch_size
-
-    def __len__(self) -&gt; int:
-        return self.n_samples // self.batch_size
-
-    def __iter__(self):
-        self.n_seen = 0
-        while True:
-            for batch in self.dataloader:
-                yield batch
-
-                # Sometimes we underestimate because the final batch in the dataloader might not be a full batch.
-                self.n_seen += self.batch_size
-                if self.n_seen &gt; self.n_samples:
-                    return
-
-            # We try to mitigate the above issue by ignoring the last batch if we don&#39;t have drop_last.
-            if not self.dataloader.drop_last:
-                self.n_seen -= self.batch_size</code></pre>
-</details>
-</dd>
-</dl>
 </section>
 </article>
 <nav id="sidebar">
@@ -100,14 +60,7 @@ hljs.highlightAll();
 </li>
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="">
-<li><code><a title="saev.training.train" href="#saev.training.train">train</a></code></li>
-</ul>
-</li>
-<li><h3><a href="#header-classes">Classes</a></h3>
-<ul>
-<li>
-<h4><code><a title="saev.training.BatchLimiter" href="#saev.training.BatchLimiter">BatchLimiter</a></code></h4>
-</li>
+<li><code><a title="saev.sweep.expand" href="#saev.sweep.expand">expand</a></code></li>
 </ul>
 </li>
 </ul>

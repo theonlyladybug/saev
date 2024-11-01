@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
 <meta name="generator" content="pdoc3 0.11.1">
 <title>saev.analysis API documentation</title>
-<meta name="description" content="">
+<meta name="description" content=".. todo:: Clean up with respect to sharded activations.">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/sanitize.min.css" integrity="sha512-y1dtMcuvtTMJc1yPgEqF0ZjQbhnc/bFhyvIyVNb9Zk5mIGtqVaAB1Ttl28su8AvFMOY0EwRbAe+HCLqj6W7/KA==" crossorigin>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/typography.min.css" integrity="sha512-Y1DYSb995BAfxobCkKepB1BqJJTPrOp3zPL74AWFugHHmmdcvO+C48WLrUOlhGMc0QG7AE3f7gmvvcrmX2fDoA==" crossorigin>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css" crossorigin>
@@ -27,6 +27,10 @@ hljs.highlightAll();
 <h1 class="title">Module <code>saev.analysis</code></h1>
 </header>
 <section id="section-intro">
+<div class="admonition todo">
+<p class="admonition-title">TODO</p>
+<p>Clean up with respect to sharded activations.</p>
+</div>
 </section>
 <section>
 </section>
@@ -57,7 +61,7 @@ hljs.highlightAll();
 <div class="desc"></div>
 </dd>
 <dt id="saev.analysis.get_sae_acts"><code class="name flex">
-<span>def <span class="ident">get_sae_acts</span></span>(<span>vit_acts: jaxtyping.Float[Tensor, 'n d_vit'], sae: <a title="saev.modeling.SparseAutoencoder" href="modeling.html#saev.modeling.SparseAutoencoder">SparseAutoencoder</a>, cfg: <a title="saev.config.Config" href="config.html#saev.config.Config">Config</a>) ‑> jaxtyping.Float[Tensor, 'n d_sae']</span>
+<span>def <span class="ident">get_sae_acts</span></span>(<span>vit_acts: jaxtyping.Float[Tensor, 'n d_vit'], sae: <a title="saev.nn.SparseAutoencoder" href="nn.html#saev.nn.SparseAutoencoder">SparseAutoencoder</a>, cfg: <a title="saev.config.Train" href="config.html#saev.config.Train">Train</a>) ‑> jaxtyping.Float[Tensor, 'n d_sae']</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Get SAE hidden layer activations for a batch of ViT activations.</p>
@@ -72,7 +76,7 @@ hljs.highlightAll();
 </dl></div>
 </dd>
 <dt id="saev.analysis.main"><code class="name flex">
-<span>def <span class="ident">main</span></span>(<span>cfg: <a title="saev.config.Config" href="config.html#saev.config.Config">Config</a>, run_id: str, *, top_k: int, root: str)</span>
+<span>def <span class="ident">main</span></span>(<span>cfg: <a title="saev.config.Train" href="config.html#saev.config.Train">Train</a>, run_id: str, *, top_k: int, root: str)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Runs the primary function in this file: <code>get_feature_data()</code>.</p>
