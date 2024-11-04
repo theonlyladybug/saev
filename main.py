@@ -22,14 +22,6 @@ def activations(
     Args:
         cfg: Configuration for activations.
     """
-    if not cfg.ssl:
-        logger.warning("Ignoring SSL certs. Try not to do this!")
-        # https://github.com/openai/whisper/discussions/734#discussioncomment-4491761
-        # Ideally we don't have to disable SSL but we are only downloading weights.
-        import ssl
-
-        ssl._create_default_https_context = ssl._create_unverified_context
-
     import saev.activations
 
     saev.activations.dump(cfg)
@@ -44,6 +36,7 @@ def sweep(cfg: typing.Annotated[saev.TrainConfig, tyro.conf.arg(name="")], sweep
         sweep: Path to .toml file defining the sweep parameters.
     """
     import submitit
+
     import saev.sweep
     import saev.training
 
@@ -78,6 +71,11 @@ def sweep(cfg: typing.Annotated[saev.TrainConfig, tyro.conf.arg(name="")], sweep
 
 
 def train(cfg: typing.Annotated[saev.TrainConfig, tyro.conf.arg(name="")]):
+    def fn():
+        import saev.training
+
+        saev.training.main(cfg)
+
     import submitit
 
     if cfg.slurm:
@@ -93,13 +91,43 @@ def train(cfg: typing.Annotated[saev.TrainConfig, tyro.conf.arg(name="")]):
     else:
         executor = submitit.DebugExecutor(folder=cfg.log_to)
 
-    def fn():
-        import saev.training
-
-        saev.training.main(cfg)
-
     job = executor.submit(fn)
     job.result()
+
+
+def evaluate(cfg: typing.Annotated[saev.EvaluateConfig, tyro.conf.arg(name="")]):
+    def run_histograms():
+        import saev.histograms
+        import saev.imagenet1k
+
+        return saev.histograms.evaluate(cfg.histograms)
+        return saev.imagenet1k.evaluate(cfg.imagenet)
+
+    def run_imagenet1k():
+        import saev.imagenet1k
+
+        return saev.imagenet1k.evaluate(cfg.imagenet)
+
+    import submitit
+
+    if cfg.slurm:
+        executor = submitit.SlurmExecutor(folder=cfg.log_to)
+        executor.update_parameters(
+            time=30,
+            partition="debug",
+            gpus_per_node=1,
+            cpus_per_task=12,
+            stderr_to_stdout=True,
+            account=cfg.slurm_acct,
+        )
+    else:
+        executor = submitit.DebugExecutor(folder=cfg.log_to)
+
+    jobs = []
+    jobs.append(executor.submit(run_histograms))
+    jobs.append(executor.submit(run_imagenet1k))
+    for job in jobs:
+        job.result()
 
 
 # def analysis(
@@ -152,7 +180,7 @@ if __name__ == "__main__":
     tyro.extras.subcommand_cli_from_dict({
         "activations": activations,
         "sweep": sweep,
-        # "train": train,
+        "evaluate": evaluate,
         # "analysis": analysis,
         # "webapp": webapp,
     })

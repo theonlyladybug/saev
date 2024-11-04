@@ -10,7 +10,7 @@ T = typing.TypeVar("T")
 
 
 @beartype.beartype
-def tail(n: int, iterable: typing.Iterable[T]) -> typing.Iterator[T]:
+def tail(n: int, iterable: collections.abc.Iterable[T]) -> collections.abc.Iterator[T]:
     """
     Return an iterator over the last n items.
     From https://docs.python.org/3/library/itertools.html#itertools-recipes

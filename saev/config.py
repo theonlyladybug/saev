@@ -1,5 +1,5 @@
 """
-Configs for saev experiments.
+All configs for all saev jobs.
 
 ## Import Times
 
@@ -16,11 +16,13 @@ import beartype
 
 @beartype.beartype
 @dataclasses.dataclass(frozen=True)
-class Imagenet:
+class ImagenetDataset:
     """Configuration for HuggingFace Imagenet."""
 
     name: str = "ILSVRC/imagenet-1k"
     """Dataset name. Don't need to change this."""
+    split: str = "train"
+    """Dataset split. For the default ImageNet-1K dataset, can either be 'train', 'validation' or 'test'."""
 
     @property
     def n_imgs(self) -> int:
@@ -28,14 +30,14 @@ class Imagenet:
         import datasets
 
         dataset = datasets.load_dataset(
-            self.name, split="train", trust_remote_code=True
+            self.name, split=self.split, trust_remote_code=True
         )
         return len(dataset)
 
 
 @beartype.beartype
 @dataclasses.dataclass(frozen=True)
-class TreeOfLife:
+class TreeOfLifeDataset:
     """
     Configuration for the TreeOfLife-10M webdataset.
 
@@ -76,7 +78,7 @@ class TreeOfLife:
 
 @beartype.beartype
 @dataclasses.dataclass(frozen=True)
-class Laion:
+class LaionDataset:
     name: str = "laion/relaion2B-multi-research-safe"
     """Name of dataset on HuggingFace."""
     cache_dir: str = "/fs/scratch/PAS2136/samuelstevens/cache/laion"
@@ -98,7 +100,9 @@ class Laion:
 @dataclasses.dataclass(frozen=True)
 class Activations:
     # Data Generating Function (Model + Training Distibuion)
-    data: Imagenet | TreeOfLife | Laion = dataclasses.field(default_factory=Imagenet)
+    data: ImagenetDataset | TreeOfLifeDataset | LaionDataset = dataclasses.field(
+        default_factory=ImagenetDataset
+    )
     """Which dataset to use."""
     width: int = 224
     """Image width."""
@@ -199,3 +203,69 @@ class Train:
     @property
     def reinit_size(self) -> int:
         return self.n_reinit_batches * self.sae_batch_size
+
+
+@beartype.beartype
+@dataclasses.dataclass(frozen=True)
+class ImagenetEvaluate:
+    # Model
+    ckpt_path: str = os.path.join(".", "checkpoints", "abcdefg")
+    """Path to the sae.pt file."""
+    # Data
+    train_shard_root: str = os.path.join(".", "imagenet1k-train-shards")
+    """Directory with sharded activations for training split."""
+    val_shard_root: str = os.path.join(".", "imagenet1k-val-shards")
+    """Directory with sharded activations for validation split."""
+    n_workers: int = 16
+    """Number of dataloader workers."""
+    # Optimization
+    sgd_batch_size: int = 1024 * 16
+    """Batch size for linear classifier."""
+    n_steps: int = 12500
+    """Number of SGD steps."""
+    # Hardware
+    device: str = "cuda"
+    """Which accelerator to use."""
+    # Misc
+    log_every: int = 5
+    """How often to log progress."""
+
+
+@beartype.beartype
+@dataclasses.dataclass(frozen=True)
+class HistogramsEvaluate:
+    # Model
+    ckpt_path: str = os.path.join(".", "checkpoints", "abcdefg")
+    """Path to the sae.pt file."""
+    # Data
+    shard_root: str = os.path.join(".", "shards")
+    """Directory with sharded activations from training."""
+    n_workers: int = 8
+    """Number of dataloader workers."""
+    batch_size: int = 1024
+    """SAE inference batch size."""
+    # Hardware
+    device: str = "cuda"
+    """Which accelerator to use."""
+    # Misc
+    log_every: int = 10
+    """How often to log progress."""
+
+
+@beartype.beartype
+@dataclasses.dataclass(frozen=True)
+class Evaluate:
+    histograms: HistogramsEvaluate = dataclasses.field(
+        default_factory=HistogramsEvaluate
+    )
+    """Histogram config."""
+
+    imagenet: ImagenetEvaluate = dataclasses.field(default_factory=ImagenetEvaluate)
+    """ImageNet-1K config."""
+
+    slurm: bool = False
+    """Whether to use `submitit` to run jobs on a Slurm cluster."""
+    slurm_acct: str = "PAS2136"
+    """Slurm account string."""
+    log_to: str = "./logs"
+    """Where to log Slurm job stdout/stderr."""

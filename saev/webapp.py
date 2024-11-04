@@ -43,7 +43,7 @@ def make_img_grid(imgs: list):
 
 
 @beartype.beartype
-def main(cfg: config.Config, load_from: str, dump_to: str):
+def main(cfg: config.Train, load_from: str, dump_to: str):
     """
     Args:
         cfg: Experimental config.

@@ -78,7 +78,12 @@ class SparseAutoencoder(torch.nn.Module):
 
         ghost_loss = torch.tensor(0.0, dtype=mse_loss.dtype, device=mse_loss.device)
         # gate on config and training so evals is not slowed down.
-        if self.use_ghost_grads and self.training and dead_neuron_mask.sum() > 0:
+        if (
+            self.use_ghost_grads
+            and self.training
+            and dead_neuron_mask is not None
+            and dead_neuron_mask.sum() > 0
+        ):
             assert dead_neuron_mask is not None
 
             # ghost protocol
@@ -188,14 +193,12 @@ def dump(cfg: config.Train, sae: SparseAutoencoder, run_id: str):
 
 
 @beartype.beartype
-def load(cfg: config.Train, run_id: str) -> SparseAutoencoder:
-    filepath = f"{cfg.ckpt_path}/{run_id}/sae.pt"
-
-    with open(filepath, "rb") as fd:
+def load(ckpt_fpath: str, *, device: str = "cpu") -> SparseAutoencoder:
+    with open(ckpt_fpath, "rb") as fd:
         kwargs = json.loads(fd.readline().decode())
         buffer = io.BytesIO(fd.read())
 
     model = SparseAutoencoder(**kwargs)
-    state_dict = torch.load(buffer, weights_only=True, map_location=cfg.device)
+    state_dict = torch.load(buffer, weights_only=True, map_location=device)
     model.load_state_dict(state_dict)
     return model

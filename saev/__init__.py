@@ -5,6 +5,7 @@ The main entrypoint to the package is in [main.py](https://github.com/samuelstev
 """
 
 from .config import Activations as ActivationsConfig
+from .config import Evaluate as EvaluateConfig
 from .config import Train as TrainConfig
 
-__all__ = ["ActivationsConfig", "TrainConfig"]
+__all__ = ["ActivationsConfig", "EvaluateConfig", "TrainConfig"]

@@ -169,16 +169,70 @@ class Dataset(torch.utils.data.Dataset):
         )
 
 
+@jaxtyped(typechecker=beartype.beartype)
+class ClassActivations(torch.utils.data.Dataset):
+    """
+    Dataset that only returns [CLS] activations (no patch-level activations).
+    """
+
+    root: str
+    metadata: "Metadata"
+
+    def __init__(self, root: str):
+        self.root = root
+        if not os.path.isdir(self.root):
+            raise RuntimeError(f"Activations are not saved at '{self.root}'.")
+
+        self.metadata = Metadata.load(os.path.join(root, "metadata.json"))
+
+    @jaxtyped(typechecker=beartype.beartype)
+    def __getitem__(
+        self, i: Int[np.ndarray, "*batch"] | int
+    ) -> tuple[Float[Tensor, "*batch d_vit"], Int[Tensor, "*batch"]]:
+        if isinstance(i, int):
+            shard = i // self.metadata.n_patches_per_shard
+            pos = i % self.metadata.n_patches_per_shard
+            acts_fpath = os.path.join(self.root, f"acts{shard:06}.bin")
+            acts = np.memmap(
+                acts_fpath,
+                mode="c",
+                dtype=np.float32,
+                shape=(self.metadata.n_patches_per_shard, self.metadata.d_vit),
+            )
+            return torch.from_numpy(acts[pos].copy()), torch.tensor(i)
+        else:
+            shards = i // self.metadata.n_patches_per_shard
+            pos = i % self.metadata.n_patches_per_shard
+            batch = []
+            for shard, p in zip(shards, pos):
+                acts_fpath = os.path.join(self.root, f"acts{shard.item():06}.bin")
+                acts = np.memmap(
+                    acts_fpath,
+                    mode="c",
+                    dtype=np.float32,
+                    shape=(self.metadata.n_patches_per_shard, self.metadata.d_vit),
+                )
+                batch.append(torch.from_numpy(acts[p].copy()))
+            return torch.stack(batch), torch.tensor(i)
+
+    @property
+    def d_vit(self) -> int:
+        return self.metadata.d_vit
+
+    def __len__(self) -> int:
+        return self.metadata.n_imgs * self.metadata.n_layers
+
+
 @beartype.beartype
 def setup(cfg: config.Activations):
     """
     Run dataset-specific setup. These setup functions can assume they are the only job running, but they should be idempotent; they should be safe (and ideally cheap) to run multiple times in a row.
     """
-    if isinstance(cfg.data, config.Imagenet):
+    if isinstance(cfg.data, config.ImagenetDataset):
         setup_imagenet(cfg)
-    elif isinstance(cfg.data, config.TreeOfLife):
+    elif isinstance(cfg.data, config.TreeOfLifeDataset):
         setup_tol(cfg)
-    elif isinstance(cfg.data, config.Laion):
+    elif isinstance(cfg.data, config.LaionDataset):
         setup_laion(cfg)
     else:
         typing.assert_never(cfg.data)
@@ -201,7 +255,7 @@ def setup_laion(cfg: config.Activations):
 
 
     """
-    assert isinstance(cfg.data, config.Laion)
+    assert isinstance(cfg.data, config.LaionDataset)
 
     import datasets
     import img2dataset
@@ -263,7 +317,7 @@ def setup_laion(cfg: config.Activations):
     if not imgs_downloaded:
 
         def download(n_processes: int, n_threads: int):
-            assert isinstance(cfg.data, config.Laion)
+            assert isinstance(cfg.data, config.LaionDataset)
 
             if os.path.exists(cfg.data.tar_dir):
                 shutil.rmtree(cfg.data.tar_dir)
@@ -310,11 +364,11 @@ def get_dataloader(cfg: config.Activations, preprocess):
     Returns:
         A PyTorch Dataloader that yields dictionaries with `'image'` keys containing image batches.
     """
-    if isinstance(cfg.data, config.Imagenet):
+    if isinstance(cfg.data, config.ImagenetDataset):
         dataloader = get_imagenet_dataloader(cfg, preprocess)
-    elif isinstance(cfg.data, config.TreeOfLife):
+    elif isinstance(cfg.data, config.TreeOfLifeDataset):
         dataloader = get_tol_dataloader(cfg, preprocess)
-    elif isinstance(cfg.data, config.Laion):
+    elif isinstance(cfg.data, config.LaionDataset):
         dataloader = get_laion_dataloader(cfg, preprocess)
     else:
         typing.assert_never(cfg.data)
@@ -358,7 +412,7 @@ def get_tol_dataloader(
     Returns:
         A PyTorch Dataloader that yields dictionaries with `'image'` keys containing image batches.
     """
-    assert isinstance(cfg.data, config.TreeOfLife)
+    assert isinstance(cfg.data, config.TreeOfLifeDataset)
 
     def transform(sample: dict):
         return {"image": preprocess(sample[".jpg"]), "index": sample["__key__"]}
@@ -390,12 +444,12 @@ def get_imagenet_dataloader(
     Returns:
         A PyTorch Dataloader that yields dictionaries with `'image'` keys containing image batches, `'index'` keys containing original dataset indices and `'label'` keys containing label batches.
     """
-    assert isinstance(cfg.data, config.Imagenet)
+    assert isinstance(cfg.data, config.ImagenetDataset)
 
     import datasets
 
     dataset = datasets.load_dataset(
-        cfg.data.name, split="train", trust_remote_code=True
+        cfg.data.name, split=cfg.data.split, trust_remote_code=True
     )
 
     @beartype.beartype
@@ -434,6 +488,14 @@ def dump(cfg: config.Activations):
         cfg: Config for activations.
     """
     logger = logging.getLogger("dump")
+
+    if not cfg.ssl:
+        logger.warning("Ignoring SSL certs. Try not to do this!")
+        # https://github.com/openai/whisper/discussions/734#discussioncomment-4491761
+        # Ideally we don't have to disable SSL but we are only downloading weights.
+        import ssl
+
+        ssl._create_default_https_context = ssl._create_unverified_context
 
     # Run any setup steps.
     setup(cfg)

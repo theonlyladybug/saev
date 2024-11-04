@@ -1,3 +1,7 @@
+"""
+.. todo:: Clean up with respect to sharded activations.
+"""
+
 import collections.abc
 import logging
 import os
@@ -35,7 +39,7 @@ def batched_idx(
 def get_sae_acts(
     vit_acts: Float[Tensor, "n d_vit"],
     sae: nn.SparseAutoencoder,
-    cfg: config.Config,
+    cfg: config.Train,
 ) -> Float[Tensor, "n d_sae"]:
     """
     Get SAE hidden layer activations for a batch of ViT activations.
@@ -72,7 +76,7 @@ def get_new_topk(
 
 @beartype.beartype
 @torch.inference_mode()
-def main(cfg: config.Config, run_id: str, *, top_k: int, root: str):
+def main(cfg: config.Train, run_id: str, *, top_k: int, root: str):
     """
     Runs the primary function in this file: `get_feature_data()`.
 
