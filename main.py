@@ -98,10 +98,8 @@ def train(cfg: typing.Annotated[saev.TrainConfig, tyro.conf.arg(name="")]):
 def evaluate(cfg: typing.Annotated[saev.EvaluateConfig, tyro.conf.arg(name="")]):
     def run_histograms():
         import saev.histograms
-        import saev.imagenet1k
 
         return saev.histograms.evaluate(cfg.histograms)
-        return saev.imagenet1k.evaluate(cfg.imagenet)
 
     def run_imagenet1k():
         import saev.imagenet1k
@@ -130,50 +128,16 @@ def evaluate(cfg: typing.Annotated[saev.EvaluateConfig, tyro.conf.arg(name="")])
         job.result()
 
 
-# def analysis(
-#     cfg: typing.Annotated[saev.Config, tyro.conf.arg(name="")],
-#     run_id: str,
-#     top_k: int = 16,
-#     root: str = "data",
-# ):
-#     import submitit
+def webapp(cfg: typing.Annotated[saev.WebappConfig, tyro.conf.arg(name="")]):
+    import saev.webapp
 
-#     if cfg.slurm:
-#         executor = submitit.SlurmExecutor(folder=cfg.log_to)
-#         executor.update_parameters(
-#             time=30,
-#             partition="debug",
-#             gpus_per_node=1,
-#             cpus_per_task=12,
-#             stderr_to_stdout=True,
-#             account=cfg.slurm_acct,
-#         )
-#     else:
-#         executor = submitit.DebugExecutor(folder=cfg.log_to)
+    saev.webapp.main(cfg)
 
-#     def fn():
-#         import saev.analysis
-
-#         saev.analysis.main(cfg, run_id, top_k=top_k, root=root)
-
-#     job = executor.submit(fn)
-#     job.result()
-
-
-# def webapp(
-#     cfg: typing.Annotated[saev.Config, tyro.conf.arg(name="")],
-#     load_from: str,
-#     dump_to: str = "web",
-# ):
-#     import saev.webapp
-
-#     saev.webapp.main(cfg, load_from, dump_to)
-
-#     print()
-#     print("To view the webapp, run:")
-#     print()
-#     print("    marimo run webapp.py")
-#     print()
+    print()
+    print("To view the webapp, run:")
+    print()
+    print("    marimo run webapp.py")
+    print()
 
 
 if __name__ == "__main__":
@@ -181,7 +145,6 @@ if __name__ == "__main__":
         "activations": activations,
         "sweep": sweep,
         "evaluate": evaluate,
-        # "analysis": analysis,
-        # "webapp": webapp,
+        "webapp": webapp,
     })
     logger.info("Done.")

@@ -10,6 +10,7 @@ For example, `TreeOfLife.n_imgs` imports numpy when it's needed, rather than imp
 
 import dataclasses
 import os
+import typing
 
 import beartype
 
@@ -20,7 +21,7 @@ class ImagenetDataset:
     """Configuration for HuggingFace Imagenet."""
 
     name: str = "ILSVRC/imagenet-1k"
-    """Dataset name. Don't need to change this."""
+    """Dataset name on HuggingFace. Don't need to change this.."""
     split: str = "train"
     """Dataset split. For the default ImageNet-1K dataset, can either be 'train', 'validation' or 'test'."""
 
@@ -55,7 +56,7 @@ class TreeOfLifeDataset:
     """
 
     metadata: str = "treeoflife-10m.json"
-    """Path to dataset shards."""
+    """"""
     label_key: str = ".taxonomic_name.txt"
     """Which key to use as the label."""
 
@@ -99,11 +100,16 @@ class LaionDataset:
 @beartype.beartype
 @dataclasses.dataclass(frozen=True)
 class Activations:
-    # Data Generating Function (Model + Training Distibuion)
+    """
+    Configuration for calculating and saving ViT activations.
+    """
+
     data: ImagenetDataset | TreeOfLifeDataset | LaionDataset = dataclasses.field(
         default_factory=ImagenetDataset
     )
     """Which dataset to use."""
+    root: str = os.path.join(".", "shards")
+    """Where to write shards."""
     width: int = 224
     """Image width."""
     height: int = 224
@@ -141,13 +147,28 @@ class Activations:
 
 @beartype.beartype
 @dataclasses.dataclass(frozen=True)
+class DataLoad:
+    """
+    Configuration for loading activation data from disk.
+    """
+
+    shard_root: str = os.path.join(".", "shards")
+    """Directory with .bin shards and a metadata.json file."""
+    patches: typing.Literal["cls", "patches", "meanpool"] = "cls"
+    """Which kinds of patches to use. 'cls' indicates just the [CLS] token (if any). 'patches' indicates it will return all patches. 'meanpool' returns the mean of all image patches."""
+    layer: int | typing.Literal["all", "meanpool"] = -1
+    """.. todo: document this field."""
+
+
+@beartype.beartype
+@dataclasses.dataclass(frozen=True)
 class Train:
     """
     Configuration for training a sparse autoencoder on a vision transformer.
     """
 
-    shard_root: str = os.path.join(".", "shards")
-    """Directory with .bin shards and a metadata.json file."""
+    data: DataLoad = dataclasses.field(default_factory=DataLoad)
+    """Data configuration"""
     n_workers: int = 8
     """Number of dataloader workers."""
 
@@ -207,15 +228,41 @@ class Train:
 
 @beartype.beartype
 @dataclasses.dataclass(frozen=True)
+class Webapp:
+    """.. todo:: document."""
+
+    ckpt: str = os.path.join(".", "checkpoints", "sae.pt")
+    """Path to the sae.pt file."""
+    data: DataLoad = dataclasses.field(default_factory=DataLoad)
+    """Data configuration."""
+    images: ImagenetDataset | TreeOfLifeDataset | LaionDataset = dataclasses.field(
+        default_factory=ImagenetDataset
+    )
+    """Which images to use."""
+    top_k: int = 16
+    """How many images per SAE feature to store."""
+    n_workers: int = 16
+    """Number of dataloader workers."""
+    topk_batch_size: int = 1024 * 16
+    """Number of examples to apply top-k op to."""
+    sae_batch_size: int = 1024
+    """Batch size for SAE inference."""
+    device: str = "cuda"
+    """Which accelerator to use."""
+    dump_to: str = os.path.join(".", "data")
+
+
+@beartype.beartype
+@dataclasses.dataclass(frozen=True)
 class ImagenetEvaluate:
     # Model
-    ckpt_path: str = os.path.join(".", "checkpoints", "abcdefg")
+    ckpt: str = os.path.join(".", "checkpoints", "abcdefg")
     """Path to the sae.pt file."""
     # Data
-    train_shard_root: str = os.path.join(".", "imagenet1k-train-shards")
-    """Directory with sharded activations for training split."""
-    val_shard_root: str = os.path.join(".", "imagenet1k-val-shards")
-    """Directory with sharded activations for validation split."""
+    train_data: DataLoad = dataclasses.field(default_factory=DataLoad)
+    """Data configuration."""
+    val_data: DataLoad = dataclasses.field(default_factory=DataLoad)
+    """Data configuration."""
     n_workers: int = 16
     """Number of dataloader workers."""
     # Optimization
@@ -238,8 +285,8 @@ class HistogramsEvaluate:
     ckpt_path: str = os.path.join(".", "checkpoints", "abcdefg")
     """Path to the sae.pt file."""
     # Data
-    shard_root: str = os.path.join(".", "shards")
-    """Directory with sharded activations from training."""
+    data: DataLoad = dataclasses.field(default_factory=DataLoad)
+    """Data configuration."""
     n_workers: int = 8
     """Number of dataloader workers."""
     batch_size: int = 1024
