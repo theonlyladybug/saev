@@ -164,179 +164,122 @@ Also saves a metadata.json file to that directory for human reference.</p>
 <section>
 <h2 class="section-title" id="header-classes">Classes</h2>
 <dl>
-<dt id="saev.activations.ClassActivations"><code class="flex name class">
-<span>class <span class="ident">ClassActivations</span></span>
-<span>(</span><span>root: str)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Dataset that only returns [CLS] activations (no patch-level activations).</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@jaxtyped(typechecker=beartype.beartype)
-class ClassActivations(torch.utils.data.Dataset):
-    &#34;&#34;&#34;
-    Dataset that only returns [CLS] activations (no patch-level activations).
-    &#34;&#34;&#34;
-
-    root: str
-    metadata: &#34;Metadata&#34;
-
-    def __init__(self, root: str):
-        self.root = root
-        if not os.path.isdir(self.root):
-            raise RuntimeError(f&#34;Activations are not saved at &#39;{self.root}&#39;.&#34;)
-
-        self.metadata = Metadata.load(os.path.join(root, &#34;metadata.json&#34;))
-
-    @jaxtyped(typechecker=beartype.beartype)
-    def __getitem__(
-        self, i: Int[np.ndarray, &#34;*batch&#34;] | int
-    ) -&gt; tuple[Float[Tensor, &#34;*batch d_vit&#34;], Int[Tensor, &#34;*batch&#34;]]:
-        if isinstance(i, int):
-            shard = i // self.metadata.n_patches_per_shard
-            pos = i % self.metadata.n_patches_per_shard
-            acts_fpath = os.path.join(self.root, f&#34;acts{shard:06}.bin&#34;)
-            acts = np.memmap(
-                acts_fpath,
-                mode=&#34;c&#34;,
-                dtype=np.float32,
-                shape=(self.metadata.n_patches_per_shard, self.metadata.d_vit),
-            )
-            return torch.from_numpy(acts[pos].copy()), torch.tensor(i)
-        else:
-            shards = i // self.metadata.n_patches_per_shard
-            pos = i % self.metadata.n_patches_per_shard
-            batch = []
-            for shard, p in zip(shards, pos):
-                acts_fpath = os.path.join(self.root, f&#34;acts{shard.item():06}.bin&#34;)
-                acts = np.memmap(
-                    acts_fpath,
-                    mode=&#34;c&#34;,
-                    dtype=np.float32,
-                    shape=(self.metadata.n_patches_per_shard, self.metadata.d_vit),
-                )
-                batch.append(torch.from_numpy(acts[p].copy()))
-            return torch.stack(batch), torch.tensor(i)
-
-    @property
-    def d_vit(self) -&gt; int:
-        return self.metadata.d_vit
-
-    def __len__(self) -&gt; int:
-        return self.metadata.n_imgs * self.metadata.n_layers</code></pre>
-</details>
-<h3>Ancestors</h3>
-<ul class="hlist">
-<li>torch.utils.data.dataset.Dataset</li>
-<li>typing.Generic</li>
-</ul>
-<h3>Class variables</h3>
-<dl>
-<dt id="saev.activations.ClassActivations.metadata"><code class="name">var <span class="ident">metadata</span> : <a title="saev.activations.Metadata" href="#saev.activations.Metadata">Metadata</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt id="saev.activations.ClassActivations.root"><code class="name">var <span class="ident">root</span> : str</code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-</dl>
-<h3>Instance variables</h3>
-<dl>
-<dt id="saev.activations.ClassActivations.d_vit"><code class="name">prop <span class="ident">d_vit</span> : int</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@property
-def d_vit(self) -&gt; int:
-    return self.metadata.d_vit</code></pre>
-</details>
-</dd>
-</dl>
-</dd>
 <dt id="saev.activations.Dataset"><code class="flex name class">
 <span>class <span class="ident">Dataset</span></span>
-<span>(</span><span>root: str)</span>
+<span>(</span><span>cfg: <a title="saev.config.DataLoad" href="config.html#saev.config.DataLoad">DataLoad</a>)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>An abstract class representing a :class:<code><a title="saev.activations.Dataset" href="#saev.activations.Dataset">Dataset</a></code>.</p>
-<p>All datasets that represent a map from keys to data samples should subclass
-it. All subclasses should overwrite :meth:<code>__getitem__</code>, supporting fetching a
-data sample for a given key. Subclasses could also optionally overwrite
-:meth:<code>__len__</code>, which is expected to return the size of the dataset by many
-:class:<code>~torch.utils.data.Sampler</code> implementations and the default options
-of :class:<code>~torch.utils.data.DataLoader</code>. Subclasses could also
-optionally implement :meth:<code>__getitems__</code>, for speedup batched samples
-loading. This method accepts list of indices of samples of batch and returns
-list of samples.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>:class:<code>~torch.utils.data.DataLoader</code> by default constructs an index
-sampler that yields integral indices.
-To make it work with a map-style
-dataset with non-integral indices/keys, a custom sampler must be provided.</p>
-</div></div>
+<div class="desc"><p>Dataset of activations from disk.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@jaxtyped(typechecker=beartype.beartype)
 class Dataset(torch.utils.data.Dataset):
-    root: str
+    &#34;&#34;&#34;
+    Dataset of activations from disk.
+    &#34;&#34;&#34;
+
+    cfg: config.DataLoad
     metadata: &#34;Metadata&#34;
 
-    def __init__(self, root: str):
-        self.root = root
-        if not os.path.isdir(self.root):
-            raise RuntimeError(f&#34;Activations are not saved at &#39;{self.root}&#39;.&#34;)
+    def __init__(self, cfg: config.DataLoad):
+        self.cfg = cfg
+        if not os.path.isdir(self.cfg.shard_root):
+            raise RuntimeError(f&#34;Activations are not saved at &#39;{self.cfg.shard_root}&#39;.&#34;)
 
-        self.metadata = Metadata.load(os.path.join(root, &#34;metadata.json&#34;))
+        metadata_fpath = os.path.join(self.cfg.shard_root, &#34;metadata.json&#34;)
+        self.metadata = Metadata.load(metadata_fpath)
 
     @property
     def d_vit(self) -&gt; int:
+        &#34;&#34;&#34;Dimension of the underlying vision transformer&#39;s embedding space.&#34;&#34;&#34;
         return self.metadata.d_vit
 
     @jaxtyped(typechecker=beartype.beartype)
     def __getitem__(
         self, i: Int[np.ndarray, &#34;*batch&#34;] | int
     ) -&gt; tuple[Float[Tensor, &#34;*batch d_vit&#34;], Int[Tensor, &#34;*batch&#34;]]:
-        if isinstance(i, int):
-            shard = i // self.metadata.n_patches_per_shard
-            pos = i % self.metadata.n_patches_per_shard
-            acts_fpath = os.path.join(self.root, f&#34;acts{shard:06}.bin&#34;)
-            acts = np.memmap(
-                acts_fpath,
-                mode=&#34;c&#34;,
-                dtype=np.float32,
-                shape=(self.metadata.n_patches_per_shard, self.metadata.d_vit),
-            )
-            return torch.from_numpy(acts[pos].copy()), torch.tensor(i)
-        else:
-            shards = i // self.metadata.n_patches_per_shard
-            pos = i % self.metadata.n_patches_per_shard
-            batch = []
-            for shard, p in zip(shards, pos):
-                acts_fpath = os.path.join(self.root, f&#34;acts{shard.item():06}.bin&#34;)
-                acts = np.memmap(
-                    acts_fpath,
-                    mode=&#34;c&#34;,
-                    dtype=np.float32,
-                    shape=(self.metadata.n_patches_per_shard, self.metadata.d_vit),
-                )
-                batch.append(torch.from_numpy(acts[p].copy()))
+        &#34;&#34;&#34;
+        Return one or more examples.
+        &#34;&#34;&#34;
+        if not isinstance(i, int):
+            batch = [self[j.item()][0] for j in i]
             return torch.stack(batch), torch.tensor(i)
 
+        match (self.cfg.patches, self.cfg.layer):
+            case (&#34;cls&#34;, int()):
+                img_act = self.get_img_patches(i)
+                # Select layer&#39;s cls token.
+                act = img_act[self.cfg.layer, 0, :]
+            case (&#34;cls&#34;, &#34;meanpool&#34;):
+                img_act = self.get_img_patches(i)
+                # Select cls tokens from across all layers
+                cls_act = img_act[:, 0, :]
+                # Meanpool over the layers
+                act = cls_act.mean(axis=0)
+            case (&#34;meanpool&#34;, int()):
+                img_act = self.get_img_patches(i)
+                # Select layer&#39;s patches.
+                layer_act = img_act[self.cfg.layer, 1:, :]
+                # Meanpool over the patches
+                act = layer_act.mean(axis=0)
+            case (&#34;meanpool&#34;, &#34;meanpool&#34;):
+                img_act = self.get_img_patches(i)
+                # Select all layer&#39;s patches.
+                act = img_act[:, 1:, :]
+                # Meanpool over the layers and patches
+                act = act.mean(axis=(0, 1))
+            case _:
+                print((self.cfg.patches, self.cfg.layer))
+                typing.assert_never((self.cfg.patches, self.cfg.layer))
+
+        return torch.from_numpy(act), torch.tensor(i)
+
+    def get_img_patches(
+        self, i: int
+    ) -&gt; Float[np.ndarray, &#34;n_layers all_patches d_vit&#34;]:
+        n_imgs_per_shard = (
+            self.metadata.n_patches_per_shard
+            // self.metadata.n_layers
+            // (self.metadata.n_patches_per_img + 1)
+        )
+        shard = i // n_imgs_per_shard
+        pos = i % n_imgs_per_shard
+        acts_fpath = os.path.join(self.cfg.shard_root, f&#34;acts{shard:06}.bin&#34;)
+        shape = (
+            n_imgs_per_shard,
+            self.metadata.n_layers,
+            self.metadata.n_patches_per_img + 1,
+            self.metadata.d_vit,
+        )
+        acts = np.memmap(acts_fpath, mode=&#34;c&#34;, dtype=np.float32, shape=shape)
+        return acts[pos].copy()
+
     def __len__(self) -&gt; int:
-        return (
-            self.metadata.n_imgs
-            * self.metadata.n_layers
-            * (self.metadata.n_patches_per_img + 1)
-        )</code></pre>
+        &#34;&#34;&#34;
+        Dataset length depends on `patches` and `layer`.
+        &#34;&#34;&#34;
+        if self.cfg.patches == &#34;cls&#34; or self.cfg.patches == &#34;meanpool&#34;:
+            if self.cfg.layer == &#34;all&#34;:
+                return self.metadata.n_imgs * self.metadata.n_layers
+            elif self.cfg.layer == &#34;meanpool&#34; or isinstance(self.cfg.layer, int):
+                return self.metadata.n_imgs
+            else:
+                typing.assert_never(self.cfg.layer)
+        elif self.cfg.patches == &#34;patches&#34;:
+            if self.cfg.layer == &#34;all&#34;:
+                return (
+                    self.metadata.n_imgs
+                    * self.metadata.n_layers
+                    * (self.metadata.n_patches_per_img + 1)
+                )
+            elif self.cfg.layer == &#34;meanpool&#34; or isinstance(self.cfg.layer, int):
+                return self.metadata.n_imgs * (self.metadata.n_patches_per_img + 1)
+            else:
+                typing.assert_never(self.cfg.layer)
+        else:
+            typing.assert_never(self.cfg.layer)</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -349,11 +292,11 @@ class Dataset(torch.utils.data.Dataset):
 </ul>
 <h3>Class variables</h3>
 <dl>
-<dt id="saev.activations.Dataset.metadata"><code class="name">var <span class="ident">metadata</span> : <a title="saev.activations.Metadata" href="#saev.activations.Metadata">Metadata</a></code></dt>
+<dt id="saev.activations.Dataset.cfg"><code class="name">var <span class="ident">cfg</span> : <a title="saev.config.DataLoad" href="config.html#saev.config.DataLoad">DataLoad</a></code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
-<dt id="saev.activations.Dataset.root"><code class="name">var <span class="ident">root</span> : str</code></dt>
+<dt id="saev.activations.Dataset.metadata"><code class="name">var <span class="ident">metadata</span> : <a title="saev.activations.Metadata" href="#saev.activations.Metadata">Metadata</a></code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
@@ -362,15 +305,25 @@ class Dataset(torch.utils.data.Dataset):
 <dl>
 <dt id="saev.activations.Dataset.d_vit"><code class="name">prop <span class="ident">d_vit</span> : int</code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Dimension of the underlying vision transformer's embedding space.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@property
 def d_vit(self) -&gt; int:
+    &#34;&#34;&#34;Dimension of the underlying vision transformer&#39;s embedding space.&#34;&#34;&#34;
     return self.metadata.d_vit</code></pre>
 </details>
+</dd>
+</dl>
+<h3>Methods</h3>
+<dl>
+<dt id="saev.activations.Dataset.get_img_patches"><code class="name flex">
+<span>def <span class="ident">get_img_patches</span></span>(<span>self, i: int) ‑> jaxtyping.Float[ndarray, 'n_layers all_patches d_vit']</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
 </dd>
 </dl>
 </dd>
@@ -867,19 +820,12 @@ class ShardWriter:
 <li><h3><a href="#header-classes">Classes</a></h3>
 <ul>
 <li>
-<h4><code><a title="saev.activations.ClassActivations" href="#saev.activations.ClassActivations">ClassActivations</a></code></h4>
-<ul class="">
-<li><code><a title="saev.activations.ClassActivations.d_vit" href="#saev.activations.ClassActivations.d_vit">d_vit</a></code></li>
-<li><code><a title="saev.activations.ClassActivations.metadata" href="#saev.activations.ClassActivations.metadata">metadata</a></code></li>
-<li><code><a title="saev.activations.ClassActivations.root" href="#saev.activations.ClassActivations.root">root</a></code></li>
-</ul>
-</li>
-<li>
 <h4><code><a title="saev.activations.Dataset" href="#saev.activations.Dataset">Dataset</a></code></h4>
 <ul class="">
+<li><code><a title="saev.activations.Dataset.cfg" href="#saev.activations.Dataset.cfg">cfg</a></code></li>
 <li><code><a title="saev.activations.Dataset.d_vit" href="#saev.activations.Dataset.d_vit">d_vit</a></code></li>
+<li><code><a title="saev.activations.Dataset.get_img_patches" href="#saev.activations.Dataset.get_img_patches">get_img_patches</a></code></li>
 <li><code><a title="saev.activations.Dataset.metadata" href="#saev.activations.Dataset.metadata">metadata</a></code></li>
-<li><code><a title="saev.activations.Dataset.root" href="#saev.activations.Dataset.root">root</a></code></li>
 </ul>
 </li>
 <li>

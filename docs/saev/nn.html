@@ -55,7 +55,7 @@ hljs.highlightAll();
 </dl></div>
 </dd>
 <dt id="saev.nn.load"><code class="name flex">
-<span>def <span class="ident">load</span></span>(<span>cfg: <a title="saev.config.Train" href="config.html#saev.config.Train">Train</a>, run_id: str) ‑> <a title="saev.nn.SparseAutoencoder" href="#saev.nn.SparseAutoencoder">SparseAutoencoder</a></span>
+<span>def <span class="ident">load</span></span>(<span>ckpt_fpath: str, *, device: str = 'cpu') ‑> <a title="saev.nn.SparseAutoencoder" href="#saev.nn.SparseAutoencoder">SparseAutoencoder</a></span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -142,7 +142,12 @@ class SparseAutoencoder(torch.nn.Module):
 
         ghost_loss = torch.tensor(0.0, dtype=mse_loss.dtype, device=mse_loss.device)
         # gate on config and training so evals is not slowed down.
-        if self.use_ghost_grads and self.training and dead_neuron_mask.sum() &gt; 0:
+        if (
+            self.use_ghost_grads
+            and self.training
+            and dead_neuron_mask is not None
+            and dead_neuron_mask.sum() &gt; 0
+        ):
             assert dead_neuron_mask is not None
 
             # ghost protocol
