@@ -24,7 +24,7 @@ def train(cfg: config.Train) -> str:
         torch.backends.cudnn.benchmark = True
         torch.backends.cudnn.deterministic = False
 
-    dataset = activations.Dataset(cfg.shard_root)
+    dataset = activations.Dataset(cfg.data)
     sae = nn.SparseAutoencoder(
         dataset.d_vit, cfg.exp_factor, cfg.l1_coeff, cfg.use_ghost_grads
     )

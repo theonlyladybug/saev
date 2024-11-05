@@ -142,11 +142,16 @@ hljs.highlightAll();
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@jaxtyped(typechecker=beartype.beartype)
-class Dataset(activations.Dataset):
+class Dataset(torch.utils.data.Dataset):
     &#34;&#34;&#34; &#34;&#34;&#34;
 
     def __init__(self, root: str, labels: Int[Tensor, &#34; n_imgs&#34;]):
-        super().__init__(root)
+        if not os.path.isdir(root):
+            raise RuntimeError(f&#34;Activations are not saved at &#39;{root}&#39;.&#34;)
+
+        metadata_fpath = os.path.join(root, &#34;metadata.json&#34;)
+        self.metadata = activations.Metadata.load(metadata_fpath)
+        self.root = root
         self.labels = labels
 
     @jaxtyped(typechecker=beartype.beartype)
@@ -193,18 +198,24 @@ class Dataset(activations.Dataset):
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
-<li><a title="saev.activations.Dataset" href="activations.html#saev.activations.Dataset">Dataset</a></li>
 <li>torch.utils.data.dataset.Dataset</li>
 <li>typing.Generic</li>
 </ul>
-<h3>Inherited members</h3>
-<ul class="hlist">
-<li><code><b><a title="saev.activations.Dataset" href="activations.html#saev.activations.Dataset">Dataset</a></b></code>:
-<ul class="hlist">
-<li><code><a title="saev.activations.Dataset.d_vit" href="activations.html#saev.activations.Dataset.d_vit">d_vit</a></code></li>
-</ul>
-</li>
-</ul>
+<h3>Instance variables</h3>
+<dl>
+<dt id="saev.imagenet1k.Dataset.d_vit"><code class="name">prop <span class="ident">d_vit</span> : int</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def d_vit(self) -&gt; int:
+    return self.metadata.d_vit</code></pre>
+</details>
+</dd>
+</dl>
 </dd>
 <dt id="saev.imagenet1k.Layer"><code class="flex name class">
 <span>class <span class="ident">Layer</span></span>
@@ -422,6 +433,9 @@ registered hooks while the latter silently ignores them.</p>
 </li>
 <li>
 <h4><code><a title="saev.imagenet1k.Dataset" href="#saev.imagenet1k.Dataset">Dataset</a></code></h4>
+<ul class="">
+<li><code><a title="saev.imagenet1k.Dataset.d_vit" href="#saev.imagenet1k.Dataset.d_vit">d_vit</a></code></li>
+</ul>
 </li>
 <li>
 <h4><code><a title="saev.imagenet1k.Layer" href="#saev.imagenet1k.Layer">Layer</a></code></h4>

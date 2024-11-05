@@ -127,11 +127,16 @@ def make_classifiers(
 
 
 @jaxtyped(typechecker=beartype.beartype)
-class Dataset(activations.Dataset):
+class Dataset(torch.utils.data.Dataset):
     """ """
 
     def __init__(self, root: str, labels: Int[Tensor, " n_imgs"]):
-        super().__init__(root)
+        if not os.path.isdir(root):
+            raise RuntimeError(f"Activations are not saved at '{root}'.")
+
+        metadata_fpath = os.path.join(root, "metadata.json")
+        self.metadata = activations.Metadata.load(metadata_fpath)
+        self.root = root
         self.labels = labels
 
     @jaxtyped(typechecker=beartype.beartype)

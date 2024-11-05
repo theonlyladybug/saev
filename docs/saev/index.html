@@ -66,6 +66,11 @@ Optionally makes histogram plots to help human …</p></div>
 <dd>
 <div class="desc"><p>Expands dicts with lists into a list of dicts …</p></div>
 </dd>
+<dt><code class="name"><a title="saev.test_activations" href="test_activations.html">saev.test_activations</a></code></dt>
+<dd>
+<div class="desc"><p>Test that the cached activations are actually correct.
+These tests are quite slow</p></div>
+</dd>
 <dt><code class="name"><a title="saev.training" href="training.html">saev.training</a></code></dt>
 <dd>
 <div class="desc"></div>
@@ -85,7 +90,7 @@ Optionally makes histogram plots to help human …</p></div>
 <dl>
 <dt id="saev.Activations"><code class="flex name class">
 <span>class <span class="ident">ActivationsConfig</span></span>
-<span>(</span><span>data: <a title="saev.config.ImagenetDataset" href="config.html#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.TreeOfLifeDataset" href="config.html#saev.config.TreeOfLifeDataset">TreeOfLifeDataset</a> | <a title="saev.config.LaionDataset" href="config.html#saev.config.LaionDataset">LaionDataset</a> = &lt;factory&gt;, root: str = './shards', width: int = 224, height: int = 224, model: str = 'ViT-L-14/openai', vit_batch_size: int = 1024, n_workers: int = 8, d_vit: int = 1024, n_layers: int = 6, n_patches_per_img: int = 256, n_patches_per_shard: int = 2400000, seed: int = 42, ssl: bool = True, device: str = 'cuda', slurm: bool = False, slurm_acct: str = 'PAS2136', log_to: str = './logs')</span>
+<span>(</span><span>data: <a title="saev.config.ImagenetDataset" href="config.html#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.TreeOfLifeDataset" href="config.html#saev.config.TreeOfLifeDataset">TreeOfLifeDataset</a> | <a title="saev.config.LaionDataset" href="config.html#saev.config.LaionDataset">LaionDataset</a> = &lt;factory&gt;, dump_to: str = './shards', width: int = 224, height: int = 224, model_org: Literal['open-clip', 'timm'] = 'open-clip', model_ckpt: str = 'ViT-L-14/openai', vit_batch_size: int = 1024, n_workers: int = 8, d_vit: int = 1024, n_layers: int = 6, n_patches_per_img: int = 256, n_patches_per_shard: int = 2400000, seed: int = 42, ssl: bool = True, device: str = 'cuda', slurm: bool = False, slurm_acct: str = 'PAS2136', log_to: str = './logs')</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Configuration for calculating and saving ViT activations.</p></div>
@@ -104,14 +109,16 @@ class Activations:
         default_factory=ImagenetDataset
     )
     &#34;&#34;&#34;Which dataset to use.&#34;&#34;&#34;
-    root: str = os.path.join(&#34;.&#34;, &#34;shards&#34;)
+    dump_to: str = os.path.join(&#34;.&#34;, &#34;shards&#34;)
     &#34;&#34;&#34;Where to write shards.&#34;&#34;&#34;
     width: int = 224
     &#34;&#34;&#34;Image width.&#34;&#34;&#34;
     height: int = 224
     &#34;&#34;&#34;Image height.&#34;&#34;&#34;
-    model: str = &#34;ViT-L-14/openai&#34;
-    &#34;&#34;&#34;Model string, for use with open_clip.&#34;&#34;&#34;
+    model_org: typing.Literal[&#34;open-clip&#34;, &#34;timm&#34;] = &#34;open-clip&#34;
+    &#34;&#34;&#34;Where to load models from.&#34;&#34;&#34;
+    model_ckpt: str = &#34;ViT-L-14/openai&#34;
+    &#34;&#34;&#34;Specific model checkpoint.&#34;&#34;&#34;
     vit_batch_size: int = 1024
     &#34;&#34;&#34;Batch size for ViT inference.&#34;&#34;&#34;
     n_workers: int = 8
@@ -154,6 +161,10 @@ class Activations:
 <dd>
 <div class="desc"><p>Which device to use.</p></div>
 </dd>
+<dt id="saev.Activations.dump_to"><code class="name">var <span class="ident">dump_to</span> : str</code></dt>
+<dd>
+<div class="desc"><p>Where to write shards.</p></div>
+</dd>
 <dt id="saev.Activations.height"><code class="name">var <span class="ident">height</span> : int</code></dt>
 <dd>
 <div class="desc"><p>Image height.</p></div>
@@ -162,9 +173,13 @@ class Activations:
 <dd>
 <div class="desc"><p>Where to log Slurm job stdout/stderr.</p></div>
 </dd>
-<dt id="saev.Activations.model"><code class="name">var <span class="ident">model</span> : str</code></dt>
+<dt id="saev.Activations.model_ckpt"><code class="name">var <span class="ident">model_ckpt</span> : str</code></dt>
 <dd>
-<div class="desc"><p>Model string, for use with open_clip.</p></div>
+<div class="desc"><p>Specific model checkpoint.</p></div>
+</dd>
+<dt id="saev.Activations.model_org"><code class="name">var <span class="ident">model_org</span> : Literal['open-clip', 'timm']</code></dt>
+<dd>
+<div class="desc"><p>Where to load models from.</p></div>
 </dd>
 <dt id="saev.Activations.n_layers"><code class="name">var <span class="ident">n_layers</span> : int</code></dt>
 <dd>
@@ -181,10 +196,6 @@ class Activations:
 <dt id="saev.Activations.n_workers"><code class="name">var <span class="ident">n_workers</span> : int</code></dt>
 <dd>
 <div class="desc"><p>Number of dataloader workers.</p></div>
-</dd>
-<dt id="saev.Activations.root"><code class="name">var <span class="ident">root</span> : str</code></dt>
-<dd>
-<div class="desc"><p>Where to write shards.</p></div>
 </dd>
 <dt id="saev.Activations.seed"><code class="name">var <span class="ident">seed</span> : int</code></dt>
 <dd>
@@ -546,6 +557,7 @@ class Webapp:
 <li><code><a title="saev.imagenet1k" href="imagenet1k.html">saev.imagenet1k</a></code></li>
 <li><code><a title="saev.nn" href="nn.html">saev.nn</a></code></li>
 <li><code><a title="saev.sweep" href="sweep.html">saev.sweep</a></code></li>
+<li><code><a title="saev.test_activations" href="test_activations.html">saev.test_activations</a></code></li>
 <li><code><a title="saev.training" href="training.html">saev.training</a></code></li>
 <li><code><a title="saev.webapp" href="webapp.html">saev.webapp</a></code></li>
 </ul>
@@ -558,14 +570,15 @@ class Webapp:
 <li><code><a title="saev.Activations.d_vit" href="#saev.Activations.d_vit">d_vit</a></code></li>
 <li><code><a title="saev.Activations.data" href="#saev.Activations.data">data</a></code></li>
 <li><code><a title="saev.Activations.device" href="#saev.Activations.device">device</a></code></li>
+<li><code><a title="saev.Activations.dump_to" href="#saev.Activations.dump_to">dump_to</a></code></li>
 <li><code><a title="saev.Activations.height" href="#saev.Activations.height">height</a></code></li>
 <li><code><a title="saev.Activations.log_to" href="#saev.Activations.log_to">log_to</a></code></li>
-<li><code><a title="saev.Activations.model" href="#saev.Activations.model">model</a></code></li>
+<li><code><a title="saev.Activations.model_ckpt" href="#saev.Activations.model_ckpt">model_ckpt</a></code></li>
+<li><code><a title="saev.Activations.model_org" href="#saev.Activations.model_org">model_org</a></code></li>
 <li><code><a title="saev.Activations.n_layers" href="#saev.Activations.n_layers">n_layers</a></code></li>
 <li><code><a title="saev.Activations.n_patches_per_img" href="#saev.Activations.n_patches_per_img">n_patches_per_img</a></code></li>
 <li><code><a title="saev.Activations.n_patches_per_shard" href="#saev.Activations.n_patches_per_shard">n_patches_per_shard</a></code></li>
 <li><code><a title="saev.Activations.n_workers" href="#saev.Activations.n_workers">n_workers</a></code></li>
-<li><code><a title="saev.Activations.root" href="#saev.Activations.root">root</a></code></li>
 <li><code><a title="saev.Activations.seed" href="#saev.Activations.seed">seed</a></code></li>
 <li><code><a title="saev.Activations.slurm" href="#saev.Activations.slurm">slurm</a></code></li>
 <li><code><a title="saev.Activations.slurm_acct" href="#saev.Activations.slurm_acct">slurm_acct</a></code></li>

@@ -287,3 +287,10 @@ This post suggests that the historgrams are one of the best ways to quickly dete
 We can automate this to some degree by counting the number of dead features and the number of dense features. 
 A better SAE will have fewer dead features and fewer dense features than a worse SAE.
 So that's a very easy and quick way to evaluate models.
+
+
+# 11/04/2024
+
+With more than one worker, my iterable HF dataset is being shuffled.
+This is very bad for me.
+I need to make sure this doesn't happen, then (sadly) recalculate the image activations.

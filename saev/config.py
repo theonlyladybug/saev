@@ -108,14 +108,16 @@ class Activations:
         default_factory=ImagenetDataset
     )
     """Which dataset to use."""
-    root: str = os.path.join(".", "shards")
+    dump_to: str = os.path.join(".", "shards")
     """Where to write shards."""
     width: int = 224
     """Image width."""
     height: int = 224
     """Image height."""
-    model: str = "ViT-L-14/openai"
-    """Model string, for use with open_clip."""
+    model_org: typing.Literal["open-clip", "timm"] = "open-clip"
+    """Where to load models from."""
+    model_ckpt: str = "ViT-L-14/openai"
+    """Specific model checkpoint."""
     vit_batch_size: int = 1024
     """Batch size for ViT inference."""
     n_workers: int = 8
@@ -259,10 +261,10 @@ class ImagenetEvaluate:
     ckpt: str = os.path.join(".", "checkpoints", "abcdefg")
     """Path to the sae.pt file."""
     # Data
-    train_data: DataLoad = dataclasses.field(default_factory=DataLoad)
-    """Data configuration."""
-    val_data: DataLoad = dataclasses.field(default_factory=DataLoad)
-    """Data configuration."""
+    train_shard_root: str = os.path.join(".", "imagenet-1k-shards", "train")
+    """Train shards root directory."""
+    val_shard_root: str = os.path.join(".", "imagenet-1k-shards", "val")
+    """Validation shards root directory."""
     n_workers: int = 16
     """Number of dataloader workers."""
     # Optimization

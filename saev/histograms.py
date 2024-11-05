@@ -7,9 +7,24 @@ Optionally makes histogram plots to help human qualitative comparison.
 """
 
 import beartype
+import matplotlib.pyplot as plt
 import torch
+from jaxtyping import Float, jaxtyped
+from torch import Tensor
 
-from . import config, activations, nn, helpers
+from . import activations, config, helpers, nn
+
+
+@jaxtyped(typechecker=beartype.beartype)
+def plot_log10_hist(frequencies: Float[Tensor, " d_sae"]):
+    """
+    Plot the histogram of feature frequency.
+    """
+    fig, ax = plt.subplots()
+    frequencies = torch.log10(frequencies)
+    ax.hist(frequencies, bins=50)
+    fig.tight_layout()
+    return fig
 
 
 @beartype.beartype

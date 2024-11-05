@@ -17,7 +17,7 @@ def __():
 
 @app.cell
 def __():
-    webapp_dir = "web"
+    webapp_dir = "/local/scratch/stevens.994/cache/saev/webapp/cr6sl257"
     return (webapp_dir,)
 
 
@@ -38,15 +38,15 @@ def __(mo):
 
 
 @app.cell
-def __(mo, set_neuron_i):
+def __(mo, neuron_indices, set_neuron_i):
     next_button = mo.ui.button(
         label="Next",
-        on_change=lambda _: set_neuron_i(lambda v: v + 1),
+        on_change=lambda _: set_neuron_i(lambda v: (v + 1) % len(neuron_indices)),
     )
 
     prev_button = mo.ui.button(
         label="Previous",
-        on_change=lambda _: set_neuron_i(lambda v: v - 1),
+        on_change=lambda _: set_neuron_i(lambda v: (v - 1) % len(neuron_indices)),
     )
     return next_button, prev_button
 
@@ -83,9 +83,12 @@ def __(get_metadata, get_neuron_i, mo, neuron_indices):
 
 @app.cell
 def __(get_neuron_i, mo, neuron_indices, webapp_dir):
-    mo.image(
-        f"{webapp_dir}/neurons/{neuron_indices[get_neuron_i()]}/highest_activating_images.png"
-    )
+    mo.image(f"{webapp_dir}/neurons/{neuron_indices[get_neuron_i()]}/top_images.png")
+    return
+
+
+@app.cell
+def __():
     return
 
 

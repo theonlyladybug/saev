@@ -31,56 +31,23 @@ logging.basicConfig(level=logging.INFO, format=log_format)
 
 
 @jaxtyped(typechecker=beartype.beartype)
-class RecordedVit(torch.nn.Module):
-    n_layers: int
-    n_patches: int
-    model: torch.nn.Module
+class VitRecorder(torch.nn.Module):
+    cfg: config.Activations
     _storage: Float[Tensor, "batch n_layers all_patches dim"] | None
+    _i: int
 
     def __init__(self, cfg: config.Activations):
         super().__init__()
 
-        import open_clip
-
-        if cfg.model.startswith("hf-hub:"):
-            clip, _img_transform = open_clip.create_model_from_pretrained(cfg.model)
-        else:
-            arch, ckpt = cfg.model.split("/")
-            clip, _img_transform = open_clip.create_model_from_pretrained(
-                arch, pretrained=ckpt, cache_dir=helpers.get_cache_dir()
-            )
-
-        self.model = clip.visual
-        self.model.proj = None
-        self.model.output_tokens = True  # type: ignore
-        self._img_transform = _img_transform
-
+        self.cfg = cfg
         self._storage = None
-        self._i = 0
+        self._i = None
+        self.logger = logging.getLogger(f"recorder({cfg.model_org}:{cfg.model_ckpt})")
 
-        for layer in helpers.tail(cfg.n_layers, self.model.transformer.resblocks):
+    def register(self, modules):
+        for layer in helpers.tail(self.cfg.n_layers, modules):
             layer.register_forward_hook(self.hook)
-
-        pw, ph = self.model.patch_size
-        w, h = self.model.image_size
-        assert w % pw == 0
-        assert h % ph == 0
-        self.n_patches = (w // pw) * (h // pw)
-        msg = f"ViT has {self.n_patches} patches; config has {cfg.n_patches_per_img} n_patches."
-        assert self.n_patches == cfg.n_patches_per_img, msg
-        self.n_layers = cfg.n_layers
-
-        self.logger = logging.getLogger("recorder")
-
-    def make_img_transform(self):
-        return self._img_transform
-
-    def forward(
-        self, *args, **kwargs
-    ) -> tuple[typing.Any, Float[Tensor, "batch n_layers 1 dim"]]:
-        self.reset()
-        output = self.model(*args, **kwargs)
-        return output, self.activations
+        return self
 
     def hook(
         self, module, args: tuple, output: Float[Tensor, "batch n_layers dim"]
@@ -88,7 +55,8 @@ class RecordedVit(torch.nn.Module):
         if self._storage is None:
             batch, _, dim = output.shape
             self._storage = torch.zeros(
-                (batch, self.n_layers, self.n_patches + 1, dim), device=output.device
+                (batch, self.cfg.n_layers, self.cfg.n_patches_per_img + 1, dim),
+                device=output.device,
             )
 
         if self._storage[:, self._i, 0, :].shape != output[:, 0, :].shape:
@@ -99,7 +67,8 @@ class RecordedVit(torch.nn.Module):
             self.logger.warning(msg, old_batch, batch, old_dim, dim)
 
             self._storage = torch.zeros(
-                (batch, self.n_layers, self.n_patches + 1, dim), device=output.device
+                (batch, self.cfg.n_layers, self.cfg.n_patches_per_img + 1, dim),
+                device=output.device,
             )
 
         self._storage[:, self._i] = output.detach()
@@ -116,111 +85,191 @@ class RecordedVit(torch.nn.Module):
 
 
 @jaxtyped(typechecker=beartype.beartype)
-class Dataset(torch.utils.data.Dataset):
-    root: str
-    metadata: "Metadata"
+class OpenClip(torch.nn.Module):
+    def __init__(self, cfg: config.Activations):
+        super().__init__()
 
-    def __init__(self, root: str):
-        self.root = root
-        if not os.path.isdir(self.root):
-            raise RuntimeError(f"Activations are not saved at '{self.root}'.")
+        assert cfg.model_org == "open-clip"
 
-        self.metadata = Metadata.load(os.path.join(root, "metadata.json"))
+        import open_clip
 
-    @property
-    def d_vit(self) -> int:
-        return self.metadata.d_vit
-
-    @jaxtyped(typechecker=beartype.beartype)
-    def __getitem__(
-        self, i: Int[np.ndarray, "*batch"] | int
-    ) -> tuple[Float[Tensor, "*batch d_vit"], Int[Tensor, "*batch"]]:
-        if isinstance(i, int):
-            shard = i // self.metadata.n_patches_per_shard
-            pos = i % self.metadata.n_patches_per_shard
-            acts_fpath = os.path.join(self.root, f"acts{shard:06}.bin")
-            acts = np.memmap(
-                acts_fpath,
-                mode="c",
-                dtype=np.float32,
-                shape=(self.metadata.n_patches_per_shard, self.metadata.d_vit),
+        if cfg.model_ckpt.startswith("hf-hub:"):
+            clip, self._img_transform = open_clip.create_model_from_pretrained(
+                cfg.model_ckpt, cache_dir=helpers.get_cache_dir()
             )
-            return torch.from_numpy(acts[pos].copy()), torch.tensor(i)
         else:
-            shards = i // self.metadata.n_patches_per_shard
-            pos = i % self.metadata.n_patches_per_shard
-            batch = []
-            for shard, p in zip(shards, pos):
-                acts_fpath = os.path.join(self.root, f"acts{shard.item():06}.bin")
-                acts = np.memmap(
-                    acts_fpath,
-                    mode="c",
-                    dtype=np.float32,
-                    shape=(self.metadata.n_patches_per_shard, self.metadata.d_vit),
-                )
-                batch.append(torch.from_numpy(acts[p].copy()))
-            return torch.stack(batch), torch.tensor(i)
+            arch, ckpt = cfg.model_ckpt.split("/")
+            clip, self._img_transform = open_clip.create_model_from_pretrained(
+                arch, pretrained=ckpt, cache_dir=helpers.get_cache_dir()
+            )
 
-    def __len__(self) -> int:
-        return (
-            self.metadata.n_imgs
-            * self.metadata.n_layers
-            * (self.metadata.n_patches_per_img + 1)
-        )
+        model = clip.visual
+        model.proj = None
+        model.output_tokens = True  # type: ignore
+        self.model = model
+
+        self.recorder = VitRecorder(cfg).register(self.model.transformer.resblocks)
+
+    def make_img_transform(self):
+        return self._img_transform
+
+    def forward(self, batch: Float[Tensor, "batch 3 width height"]):
+        self.recorder.reset()
+        result = self.model(batch)
+        return result, self.recorder.activations
 
 
 @jaxtyped(typechecker=beartype.beartype)
-class ClassActivations(torch.utils.data.Dataset):
+class TimmVit(torch.nn.Module):
+    def __init__(self, cfg: config.Activations):
+        super().__init__()
+        assert cfg.model_org == "timm"
+        import timm
+
+        err_msg = "You are trying to load a non-ViT checkpoint; the `img_encode()` method assumes `model.forward_features()` will return features with shape (batch, n_patches, dim) which is not true for non-ViT checkpoints."
+        assert "vit" in cfg.model_ckpt, err_msg
+        self.model = timm.create_model(cfg.model_ckpt, pretrained=True)
+
+        data_cfg = timm.data.resolve_data_config(self.model.pretrained_cfg)
+        self._img_transform = timm.data.create_transform(**data_cfg, is_training=False)
+
+        self.recorder = VitRecorder(cfg).register(self.model.blocks)
+
+    def make_img_transform(self):
+        return self._img_transform
+
+    def forward(self, batch: Float[Tensor, "batch 3 width height"]):
+        self.recorder.reset()
+
+        patches = self.model.forward_features(batch)
+        # Use [CLS] token if it exists for img representation, otherwise do a maxpool
+        if self.model.num_prefix_tokens > 0:
+            img = patches[:, 0, ...]
+        else:
+            img = patches.max(axis=1).values
+
+        # Return only the [CLS] token and the patches.
+        patches = patches[:, self.model.num_prefix_tokens :, ...]
+
+        return torch.cat((img[:, None, :], patches), axis=1), self.recorder.activations
+
+
+@beartype.beartype
+def make_vit(cfg: config.Activations):
+    if cfg.model_org == "timm":
+        return TimmVit(cfg)
+    elif cfg.model_org == "open-clip":
+        return OpenClip(cfg)
+    else:
+        typing.assert_never(cfg.model_org)
+
+
+@jaxtyped(typechecker=beartype.beartype)
+class Dataset(torch.utils.data.Dataset):
     """
-    Dataset that only returns [CLS] activations (no patch-level activations).
+    Dataset of activations from disk.
     """
 
-    root: str
+    cfg: config.DataLoad
     metadata: "Metadata"
 
-    def __init__(self, root: str):
-        self.root = root
-        if not os.path.isdir(self.root):
-            raise RuntimeError(f"Activations are not saved at '{self.root}'.")
+    def __init__(self, cfg: config.DataLoad):
+        self.cfg = cfg
+        if not os.path.isdir(self.cfg.shard_root):
+            raise RuntimeError(f"Activations are not saved at '{self.cfg.shard_root}'.")
 
-        self.metadata = Metadata.load(os.path.join(root, "metadata.json"))
+        metadata_fpath = os.path.join(self.cfg.shard_root, "metadata.json")
+        self.metadata = Metadata.load(metadata_fpath)
+
+    @property
+    def d_vit(self) -> int:
+        """Dimension of the underlying vision transformer's embedding space."""
+        return self.metadata.d_vit
 
     @jaxtyped(typechecker=beartype.beartype)
     def __getitem__(
         self, i: Int[np.ndarray, "*batch"] | int
     ) -> tuple[Float[Tensor, "*batch d_vit"], Int[Tensor, "*batch"]]:
-        if isinstance(i, int):
-            shard = i // self.metadata.n_patches_per_shard
-            pos = i % self.metadata.n_patches_per_shard
-            acts_fpath = os.path.join(self.root, f"acts{shard:06}.bin")
-            acts = np.memmap(
-                acts_fpath,
-                mode="c",
-                dtype=np.float32,
-                shape=(self.metadata.n_patches_per_shard, self.metadata.d_vit),
-            )
-            return torch.from_numpy(acts[pos].copy()), torch.tensor(i)
-        else:
-            shards = i // self.metadata.n_patches_per_shard
-            pos = i % self.metadata.n_patches_per_shard
-            batch = []
-            for shard, p in zip(shards, pos):
-                acts_fpath = os.path.join(self.root, f"acts{shard.item():06}.bin")
-                acts = np.memmap(
-                    acts_fpath,
-                    mode="c",
-                    dtype=np.float32,
-                    shape=(self.metadata.n_patches_per_shard, self.metadata.d_vit),
-                )
-                batch.append(torch.from_numpy(acts[p].copy()))
+        """
+        Return one or more examples.
+        """
+        if not isinstance(i, int):
+            batch = [self[j.item()][0] for j in i]
             return torch.stack(batch), torch.tensor(i)
 
-    @property
-    def d_vit(self) -> int:
-        return self.metadata.d_vit
+        match (self.cfg.patches, self.cfg.layer):
+            case ("cls", int()):
+                img_act = self.get_img_patches(i)
+                # Select layer's cls token.
+                act = img_act[self.cfg.layer, 0, :]
+            case ("cls", "meanpool"):
+                img_act = self.get_img_patches(i)
+                # Select cls tokens from across all layers
+                cls_act = img_act[:, 0, :]
+                # Meanpool over the layers
+                act = cls_act.mean(axis=0)
+            case ("meanpool", int()):
+                img_act = self.get_img_patches(i)
+                # Select layer's patches.
+                layer_act = img_act[self.cfg.layer, 1:, :]
+                # Meanpool over the patches
+                act = layer_act.mean(axis=0)
+            case ("meanpool", "meanpool"):
+                img_act = self.get_img_patches(i)
+                # Select all layer's patches.
+                act = img_act[:, 1:, :]
+                # Meanpool over the layers and patches
+                act = act.mean(axis=(0, 1))
+            case _:
+                print((self.cfg.patches, self.cfg.layer))
+                typing.assert_never((self.cfg.patches, self.cfg.layer))
+
+        return torch.from_numpy(act), torch.tensor(i)
+
+    def get_img_patches(
+        self, i: int
+    ) -> Float[np.ndarray, "n_layers all_patches d_vit"]:
+        n_imgs_per_shard = (
+            self.metadata.n_patches_per_shard
+            // self.metadata.n_layers
+            // (self.metadata.n_patches_per_img + 1)
+        )
+        shard = i // n_imgs_per_shard
+        pos = i % n_imgs_per_shard
+        acts_fpath = os.path.join(self.cfg.shard_root, f"acts{shard:06}.bin")
+        shape = (
+            n_imgs_per_shard,
+            self.metadata.n_layers,
+            self.metadata.n_patches_per_img + 1,
+            self.metadata.d_vit,
+        )
+        acts = np.memmap(acts_fpath, mode="c", dtype=np.float32, shape=shape)
+        return acts[pos].copy()
 
     def __len__(self) -> int:
-        return self.metadata.n_imgs * self.metadata.n_layers
+        """
+        Dataset length depends on `patches` and `layer`.
+        """
+        if self.cfg.patches == "cls" or self.cfg.patches == "meanpool":
+            if self.cfg.layer == "all":
+                return self.metadata.n_imgs * self.metadata.n_layers
+            elif self.cfg.layer == "meanpool" or isinstance(self.cfg.layer, int):
+                return self.metadata.n_imgs
+            else:
+                typing.assert_never(self.cfg.layer)
+        elif self.cfg.patches == "patches":
+            if self.cfg.layer == "all":
+                return (
+                    self.metadata.n_imgs
+                    * self.metadata.n_layers
+                    * (self.metadata.n_patches_per_img + 1)
+                )
+            elif self.cfg.layer == "meanpool" or isinstance(self.cfg.layer, int):
+                return self.metadata.n_imgs * (self.metadata.n_patches_per_img + 1)
+            else:
+                typing.assert_never(self.cfg.layer)
+        else:
+            typing.assert_never(self.cfg.layer)
 
 
 @beartype.beartype
@@ -430,6 +479,26 @@ def get_tol_dataloader(
     return dataloader
 
 
+class PreprocessedImageNet(torch.utils.data.Dataset):
+    def __init__(self, cfg: config.Activations, preprocess):
+        import datasets
+
+        self.hf_dataset = datasets.load_dataset(
+            cfg.data.name, split=cfg.data.split, trust_remote_code=True
+        )
+
+        self.preprocess = preprocess
+
+    def __getitem__(self, i):
+        example = self.hf_dataset[i]
+        example["index"] = i
+        example["image"] = self.preprocess(example["image"].convert("RGB"))
+        return example
+
+    def __len__(self) -> int:
+        return len(self.hf_dataset)
+
+
 @beartype.beartype
 def get_imagenet_dataloader(
     cfg: config.Activations, preprocess
@@ -446,31 +515,8 @@ def get_imagenet_dataloader(
     """
     assert isinstance(cfg.data, config.ImagenetDataset)
 
-    import datasets
-
-    dataset = datasets.load_dataset(
-        cfg.data.name, split=cfg.data.split, trust_remote_code=True
-    )
-
-    @beartype.beartype
-    def add_index(example, indices: list[int]):
-        example["index"] = indices
-        return example
-
-    @beartype.beartype
-    def map_fn(example: dict[str, list]):
-        example["image"] = [preprocess(img) for img in example["image"]]
-        return example
-
-    dataset = (
-        dataset.map(add_index, with_indices=True, batched=True)
-        .to_iterable_dataset(num_shards=cfg.n_workers or 8)
-        .map(map_fn, batched=True, batch_size=32)
-        .with_format("torch")
-    )
-
     dataloader = torch.utils.data.DataLoader(
-        dataset=dataset,
+        dataset=PreprocessedImageNet(cfg, preprocess),
         batch_size=cfg.vit_batch_size,
         drop_last=False,
         num_workers=cfg.n_workers,
@@ -528,9 +574,18 @@ def worker_fn(cfg: config.Activations):
     Args:
         cfg: Config for activations.
     """
+
+    if torch.cuda.is_available():
+        # This enables tf32 on Ampere GPUs which is only 8% slower than
+        # float16 and almost as accurate as float32
+        # This was a default in pytorch until 1.12
+        torch.backends.cuda.matmul.allow_tf32 = True
+        torch.backends.cudnn.benchmark = True
+        torch.backends.cudnn.deterministic = False
+
     logger = logging.getLogger("dump")
 
-    vit = RecordedVit(cfg)
+    vit = make_vit(cfg)
     dataloader = get_dataloader(cfg, vit.make_img_transform())
 
     writer = ShardWriter(cfg)
@@ -645,7 +700,8 @@ class ShardWriter:
 class Metadata:
     width: int
     height: int
-    model: str
+    model_org: str
+    model_ckpt: str
     n_layers: int
     n_patches_per_img: int
     d_vit: int
@@ -659,7 +715,8 @@ class Metadata:
         return cls(
             cfg.width,
             cfg.height,
-            cfg.model,
+            cfg.model_org,
+            cfg.model_ckpt,
             cfg.n_layers,
             cfg.n_patches_per_img,
             cfg.d_vit,
@@ -698,7 +755,7 @@ def get_acts_dir(cfg: config.Activations) -> str:
     """
     metadata = Metadata.from_cfg(cfg)
 
-    acts_dir = os.path.join(helpers.get_cache_dir(), "saev-acts", metadata.hash)
+    acts_dir = os.path.join(cfg.dump_to, metadata.hash)
     os.makedirs(acts_dir, exist_ok=True)
 
     metadata.dump(os.path.join(acts_dir, "metadata.json"))

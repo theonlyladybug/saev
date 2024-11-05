@@ -12,7 +12,7 @@ from jaxtyping import Float, Int, jaxtyped
 from PIL import Image
 from torch import Tensor
 
-from . import activations, config, helpers, nn
+from . import activations, config, helpers, histograms, nn
 
 logger = logging.getLogger("webapp")
 
@@ -132,7 +132,7 @@ def main(cfg: config.Webapp):
     dataloader = torch.utils.data.DataLoader(
         dataset,
         batch_size=cfg.topk_batch_size,
-        shuffle=True,
+        shuffle=False,
         num_workers=cfg.n_workers,
         # See if you can change this to false and still pass the beartype check.
         drop_last=True,
@@ -185,62 +185,38 @@ def main(cfg: config.Webapp):
         typing.assert_never(cfg.images)
 
     n_neurons, _ = top_values.shape
-    entropies = torch.zeros(n_neurons)
 
-    # for i in range(n_neurons):
-    #     # Get unique labels and their indices for the current sample
-    #     unique_labels, _ = top_label_indices[i].unique(return_inverse=True)
-    #     # ignore label 949 = dataset[0]['label'] - the default label index
-    #     unique_labels = unique_labels[unique_labels != 949]
-    #     if len(unique_labels) == 0:
-    #         entropies[i] = -1
-    #         continue
+    fig = histograms.plot_log10_hist(sae_sparsity.cpu())
+    fig_fpath = os.path.join(cfg.dump_to, "feature-freq.png")
+    fig.savefig(fig_fpath)
+    logger.info("Saved feature frequency histogram to %s.", fig_fpath)
 
-    #     count = 0
-    #     for label in unique_labels:
-    #         count += (top_label_indices[i] == label).sum()
-
-    #     if count < 10:
-    #         entropies[i] = -1  # discount as too few datapoints!
-    #         continue
-
-    #     # Sum probabilities based on these labels
-    #     summed_probs = torch.zeros_like(unique_labels, dtype=top_values.dtype)
-    #     for j, label in enumerate(unique_labels):
-    #         summed_probs[j] = top_values[i][top_label_indices[i] == label].sum().item()
-    #     # Calculate entropy for the summed probabilities
-    #     # Normalize to make it a valid probability distribution
-    #     summed_probs = summed_probs / summed_probs.sum()
-    #     # small epsilon to avoid log(0)
-    #     entropy = -torch.sum(summed_probs * torch.log(summed_probs + 1e-9))
-    #     entropies[i] = entropy
+    fig = histograms.plot_log10_hist(sae_mean_acts.cpu())
+    fig_fpath = os.path.join(cfg.dump_to, "feature-val.png")
+    fig.savefig(fig_fpath)
+    logger.info("Saved feature mean value histogram to %s.", fig_fpath)
 
     # Mask all neurons in the dense cluster
-    mask = (
-        (torch.log10(sae_sparsity) > -4) & (torch.log10(sae_mean_acts) > -0.7)
-        # & (entropies > -1)
-    )
-    img_indices = torch.arange(n_neurons)[mask].tolist()
-    breakpoint()
+    # TODO: actually need to plot the 2d cluster instead of two 1d histograms
+    mask = (torch.log10(sae_sparsity) > -2.0) & (torch.log10(sae_mean_acts) > -1.0)
+
+    img_indices = torch.arange(n_neurons)[mask.cpu()].tolist()
 
     os.makedirs(f"{cfg.dump_to}/neurons", exist_ok=True)
-    torch.save(entropies, f"{cfg.dump_to}/neurons/entropy.pt")
     for i in tqdm.tqdm(img_indices, desc="saving highest activating grids"):
-        i = int(i.item())
         neuron_dir = f"{cfg.dump_to}/neurons/{i}"
         os.makedirs(neuron_dir, exist_ok=True)
 
         # Image grid
-        imgs = [dataset[int(img_i)]["image"] for img_i in top_indices[i][:16]]
+        imgs = [dataset[img_i]["image"] for img_i in top_indices[i][:16].tolist()]
         img_grid = make_img_grid(imgs)
-        img_grid.save(f"{neuron_dir}/highest_activating_images.png")
+        img_grid.save(f"{neuron_dir}/top_images.png")
 
         # Metadata
         metadata = {
-            "neuron index": i,
-            "log 10 sparsity": torch.log10(sae_sparsity)[i].item(),
+            "neuron": i,
+            "log10 sparsity": torch.log10(sae_sparsity)[i].item(),
             "mean activation": sae_mean_acts[i].item(),
-            "label entropy": entropies[i].item(),
         }
         with open(f"{neuron_dir}/metadata.pkl", "wb") as pickle_file:
             pickle.dump(metadata, pickle_file)
