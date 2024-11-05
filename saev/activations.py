@@ -36,10 +36,13 @@ class VitRecorder(torch.nn.Module):
     _storage: Float[Tensor, "batch n_layers all_patches dim"] | None
     _i: int
 
-    def __init__(self, cfg: config.Activations):
+    def __init__(
+        self, cfg: config.Activations, patches: slice = slice(None, None, None)
+    ):
         super().__init__()
 
         self.cfg = cfg
+        self.patches = patches
         self._storage = None
         self._i = 0
         self.logger = logging.getLogger(f"recorder({cfg.model_org}:{cfg.model_ckpt})")
@@ -70,9 +73,7 @@ class VitRecorder(torch.nn.Module):
                 (batch, self.cfg.n_layers, self.cfg.n_patches_per_img + 1, dim),
                 device=output.device,
             )
-        breakpoint()
-
-        self._storage[:, self._i] = output.detach()
+        self._storage[:, self._i] = output[:, self.patches, :].detach()
         self._i += 1
 
     def reset(self):
@@ -163,7 +164,14 @@ class DinoV2(torch.nn.Module):
         assert cfg.model_org == "dinov2"
 
         self.model = torch.hub.load("facebookresearch/dinov2", cfg.model_ckpt)
-        self.recorder = VitRecorder(cfg).register(self.model.blocks)
+
+        n_reg = self.model.num_register_tokens
+        patches = torch.cat((
+            torch.tensor([0]),  # CLS token
+            torch.arange(n_reg + 1, n_reg + 1 + cfg.n_patches_per_img),  # patches
+        ))
+
+        self.recorder = VitRecorder(cfg, patches).register(self.model.blocks)
 
     def make_img_transform(self):
         from torchvision.transforms import v2
