@@ -154,12 +154,46 @@ class TimmVit(torch.nn.Module):
         return torch.cat((img[:, None, :], patches), axis=1), self.recorder.activations
 
 
+@jaxtyped(typechecker=beartype.beartype)
+class DinoV2(torch.nn.Module):
+    def __init__(self, cfg: config.Activations):
+        super().__init__()
+
+        assert cfg.model_org == "dinov2"
+
+        self.model = torch.hub.load("facebookresearch/dinov2", cfg.model_ckpt)
+        self.recorder = VitRecorder(cfg).register(self.model.blocks)
+
+    def make_img_transform(self):
+        from torchvision.transforms import v2
+
+        return v2.Compose([
+            v2.Resize(size=256),
+            v2.CenterCrop(size=(224, 224)),
+            v2.ToImage(),
+            v2.ToDtype(torch.float32, scale=True),
+            v2.Normalize(mean=[0.4850, 0.4560, 0.4060], std=[0.2290, 0.2240, 0.2250]),
+        ])
+
+    def forward(self, batch: Float[Tensor, "batch 3 width height"]):
+        self.recorder.reset()
+
+        dct = self.model.forward_features(batch)
+
+        features = torch.cat(
+            (dct["x_norm_clstoken"][:, None, :], dct["x_norm_patchtokens"]), axis=1
+        )
+        return features, self.recorder.activations
+
+
 @beartype.beartype
 def make_vit(cfg: config.Activations):
     if cfg.model_org == "timm":
         return TimmVit(cfg)
     elif cfg.model_org == "open-clip":
         return OpenClip(cfg)
+    elif cfg.model_org == "dinov2":
+        return DinoV2(cfg)
     else:
         typing.assert_never(cfg.model_org)
 

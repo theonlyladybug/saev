@@ -114,7 +114,7 @@ class Activations:
     """Image width."""
     height: int = 224
     """Image height."""
-    model_org: typing.Literal["open-clip", "timm"] = "open-clip"
+    model_org: typing.Literal["open-clip", "timm", "dinov2"] = "open-clip"
     """Where to load models from."""
     model_ckpt: str = "ViT-L-14/openai"
     """Specific model checkpoint."""
