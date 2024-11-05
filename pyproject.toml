@@ -8,6 +8,7 @@ dependencies = [
     "beartype>=0.19.0",
     "datasets>=3.0.1",
     "einops>=0.8.0",
+    "img2dataset",
     "jaxtyping>=0.2.34",
     "marimo>=0.9.10",
     "matplotlib>=3.9.2",
@@ -30,8 +31,12 @@ dev-dependencies = [
     "pytest>=8.3.3",
 ]
 
+[tool.uv.sources]
+img2dataset = { path = "../img2dataset", editable = true }
+
 [tool.pytest.ini_options]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "serial",
 ]
+

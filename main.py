@@ -13,9 +13,7 @@ logging.basicConfig(level=logging.INFO, format=log_format)
 logger = logging.getLogger("main")
 
 
-def activations(
-    cfg: typing.Annotated[saev.ActivationsConfig, tyro.conf.arg(name="")],
-):
+def activations(cfg: typing.Annotated[saev.ActivationsConfig, tyro.conf.arg(name="")]):
     """
     Save ViT activations for use later on.
 

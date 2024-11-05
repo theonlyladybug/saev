@@ -288,6 +288,31 @@ We can automate this to some degree by counting the number of dead features and 
 A better SAE will have fewer dead features and fewer dense features than a worse SAE.
 So that's a very easy and quick way to evaluate models.
 
+# 11/02/2024
+
+How exactly do we evaluate models?
+Let's qualitatively compare several single-number metrics and see how well they correlate with the more in-depth analyses.
+
+Single-number metrics:
+
+* MSE + lambda * L1 (original training loss, but fix lambda).
+* Number of dead fautres + lambda * number of dense features
+* MSE + lambda L0
+
+Complex metrics:
+
+* Normalized ImageNet-1K linear classification accuracy
+* Large-scale probe tasks
+
+Qualititative metrics:
+
+* Looking at the top-k image grids
+* Hand-crafted probe tasks
+
+How well do the probe tasks work?
+
+I also think I don't have to re-train the linear classifiers.
+I can just apply them directly to the SAE.
 
 # 11/04/2024
 
