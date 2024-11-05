@@ -70,6 +70,7 @@ class VitRecorder(torch.nn.Module):
                 (batch, self.cfg.n_layers, self.cfg.n_patches_per_img + 1, dim),
                 device=output.device,
             )
+        breakpoint()
 
         self._storage[:, self._i] = output.detach()
         self._i += 1
@@ -792,8 +793,6 @@ class ShardWriter:
 @beartype.beartype
 @dataclasses.dataclass(frozen=True)
 class Metadata:
-    width: int
-    height: int
     model_org: str
     model_ckpt: str
     n_layers: int
@@ -807,8 +806,6 @@ class Metadata:
     @classmethod
     def from_cfg(cls, cfg: config.Activations) -> "Metadata":
         return cls(
-            cfg.width,
-            cfg.height,
             cfg.model_org,
             cfg.model_ckpt,
             cfg.n_layers,

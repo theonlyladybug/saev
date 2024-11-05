@@ -110,10 +110,6 @@ class Activations:
     """Which dataset to use."""
     dump_to: str = os.path.join(".", "shards")
     """Where to write shards."""
-    width: int = 224
-    """Image width."""
-    height: int = 224
-    """Image height."""
     model_org: typing.Literal["open-clip", "timm", "dinov2"] = "open-clip"
     """Where to load models from."""
     model_ckpt: str = "ViT-L-14/openai"
