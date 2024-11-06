@@ -71,13 +71,17 @@ Optionally makes histogram plots to help human …</p></div>
 <div class="desc"><p>Test that the cached activations are actually correct.
 These tests are quite slow</p></div>
 </dd>
+<dt><code class="name"><a title="saev.test_webapp" href="test_webapp.html">saev.test_webapp</a></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
 <dt><code class="name"><a title="saev.training" href="training.html">saev.training</a></code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
 <dt><code class="name"><a title="saev.webapp" href="webapp.html">saev.webapp</a></code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>There is some important notation used only in this file to dramatically shorten variable names …</p></div>
 </dd>
 </dl>
 </section>
@@ -90,7 +94,7 @@ These tests are quite slow</p></div>
 <dl>
 <dt id="saev.Activations"><code class="flex name class">
 <span>class <span class="ident">ActivationsConfig</span></span>
-<span>(</span><span>data: <a title="saev.config.ImagenetDataset" href="config.html#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.TreeOfLifeDataset" href="config.html#saev.config.TreeOfLifeDataset">TreeOfLifeDataset</a> | <a title="saev.config.LaionDataset" href="config.html#saev.config.LaionDataset">LaionDataset</a> = &lt;factory&gt;, dump_to: str = './shards', width: int = 224, height: int = 224, model_org: Literal['open-clip', 'timm'] = 'open-clip', model_ckpt: str = 'ViT-L-14/openai', vit_batch_size: int = 1024, n_workers: int = 8, d_vit: int = 1024, n_layers: int = 6, n_patches_per_img: int = 256, n_patches_per_shard: int = 2400000, seed: int = 42, ssl: bool = True, device: str = 'cuda', slurm: bool = False, slurm_acct: str = 'PAS2136', log_to: str = './logs')</span>
+<span>(</span><span>data: <a title="saev.config.ImagenetDataset" href="config.html#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.TreeOfLifeDataset" href="config.html#saev.config.TreeOfLifeDataset">TreeOfLifeDataset</a> | <a title="saev.config.LaionDataset" href="config.html#saev.config.LaionDataset">LaionDataset</a> = &lt;factory&gt;, dump_to: str = './shards', width: int = 224, height: int = 224, model_org: Literal['open-clip', 'timm', 'dinov2'] = 'open-clip', model_ckpt: str = 'ViT-L-14/openai', vit_batch_size: int = 1024, n_workers: int = 8, d_vit: int = 1024, n_layers: int = 6, n_patches_per_img: int = 256, n_patches_per_shard: int = 2400000, seed: int = 42, ssl: bool = True, device: str = 'cuda', slurm: bool = False, slurm_acct: str = 'PAS2136', log_to: str = './logs')</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Configuration for calculating and saving ViT activations.</p></div>
@@ -115,7 +119,7 @@ class Activations:
     &#34;&#34;&#34;Image width.&#34;&#34;&#34;
     height: int = 224
     &#34;&#34;&#34;Image height.&#34;&#34;&#34;
-    model_org: typing.Literal[&#34;open-clip&#34;, &#34;timm&#34;] = &#34;open-clip&#34;
+    model_org: typing.Literal[&#34;open-clip&#34;, &#34;timm&#34;, &#34;dinov2&#34;] = &#34;open-clip&#34;
     &#34;&#34;&#34;Where to load models from.&#34;&#34;&#34;
     model_ckpt: str = &#34;ViT-L-14/openai&#34;
     &#34;&#34;&#34;Specific model checkpoint.&#34;&#34;&#34;
@@ -177,7 +181,7 @@ class Activations:
 <dd>
 <div class="desc"><p>Specific model checkpoint.</p></div>
 </dd>
-<dt id="saev.Activations.model_org"><code class="name">var <span class="ident">model_org</span> : Literal['open-clip', 'timm']</code></dt>
+<dt id="saev.Activations.model_org"><code class="name">var <span class="ident">model_org</span> : Literal['open-clip', 'timm', 'dinov2']</code></dt>
 <dd>
 <div class="desc"><p>Where to load models from.</p></div>
 </dd>
@@ -463,7 +467,7 @@ def reinit_size(self) -&gt; int:
 </dd>
 <dt id="saev.Webapp"><code class="flex name class">
 <span>class <span class="ident">WebappConfig</span></span>
-<span>(</span><span>ckpt: str = './checkpoints/sae.pt', data: <a title="saev.config.DataLoad" href="config.html#saev.config.DataLoad">DataLoad</a> = &lt;factory&gt;, images: <a title="saev.config.ImagenetDataset" href="config.html#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.TreeOfLifeDataset" href="config.html#saev.config.TreeOfLifeDataset">TreeOfLifeDataset</a> | <a title="saev.config.LaionDataset" href="config.html#saev.config.LaionDataset">LaionDataset</a> = &lt;factory&gt;, top_k: int = 16, n_workers: int = 16, topk_batch_size: int = 16384, sae_batch_size: int = 1024, device: str = 'cuda', dump_to: str = './data')</span>
+<span>(</span><span>ckpt: str = './checkpoints/sae.pt', data: <a title="saev.config.DataLoad" href="config.html#saev.config.DataLoad">DataLoad</a> = &lt;factory&gt;, images: <a title="saev.config.ImagenetDataset" href="config.html#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.TreeOfLifeDataset" href="config.html#saev.config.TreeOfLifeDataset">TreeOfLifeDataset</a> | <a title="saev.config.LaionDataset" href="config.html#saev.config.LaionDataset">LaionDataset</a> = &lt;factory&gt;, top_k: int = 16, n_workers: int = 16, topk_batch_size: int = 16384, sae_batch_size: int = 1024, epsilon: float = 1e-09, sort_by: Literal['cls', 'img', 'patch'] = 'cls', device: str = 'cuda', dump_to: str = './data')</span>
 </code></dt>
 <dd>
 <div class="desc"><div class="admonition todo">
@@ -495,9 +499,38 @@ class Webapp:
     &#34;&#34;&#34;Number of examples to apply top-k op to.&#34;&#34;&#34;
     sae_batch_size: int = 1024
     &#34;&#34;&#34;Batch size for SAE inference.&#34;&#34;&#34;
+    epsilon: float = 1e-9
+    &#34;&#34;&#34;Value to add to avoid log(0).&#34;&#34;&#34;
+    sort_by: typing.Literal[&#34;cls&#34;, &#34;img&#34;, &#34;patch&#34;] = &#34;cls&#34;
+    &#34;&#34;&#34;How to find the top k images. &#39;cls&#39; picks images where the SAE latents of the ViT&#39;s [CLS] token are maximized without any patch highligting. &#39;img&#39; picks images that maximize the sum of an SAE latent over all patches in the image, highlighting the patches. &#39;patch&#39; pickes images that maximize an SAE latent over all patches (not summed), highlighting the patches and only showing unique images.&#34;&#34;&#34;
     device: str = &#34;cuda&#34;
     &#34;&#34;&#34;Which accelerator to use.&#34;&#34;&#34;
-    dump_to: str = os.path.join(&#34;.&#34;, &#34;data&#34;)</code></pre>
+    dump_to: str = os.path.join(&#34;.&#34;, &#34;data&#34;)
+    &#34;&#34;&#34;Where to save data.&#34;&#34;&#34;
+
+    @property
+    def root(self) -&gt; str:
+        return os.path.join(self.dump_to, f&#34;sort_by_{self.sort_by}&#34;)
+
+    @property
+    def top_values_fpath(self) -&gt; str:
+        return os.path.join(self.root, &#34;top_values.pt&#34;)
+
+    @property
+    def top_img_i_fpath(self) -&gt; str:
+        return os.path.join(self.root, &#34;top_img_i.pt&#34;)
+
+    @property
+    def top_patch_i_fpath(self) -&gt; str:
+        return os.path.join(self.root, &#34;top_patch_i.pt&#34;)
+
+    @property
+    def mean_values_fpath(self) -&gt; str:
+        return os.path.join(self.root, &#34;mean_values.pt&#34;)
+
+    @property
+    def sparsity_fpath(self) -&gt; str:
+        return os.path.join(self.root, &#34;sparsity.pt&#34;)</code></pre>
 </details>
 <h3>Class variables</h3>
 <dl>
@@ -515,7 +548,11 @@ class Webapp:
 </dd>
 <dt id="saev.Webapp.dump_to"><code class="name">var <span class="ident">dump_to</span> : str</code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Where to save data.</p></div>
+</dd>
+<dt id="saev.Webapp.epsilon"><code class="name">var <span class="ident">epsilon</span> : float</code></dt>
+<dd>
+<div class="desc"><p>Value to add to avoid log(0).</p></div>
 </dd>
 <dt id="saev.Webapp.images"><code class="name">var <span class="ident">images</span> : <a title="saev.config.ImagenetDataset" href="config.html#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.TreeOfLifeDataset" href="config.html#saev.config.TreeOfLifeDataset">TreeOfLifeDataset</a> | <a title="saev.config.LaionDataset" href="config.html#saev.config.LaionDataset">LaionDataset</a></code></dt>
 <dd>
@@ -529,6 +566,10 @@ class Webapp:
 <dd>
 <div class="desc"><p>Batch size for SAE inference.</p></div>
 </dd>
+<dt id="saev.Webapp.sort_by"><code class="name">var <span class="ident">sort_by</span> : Literal['cls', 'img', 'patch']</code></dt>
+<dd>
+<div class="desc"><p>How to find the top k images. 'cls' picks images where the SAE latents of the ViT's [CLS] token are maximized without any patch highligting. 'img' picks images that maximize the sum of an SAE latent over all patches in the image, highlighting the patches. 'patch' pickes images that maximize an SAE latent over all patches (not summed), highlighting the patches and only showing unique images.</p></div>
+</dd>
 <dt id="saev.Webapp.top_k"><code class="name">var <span class="ident">top_k</span> : int</code></dt>
 <dd>
 <div class="desc"><p>How many images per SAE feature to store.</p></div>
@@ -536,6 +577,81 @@ class Webapp:
 <dt id="saev.Webapp.topk_batch_size"><code class="name">var <span class="ident">topk_batch_size</span> : int</code></dt>
 <dd>
 <div class="desc"><p>Number of examples to apply top-k op to.</p></div>
+</dd>
+</dl>
+<h3>Instance variables</h3>
+<dl>
+<dt id="saev.Webapp.mean_values_fpath"><code class="name">prop <span class="ident">mean_values_fpath</span> : str</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def mean_values_fpath(self) -&gt; str:
+    return os.path.join(self.root, &#34;mean_values.pt&#34;)</code></pre>
+</details>
+</dd>
+<dt id="saev.Webapp.root"><code class="name">prop <span class="ident">root</span> : str</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def root(self) -&gt; str:
+    return os.path.join(self.dump_to, f&#34;sort_by_{self.sort_by}&#34;)</code></pre>
+</details>
+</dd>
+<dt id="saev.Webapp.sparsity_fpath"><code class="name">prop <span class="ident">sparsity_fpath</span> : str</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def sparsity_fpath(self) -&gt; str:
+    return os.path.join(self.root, &#34;sparsity.pt&#34;)</code></pre>
+</details>
+</dd>
+<dt id="saev.Webapp.top_img_i_fpath"><code class="name">prop <span class="ident">top_img_i_fpath</span> : str</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def top_img_i_fpath(self) -&gt; str:
+    return os.path.join(self.root, &#34;top_img_i.pt&#34;)</code></pre>
+</details>
+</dd>
+<dt id="saev.Webapp.top_patch_i_fpath"><code class="name">prop <span class="ident">top_patch_i_fpath</span> : str</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def top_patch_i_fpath(self) -&gt; str:
+    return os.path.join(self.root, &#34;top_patch_i.pt&#34;)</code></pre>
+</details>
+</dd>
+<dt id="saev.Webapp.top_values_fpath"><code class="name">prop <span class="ident">top_values_fpath</span> : str</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def top_values_fpath(self) -&gt; str:
+    return os.path.join(self.root, &#34;top_values.pt&#34;)</code></pre>
+</details>
 </dd>
 </dl>
 </dd>
@@ -558,6 +674,7 @@ class Webapp:
 <li><code><a title="saev.nn" href="nn.html">saev.nn</a></code></li>
 <li><code><a title="saev.sweep" href="sweep.html">saev.sweep</a></code></li>
 <li><code><a title="saev.test_activations" href="test_activations.html">saev.test_activations</a></code></li>
+<li><code><a title="saev.test_webapp" href="test_webapp.html">saev.test_webapp</a></code></li>
 <li><code><a title="saev.training" href="training.html">saev.training</a></code></li>
 <li><code><a title="saev.webapp" href="webapp.html">saev.webapp</a></code></li>
 </ul>
@@ -633,10 +750,18 @@ class Webapp:
 <li><code><a title="saev.Webapp.data" href="#saev.Webapp.data">data</a></code></li>
 <li><code><a title="saev.Webapp.device" href="#saev.Webapp.device">device</a></code></li>
 <li><code><a title="saev.Webapp.dump_to" href="#saev.Webapp.dump_to">dump_to</a></code></li>
+<li><code><a title="saev.Webapp.epsilon" href="#saev.Webapp.epsilon">epsilon</a></code></li>
 <li><code><a title="saev.Webapp.images" href="#saev.Webapp.images">images</a></code></li>
+<li><code><a title="saev.Webapp.mean_values_fpath" href="#saev.Webapp.mean_values_fpath">mean_values_fpath</a></code></li>
 <li><code><a title="saev.Webapp.n_workers" href="#saev.Webapp.n_workers">n_workers</a></code></li>
+<li><code><a title="saev.Webapp.root" href="#saev.Webapp.root">root</a></code></li>
 <li><code><a title="saev.Webapp.sae_batch_size" href="#saev.Webapp.sae_batch_size">sae_batch_size</a></code></li>
+<li><code><a title="saev.Webapp.sort_by" href="#saev.Webapp.sort_by">sort_by</a></code></li>
+<li><code><a title="saev.Webapp.sparsity_fpath" href="#saev.Webapp.sparsity_fpath">sparsity_fpath</a></code></li>
+<li><code><a title="saev.Webapp.top_img_i_fpath" href="#saev.Webapp.top_img_i_fpath">top_img_i_fpath</a></code></li>
 <li><code><a title="saev.Webapp.top_k" href="#saev.Webapp.top_k">top_k</a></code></li>
+<li><code><a title="saev.Webapp.top_patch_i_fpath" href="#saev.Webapp.top_patch_i_fpath">top_patch_i_fpath</a></code></li>
+<li><code><a title="saev.Webapp.top_values_fpath" href="#saev.Webapp.top_values_fpath">top_values_fpath</a></code></li>
 <li><code><a title="saev.Webapp.topk_batch_size" href="#saev.Webapp.topk_batch_size">topk_batch_size</a></code></li>
 </ul>
 </li>

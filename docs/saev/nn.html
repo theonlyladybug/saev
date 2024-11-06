@@ -76,7 +76,7 @@ hljs.highlightAll();
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">@beartype.beartype
+<pre><code class="python">@jaxtyped(typechecker=beartype.beartype)
 class SparseAutoencoder(torch.nn.Module):
     &#34;&#34;&#34;
     Sparse auto-encoder (SAE) using L1 sparsity penalty.

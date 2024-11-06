@@ -249,9 +249,38 @@ class Webapp:
     """Number of examples to apply top-k op to."""
     sae_batch_size: int = 1024
     """Batch size for SAE inference."""
+    epsilon: float = 1e-9
+    """Value to add to avoid log(0)."""
+    sort_by: typing.Literal["cls", "img", "patch"] = "cls"
+    """How to find the top k images. 'cls' picks images where the SAE latents of the ViT's [CLS] token are maximized without any patch highligting. 'img' picks images that maximize the sum of an SAE latent over all patches in the image, highlighting the patches. 'patch' pickes images that maximize an SAE latent over all patches (not summed), highlighting the patches and only showing unique images."""
     device: str = "cuda"
     """Which accelerator to use."""
     dump_to: str = os.path.join(".", "data")
+    """Where to save data."""
+
+    @property
+    def root(self) -> str:
+        return os.path.join(self.dump_to, f"sort_by_{self.sort_by}")
+
+    @property
+    def top_values_fpath(self) -> str:
+        return os.path.join(self.root, "top_values.pt")
+
+    @property
+    def top_img_i_fpath(self) -> str:
+        return os.path.join(self.root, "top_img_i.pt")
+
+    @property
+    def top_patch_i_fpath(self) -> str:
+        return os.path.join(self.root, "top_patch_i.pt")
+
+    @property
+    def mean_values_fpath(self) -> str:
+        return os.path.join(self.root, "mean_values.pt")
+
+    @property
+    def sparsity_fpath(self) -> str:
+        return os.path.join(self.root, "sparsity.pt")
 
 
 @beartype.beartype

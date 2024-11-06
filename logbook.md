@@ -294,3 +294,40 @@ So that's a very easy and quick way to evaluate models.
 With more than one worker, my iterable HF dataset is being shuffled.
 This is very bad for me.
 I need to make sure this doesn't happen, then (sadly) recalculate the image activations.
+
+# 11/05/2024
+
+My "clean" dataset using a ViT-B/32 has empty values at 62721167 and onwards.
+The length of the dataset is 62777183.
+
+The config is `DataLoad(shard_root='/local/scratch/stevens.994/cache/saev/4dc22752a94c350ea6045599290cfbc31e3ee96b213d485318e434362b3bbdda/', patches='patches', layer=-2)`
+`dataset[62721166]` and `dataset[62721165]` are non-empty, but `dataset[62721167]` onwards is empty, which causes issues.
+
+Time to figure out why.
+It was an indexing issue.
+It's fixed now.
+
+Now I want to pick out images that have patches that maximize individual SAE features.
+So I need to look at every patch, then refer back to the original image index and patch index, then save these values.
+
+Tomorrow:
+
+Patch-level activations don't seem to be working. 
+But this could be an outcome of using CLIP rather than DINO. 
+So I should verify that CLS token visualizations still work with CLIP and pre-trained SAEs.
+Then I should train a patch-level SAE with DINO activations on OSC.
+Finally, I can try getting patch-level activations with DINO.
+
+Why do the same images show up? 
+Are the img indices actually changing from the first batch, or is it always 0-333?
+
+# 11/06/2024
+
+1. Why do the same images show up in different features? Are indices changing from loop to loop, or always [0, 334)?
+2. Set the script up so it works with CLS tokens.
+3. Verify that it works with older checkpoints.
+4. Train both patch-level and CLS-level DINOv2 SAEs on OSC.
+5. Change webapp.py script to support:
+  1. Max activation over entire image (current)
+  2. Max CLS activation (old)
+  3. Max patch, then only show unique images out of top k (new)

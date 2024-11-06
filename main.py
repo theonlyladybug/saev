@@ -122,7 +122,7 @@ def evaluate(cfg: typing.Annotated[saev.EvaluateConfig, tyro.conf.arg(name="")])
         executor = submitit.DebugExecutor(folder=cfg.log_to)
 
     jobs = []
-    jobs.append(executor.submit(run_histograms))
+    # jobs.append(executor.submit(run_histograms))
     jobs.append(executor.submit(run_imagenet1k))
     for job in jobs:
         job.result()
@@ -136,7 +136,7 @@ def webapp(cfg: typing.Annotated[saev.WebappConfig, tyro.conf.arg(name="")]):
     print()
     print("To view the webapp, run:")
     print()
-    print("    marimo run webapp.py")
+    print("    uv run marimo edit webapp.py")
     print()
 
 

@@ -12,7 +12,7 @@ from torch import Tensor
 from . import activations, config
 
 
-@beartype.beartype
+@jaxtyped(typechecker=beartype.beartype)
 class SparseAutoencoder(torch.nn.Module):
     """
     Sparse auto-encoder (SAE) using L1 sparsity penalty.

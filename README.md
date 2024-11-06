@@ -16,6 +16,27 @@ Please open an issue or a PR if there is missing work.
 
 ## Using `saev`
 
+This section is a placeholder right now.
+The [docs](https://samuelstevens.me/saev/) should be better (maybe in the future).
+
+I use [uv](https://docs.astral.sh/uv/) for everything now.
+
+Generate the activations using a ViT-B/32 pre-trained with the CLIP objective:
+
+```sh
+uv run main.py activations \
+  --n-workers 12 \
+  --vit-batch-size 512 \
+  --d-vit 768 \
+  --n-layers 3 \
+  --n-patches-per-img 49 \
+  --model-ckpt ViT-B-32/openai \
+  --dump-to /local/scratch/stevens.994/cache/saev \
+  data:imagenet-dataset \
+  --data.split train
+
+```
+
 Sweep LR for 10M patches on the second-to-last layer of the [CLS] token.
 
 ```sh
@@ -24,7 +45,7 @@ uv run main.py sweep \
   --n-patches 10_000_000 \
   --data.shard-root /local/scratch/stevens.994/cache/saev/4dc22752a94c350ea6045599290cfbc31e3ee96b213d485318e434362b3bbdda \
   --data.patches cls \
-  --data.layer -2
+  --data.layer -2 
 ```
 
 Generate webapp images:

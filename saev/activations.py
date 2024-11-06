@@ -41,7 +41,7 @@ class VitRecorder(torch.nn.Module):
 
         self.cfg = cfg
         self._storage = None
-        self._i = None
+        self._i = 0
         self.logger = logging.getLogger(f"recorder({cfg.model_org}:{cfg.model_ckpt})")
 
     def register(self, modules):
@@ -204,6 +204,11 @@ class Dataset(torch.utils.data.Dataset):
     Dataset of activations from disk.
     """
 
+    class Example(typing.NamedTuple):
+        vit_acts: Float[Tensor, " d_vit"]
+        img_i: Int[Tensor, ""]
+        patch_i: Int[Tensor, ""]
+
     cfg: config.DataLoad
     metadata: "Metadata"
 
@@ -221,44 +226,83 @@ class Dataset(torch.utils.data.Dataset):
         return self.metadata.d_vit
 
     @jaxtyped(typechecker=beartype.beartype)
-    def __getitem__(
-        self, i: Int[np.ndarray, "*batch"] | int
-    ) -> tuple[Float[Tensor, "*batch d_vit"], Int[Tensor, "*batch"]]:
-        """
-        Return one or more examples.
-        """
-        if not isinstance(i, int):
-            batch = [self[j.item()][0] for j in i]
-            return torch.stack(batch), torch.tensor(i)
-
+    def __getitem__(self, i: int) -> Example:
         match (self.cfg.patches, self.cfg.layer):
             case ("cls", int()):
                 img_act = self.get_img_patches(i)
                 # Select layer's cls token.
                 act = img_act[self.cfg.layer, 0, :]
+                return self.Example(
+                    torch.from_numpy(act), torch.tensor(i), torch.tensor(-1)
+                )
             case ("cls", "meanpool"):
                 img_act = self.get_img_patches(i)
                 # Select cls tokens from across all layers
                 cls_act = img_act[:, 0, :]
                 # Meanpool over the layers
                 act = cls_act.mean(axis=0)
+                return self.Example(
+                    torch.from_numpy(act), torch.tensor(i), torch.tensor(-1)
+                )
             case ("meanpool", int()):
                 img_act = self.get_img_patches(i)
                 # Select layer's patches.
                 layer_act = img_act[self.cfg.layer, 1:, :]
                 # Meanpool over the patches
                 act = layer_act.mean(axis=0)
+                return self.Example(
+                    torch.from_numpy(act), torch.tensor(i), torch.tensor(-1)
+                )
             case ("meanpool", "meanpool"):
                 img_act = self.get_img_patches(i)
                 # Select all layer's patches.
                 act = img_act[:, 1:, :]
                 # Meanpool over the layers and patches
                 act = act.mean(axis=(0, 1))
+                return self.Example(
+                    torch.from_numpy(act), torch.tensor(i), torch.tensor(-1)
+                )
+            case ("patches", int()):
+                n_imgs_per_shard = (
+                    self.metadata.n_patches_per_shard
+                    // self.metadata.n_layers
+                    // (self.metadata.n_patches_per_img + 1)
+                )
+                n_examples_per_shard = (
+                    n_imgs_per_shard * self.metadata.n_patches_per_img
+                )
+
+                shard = i // n_examples_per_shard
+                pos = i % n_examples_per_shard
+
+                acts_fpath = os.path.join(self.cfg.shard_root, f"acts{shard:06}.bin")
+                shape = (
+                    n_imgs_per_shard,
+                    self.metadata.n_layers,
+                    self.metadata.n_patches_per_img + 1,
+                    self.metadata.d_vit,
+                )
+                acts = np.memmap(acts_fpath, mode="c", dtype=np.float32, shape=shape)
+                # Choose the layer and the non-CLS tokens.
+                acts = acts[:, self.cfg.layer, 1:]
+
+                # Choose a patch among n and the patches.
+                act = acts[
+                    pos // self.metadata.n_patches_per_img,
+                    pos % self.metadata.n_patches_per_img,
+                ].copy()
+                return self.Example(
+                    torch.from_numpy(act),
+                    # What image is this?
+                    torch.tensor(i // self.metadata.n_patches_per_img),
+                    torch.tensor(i % self.metadata.n_patches_per_img),
+                )
             case _:
                 print((self.cfg.patches, self.cfg.layer))
                 typing.assert_never((self.cfg.patches, self.cfg.layer))
 
-        return torch.from_numpy(act), torch.tensor(i)
+    def get_shard_patches(self):
+        raise NotImplementedError()
 
     def get_img_patches(
         self, i: int
@@ -284,26 +328,40 @@ class Dataset(torch.utils.data.Dataset):
         """
         Dataset length depends on `patches` and `layer`.
         """
-        if self.cfg.patches == "cls" or self.cfg.patches == "meanpool":
-            if self.cfg.layer == "all":
+        match (self.cfg.patches, self.cfg.layer):
+            case ("cls", "all"):
+                # Return a CLS token from a random image and random layer.
                 return self.metadata.n_imgs * self.metadata.n_layers
-            elif self.cfg.layer == "meanpool" or isinstance(self.cfg.layer, int):
+            case ("cls", int()):
+                # Return a CLS token from a random image and fixed layer.
                 return self.metadata.n_imgs
-            else:
-                typing.assert_never(self.cfg.layer)
-        elif self.cfg.patches == "patches":
-            if self.cfg.layer == "all":
+            case ("cls", "meanpool"):
+                # Return a CLS token from a random image and meanpool over all layers.
+                return self.metadata.n_imgs
+            case ("meanpool", "all"):
+                # Return the meanpool of all patches from a random image and random layer.
+                return self.metadata.n_imgs * self.metadata.n_layers
+            case ("meanpool", int()):
+                # Return the meanpool of all patches from a random image and fixed layer.
+                return self.metadata.n_imgs
+            case ("meanpool", "meanpool"):
+                # Return the meanpool of all patches from a random image and meanpool over all layers.
+                return self.metadata.n_imgs
+            case ("patches", int()):
+                # Return a patch from a random image, fixed layer, and random patch.
+                return self.metadata.n_imgs * (self.metadata.n_patches_per_img)
+            case ("patches", "meanpool"):
+                # Return a patch from a random image, meanpooled over all layers, and a random patch.
+                return self.metadata.n_imgs * (self.metadata.n_patches_per_img)
+            case ("patches", "all"):
+                # Return a patch from a random image, random layer and random patch.
                 return (
                     self.metadata.n_imgs
                     * self.metadata.n_layers
-                    * (self.metadata.n_patches_per_img + 1)
+                    * self.metadata.n_patches_per_img
                 )
-            elif self.cfg.layer == "meanpool" or isinstance(self.cfg.layer, int):
-                return self.metadata.n_imgs * (self.metadata.n_patches_per_img + 1)
-            else:
-                typing.assert_never(self.cfg.layer)
-        else:
-            typing.assert_never(self.cfg.layer)
+            case _:
+                typing.assert_never((self.cfg.patches, self.cfg.layer))
 
 
 @beartype.beartype
@@ -517,6 +575,8 @@ class PreprocessedImageNet(torch.utils.data.Dataset):
     def __init__(self, cfg: config.Activations, preprocess):
         import datasets
 
+        assert isinstance(cfg.data, config.ImagenetDataset)
+
         self.hf_dataset = datasets.load_dataset(
             cfg.data.name, split=cfg.data.split, trust_remote_code=True
         )
@@ -632,7 +692,7 @@ def worker_fn(cfg: config.Activations):
         cfg = dataclasses.replace(cfg, device="cpu")
 
     vit = vit.to(cfg.device)
-    vit = torch.compile(vit)
+    # vit = torch.compile(vit)
 
     i = 0
     # Calculate and write ViT activations.
