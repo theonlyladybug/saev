@@ -331,6 +331,22 @@ The config is `DataLoad(shard_root='/local/scratch/stevens.994/cache/saev/4dc227
 Time to figure out why.
 It was an indexing issue.
 It's fixed now.
+I fixed this bug.
+
+What's the priority?
+
+1. Qualitatively an SAE trained on the CLS token using DinoV2 and a CLIP model.
+2. Apply some specific hand-crafted evaluations to measure "abstract" features in DINOv2 space.
+
+I want to uncover interesting patterns in DINOv2 features.
+Does it also have superposition?
+Or is it only due to language?
+
+Also, how do we evaluate patch-level features qualitatively?
+Should we look at images that have maximal patches?
+Or is a mean a better use?
+Can I highlight individual patches?
+
 
 Now I want to pick out images that have patches that maximize individual SAE features.
 So I need to look at every patch, then refer back to the original image index and patch index, then save these values.
@@ -346,6 +362,7 @@ Finally, I can try getting patch-level activations with DINO.
 Why do the same images show up? 
 Are the img indices actually changing from the first batch, or is it always 0-333?
 
+
 # 11/06/2024
 
 1. Why do the same images show up in different features? Are indices changing from loop to loop, or always [0, 334)?
@@ -356,3 +373,15 @@ Are the img indices actually changing from the first batch, or is it always 0-33
   1. Max activation over entire image (current)
   2. Max CLS activation (old)
   3. Max patch, then only show unique images out of top k (new)
+
+
+# 11/07/2024
+
+Potential outline
+
+1. Qualitatively compare DINOv2 and CLIP using top-k grids. Demonstrate the different concepts that are learned using cherry picked examples.
+2. Discuss methods to evaluate SAEs, cheap proxies for these evaluations, and which proxies are good approximations of more expensive evaluation methods.
+3. Discuss training strategies that reliably improve these proxy metrics (hyperparams, different datasets, etc).
+4. Use this analysis to compare DINOv2 vs CLIP, CLIP vs BioCLIP, training SAEs on ImageNet-1K, iNat21, ToL-10M and LAION-2B multilingual.
+
+Time to train on the [CLS] token and the patch tokens for DIONv2.
