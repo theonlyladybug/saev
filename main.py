@@ -43,17 +43,17 @@ def sweep(cfg: typing.Annotated[saev.TrainConfig, tyro.conf.arg(name="")], sweep
     logger.info("Sweep has %d experiments.", len(dcts))
 
     sweep_cfgs, errs = [], []
-    for dct in dcts:
+    for d, dct in enumerate(dcts):
         try:
-            sweep_cfgs.append(dataclasses.replace(cfg, **dct))
+            sweep_cfgs.append(dataclasses.replace(cfg, **dct, seed=cfg.seed + d))
         except Exception as err:
             errs.append(str(err))
 
     if cfg.slurm:
         executor = submitit.SlurmExecutor(folder=cfg.log_to)
         executor.update_parameters(
-            time=30,
-            partition="debug",
+            time=60,
+            partition="preemptible",
             gpus_per_node=1,
             cpus_per_task=cfg.n_workers + 4,
             stderr_to_stdout=True,

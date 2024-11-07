@@ -655,7 +655,7 @@ def dump(cfg: config.Activations):
 
         executor = submitit.SlurmExecutor(folder=cfg.log_to)
         executor.update_parameters(
-            time=12 * 60,
+            time=24 * 60,
             partition="gpu",
             gpus_per_node=1,
             cpus_per_task=cfg.n_workers + 4,
