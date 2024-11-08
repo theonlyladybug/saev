@@ -385,3 +385,13 @@ Potential outline
 4. Use this analysis to compare DINOv2 vs CLIP, CLIP vs BioCLIP, training SAEs on ImageNet-1K, iNat21, ToL-10M and LAION-2B multilingual.
 
 Time to train on the [CLS] token and the patch tokens for DIONv2.
+
+# 11/08/2024
+
+OSC is busy right now.
+What experiments can I do on the lab servers?
+
+1. Work on quantitative evaluations.
+2. Write.
+3. Work on hand-crafted tasks
+4. Explore large-patch models like ViT-S/32
