@@ -242,7 +242,7 @@ class Dataset(torch.utils.data.Dataset):
                 # Select layer's cls token.
                 act = img_act[self.cfg.layer, 0, :]
                 return self.Example(
-                    torch.from_numpy(act), torch.tensor(i), torch.tensor(-1)
+                    torch.from_numpy(act.copy()), torch.tensor(i), torch.tensor(-1)
                 )
             case ("cls", "meanpool"):
                 img_act = self.get_img_patches(i)
@@ -251,7 +251,7 @@ class Dataset(torch.utils.data.Dataset):
                 # Meanpool over the layers
                 act = cls_act.mean(axis=0)
                 return self.Example(
-                    torch.from_numpy(act), torch.tensor(i), torch.tensor(-1)
+                    torch.from_numpy(act.copy()), torch.tensor(i), torch.tensor(-1)
                 )
             case ("meanpool", int()):
                 img_act = self.get_img_patches(i)
@@ -260,7 +260,7 @@ class Dataset(torch.utils.data.Dataset):
                 # Meanpool over the patches
                 act = layer_act.mean(axis=0)
                 return self.Example(
-                    torch.from_numpy(act), torch.tensor(i), torch.tensor(-1)
+                    torch.from_numpy(act.copy()), torch.tensor(i), torch.tensor(-1)
                 )
             case ("meanpool", "meanpool"):
                 img_act = self.get_img_patches(i)
@@ -269,7 +269,7 @@ class Dataset(torch.utils.data.Dataset):
                 # Meanpool over the layers and patches
                 act = act.mean(axis=(0, 1))
                 return self.Example(
-                    torch.from_numpy(act), torch.tensor(i), torch.tensor(-1)
+                    torch.from_numpy(act.copy()), torch.tensor(i), torch.tensor(-1)
                 )
             case ("patches", int()):
                 n_imgs_per_shard = (
@@ -299,9 +299,9 @@ class Dataset(torch.utils.data.Dataset):
                 act = acts[
                     pos // self.metadata.n_patches_per_img,
                     pos % self.metadata.n_patches_per_img,
-                ].copy()
+                ]
                 return self.Example(
-                    torch.from_numpy(act),
+                    torch.from_numpy(act.copy()),
                     # What image is this?
                     torch.tensor(i // self.metadata.n_patches_per_img),
                     torch.tensor(i % self.metadata.n_patches_per_img),
@@ -331,7 +331,8 @@ class Dataset(torch.utils.data.Dataset):
             self.metadata.d_vit,
         )
         acts = np.memmap(acts_fpath, mode="c", dtype=np.float32, shape=shape)
-        return acts[pos].copy()
+        # Note that this is not yet copied!
+        return acts[pos]
 
     def __len__(self) -> int:
         """

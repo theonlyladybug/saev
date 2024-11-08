@@ -59,8 +59,8 @@ def train(cfg: config.Train) -> str:
 
     global_step, n_patches_seen = 0, 0
 
-    for vit_acts, _ in helpers.progress(dataloader, every=cfg.log_every):
-        vit_acts = vit_acts.to(cfg.device)
+    for vit_acts, _, _ in helpers.progress(dataloader, every=cfg.log_every):
+        vit_acts = vit_acts.to(cfg.device, non_blocking=True)
         # Make sure the W_dec is still zero-norm
         sae.set_decoder_norm_to_unit_norm()
 

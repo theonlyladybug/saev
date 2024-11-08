@@ -169,9 +169,9 @@ def get_sae_batches(
     perm = np.random.default_rng(seed=cfg.seed).permutation(len(dataset))
     perm = perm[: cfg.reinit_size]
 
-    examples, _ = dataset[perm]
+    examples, _, _ = zip(*[dataset[p.item()] for p in perm])
 
-    return examples
+    return torch.stack(examples)
 
 
 @beartype.beartype
