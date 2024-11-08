@@ -99,13 +99,32 @@ class LaionDataset:
 
 @beartype.beartype
 @dataclasses.dataclass(frozen=True)
+class Inat21Dataset:
+    """Configuration for iNat2021 dataset."""
+
+    root: str = "./inat21"
+    """Where the images are stored."""
+    split: str = "train"
+    """Dataset split. Can either be 'train', 'val' or 'train_mini'."""
+
+    @property
+    def n_imgs(self) -> int:
+        """Number of images in the dataset. Calculated on the fly, but is non-trivial to calculate because it requires walking the directory structure. If you need to reference this number very often, cache it in a local variable."""
+        n = 0
+        for _, _, files in os.walk(os.path.join(self.root, self.split)):
+            n += len(files)
+        return n
+
+
+@beartype.beartype
+@dataclasses.dataclass(frozen=True)
 class Activations:
     """
     Configuration for calculating and saving ViT activations.
     """
 
-    data: ImagenetDataset | TreeOfLifeDataset | LaionDataset = dataclasses.field(
-        default_factory=ImagenetDataset
+    data: ImagenetDataset | TreeOfLifeDataset | LaionDataset | Inat21Dataset = (
+        dataclasses.field(default_factory=ImagenetDataset)
     )
     """Which dataset to use."""
     dump_to: str = os.path.join(".", "shards")
@@ -309,14 +328,14 @@ class ImagenetEvaluate:
 @dataclasses.dataclass(frozen=True)
 class HistogramsEvaluate:
     # Model
-    ckpt_path: str = os.path.join(".", "checkpoints", "abcdefg")
+    ckpt: str = os.path.join(".", "checkpoints", "abcdefg")
     """Path to the sae.pt file."""
     # Data
     data: DataLoad = dataclasses.field(default_factory=DataLoad)
     """Data configuration."""
     n_workers: int = 8
     """Number of dataloader workers."""
-    batch_size: int = 1024
+    batch_size: int = 1024 * 8
     """SAE inference batch size."""
     # Hardware
     device: str = "cuda"

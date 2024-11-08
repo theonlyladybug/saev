@@ -20,6 +20,7 @@ import typing
 import beartype
 import numpy as np
 import torch
+import torchvision.datasets
 import wids
 from jaxtyping import Float, Int, jaxtyped
 from torch import Tensor
@@ -385,26 +386,26 @@ def setup(cfg: config.Activations):
         setup_tol(cfg)
     elif isinstance(cfg.data, config.LaionDataset):
         setup_laion(cfg)
+    elif isinstance(cfg.data, config.Inat21Dataset):
+        setup_inat21(cfg)
     else:
         typing.assert_never(cfg.data)
 
 
 @beartype.beartype
 def setup_imagenet(cfg: config.Activations):
-    pass
+    assert isinstance(cfg.data, config.ImagenetDataset)
 
 
 @beartype.beartype
 def setup_tol(cfg: config.Activations):
-    pass
+    assert isinstance(cfg.data, config.TreeOfLifeDataset)
 
 
 @beartype.beartype
 def setup_laion(cfg: config.Activations):
     """
     Do setup for LAION dataloader.
-
-
     """
     assert isinstance(cfg.data, config.LaionDataset)
 
@@ -504,6 +505,52 @@ def setup_laion(cfg: config.Activations):
 
 
 @beartype.beartype
+def setup_inat21(cfg: config.Activations):
+    assert isinstance(cfg.data, config.Inat21Dataset)
+
+    logger = logging.getLogger("inat21-setup")
+
+    import requests
+    import tarfile
+
+    split_urls = {
+        "val": "https://ml-inat-competition-datasets.s3.amazonaws.com/2021/val.tar.gz",
+        "train": "https://ml-inat-competition-datasets.s3.amazonaws.com/2021/train.tar.gz",
+        "train_mini": "https://ml-inat-competition-datasets.s3.amazonaws.com/2021/train_mini.tar.gz",
+    }
+
+    os.makedirs(cfg.data.root, exist_ok=True)
+    chunk_size = 16 * 1024  # 16kb
+
+    if not os.path.isdir(os.path.join(cfg.data.root, cfg.data.split)):
+        tar_path = os.path.join(cfg.data.root, f"{cfg.data.split}.tar.gz")
+
+        if not os.path.isfile(tar_path):
+            # Download.
+            r = requests.get(split_urls[cfg.data.split], stream=True)
+            r.raise_for_status()
+
+            n_bytes = int(r.headers["content-length"])
+
+            with open(tar_path, "wb") as fd:
+                for chunk in helpers.progress(
+                    r.iter_content(chunk_size=chunk_size),
+                    total=n_bytes // chunk_size + 1,
+                    desc="Downloading",
+                    every=1000,
+                ):
+                    fd.write(chunk)
+
+            logger.info("Downloaded '%s' images to '%s'.", cfg.data.split, tar_path)
+
+        # Extract.
+        with tarfile.open(tar_path, "r") as tar:
+            for member in helpers.progress(tar, desc="Extracting", every=1000):
+                tar.extract(member, path=cfg.data.root, filter="data")
+        logger.info("Extract '%s' images.", cfg.data.split)
+
+
+@beartype.beartype
 def get_dataloader(cfg: config.Activations, preprocess):
     """
     Gets the dataloader for the current experiment; delegates dataloader construction to dataset-specific functions.
@@ -521,6 +568,8 @@ def get_dataloader(cfg: config.Activations, preprocess):
         dataloader = get_tol_dataloader(cfg, preprocess)
     elif isinstance(cfg.data, config.LaionDataset):
         dataloader = get_laion_dataloader(cfg, preprocess)
+    elif isinstance(cfg.data, config.Inat21Dataset):
+        dataloader = get_inat21_dataloader(cfg, preprocess)
     else:
         typing.assert_never(cfg.data)
 
@@ -628,6 +677,57 @@ def get_imagenet_dataloader(
         shuffle=False,
         pin_memory=False,
     )
+    return dataloader
+
+
+class PreprocessedInat21(torchvision.datasets.ImageFolder):
+    def __getitem__(self, index: int) -> dict[str, object]:
+        """
+        Args:
+            index: Index
+
+        Returns:
+            dict with keys 'image', 'index' and 'label'.
+        """
+        path, target = self.samples[index]
+        sample = self.loader(path)
+        if self.transform is not None:
+            sample = self.transform(sample)
+        if self.target_transform is not None:
+            target = self.target_transform(target)
+
+        return {"image": sample, "label": target, "index": index}
+
+
+@beartype.beartype
+def get_inat21_dataloader(
+    cfg: config.Activations, preprocess
+) -> torch.utils.data.DataLoader:
+    """
+    Get a dataloader for iNat21.
+
+    Args:
+        cfg: Config.
+        preprocess: Image transform to be applied to each image.
+
+    Returns:
+        A PyTorch Dataloader that yields dictionaries with `'image'` keys containing image batches, `'index'` keys containing original dataset indices and `'label'` keys containing label batches.
+    """
+    assert isinstance(cfg.data, config.Inat21Dataset)
+
+    dataset = PreprocessedInat21(
+        os.path.join(cfg.data.root, cfg.data.split), preprocess
+    )
+    dataloader = torch.utils.data.DataLoader(
+        dataset,
+        batch_size=cfg.vit_batch_size,
+        drop_last=False,
+        num_workers=cfg.n_workers,
+        persistent_workers=cfg.n_workers > 0,
+        shuffle=False,
+        pin_memory=True,
+    )
+
     return dataloader
 
 
