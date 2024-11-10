@@ -205,30 +205,36 @@ class Train:
 
     data: DataLoad = dataclasses.field(default_factory=DataLoad)
     """Data configuration"""
-    n_workers: int = 8
+    n_workers: int = 32
     """Number of dataloader workers."""
 
     # Training
     n_reinit_batches: int = 15
     """Number of batches to use for SAE re-init."""
-    n_patches: int = 1_000_000_000
+    n_patches: int = 100_000_000
     """Number of SAE training examples."""
     exp_factor: int = 64
     """Expansion factor for SAE."""
-    l1_coeff: float = 0.00008
+    sparsity_coeff: float = 0.00008
+    """How much to weight sparsity loss term."""
+    n_sparsity_coeff_warmup: int = 0
+    """Number of sparsity coeff. warmup steps."""
 
     lr: float = 0.0004
     """Learning rate."""
     n_lr_warmup: int = 500
     """Number of learning rate warmup steps."""
-    sae_batch_size: int = 1024
+    sae_batch_size: int = 1024 * 16
     """Batch size for SAE training."""
 
-    use_ghost_grads: bool = True
+    remove_parallel_grads: bool = True
+    """Whether to remove gradients parallel to W_dec columns (which will be ignored because we force the columns to have unit norm)."""
+    normalize_w_dec: bool = True
+    """Whether to make sure W_dec has unit norm columns."""
+
+    ghost_grads: bool = True
 
     feature_sampling_window: int = 64
-
-    resample_batches: int = 32
 
     dead_feature_window: int = 64
 
@@ -238,6 +244,9 @@ class Train:
     track: bool = True
     """Whether to track with WandB."""
     wandb_project: str = "saev"
+    """WandB project name."""
+    tag: str = ""
+    """Tag to add to WandB run."""
 
     log_every: int = 25
     """How often to log to WandB."""
@@ -358,6 +367,8 @@ class HistogramsEvaluate:
     """Which accelerator to use."""
     log_every: int = 10
     """How often to log progress."""
+    log_to: str = os.path.join(".", "logs")
+    """Where to write charts to."""
 
 
 @beartype.beartype

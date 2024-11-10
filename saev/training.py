@@ -1,8 +1,13 @@
+import dataclasses
+import json
 import logging
+import os.path
 
 import beartype
 import torch
 import torch.optim.lr_scheduler as lr_scheduler
+from jaxtyping import Float, jaxtyped
+from torch import Tensor
 from torch.optim import Adam
 
 import wandb
@@ -26,7 +31,10 @@ def train(cfg: config.Train) -> str:
 
     dataset = activations.Dataset(cfg.data)
     sae = nn.SparseAutoencoder(
-        dataset.d_vit, cfg.exp_factor, cfg.l1_coeff, cfg.use_ghost_grads
+        d_vit=dataset.d_vit,
+        exp_factor=cfg.exp_factor,
+        sparsity_coeff=cfg.sparsity_coeff,
+        ghost_grads=cfg.ghost_grads,
     )
     sae.init_b_dec(cfg, dataset)
 
@@ -35,7 +43,8 @@ def train(cfg: config.Train) -> str:
     # sae = torch.compile(sae)
 
     mode = "online" if cfg.track else "disabled"
-    run = wandb.init(project=cfg.wandb_project, config=cfg, mode=mode)
+    tags = [cfg.tag] if cfg.tag else []
+    run = wandb.init(project=cfg.wandb_project, config=cfg, mode=mode, tags=tags)
 
     # track active features
     act_freq_scores = torch.zeros(sae.d_sae, device=cfg.device)
@@ -45,7 +54,7 @@ def train(cfg: config.Train) -> str:
     optimizer = Adam(sae.parameters(), lr=cfg.lr)
     scheduler = lr_scheduler.LambdaLR(
         optimizer,
-        lr_lambda=lambda steps: min(1.0, (steps + 1) / cfg.n_lr_warmup),
+        lr_lambda=lambda steps: min(1.0, (steps + 1) / (cfg.n_lr_warmup + 1e-9)),
     )
 
     dataloader = torch.utils.data.DataLoader(
@@ -61,8 +70,9 @@ def train(cfg: config.Train) -> str:
 
     for vit_acts, _, _ in helpers.progress(dataloader, every=cfg.log_every):
         vit_acts = vit_acts.to(cfg.device, non_blocking=True)
-        # Make sure the W_dec is still zero-norm
-        sae.set_decoder_norm_to_unit_norm()
+        if cfg.normalize_w_dec:
+            # Make sure the W_dec is still unit-norm
+            sae.normalize_w_dec()
 
         # after resampling, reset the sparsity:
         if (global_step + 1) % cfg.feature_sampling_window == 0:
@@ -85,10 +95,8 @@ def train(cfg: config.Train) -> str:
         ).bool()
 
         # Forward and Backward Passes
-        sae_out, feature_acts, loss, mse_loss, l1_loss, ghost_grad_loss = sae(
-            vit_acts, ghost_grad_neuron_mask
-        )
-        did_fire = (feature_acts > 0).float().sum(-2) > 0
+        x_hat, f_x, loss = sae(vit_acts, ghost_grad_neuron_mask)
+        did_fire = (f_x > 0).float().sum(-2) > 0
         n_fwd_passes_since_fired += 1
         n_fwd_passes_since_fired[did_fire] = 0
 
@@ -96,26 +104,25 @@ def train(cfg: config.Train) -> str:
 
         with torch.no_grad():
             # Calculate the sparsities, and add it to a list, calculate sparsity metrics
-            act_freq_scores += (feature_acts.abs() > 0).float().sum(0)
+            act_freq_scores += (f_x.abs() > 0).float().sum(0)
             n_frac_active_tokens += cfg.sae_batch_size
             feature_sparsity = act_freq_scores / n_frac_active_tokens
 
             if (global_step + 1) % cfg.log_every == 0:
                 # metrics for currents acts
-                l0 = (feature_acts > 0).float().sum(-1).mean()
+                l0 = (f_x > 0).float().sum(-1).mean()
                 current_learning_rate = optimizer.param_groups[0]["lr"]
 
-                per_token_l2_loss = (sae_out - vit_acts).pow(2).sum(dim=-1).squeeze()
+                per_token_l2_loss = (x_hat - vit_acts).pow(2).sum(dim=-1).squeeze()
                 total_variance = vit_acts.pow(2).sum(-1)
                 explained_variance = 1 - per_token_l2_loss / total_variance
 
                 metrics = {
                     # losses
-                    "losses/mse_loss": mse_loss.item(),
-                    # normalize by l1 coefficient
-                    "losses/l1_loss": l1_loss.item() / sae.l1_coeff,
-                    "losses/ghost_grad_loss": ghost_grad_loss.item(),
-                    "losses/overall_loss": loss.item(),
+                    "losses/reconstruction": loss.reconstruction.item(),
+                    "losses/l1": loss.l1.item(),
+                    "losses/ghost_grad": loss.ghost_grad.item(),
+                    "losses/loss": loss.loss.item(),
                     # variance explained
                     "metrics/explained_variance": explained_variance.mean().item(),
                     "metrics/explained_variance_std": explained_variance.std().item(),
@@ -127,7 +134,7 @@ def train(cfg: config.Train) -> str:
                     .float()
                     .mean()
                     .item(),
-                    "sparsity/below_1e-6": (feature_sparsity < 1e-6)
+                    "sparsity/below_1e-7": (feature_sparsity < 1e-7)
                     .float()
                     .mean()
                     .item(),
@@ -143,23 +150,123 @@ def train(cfg: config.Train) -> str:
                 run.log(metrics, step=global_step)
 
                 logger.info(
-                    "step: %d (%.1f%%), loss: %.5f, mse loss: %.5f, l1 loss: %.5f",
-                    global_step,
-                    n_patches_seen / cfg.n_patches * 100,
-                    loss.item(),
-                    mse_loss.item(),
-                    l1_loss.item() / cfg.l1_coeff,
+                    "loss: %.5f, reconstruction loss: %.5f, sparsity loss: %.5f, l0: %.5f, l1: %.5f",
+                    loss.loss.item(),
+                    loss.reconstruction.item(),
+                    loss.sparsity.item(),
+                    loss.l0.item(),
+                    loss.l1.item(),
                 )
 
-        loss.backward()
-        sae.remove_gradient_parallel_to_decoder_directions()
+        loss.loss.backward()
+        if cfg.remove_parallel_grads:
+            sae.remove_parallel_grads()
         optimizer.step()
 
         global_step += 1
 
-    nn.dump(cfg, sae, run.id)
+    ckpt_fpath = os.path.join(cfg.ckpt_path, run.id, "sae.pt")
+    nn.dump(ckpt_fpath, sae)
+    logger.info("Dumped checkpoint to '%s'.", ckpt_fpath)
+    cfg_fpath = os.path.join(cfg.ckpt_path, run.id, "cfg.json")
+    with open(cfg_fpath, "w") as fd:
+        json.dump(dataclasses.asdict(cfg), fd, indent=4)
+
+    # Cheap(-ish) evaluation
+    n_dead, n_almost_dead, n_dense = evaluate(cfg, ckpt_fpath)
+    metrics = {
+        "eval/n_dead": n_dead,
+        "eval/n_almost_dead": n_almost_dead,
+        "eval/n_dense": n_dense,
+    }
+    run.log(metrics, step=global_step)
+
     run.finish()
     return run.id
+
+
+@jaxtyped(typechecker=beartype.beartype)
+def plot_log10_hist(
+    frequencies: Float[Tensor, " d_sae"], *, eps: float = 1e-9
+) -> tuple[object, object]:
+    """
+    Plot the histogram of feature frequency.
+    """
+    import matplotlib.pyplot as plt
+
+    fig, ax = plt.subplots()
+    frequencies = torch.log10(frequencies + eps)
+    ax.hist(frequencies, bins=50)
+    return fig, ax
+
+
+@beartype.beartype
+@torch.inference_mode()
+def evaluate(cfg: config.Train | config.HistogramsEvaluate, ckpt_fpath: str):
+    """
+    Evaluates SAE quality by counting the number of dead features and the number of dense features.
+    Also makes histogram plots to help human qualitative comparison.
+
+    .. todo:: Develop automatic methods to use histogram and feature frequencies to evaluate quality with a single number.
+    """
+    ckpt_name = os.path.basename(os.path.dirname(ckpt_fpath))
+
+    sae = nn.load(ckpt_fpath).to(cfg.device)
+    sae.eval()
+
+    dataset = activations.Dataset(cfg.data)
+    dataloader = torch.utils.data.DataLoader(
+        dataset,
+        batch_size=cfg.sae_batch_size,
+        num_workers=cfg.n_workers,
+        shuffle=False,
+        pin_memory=True,
+    )
+
+    n_fired = torch.zeros(sae.d_sae).to(cfg.device)
+
+    for vit_acts, _, _ in helpers.progress(
+        dataloader, desc="eval", every=cfg.log_every
+    ):
+        vit_acts = vit_acts.to(cfg.device, non_blocking=True)
+        _, f_x, *_ = sae(vit_acts)
+        n_fired += (f_x > 0).sum(axis=0)
+
+    freqs = n_fired / len(dataset)
+
+    n_dense = (freqs > 0.01).sum().item()
+    n_dead = (freqs == 0).sum().item()
+    n_almost_dead = (freqs < 1e-7).sum().item()
+    logger.info(
+        "Checkpoint %s has %d dense features (%.1f)",
+        ckpt_name,
+        n_dense,
+        n_dense / sae.d_sae * 100,
+    )
+    logger.info(
+        "Checkpoint %s has %d dead features (%.1f%%)",
+        ckpt_name,
+        n_dead,
+        n_dead / sae.d_sae * 100,
+    )
+    logger.info(
+        "Checkpoint %s has %d *almost* dead (<1e-7) features (%.1f)",
+        ckpt_name,
+        n_almost_dead,
+        n_almost_dead / sae.d_sae * 100,
+    )
+
+    fig, ax = plot_log10_hist(freqs.cpu())
+    ax.set_title(f"{ckpt_name} Feature Frequencies")
+    ax.set_xlabel("% of inputs a feature fires on (log10)")
+    ax.set_ylabel("number of features")
+    fig.tight_layout()
+
+    fig_fpath = os.path.join(cfg.log_to, f"{ckpt_name}-feature-freqs.png")
+    fig.savefig(fig_fpath)
+    logger.info("Saved chart to '%s'.", fig_fpath)
+
+    return n_dead, n_almost_dead, n_dense
 
 
 class BatchLimiter:

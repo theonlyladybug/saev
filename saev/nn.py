@@ -1,6 +1,8 @@
 import io
 import json
+import logging
 import os
+import typing
 
 import beartype
 import einops
@@ -12,6 +14,24 @@ from torch import Tensor
 from . import activations, config
 
 
+class Loss(typing.NamedTuple):
+    reconstruction: Float[Tensor, ""]
+    """Reconstruction loss, typically L2."""
+    sparsity: Float[Tensor, ""]
+    """Sparsity loss, typically lambda * L1."""
+    ghost_grad: Float[Tensor, ""]
+    """Ghost gradient loss, if any."""
+    l0: Float[Tensor, ""]
+    """L0 magnitude of hidden activations."""
+    l1: Float[Tensor, ""]
+    """L1 magnitude of hidden activations."""
+
+    @property
+    def loss(self) -> Float[Tensor, ""]:
+        """Total loss."""
+        return self.reconstruction + self.sparsity + self.ghost_grad
+
+
 @jaxtyped(typechecker=beartype.beartype)
 class SparseAutoencoder(torch.nn.Module):
     """
@@ -20,22 +40,25 @@ class SparseAutoencoder(torch.nn.Module):
 
     d_vit: int
     exp_factor: int
-    l1_coeff: float
-    use_ghost_grads: bool
+    sparsity_coeff: float
+    ghost_grads: bool
 
     def __init__(
-        self, d_vit: int, exp_factor: int, l1_coeff: float, use_ghost_grads: bool
+        self,
+        *,
+        d_vit: int,
+        exp_factor: int,
+        sparsity_coeff: float,
+        ghost_grads: bool,
     ):
         super().__init__()
 
         self.d_vit = d_vit
         self.exp_factor = exp_factor
 
-        self.l1_coeff = l1_coeff
-        self.use_ghost_grads = use_ghost_grads
+        self.sparsity_coeff = sparsity_coeff
+        self.ghost_grads = ghost_grads
 
-        # Initialize the weights.
-        # NOTE: if using resampling neurons method, you must ensure that we initialise the weights in the order W_enc, b_enc, W_dec, b_dec
         self.W_enc = torch.nn.Parameter(
             torch.nn.init.kaiming_uniform_(torch.empty(d_vit, self.d_sae))
         )
@@ -44,19 +67,18 @@ class SparseAutoencoder(torch.nn.Module):
         self.W_dec = torch.nn.Parameter(
             torch.nn.init.kaiming_uniform_(torch.empty(self.d_sae, d_vit))
         )
-
-        with torch.no_grad():
-            # Anthropic normalizes this to have unit columns
-            self.W_dec.data /= torch.norm(self.W_dec.data, dim=1, keepdim=True)
-
         self.b_dec = torch.nn.Parameter(torch.zeros(d_vit))
+
+        self.logger = logging.getLogger("sae")
 
     @property
     def d_sae(self) -> int:
         return self.d_vit * self.exp_factor
 
     @jaxtyped(typechecker=beartype.beartype)
-    def forward(self, x: Float[Tensor, "batch d_model"], dead_neuron_mask=None):
+    def forward(
+        self, x: Float[Tensor, "batch d_model"], dead_neuron_mask=None
+    ) -> tuple[Float[Tensor, "batch d_model"], Float[Tensor, "batch d_sae"], Loss]:
         # Remove encoder bias as per Anthropic
         h_pre = (
             einops.einsum(
@@ -71,7 +93,6 @@ class SparseAutoencoder(torch.nn.Module):
             + self.b_dec
         )
 
-        # add config for whether l2 is normalized:
         mse_loss = (
             torch.pow((x_hat - x.float()), 2) / (x**2).sum(dim=-1, keepdim=True).sqrt()
         )
@@ -79,7 +100,7 @@ class SparseAutoencoder(torch.nn.Module):
         ghost_loss = torch.tensor(0.0, dtype=mse_loss.dtype, device=mse_loss.device)
         # gate on config and training so evals is not slowed down.
         if (
-            self.use_ghost_grads
+            self.ghost_grads
             and self.training
             and dead_neuron_mask is not None
             and dead_neuron_mask.sum() > 0
@@ -109,14 +130,17 @@ class SparseAutoencoder(torch.nn.Module):
 
         ghost_loss = ghost_loss.mean()
         mse_loss = mse_loss.mean()
-        sparsity = torch.abs(f_x).sum(dim=1).mean(dim=(0,))
-        l1_loss = self.l1_coeff * sparsity
-        loss = mse_loss + l1_loss + ghost_loss
+        l0 = (f_x > 0).float().sum(axis=1).mean(axis=0)
+        l1 = f_x.sum(axis=1).mean(axis=0)
+        sparsity_loss = self.sparsity_coeff * l1
 
-        return x_hat, f_x, loss, mse_loss, l1_loss, ghost_loss
+        return x_hat, f_x, Loss(mse_loss, sparsity_loss, ghost_loss, l0, l1)
 
     @torch.no_grad()
     def init_b_dec(self, cfg: config.Train, dataset: activations.Dataset):
+        if cfg.n_reinit_batches <= 0:
+            self.logger.info("Skipping init_b_dec.")
+            return
         previous_b_dec = self.b_dec.clone().cpu()
 
         all_activations = get_sae_batches(cfg, dataset).detach().cpu()
@@ -125,17 +149,20 @@ class SparseAutoencoder(torch.nn.Module):
         previous_distances = torch.norm(all_activations - previous_b_dec, dim=-1)
         distances = torch.norm(all_activations - mean, dim=-1)
 
-        print(f"Prev dist: {previous_distances.median(0).values.mean().item()}")
-        print(f"New dist: {distances.median(0).values.mean().item()}")
+        self.logger.info(
+            "Prev dist: %.3f; new dist: %.3f",
+            previous_distances.median(0).values.mean().item(),
+            distances.median(0).values.mean().item(),
+        )
 
         self.b_dec.data = mean.to(self.b_dec.dtype).to(self.b_dec.device)
 
     @torch.no_grad()
-    def set_decoder_norm_to_unit_norm(self):
+    def normalize_w_dec(self):
         self.W_dec.data /= torch.norm(self.W_dec.data, dim=1, keepdim=True)
 
     @torch.no_grad()
-    def remove_gradient_parallel_to_decoder_directions(self):
+    def remove_parallel_grads(self):
         """
         Update grads so that they remove the parallel component
             (d_sae, d_vit) shape
@@ -165,7 +192,6 @@ def get_sae_batches(
         cfg: Train.
         dataset: Dataset.
     """
-    examples = []
     perm = np.random.default_rng(seed=cfg.seed).permutation(len(dataset))
     perm = perm[: cfg.reinit_size]
 
@@ -175,26 +201,24 @@ def get_sae_batches(
 
 
 @beartype.beartype
-def dump(cfg: config.Train, sae: SparseAutoencoder, run_id: str):
-    filepath = f"{cfg.ckpt_path}/{run_id}/sae.pt"
-
+def dump(fpath: str, sae: SparseAutoencoder):
     sae_kwargs = dict(
         d_vit=sae.d_vit,
         exp_factor=sae.exp_factor,
-        l1_coeff=sae.l1_coeff,
-        use_ghost_grads=sae.use_ghost_grads,
+        sparsity_coeff=sae.sparsity_coeff,
+        ghost_grads=sae.ghost_grads,
     )
 
-    os.makedirs(os.path.dirname(filepath), exist_ok=True)
-    with open(filepath, "wb") as fd:
+    os.makedirs(os.path.dirname(fpath), exist_ok=True)
+    with open(fpath, "wb") as fd:
         kwargs_str = json.dumps(sae_kwargs)
         fd.write((kwargs_str + "\n").encode("utf-8"))
         torch.save(sae.state_dict(), fd)
 
 
 @beartype.beartype
-def load(ckpt_fpath: str, *, device: str = "cpu") -> SparseAutoencoder:
-    with open(ckpt_fpath, "rb") as fd:
+def load(fpath: str, *, device: str = "cpu") -> SparseAutoencoder:
+    with open(fpath, "rb") as fd:
         kwargs = json.loads(fd.readline().decode())
         buffer = io.BytesIO(fd.read())
 

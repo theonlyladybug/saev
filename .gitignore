@@ -4,7 +4,5 @@ __pycache__/
 wandb/
 artifacts/
 checkpoints/
-metrics/
 logs/
 web/
-data/

@@ -49,6 +49,11 @@ def sweep(cfg: typing.Annotated[saev.TrainConfig, tyro.conf.arg(name="")], sweep
         except Exception as err:
             errs.append(str(err))
 
+    if errs:
+        for err in errs:
+            logger.warning("Error in config: %s", err)
+        return
+
     if cfg.slurm:
         executor = submitit.SlurmExecutor(folder=cfg.log_to)
         executor.update_parameters(
