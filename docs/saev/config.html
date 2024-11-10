@@ -44,7 +44,7 @@ For example, <code>TreeOfLife.n_imgs</code> imports numpy when it's needed, rath
 <dl>
 <dt id="saev.config.Activations"><code class="flex name class">
 <span>class <span class="ident">Activations</span></span>
-<span>(</span><span>data: <a title="saev.config.ImagenetDataset" href="#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.TreeOfLifeDataset" href="#saev.config.TreeOfLifeDataset">TreeOfLifeDataset</a> | <a title="saev.config.LaionDataset" href="#saev.config.LaionDataset">LaionDataset</a> = &lt;factory&gt;, dump_to: str = './shards', width: int = 224, height: int = 224, model_org: Literal['open-clip', 'timm', 'dinov2'] = 'open-clip', model_ckpt: str = 'ViT-L-14/openai', vit_batch_size: int = 1024, n_workers: int = 8, d_vit: int = 1024, n_layers: int = 6, n_patches_per_img: int = 256, n_patches_per_shard: int = 2400000, seed: int = 42, ssl: bool = True, device: str = 'cuda', slurm: bool = False, slurm_acct: str = 'PAS2136', log_to: str = './logs')</span>
+<span>(</span><span>data: <a title="saev.config.ImagenetDataset" href="#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.TreeOfLifeDataset" href="#saev.config.TreeOfLifeDataset">TreeOfLifeDataset</a> | <a title="saev.config.LaionDataset" href="#saev.config.LaionDataset">LaionDataset</a> | <a title="saev.config.Inat21Dataset" href="#saev.config.Inat21Dataset">Inat21Dataset</a> | <a title="saev.config.BrodenDataset" href="#saev.config.BrodenDataset">BrodenDataset</a> = &lt;factory&gt;, dump_to: str = './shards', model_org: Literal['open-clip', 'timm', 'dinov2'] = 'open-clip', model_ckpt: str = 'ViT-L-14/openai', vit_batch_size: int = 1024, n_workers: int = 8, d_vit: int = 1024, n_layers: int = 6, n_patches_per_img: int = 256, n_patches_per_shard: int = 2400000, seed: int = 42, ssl: bool = True, device: str = 'cuda', slurm: bool = False, slurm_acct: str = 'PAS2136', log_to: str = './logs')</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Configuration for calculating and saving ViT activations.</p></div>
@@ -59,16 +59,16 @@ class Activations:
     Configuration for calculating and saving ViT activations.
     &#34;&#34;&#34;
 
-    data: ImagenetDataset | TreeOfLifeDataset | LaionDataset = dataclasses.field(
-        default_factory=ImagenetDataset
-    )
+    data: (
+        ImagenetDataset
+        | TreeOfLifeDataset
+        | LaionDataset
+        | Inat21Dataset
+        | BrodenDataset
+    ) = dataclasses.field(default_factory=ImagenetDataset)
     &#34;&#34;&#34;Which dataset to use.&#34;&#34;&#34;
     dump_to: str = os.path.join(&#34;.&#34;, &#34;shards&#34;)
     &#34;&#34;&#34;Where to write shards.&#34;&#34;&#34;
-    width: int = 224
-    &#34;&#34;&#34;Image width.&#34;&#34;&#34;
-    height: int = 224
-    &#34;&#34;&#34;Image height.&#34;&#34;&#34;
     model_org: typing.Literal[&#34;open-clip&#34;, &#34;timm&#34;, &#34;dinov2&#34;] = &#34;open-clip&#34;
     &#34;&#34;&#34;Where to load models from.&#34;&#34;&#34;
     model_ckpt: str = &#34;ViT-L-14/openai&#34;
@@ -107,7 +107,7 @@ class Activations:
 <dd>
 <div class="desc"><p>Dimension of the ViT activations (depends on model).</p></div>
 </dd>
-<dt id="saev.config.Activations.data"><code class="name">var <span class="ident">data</span> : <a title="saev.config.ImagenetDataset" href="#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.TreeOfLifeDataset" href="#saev.config.TreeOfLifeDataset">TreeOfLifeDataset</a> | <a title="saev.config.LaionDataset" href="#saev.config.LaionDataset">LaionDataset</a></code></dt>
+<dt id="saev.config.Activations.data"><code class="name">var <span class="ident">data</span> : <a title="saev.config.ImagenetDataset" href="#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.TreeOfLifeDataset" href="#saev.config.TreeOfLifeDataset">TreeOfLifeDataset</a> | <a title="saev.config.LaionDataset" href="#saev.config.LaionDataset">LaionDataset</a> | <a title="saev.config.Inat21Dataset" href="#saev.config.Inat21Dataset">Inat21Dataset</a> | <a title="saev.config.BrodenDataset" href="#saev.config.BrodenDataset">BrodenDataset</a></code></dt>
 <dd>
 <div class="desc"><p>Which dataset to use.</p></div>
 </dd>
@@ -118,10 +118,6 @@ class Activations:
 <dt id="saev.config.Activations.dump_to"><code class="name">var <span class="ident">dump_to</span> : str</code></dt>
 <dd>
 <div class="desc"><p>Where to write shards.</p></div>
-</dd>
-<dt id="saev.config.Activations.height"><code class="name">var <span class="ident">height</span> : int</code></dt>
-<dd>
-<div class="desc"><p>Image height.</p></div>
 </dd>
 <dt id="saev.config.Activations.log_to"><code class="name">var <span class="ident">log_to</span> : str</code></dt>
 <dd>
@@ -171,9 +167,138 @@ class Activations:
 <dd>
 <div class="desc"><p>Batch size for ViT inference.</p></div>
 </dd>
-<dt id="saev.config.Activations.width"><code class="name">var <span class="ident">width</span> : int</code></dt>
+</dl>
+</dd>
+<dt id="saev.config.BrodenDataset"><code class="flex name class">
+<span>class <span class="ident">BrodenDataset</span></span>
+<span>(</span><span>root: str = './broden')</span>
+</code></dt>
 <dd>
-<div class="desc"><p>Image width.</p></div>
+<div class="desc"><p>Configuration for Broden dataset.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@beartype.beartype
+@dataclasses.dataclass(frozen=True)
+class BrodenDataset:
+    &#34;&#34;&#34;Configuration for Broden dataset.&#34;&#34;&#34;
+
+    root: str = os.path.join(&#34;.&#34;, &#34;broden&#34;)
+    &#34;&#34;&#34;Where the Broden dataset is stored.&#34;&#34;&#34;
+
+    @property
+    def n_imgs(self) -&gt; int:
+        &#34;&#34;&#34;Number of images in the dataset. Calculated on the fly, but is non-trivial to calculate because it requires reading a file. If you need to reference this number very often, cache it in a local variable.&#34;&#34;&#34;
+        with open(os.path.join(self.root, &#34;index.csv&#34;)) as fd:
+            return sum(1 for _ in fd)</code></pre>
+</details>
+<h3>Class variables</h3>
+<dl>
+<dt id="saev.config.BrodenDataset.root"><code class="name">var <span class="ident">root</span> : str</code></dt>
+<dd>
+<div class="desc"><p>Where the Broden dataset is stored.</p></div>
+</dd>
+</dl>
+<h3>Instance variables</h3>
+<dl>
+<dt id="saev.config.BrodenDataset.n_imgs"><code class="name">prop <span class="ident">n_imgs</span> : int</code></dt>
+<dd>
+<div class="desc"><p>Number of images in the dataset. Calculated on the fly, but is non-trivial to calculate because it requires reading a file. If you need to reference this number very often, cache it in a local variable.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def n_imgs(self) -&gt; int:
+    &#34;&#34;&#34;Number of images in the dataset. Calculated on the fly, but is non-trivial to calculate because it requires reading a file. If you need to reference this number very often, cache it in a local variable.&#34;&#34;&#34;
+    with open(os.path.join(self.root, &#34;index.csv&#34;)) as fd:
+        return sum(1 for _ in fd)</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+<dt id="saev.config.BrodenEvaluate"><code class="flex name class">
+<span>class <span class="ident">BrodenEvaluate</span></span>
+<span>(</span><span>ckpt: str = './checkpoints/abcdefg/sae.pt', patch_size: tuple[int, int] = (16, 16), root: str = './broden', data: <a title="saev.config.DataLoad" href="#saev.config.DataLoad">DataLoad</a> = &lt;factory&gt;, n_workers: int = 8, batch_size: int = 1024, sample_range: tuple[int, int] = (200, 1000), dump_to: str = './logs/broden', device: str = 'cuda', log_every: int = 10, seed: int = 42)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>BrodenEvaluate(ckpt: str = './checkpoints/abcdefg/sae.pt', patch_size: tuple[int, int] = (16, 16), root: str = './broden', data: saev.config.DataLoad = <factory>, n_workers: int = 8, batch_size: int = 1024, sample_range: tuple[int, int] = (200, 1000), dump_to: str = './logs/broden', device: str = 'cuda', log_every: int = 10, seed: int = 42)</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@beartype.beartype
+@dataclasses.dataclass(frozen=True)
+class BrodenEvaluate:
+    ckpt: str = os.path.join(&#34;.&#34;, &#34;checkpoints&#34;, &#34;abcdefg&#34;, &#34;sae.pt&#34;)
+    &#34;&#34;&#34;Path to the sae.pt file.&#34;&#34;&#34;
+    patch_size: tuple[int, int] = (16, 16)
+    &#34;&#34;&#34;Original patch size in pixels.&#34;&#34;&#34;
+    root: str = &#34;./broden&#34;
+    &#34;&#34;&#34;Root of the Broden dataset.&#34;&#34;&#34;
+    data: DataLoad = dataclasses.field(default_factory=DataLoad)
+    &#34;&#34;&#34;ViT activations for Broden.&#34;&#34;&#34;
+    n_workers: int = 8
+    &#34;&#34;&#34;Number of dataloader workers.&#34;&#34;&#34;
+    batch_size: int = 1024
+    &#34;&#34;&#34;ViT and SAE inference batch size.&#34;&#34;&#34;
+    sample_range: tuple[int, int] = (200, 1_000)
+    &#34;&#34;&#34;Range of samples per label. Will skip samples with fewer samples and will truncate classes with more samples.&#34;&#34;&#34;
+    dump_to: str = os.path.join(&#34;.&#34;, &#34;logs&#34;, &#34;broden&#34;)
+    &#34;&#34;&#34;Where to save charts.&#34;&#34;&#34;
+    device: str = &#34;cuda&#34;
+    &#34;&#34;&#34;Which accelerator to use.&#34;&#34;&#34;
+    log_every: int = 10
+    &#34;&#34;&#34;How often to log progress.&#34;&#34;&#34;
+    seed: int = 42
+    &#34;&#34;&#34;Random seed.&#34;&#34;&#34;</code></pre>
+</details>
+<h3>Class variables</h3>
+<dl>
+<dt id="saev.config.BrodenEvaluate.batch_size"><code class="name">var <span class="ident">batch_size</span> : int</code></dt>
+<dd>
+<div class="desc"><p>ViT and SAE inference batch size.</p></div>
+</dd>
+<dt id="saev.config.BrodenEvaluate.ckpt"><code class="name">var <span class="ident">ckpt</span> : str</code></dt>
+<dd>
+<div class="desc"><p>Path to the sae.pt file.</p></div>
+</dd>
+<dt id="saev.config.BrodenEvaluate.data"><code class="name">var <span class="ident">data</span> : <a title="saev.config.DataLoad" href="#saev.config.DataLoad">DataLoad</a></code></dt>
+<dd>
+<div class="desc"><p>ViT activations for Broden.</p></div>
+</dd>
+<dt id="saev.config.BrodenEvaluate.device"><code class="name">var <span class="ident">device</span> : str</code></dt>
+<dd>
+<div class="desc"><p>Which accelerator to use.</p></div>
+</dd>
+<dt id="saev.config.BrodenEvaluate.dump_to"><code class="name">var <span class="ident">dump_to</span> : str</code></dt>
+<dd>
+<div class="desc"><p>Where to save charts.</p></div>
+</dd>
+<dt id="saev.config.BrodenEvaluate.log_every"><code class="name">var <span class="ident">log_every</span> : int</code></dt>
+<dd>
+<div class="desc"><p>How often to log progress.</p></div>
+</dd>
+<dt id="saev.config.BrodenEvaluate.n_workers"><code class="name">var <span class="ident">n_workers</span> : int</code></dt>
+<dd>
+<div class="desc"><p>Number of dataloader workers.</p></div>
+</dd>
+<dt id="saev.config.BrodenEvaluate.patch_size"><code class="name">var <span class="ident">patch_size</span> : tuple[int, int]</code></dt>
+<dd>
+<div class="desc"><p>Original patch size in pixels.</p></div>
+</dd>
+<dt id="saev.config.BrodenEvaluate.root"><code class="name">var <span class="ident">root</span> : str</code></dt>
+<dd>
+<div class="desc"><p>Root of the Broden dataset.</p></div>
+</dd>
+<dt id="saev.config.BrodenEvaluate.sample_range"><code class="name">var <span class="ident">sample_range</span> : tuple[int, int]</code></dt>
+<dd>
+<div class="desc"><p>Range of samples per label. Will skip samples with fewer samples and will truncate classes with more samples.</p></div>
+</dd>
+<dt id="saev.config.BrodenEvaluate.seed"><code class="name">var <span class="ident">seed</span> : int</code></dt>
+<dd>
+<div class="desc"><p>Random seed.</p></div>
 </dd>
 </dl>
 </dd>
@@ -219,10 +344,10 @@ class DataLoad:
 </dd>
 <dt id="saev.config.Evaluate"><code class="flex name class">
 <span>class <span class="ident">Evaluate</span></span>
-<span>(</span><span>histograms: <a title="saev.config.HistogramsEvaluate" href="#saev.config.HistogramsEvaluate">HistogramsEvaluate</a> = &lt;factory&gt;, imagenet: <a title="saev.config.ImagenetEvaluate" href="#saev.config.ImagenetEvaluate">ImagenetEvaluate</a> = &lt;factory&gt;, slurm: bool = False, slurm_acct: str = 'PAS2136', log_to: str = './logs')</span>
+<span>(</span><span>histograms: <a title="saev.config.HistogramsEvaluate" href="#saev.config.HistogramsEvaluate">HistogramsEvaluate</a> = &lt;factory&gt;, broden: <a title="saev.config.BrodenEvaluate" href="#saev.config.BrodenEvaluate">BrodenEvaluate</a> = &lt;factory&gt;, imagenet: <a title="saev.config.ImagenetEvaluate" href="#saev.config.ImagenetEvaluate">ImagenetEvaluate</a> = &lt;factory&gt;, slurm: bool = False, slurm_acct: str = 'PAS2136', log_to: str = './logs')</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Evaluate(histograms: saev.config.HistogramsEvaluate = <factory>, imagenet: saev.config.ImagenetEvaluate = <factory>, slurm: bool = False, slurm_acct: str = 'PAS2136', log_to: str = './logs')</p></div>
+<div class="desc"><p>Evaluate(histograms: saev.config.HistogramsEvaluate = <factory>, broden: saev.config.BrodenEvaluate = <factory>, imagenet: saev.config.ImagenetEvaluate = <factory>, slurm: bool = False, slurm_acct: str = 'PAS2136', log_to: str = './logs')</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -234,6 +359,8 @@ class Evaluate:
         default_factory=HistogramsEvaluate
     )
     &#34;&#34;&#34;Histogram config.&#34;&#34;&#34;
+    broden: BrodenEvaluate = dataclasses.field(default_factory=BrodenEvaluate)
+    &#34;&#34;&#34;Broden feature probing config.&#34;&#34;&#34;
 
     imagenet: ImagenetEvaluate = dataclasses.field(default_factory=ImagenetEvaluate)
     &#34;&#34;&#34;ImageNet-1K config.&#34;&#34;&#34;
@@ -247,6 +374,10 @@ class Evaluate:
 </details>
 <h3>Class variables</h3>
 <dl>
+<dt id="saev.config.Evaluate.broden"><code class="name">var <span class="ident">broden</span> : <a title="saev.config.BrodenEvaluate" href="#saev.config.BrodenEvaluate">BrodenEvaluate</a></code></dt>
+<dd>
+<div class="desc"><p>Broden feature probing config.</p></div>
+</dd>
 <dt id="saev.config.Evaluate.histograms"><code class="name">var <span class="ident">histograms</span> : <a title="saev.config.HistogramsEvaluate" href="#saev.config.HistogramsEvaluate">HistogramsEvaluate</a></code></dt>
 <dd>
 <div class="desc"><p>Histogram config.</p></div>
@@ -271,10 +402,10 @@ class Evaluate:
 </dd>
 <dt id="saev.config.HistogramsEvaluate"><code class="flex name class">
 <span>class <span class="ident">HistogramsEvaluate</span></span>
-<span>(</span><span>ckpt_path: str = './checkpoints/abcdefg', data: <a title="saev.config.DataLoad" href="#saev.config.DataLoad">DataLoad</a> = &lt;factory&gt;, n_workers: int = 8, batch_size: int = 1024, device: str = 'cuda', log_every: int = 10)</span>
+<span>(</span><span>ckpt: str = './checkpoints/abcdefg/sae.pt', data: <a title="saev.config.DataLoad" href="#saev.config.DataLoad">DataLoad</a> = &lt;factory&gt;, n_workers: int = 8, sae_batch_size: int = 8192, device: str = 'cuda', log_every: int = 10)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>HistogramsEvaluate(ckpt_path: str = './checkpoints/abcdefg', data: saev.config.DataLoad = <factory>, n_workers: int = 8, batch_size: int = 1024, device: str = 'cuda', log_every: int = 10)</p></div>
+<div class="desc"><p>HistogramsEvaluate(ckpt: str = './checkpoints/abcdefg/sae.pt', data: saev.config.DataLoad = <factory>, n_workers: int = 8, sae_batch_size: int = 8192, device: str = 'cuda', log_every: int = 10)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -282,30 +413,22 @@ class Evaluate:
 <pre><code class="python">@beartype.beartype
 @dataclasses.dataclass(frozen=True)
 class HistogramsEvaluate:
-    # Model
-    ckpt_path: str = os.path.join(&#34;.&#34;, &#34;checkpoints&#34;, &#34;abcdefg&#34;)
+    ckpt: str = os.path.join(&#34;.&#34;, &#34;checkpoints&#34;, &#34;abcdefg&#34;, &#34;sae.pt&#34;)
     &#34;&#34;&#34;Path to the sae.pt file.&#34;&#34;&#34;
-    # Data
     data: DataLoad = dataclasses.field(default_factory=DataLoad)
     &#34;&#34;&#34;Data configuration.&#34;&#34;&#34;
     n_workers: int = 8
     &#34;&#34;&#34;Number of dataloader workers.&#34;&#34;&#34;
-    batch_size: int = 1024
+    sae_batch_size: int = 1024 * 8
     &#34;&#34;&#34;SAE inference batch size.&#34;&#34;&#34;
-    # Hardware
     device: str = &#34;cuda&#34;
     &#34;&#34;&#34;Which accelerator to use.&#34;&#34;&#34;
-    # Misc
     log_every: int = 10
     &#34;&#34;&#34;How often to log progress.&#34;&#34;&#34;</code></pre>
 </details>
 <h3>Class variables</h3>
 <dl>
-<dt id="saev.config.HistogramsEvaluate.batch_size"><code class="name">var <span class="ident">batch_size</span> : int</code></dt>
-<dd>
-<div class="desc"><p>SAE inference batch size.</p></div>
-</dd>
-<dt id="saev.config.HistogramsEvaluate.ckpt_path"><code class="name">var <span class="ident">ckpt_path</span> : str</code></dt>
+<dt id="saev.config.HistogramsEvaluate.ckpt"><code class="name">var <span class="ident">ckpt</span> : str</code></dt>
 <dd>
 <div class="desc"><p>Path to the sae.pt file.</p></div>
 </dd>
@@ -324,6 +447,10 @@ class HistogramsEvaluate:
 <dt id="saev.config.HistogramsEvaluate.n_workers"><code class="name">var <span class="ident">n_workers</span> : int</code></dt>
 <dd>
 <div class="desc"><p>Number of dataloader workers.</p></div>
+</dd>
+<dt id="saev.config.HistogramsEvaluate.sae_batch_size"><code class="name">var <span class="ident">sae_batch_size</span> : int</code></dt>
+<dd>
+<div class="desc"><p>SAE inference batch size.</p></div>
 </dd>
 </dl>
 </dd>
@@ -461,6 +588,65 @@ class ImagenetEvaluate:
 </dd>
 </dl>
 </dd>
+<dt id="saev.config.Inat21Dataset"><code class="flex name class">
+<span>class <span class="ident">Inat21Dataset</span></span>
+<span>(</span><span>root: str = './inat21', split: str = 'train')</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Configuration for iNat2021 dataset.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@beartype.beartype
+@dataclasses.dataclass(frozen=True)
+class Inat21Dataset:
+    &#34;&#34;&#34;Configuration for iNat2021 dataset.&#34;&#34;&#34;
+
+    root: str = &#34;./inat21&#34;
+    &#34;&#34;&#34;Where the images are stored.&#34;&#34;&#34;
+    split: str = &#34;train&#34;
+    &#34;&#34;&#34;Dataset split. Can either be &#39;train&#39;, &#39;val&#39; or &#39;train_mini&#39;.&#34;&#34;&#34;
+
+    @property
+    def n_imgs(self) -&gt; int:
+        &#34;&#34;&#34;Number of images in the dataset. Calculated on the fly, but is non-trivial to calculate because it requires walking the directory structure. If you need to reference this number very often, cache it in a local variable.&#34;&#34;&#34;
+        n = 0
+        for _, _, files in os.walk(os.path.join(self.root, self.split)):
+            n += len(files)
+        return n</code></pre>
+</details>
+<h3>Class variables</h3>
+<dl>
+<dt id="saev.config.Inat21Dataset.root"><code class="name">var <span class="ident">root</span> : str</code></dt>
+<dd>
+<div class="desc"><p>Where the images are stored.</p></div>
+</dd>
+<dt id="saev.config.Inat21Dataset.split"><code class="name">var <span class="ident">split</span> : str</code></dt>
+<dd>
+<div class="desc"><p>Dataset split. Can either be 'train', 'val' or 'train_mini'.</p></div>
+</dd>
+</dl>
+<h3>Instance variables</h3>
+<dl>
+<dt id="saev.config.Inat21Dataset.n_imgs"><code class="name">prop <span class="ident">n_imgs</span> : int</code></dt>
+<dd>
+<div class="desc"><p>Number of images in the dataset. Calculated on the fly, but is non-trivial to calculate because it requires walking the directory structure. If you need to reference this number very often, cache it in a local variable.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def n_imgs(self) -&gt; int:
+    &#34;&#34;&#34;Number of images in the dataset. Calculated on the fly, but is non-trivial to calculate because it requires walking the directory structure. If you need to reference this number very often, cache it in a local variable.&#34;&#34;&#34;
+    n = 0
+    for _, _, files in os.walk(os.path.join(self.root, self.split)):
+        n += len(files)
+    return n</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
 <dt id="saev.config.LaionDataset"><code class="flex name class">
 <span>class <span class="ident">LaionDataset</span></span>
 <span>(</span><span>name: str = 'laion/relaion2B-multi-research-safe', cache_dir: str = '/fs/scratch/PAS2136/samuelstevens/cache/laion', n_imgs: int = 10000000)</span>
@@ -536,7 +722,7 @@ def url_list_filepath(self) -&gt; str:
 </dd>
 <dt id="saev.config.Train"><code class="flex name class">
 <span>class <span class="ident">Train</span></span>
-<span>(</span><span>data: <a title="saev.config.DataLoad" href="#saev.config.DataLoad">DataLoad</a> = &lt;factory&gt;, n_workers: int = 8, n_reinit_batches: int = 15, n_patches: int = 1000000000, exp_factor: int = 64, l1_coeff: float = 8e-05, lr: float = 0.0004, n_lr_warmup: int = 500, sae_batch_size: int = 1024, use_ghost_grads: bool = True, feature_sampling_window: int = 64, resample_batches: int = 32, dead_feature_window: int = 64, dead_feature_threshold: float = 1e-06, track: bool = True, wandb_project: str = 'saev', log_every: int = 10, ckpt_path: str = './checkpoints', device: str = 'cuda', seed: int = 42, slurm: bool = False, slurm_acct: str = 'PAS2136', log_to: str = './logs')</span>
+<span>(</span><span>data: <a title="saev.config.DataLoad" href="#saev.config.DataLoad">DataLoad</a> = &lt;factory&gt;, n_workers: int = 8, n_reinit_batches: int = 15, n_patches: int = 1000000000, exp_factor: int = 64, l1_coeff: float = 8e-05, lr: float = 0.0004, n_lr_warmup: int = 500, sae_batch_size: int = 1024, use_ghost_grads: bool = True, feature_sampling_window: int = 64, resample_batches: int = 32, dead_feature_window: int = 64, dead_feature_threshold: float = 1e-06, track: bool = True, wandb_project: str = 'saev', log_every: int = 25, ckpt_path: str = './checkpoints', device: str = 'cuda', seed: int = 42, slurm: bool = False, slurm_acct: str = 'PAS2136', log_to: str = './logs')</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Configuration for training a sparse autoencoder on a vision transformer.</p></div>
@@ -587,7 +773,7 @@ class Train:
     &#34;&#34;&#34;Whether to track with WandB.&#34;&#34;&#34;
     wandb_project: str = &#34;saev&#34;
 
-    log_every: int = 10
+    log_every: int = 25
     &#34;&#34;&#34;How often to log to WandB.&#34;&#34;&#34;
     ckpt_path: str = os.path.join(&#34;.&#34;, &#34;checkpoints&#34;)
     &#34;&#34;&#34;Where to save checkpoints.&#34;&#34;&#34;
@@ -817,7 +1003,7 @@ def n_imgs(self) -&gt; int:
 </dd>
 <dt id="saev.config.Webapp"><code class="flex name class">
 <span>class <span class="ident">Webapp</span></span>
-<span>(</span><span>ckpt: str = './checkpoints/sae.pt', data: <a title="saev.config.DataLoad" href="#saev.config.DataLoad">DataLoad</a> = &lt;factory&gt;, images: <a title="saev.config.ImagenetDataset" href="#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.TreeOfLifeDataset" href="#saev.config.TreeOfLifeDataset">TreeOfLifeDataset</a> | <a title="saev.config.LaionDataset" href="#saev.config.LaionDataset">LaionDataset</a> = &lt;factory&gt;, top_k: int = 16, n_workers: int = 16, topk_batch_size: int = 16384, sae_batch_size: int = 1024, epsilon: float = 1e-09, sort_by: Literal['cls', 'img', 'patch'] = 'cls', device: str = 'cuda', dump_to: str = './data')</span>
+<span>(</span><span>ckpt: str = './checkpoints/sae.pt', data: <a title="saev.config.DataLoad" href="#saev.config.DataLoad">DataLoad</a> = &lt;factory&gt;, images: <a title="saev.config.ImagenetDataset" href="#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.TreeOfLifeDataset" href="#saev.config.TreeOfLifeDataset">TreeOfLifeDataset</a> | <a title="saev.config.LaionDataset" href="#saev.config.LaionDataset">LaionDataset</a> | <a title="saev.config.Inat21Dataset" href="#saev.config.Inat21Dataset">Inat21Dataset</a> = &lt;factory&gt;, top_k: int = 16, n_workers: int = 16, topk_batch_size: int = 16384, sae_batch_size: int = 1024, epsilon: float = 1e-09, sort_by: Literal['cls', 'img', 'patch'] = 'cls', device: str = 'cuda', dump_to: str = './data')</span>
 </code></dt>
 <dd>
 <div class="desc"><div class="admonition todo">
@@ -837,8 +1023,8 @@ class Webapp:
     &#34;&#34;&#34;Path to the sae.pt file.&#34;&#34;&#34;
     data: DataLoad = dataclasses.field(default_factory=DataLoad)
     &#34;&#34;&#34;Data configuration.&#34;&#34;&#34;
-    images: ImagenetDataset | TreeOfLifeDataset | LaionDataset = dataclasses.field(
-        default_factory=ImagenetDataset
+    images: ImagenetDataset | TreeOfLifeDataset | LaionDataset | Inat21Dataset = (
+        dataclasses.field(default_factory=ImagenetDataset)
     )
     &#34;&#34;&#34;Which images to use.&#34;&#34;&#34;
     top_k: int = 16
@@ -904,7 +1090,7 @@ class Webapp:
 <dd>
 <div class="desc"><p>Value to add to avoid log(0).</p></div>
 </dd>
-<dt id="saev.config.Webapp.images"><code class="name">var <span class="ident">images</span> : <a title="saev.config.ImagenetDataset" href="#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.TreeOfLifeDataset" href="#saev.config.TreeOfLifeDataset">TreeOfLifeDataset</a> | <a title="saev.config.LaionDataset" href="#saev.config.LaionDataset">LaionDataset</a></code></dt>
+<dt id="saev.config.Webapp.images"><code class="name">var <span class="ident">images</span> : <a title="saev.config.ImagenetDataset" href="#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.TreeOfLifeDataset" href="#saev.config.TreeOfLifeDataset">TreeOfLifeDataset</a> | <a title="saev.config.LaionDataset" href="#saev.config.LaionDataset">LaionDataset</a> | <a title="saev.config.Inat21Dataset" href="#saev.config.Inat21Dataset">Inat21Dataset</a></code></dt>
 <dd>
 <div class="desc"><p>Which images to use.</p></div>
 </dd>
@@ -1029,7 +1215,6 @@ def top_values_fpath(self) -&gt; str:
 <li><code><a title="saev.config.Activations.data" href="#saev.config.Activations.data">data</a></code></li>
 <li><code><a title="saev.config.Activations.device" href="#saev.config.Activations.device">device</a></code></li>
 <li><code><a title="saev.config.Activations.dump_to" href="#saev.config.Activations.dump_to">dump_to</a></code></li>
-<li><code><a title="saev.config.Activations.height" href="#saev.config.Activations.height">height</a></code></li>
 <li><code><a title="saev.config.Activations.log_to" href="#saev.config.Activations.log_to">log_to</a></code></li>
 <li><code><a title="saev.config.Activations.model_ckpt" href="#saev.config.Activations.model_ckpt">model_ckpt</a></code></li>
 <li><code><a title="saev.config.Activations.model_org" href="#saev.config.Activations.model_org">model_org</a></code></li>
@@ -1042,7 +1227,29 @@ def top_values_fpath(self) -&gt; str:
 <li><code><a title="saev.config.Activations.slurm_acct" href="#saev.config.Activations.slurm_acct">slurm_acct</a></code></li>
 <li><code><a title="saev.config.Activations.ssl" href="#saev.config.Activations.ssl">ssl</a></code></li>
 <li><code><a title="saev.config.Activations.vit_batch_size" href="#saev.config.Activations.vit_batch_size">vit_batch_size</a></code></li>
-<li><code><a title="saev.config.Activations.width" href="#saev.config.Activations.width">width</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="saev.config.BrodenDataset" href="#saev.config.BrodenDataset">BrodenDataset</a></code></h4>
+<ul class="">
+<li><code><a title="saev.config.BrodenDataset.n_imgs" href="#saev.config.BrodenDataset.n_imgs">n_imgs</a></code></li>
+<li><code><a title="saev.config.BrodenDataset.root" href="#saev.config.BrodenDataset.root">root</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="saev.config.BrodenEvaluate" href="#saev.config.BrodenEvaluate">BrodenEvaluate</a></code></h4>
+<ul class="two-column">
+<li><code><a title="saev.config.BrodenEvaluate.batch_size" href="#saev.config.BrodenEvaluate.batch_size">batch_size</a></code></li>
+<li><code><a title="saev.config.BrodenEvaluate.ckpt" href="#saev.config.BrodenEvaluate.ckpt">ckpt</a></code></li>
+<li><code><a title="saev.config.BrodenEvaluate.data" href="#saev.config.BrodenEvaluate.data">data</a></code></li>
+<li><code><a title="saev.config.BrodenEvaluate.device" href="#saev.config.BrodenEvaluate.device">device</a></code></li>
+<li><code><a title="saev.config.BrodenEvaluate.dump_to" href="#saev.config.BrodenEvaluate.dump_to">dump_to</a></code></li>
+<li><code><a title="saev.config.BrodenEvaluate.log_every" href="#saev.config.BrodenEvaluate.log_every">log_every</a></code></li>
+<li><code><a title="saev.config.BrodenEvaluate.n_workers" href="#saev.config.BrodenEvaluate.n_workers">n_workers</a></code></li>
+<li><code><a title="saev.config.BrodenEvaluate.patch_size" href="#saev.config.BrodenEvaluate.patch_size">patch_size</a></code></li>
+<li><code><a title="saev.config.BrodenEvaluate.root" href="#saev.config.BrodenEvaluate.root">root</a></code></li>
+<li><code><a title="saev.config.BrodenEvaluate.sample_range" href="#saev.config.BrodenEvaluate.sample_range">sample_range</a></code></li>
+<li><code><a title="saev.config.BrodenEvaluate.seed" href="#saev.config.BrodenEvaluate.seed">seed</a></code></li>
 </ul>
 </li>
 <li>
@@ -1055,7 +1262,8 @@ def top_values_fpath(self) -&gt; str:
 </li>
 <li>
 <h4><code><a title="saev.config.Evaluate" href="#saev.config.Evaluate">Evaluate</a></code></h4>
-<ul class="">
+<ul class="two-column">
+<li><code><a title="saev.config.Evaluate.broden" href="#saev.config.Evaluate.broden">broden</a></code></li>
 <li><code><a title="saev.config.Evaluate.histograms" href="#saev.config.Evaluate.histograms">histograms</a></code></li>
 <li><code><a title="saev.config.Evaluate.imagenet" href="#saev.config.Evaluate.imagenet">imagenet</a></code></li>
 <li><code><a title="saev.config.Evaluate.log_to" href="#saev.config.Evaluate.log_to">log_to</a></code></li>
@@ -1066,12 +1274,12 @@ def top_values_fpath(self) -&gt; str:
 <li>
 <h4><code><a title="saev.config.HistogramsEvaluate" href="#saev.config.HistogramsEvaluate">HistogramsEvaluate</a></code></h4>
 <ul class="two-column">
-<li><code><a title="saev.config.HistogramsEvaluate.batch_size" href="#saev.config.HistogramsEvaluate.batch_size">batch_size</a></code></li>
-<li><code><a title="saev.config.HistogramsEvaluate.ckpt_path" href="#saev.config.HistogramsEvaluate.ckpt_path">ckpt_path</a></code></li>
+<li><code><a title="saev.config.HistogramsEvaluate.ckpt" href="#saev.config.HistogramsEvaluate.ckpt">ckpt</a></code></li>
 <li><code><a title="saev.config.HistogramsEvaluate.data" href="#saev.config.HistogramsEvaluate.data">data</a></code></li>
 <li><code><a title="saev.config.HistogramsEvaluate.device" href="#saev.config.HistogramsEvaluate.device">device</a></code></li>
 <li><code><a title="saev.config.HistogramsEvaluate.log_every" href="#saev.config.HistogramsEvaluate.log_every">log_every</a></code></li>
 <li><code><a title="saev.config.HistogramsEvaluate.n_workers" href="#saev.config.HistogramsEvaluate.n_workers">n_workers</a></code></li>
+<li><code><a title="saev.config.HistogramsEvaluate.sae_batch_size" href="#saev.config.HistogramsEvaluate.sae_batch_size">sae_batch_size</a></code></li>
 </ul>
 </li>
 <li>
@@ -1093,6 +1301,14 @@ def top_values_fpath(self) -&gt; str:
 <li><code><a title="saev.config.ImagenetEvaluate.sgd_batch_size" href="#saev.config.ImagenetEvaluate.sgd_batch_size">sgd_batch_size</a></code></li>
 <li><code><a title="saev.config.ImagenetEvaluate.train_shard_root" href="#saev.config.ImagenetEvaluate.train_shard_root">train_shard_root</a></code></li>
 <li><code><a title="saev.config.ImagenetEvaluate.val_shard_root" href="#saev.config.ImagenetEvaluate.val_shard_root">val_shard_root</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="saev.config.Inat21Dataset" href="#saev.config.Inat21Dataset">Inat21Dataset</a></code></h4>
+<ul class="">
+<li><code><a title="saev.config.Inat21Dataset.n_imgs" href="#saev.config.Inat21Dataset.n_imgs">n_imgs</a></code></li>
+<li><code><a title="saev.config.Inat21Dataset.root" href="#saev.config.Inat21Dataset.root">root</a></code></li>
+<li><code><a title="saev.config.Inat21Dataset.split" href="#saev.config.Inat21Dataset.split">split</a></code></li>
 </ul>
 </li>
 <li>

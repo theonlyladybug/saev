@@ -118,14 +118,33 @@ class Inat21Dataset:
 
 @beartype.beartype
 @dataclasses.dataclass(frozen=True)
+class BrodenDataset:
+    """Configuration for Broden dataset."""
+
+    root: str = os.path.join(".", "broden")
+    """Where the Broden dataset is stored."""
+
+    @property
+    def n_imgs(self) -> int:
+        """Number of images in the dataset. Calculated on the fly, but is non-trivial to calculate because it requires reading a file. If you need to reference this number very often, cache it in a local variable."""
+        with open(os.path.join(self.root, "index.csv")) as fd:
+            return sum(1 for _ in fd)
+
+
+@beartype.beartype
+@dataclasses.dataclass(frozen=True)
 class Activations:
     """
     Configuration for calculating and saving ViT activations.
     """
 
-    data: ImagenetDataset | TreeOfLifeDataset | LaionDataset | Inat21Dataset = (
-        dataclasses.field(default_factory=ImagenetDataset)
-    )
+    data: (
+        ImagenetDataset
+        | TreeOfLifeDataset
+        | LaionDataset
+        | Inat21Dataset
+        | BrodenDataset
+    ) = dataclasses.field(default_factory=ImagenetDataset)
     """Which dataset to use."""
     dump_to: str = os.path.join(".", "shards")
     """Where to write shards."""
@@ -220,7 +239,7 @@ class Train:
     """Whether to track with WandB."""
     wandb_project: str = "saev"
 
-    log_every: int = 10
+    log_every: int = 25
     """How often to log to WandB."""
     ckpt_path: str = os.path.join(".", "checkpoints")
     """Where to save checkpoints."""
@@ -252,8 +271,8 @@ class Webapp:
     """Path to the sae.pt file."""
     data: DataLoad = dataclasses.field(default_factory=DataLoad)
     """Data configuration."""
-    images: ImagenetDataset | TreeOfLifeDataset | LaionDataset = dataclasses.field(
-        default_factory=ImagenetDataset
+    images: ImagenetDataset | TreeOfLifeDataset | LaionDataset | Inat21Dataset = (
+        dataclasses.field(default_factory=ImagenetDataset)
     )
     """Which images to use."""
     top_k: int = 16
@@ -327,22 +346,47 @@ class ImagenetEvaluate:
 @beartype.beartype
 @dataclasses.dataclass(frozen=True)
 class HistogramsEvaluate:
-    # Model
-    ckpt: str = os.path.join(".", "checkpoints", "abcdefg")
+    ckpt: str = os.path.join(".", "checkpoints", "abcdefg", "sae.pt")
     """Path to the sae.pt file."""
-    # Data
     data: DataLoad = dataclasses.field(default_factory=DataLoad)
     """Data configuration."""
     n_workers: int = 8
     """Number of dataloader workers."""
-    batch_size: int = 1024 * 8
+    sae_batch_size: int = 1024 * 8
     """SAE inference batch size."""
-    # Hardware
     device: str = "cuda"
     """Which accelerator to use."""
-    # Misc
     log_every: int = 10
     """How often to log progress."""
+
+
+@beartype.beartype
+@dataclasses.dataclass(frozen=True)
+class BrodenEvaluate:
+    ckpt: str = os.path.join(".", "checkpoints", "abcdefg", "sae.pt")
+    """Path to the sae.pt file."""
+    patch_size: tuple[int, int] = (16, 16)
+    """Original patch size in pixels."""
+    root: str = "./broden"
+    """Root of the Broden dataset."""
+    data: DataLoad = dataclasses.field(default_factory=DataLoad)
+    """ViT activations for Broden."""
+    n_workers: int = 8
+    """Number of dataloader workers."""
+    batch_size: int = 1024
+    """ViT and SAE inference batch size."""
+    sample_range: tuple[int, int] = (200, 1_000)
+    """Range of samples per label. Will skip samples with fewer samples and will truncate classes with more samples."""
+    dump_to: str = os.path.join(".", "logs", "broden")
+    """Where to save charts."""
+    device: str = "cuda"
+    """Which accelerator to use."""
+    log_every: int = 10
+    """How often to log progress."""
+    seed: int = 42
+    """Random seed."""
+    debug: bool = False
+    """Debugging?"""
 
 
 @beartype.beartype
@@ -352,6 +396,8 @@ class Evaluate:
         default_factory=HistogramsEvaluate
     )
     """Histogram config."""
+    broden: BrodenEvaluate = dataclasses.field(default_factory=BrodenEvaluate)
+    """Broden feature probing config."""
 
     imagenet: ImagenetEvaluate = dataclasses.field(default_factory=ImagenetEvaluate)
     """ImageNet-1K config."""

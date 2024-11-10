@@ -95,9 +95,14 @@ def train(cfg: typing.Annotated[saev.TrainConfig, tyro.conf.arg(name="")]):
 
 def evaluate(cfg: typing.Annotated[saev.EvaluateConfig, tyro.conf.arg(name="")]):
     def run_histograms():
-        import saev.histograms
+        import saev.training
 
-        return saev.histograms.evaluate(cfg.histograms)
+        return saev.training.evaluate(cfg.histograms)
+
+    def run_broden():
+        import saev.broden
+
+        return saev.broden.evaluate(cfg.broden)
 
     def run_imagenet1k():
         import saev.imagenet1k
@@ -120,7 +125,8 @@ def evaluate(cfg: typing.Annotated[saev.EvaluateConfig, tyro.conf.arg(name="")])
         executor = submitit.DebugExecutor(folder=cfg.log_to)
 
     jobs = []
-    jobs.append(executor.submit(run_histograms))
+    # jobs.append(executor.submit(run_histograms))
+    jobs.append(executor.submit(run_broden))
     # jobs.append(executor.submit(run_imagenet1k))
     for job in jobs:
         job.result()
