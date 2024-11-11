@@ -36,7 +36,7 @@ hljs.highlightAll();
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
 <dt id="saev.training.evaluate"><code class="name flex">
-<span>def <span class="ident">evaluate</span></span>(<span>cfg: <a title="saev.config.Train" href="config.html#saev.config.Train">Train</a> | <a title="saev.config.HistogramsEvaluate" href="config.html#saev.config.HistogramsEvaluate">HistogramsEvaluate</a>, ckpt_fpath: str)</span>
+<span>def <span class="ident">evaluate</span></span>(<span>cfg: <a title="saev.config.Train" href="config.html#saev.config.Train">Train</a> | <a title="saev.config.HistogramsEvaluate" href="config.html#saev.config.HistogramsEvaluate">HistogramsEvaluate</a>, ckpt_fpath: str) ‑> <a title="saev.training.EvalMetrics" href="#saev.training.EvalMetrics">EvalMetrics</a></span>
 </code></dt>
 <dd>
 <div class="desc"><p>Evaluates SAE quality by counting the number of dead features and the number of dense features.
@@ -102,6 +102,153 @@ Also makes histogram plots to help human qualitative comparison.</p>
                 self.n_seen -= self.batch_size</code></pre>
 </details>
 </dd>
+<dt id="saev.training.EvalMetrics"><code class="flex name class">
+<span>class <span class="ident">EvalMetrics</span></span>
+<span>(</span><span>l0: float, l1: float, mse: float, n_dead: int, n_almost_dead: int, n_dense: int, almost_dead_threshold: float, dense_threshold: float)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Results of evaluating a trained SAE on a datset.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@beartype.beartype
+@dataclasses.dataclass(frozen=True)
+class EvalMetrics:
+    &#34;&#34;&#34;Results of evaluating a trained SAE on a datset.&#34;&#34;&#34;
+
+    l0: float
+    &#34;&#34;&#34;Mean L0 across all examples.&#34;&#34;&#34;
+    l1: float
+    &#34;&#34;&#34;Mean L1 across all examples.&#34;&#34;&#34;
+    mse: float
+    &#34;&#34;&#34;Mean MSE across all examples.&#34;&#34;&#34;
+    n_dead: int
+    &#34;&#34;&#34;Number of neurons that never fired on any example.&#34;&#34;&#34;
+    n_almost_dead: int
+    &#34;&#34;&#34;Number of neurons that fired on fewer than `almost_dead_threshold` of examples.&#34;&#34;&#34;
+    n_dense: int
+    &#34;&#34;&#34;Number of neurons that fired on more than `dense_threshold` of examples.&#34;&#34;&#34;
+    almost_dead_threshold: float
+    &#34;&#34;&#34;Threshold for an &#34;almost dead&#34; neuron.&#34;&#34;&#34;
+    dense_threshold: float
+    &#34;&#34;&#34;Threshold for a dense neuron.&#34;&#34;&#34;</code></pre>
+</details>
+<h3>Class variables</h3>
+<dl>
+<dt id="saev.training.EvalMetrics.almost_dead_threshold"><code class="name">var <span class="ident">almost_dead_threshold</span> : float</code></dt>
+<dd>
+<div class="desc"><p>Threshold for an "almost dead" neuron.</p></div>
+</dd>
+<dt id="saev.training.EvalMetrics.dense_threshold"><code class="name">var <span class="ident">dense_threshold</span> : float</code></dt>
+<dd>
+<div class="desc"><p>Threshold for a dense neuron.</p></div>
+</dd>
+<dt id="saev.training.EvalMetrics.l0"><code class="name">var <span class="ident">l0</span> : float</code></dt>
+<dd>
+<div class="desc"><p>Mean L0 across all examples.</p></div>
+</dd>
+<dt id="saev.training.EvalMetrics.l1"><code class="name">var <span class="ident">l1</span> : float</code></dt>
+<dd>
+<div class="desc"><p>Mean L1 across all examples.</p></div>
+</dd>
+<dt id="saev.training.EvalMetrics.mse"><code class="name">var <span class="ident">mse</span> : float</code></dt>
+<dd>
+<div class="desc"><p>Mean MSE across all examples.</p></div>
+</dd>
+<dt id="saev.training.EvalMetrics.n_almost_dead"><code class="name">var <span class="ident">n_almost_dead</span> : int</code></dt>
+<dd>
+<div class="desc"><p>Number of neurons that fired on fewer than <code>almost_dead_threshold</code> of examples.</p></div>
+</dd>
+<dt id="saev.training.EvalMetrics.n_dead"><code class="name">var <span class="ident">n_dead</span> : int</code></dt>
+<dd>
+<div class="desc"><p>Number of neurons that never fired on any example.</p></div>
+</dd>
+<dt id="saev.training.EvalMetrics.n_dense"><code class="name">var <span class="ident">n_dense</span> : int</code></dt>
+<dd>
+<div class="desc"><p>Number of neurons that fired on more than <code>dense_threshold</code> of examples.</p></div>
+</dd>
+</dl>
+</dd>
+<dt id="saev.training.Scheduler"><code class="flex name class">
+<span>class <span class="ident">Scheduler</span></span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@beartype.beartype
+class Scheduler:
+    def step(self) -&gt; float:
+        err_msg = f&#34;{self.__class__.__name__} must implement step().&#34;
+        raise NotImplementedError(err_msg)
+
+    def __repr__(self) -&gt; str:
+        err_msg = f&#34;{self.__class__.__name__} must implement __repr__().&#34;
+        raise NotImplementedError(err_msg)</code></pre>
+</details>
+<h3>Subclasses</h3>
+<ul class="hlist">
+<li><a title="saev.training.Warmup" href="#saev.training.Warmup">Warmup</a></li>
+</ul>
+<h3>Methods</h3>
+<dl>
+<dt id="saev.training.Scheduler.step"><code class="name flex">
+<span>def <span class="ident">step</span></span>(<span>self) ‑> float</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+</dd>
+<dt id="saev.training.Warmup"><code class="flex name class">
+<span>class <span class="ident">Warmup</span></span>
+<span>(</span><span>init: float, final: float, n_steps: int)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Linearly increases from <code>init</code> to <code>final</code> over <code>n_warmup_steps</code> steps.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@beartype.beartype
+class Warmup(Scheduler):
+    &#34;&#34;&#34;
+    Linearly increases from `init` to `final` over `n_warmup_steps` steps.
+    &#34;&#34;&#34;
+
+    def __init__(self, init: float, final: float, n_steps: int):
+        self.final = final
+        self.init = init
+        self.n_steps = n_steps
+        self._step = 0
+
+    def step(self) -&gt; float:
+        self._step += 1
+        if self._step &lt; self.n_steps:
+            return self.init + (self.final - self.init) * (self._step / self.n_steps)
+
+        return self.final
+
+    def __repr__(self) -&gt; str:
+        return f&#34;Warmup(init={self.init}, final={self.final}, n_steps={self.n_steps})&#34;</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="saev.training.Scheduler" href="#saev.training.Scheduler">Scheduler</a></li>
+</ul>
+<h3>Methods</h3>
+<dl>
+<dt id="saev.training.Warmup.step"><code class="name flex">
+<span>def <span class="ident">step</span></span>(<span>self) ‑> float</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+</dd>
 </dl>
 </section>
 </article>
@@ -126,6 +273,31 @@ Also makes histogram plots to help human qualitative comparison.</p>
 <ul>
 <li>
 <h4><code><a title="saev.training.BatchLimiter" href="#saev.training.BatchLimiter">BatchLimiter</a></code></h4>
+</li>
+<li>
+<h4><code><a title="saev.training.EvalMetrics" href="#saev.training.EvalMetrics">EvalMetrics</a></code></h4>
+<ul class="">
+<li><code><a title="saev.training.EvalMetrics.almost_dead_threshold" href="#saev.training.EvalMetrics.almost_dead_threshold">almost_dead_threshold</a></code></li>
+<li><code><a title="saev.training.EvalMetrics.dense_threshold" href="#saev.training.EvalMetrics.dense_threshold">dense_threshold</a></code></li>
+<li><code><a title="saev.training.EvalMetrics.l0" href="#saev.training.EvalMetrics.l0">l0</a></code></li>
+<li><code><a title="saev.training.EvalMetrics.l1" href="#saev.training.EvalMetrics.l1">l1</a></code></li>
+<li><code><a title="saev.training.EvalMetrics.mse" href="#saev.training.EvalMetrics.mse">mse</a></code></li>
+<li><code><a title="saev.training.EvalMetrics.n_almost_dead" href="#saev.training.EvalMetrics.n_almost_dead">n_almost_dead</a></code></li>
+<li><code><a title="saev.training.EvalMetrics.n_dead" href="#saev.training.EvalMetrics.n_dead">n_dead</a></code></li>
+<li><code><a title="saev.training.EvalMetrics.n_dense" href="#saev.training.EvalMetrics.n_dense">n_dense</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="saev.training.Scheduler" href="#saev.training.Scheduler">Scheduler</a></code></h4>
+<ul class="">
+<li><code><a title="saev.training.Scheduler.step" href="#saev.training.Scheduler.step">step</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="saev.training.Warmup" href="#saev.training.Warmup">Warmup</a></code></h4>
+<ul class="">
+<li><code><a title="saev.training.Warmup.step" href="#saev.training.Warmup.step">step</a></code></li>
+</ul>
 </li>
 </ul>
 </li>

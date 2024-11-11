@@ -47,6 +47,12 @@ hljs.highlightAll();
 <dd>
 <div class="desc"></div>
 </dd>
+<dt id="saev.broden.dump_k_comparisons"><code class="name flex">
+<span>def <span class="ident">dump_k_comparisons</span></span>(<span>cfg: <a title="saev.config.BrodenEvaluate" href="config.html#saev.config.BrodenEvaluate">BrodenEvaluate</a>, dataset: <a title="saev.broden.PixelDataset" href="#saev.broden.PixelDataset">PixelDataset</a>, sae: <a title="saev.nn.SparseAutoencoder" href="nn.html#saev.nn.SparseAutoencoder">SparseAutoencoder</a>, samples: list[int], latent: int)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
 <dt id="saev.broden.evaluate"><code class="name flex">
 <span>def <span class="ident">evaluate</span></span>(<span>cfg: <a title="saev.config.BrodenEvaluate" href="config.html#saev.config.BrodenEvaluate">BrodenEvaluate</a>)</span>
 </code></dt>
@@ -59,8 +65,8 @@ hljs.highlightAll();
 <dd>
 <div class="desc"></div>
 </dd>
-<dt id="saev.broden.evaluate_materials"><code class="name flex">
-<span>def <span class="ident">evaluate_materials</span></span>(<span>cfg: <a title="saev.config.BrodenEvaluate" href="config.html#saev.config.BrodenEvaluate">BrodenEvaluate</a>) ‑> <a title="saev.broden.Report" href="#saev.broden.Report">Report</a></span>
+<dt id="saev.broden.evaluate_group"><code class="name flex">
+<span>def <span class="ident">evaluate_group</span></span>(<span>cfg: <a title="saev.config.BrodenEvaluate" href="config.html#saev.config.BrodenEvaluate">BrodenEvaluate</a>, group_cls: type[~T]) ‑> <a title="saev.broden.Report" href="#saev.broden.Report">Report</a></span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -71,6 +77,24 @@ hljs.highlightAll();
 <dd>
 <div class="desc"><p>Try to find a sparse autoencoder latent that accurately detects the presence/absence of a particular texture.</p>
 <p>Textures are easy because they have one or more integer labels.</p></div>
+</dd>
+<dt id="saev.broden.get_chart_dir"><code class="name flex">
+<span>def <span class="ident">get_chart_dir</span></span>(<span>cfg: <a title="saev.config.BrodenEvaluate" href="config.html#saev.config.BrodenEvaluate">BrodenEvaluate</a>, category: ~T) ‑> str</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="saev.broden.get_im_dir"><code class="name flex">
+<span>def <span class="ident">get_im_dir</span></span>(<span>cfg: <a title="saev.config.BrodenEvaluate" href="config.html#saev.config.BrodenEvaluate">BrodenEvaluate</a>, category: ~T) ‑> str</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="saev.broden.get_patches"><code class="name flex">
+<span>def <span class="ident">get_patches</span></span>(<span>cfg: <a title="saev.config.BrodenEvaluate" href="config.html#saev.config.BrodenEvaluate">BrodenEvaluate</a>, pixel_file: str, number: int, patch_lookup: jaxtyping.Int[ndarray, 'w_px h_px'], *, threshold: float = 0.5) ‑> jaxtyping.Int[ndarray, 'n']</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Gets a list of patches that contain more than <code>threshold</code> fraction pixels containing the category with number <code>number</code>.</p></div>
 </dd>
 <dt id="saev.broden.get_sae_acts"><code class="name flex">
 <span>def <span class="ident">get_sae_acts</span></span>(<span>cfg: <a title="saev.config.BrodenEvaluate" href="config.html#saev.config.BrodenEvaluate">BrodenEvaluate</a>, sae: <a title="saev.nn.SparseAutoencoder" href="nn.html#saev.nn.SparseAutoencoder">SparseAutoencoder</a>, dataset: <a title="saev.broden.PixelDataset" href="#saev.broden.PixelDataset">PixelDataset</a>[~T]) ‑> tuple[jaxtyping.Float[Tensor, 'n d_sae'], jaxtyping.Int[Tensor, 'n']]</span>
@@ -145,7 +169,10 @@ class Category(abc.ABC):
 </ul>
 <h3>Subclasses</h3>
 <ul class="hlist">
+<li><a title="saev.broden.Color" href="#saev.broden.Color">Color</a></li>
 <li><a title="saev.broden.Material" href="#saev.broden.Material">Material</a></li>
+<li><a title="saev.broden.Object" href="#saev.broden.Object">Object</a></li>
+<li><a title="saev.broden.Part" href="#saev.broden.Part">Part</a></li>
 <li><a title="saev.broden.Texture" href="#saev.broden.Texture">Texture</a></li>
 </ul>
 <h3>Class variables</h3>
@@ -189,6 +216,34 @@ class Category(abc.ABC):
 @abc.abstractmethod
 def category(self) -&gt; str: ...</code></pre>
 </details>
+</dd>
+</dl>
+</dd>
+<dt id="saev.broden.Color"><code class="flex name class">
+<span>class <span class="ident">Color</span></span>
+<span>(</span><span>code: int, number: int, name: str, frequency: int, category: str = 'color')</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Color(code: int, number: int, name: str, frequency: int, category: str = 'color')</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@beartype.beartype
+@dataclasses.dataclass(frozen=True)
+class Color(Category):
+    category: str = &#34;color&#34;</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="saev.broden.Category" href="#saev.broden.Category">Category</a></li>
+<li>abc.ABC</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="saev.broden.Color.category"><code class="name">var <span class="ident">category</span> : str</code></dt>
+<dd>
+<div class="desc"></div>
 </dd>
 </dl>
 </dd>
@@ -290,6 +345,62 @@ class Material(Category):
 </dd>
 </dl>
 </dd>
+<dt id="saev.broden.Object"><code class="flex name class">
+<span>class <span class="ident">Object</span></span>
+<span>(</span><span>code: int, number: int, name: str, frequency: int, category: str = 'object')</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Object(code: int, number: int, name: str, frequency: int, category: str = 'object')</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@beartype.beartype
+@dataclasses.dataclass(frozen=True)
+class Object(Category):
+    category: str = &#34;object&#34;</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="saev.broden.Category" href="#saev.broden.Category">Category</a></li>
+<li>abc.ABC</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="saev.broden.Object.category"><code class="name">var <span class="ident">category</span> : str</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+</dd>
+<dt id="saev.broden.Part"><code class="flex name class">
+<span>class <span class="ident">Part</span></span>
+<span>(</span><span>code: int, number: int, name: str, frequency: int, category: str = 'part')</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Part(code: int, number: int, name: str, frequency: int, category: str = 'part')</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@beartype.beartype
+@dataclasses.dataclass(frozen=True)
+class Part(Category):
+    category: str = &#34;part&#34;</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="saev.broden.Category" href="#saev.broden.Category">Category</a></li>
+<li>abc.ABC</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="saev.broden.Part.category"><code class="name">var <span class="ident">category</span> : str</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+</dd>
 <dt id="saev.broden.PixelDataset"><code class="flex name class">
 <span>class <span class="ident">PixelDataset</span></span>
 <span>(</span><span>cfg: <a title="saev.config.BrodenEvaluate" href="config.html#saev.config.BrodenEvaluate">BrodenEvaluate</a>, category: ~T, others: frozenset[~T], *, is_train: bool)</span>
@@ -323,7 +434,6 @@ class PixelDataset(torch.utils.data.Dataset, typing.Generic[T]):
 
         self.cfg = cfg
         self.category = category
-        self.patch_lookup = make_patch_lookup(patch_size_px=cfg.patch_size)
 
         self.vit_acts = activations.Dataset(cfg.data)
 
@@ -347,11 +457,15 @@ class PixelDataset(torch.utils.data.Dataset, typing.Generic[T]):
             cfg.sample_range[1], int(category.frequency * split_frac)
         )
 
+        patch_lookup = make_patch_lookup(patch_size_px=cfg.patch_size)
+
         pos_samples, neg_samples = [], []
         for i_im, record in records:
             for pixel_file in getattr(record, category.category + &#34;s&#34;):
                 # Positive patches
-                patches = self.get_patches(pixel_file, category.number)
+                patches = get_patches(
+                    self.cfg, pixel_file, category.number, patch_lookup
+                )
                 if patches.size:
                     pos_samples.append(
                         i_im * self.vit_acts.metadata.n_patches_per_img + patches
@@ -359,7 +473,9 @@ class PixelDataset(torch.utils.data.Dataset, typing.Generic[T]):
 
                 # Negative patches
                 for other in others:
-                    patches = self.get_patches(pixel_file, other.number)
+                    patches = get_patches(
+                        self.cfg, pixel_file, other.number, patch_lookup
+                    )
                     if patches.size:
                         neg_samples.append(
                             i_im * self.vit_acts.metadata.n_patches_per_img + patches
@@ -396,47 +512,20 @@ class PixelDataset(torch.utils.data.Dataset, typing.Generic[T]):
         vit_act, i_im, i_p = self.vit_acts[act_i]
         return {
             &#34;activation&#34;: vit_act,
-            &#34;label&#34;: torch.tensor(label),
             &#34;i_im&#34;: i_im,
             &#34;i_p&#34;: i_p,
+            &#34;label&#34;: torch.tensor(label),
             &#34;index&#34;: torch.tensor(i),
         }
 
     def __len__(self) -&gt; int:
-        return len(self.labels)
-
-    def get_patches(
-        self, pixel_file: str, number: int, *, threshold: float = 0.5
-    ) -&gt; Int[np.ndarray, &#34; n&#34;]:
-        &#34;&#34;&#34;
-        Gets a list of patches that contain more than `threshold` fraction pixels containing the category with number `number`.
-        &#34;&#34;&#34;
-        img = Image.open(os.path.join(self.cfg.root, &#34;images&#34;, pixel_file))
-        raw = np.array(img).astype(np.uint32)
-        # 256 is hardcoded as a constant in the broden dataset because image files use 8 bits per color channel.
-        nums = raw[:, :, 1] * 256 + raw[:, :, 0]
-        nums = double(nums)
-
-        x, y = np.where(nums == number)
-        patches, counts = np.unique(self.patch_lookup[x, y], return_counts=True)
-
-        n_pixels = self.cfg.patch_size[0] * self.cfg.patch_size[1] * threshold
-        return patches[counts &gt; n_pixels]</code></pre>
+        return len(self.labels)</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
 <li>torch.utils.data.dataset.Dataset</li>
 <li>typing.Generic</li>
 </ul>
-<h3>Methods</h3>
-<dl>
-<dt id="saev.broden.PixelDataset.get_patches"><code class="name flex">
-<span>def <span class="ident">get_patches</span></span>(<span>self, pixel_file: str, number: int, *, threshold: float = 0.5) ‑> jaxtyping.Int[ndarray, 'n']</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Gets a list of patches that contain more than <code>threshold</code> fraction pixels containing the category with number <code>number</code>.</p></div>
-</dd>
-</dl>
 </dd>
 <dt id="saev.broden.Record"><code class="flex name class">
 <span>class <span class="ident">Record</span></span>
@@ -778,10 +867,14 @@ class TextureDataset(torch.utils.data.Dataset):
 <ul class="">
 <li><code><a title="saev.broden.check" href="#saev.broden.check">check</a></code></li>
 <li><code><a title="saev.broden.double" href="#saev.broden.double">double</a></code></li>
+<li><code><a title="saev.broden.dump_k_comparisons" href="#saev.broden.dump_k_comparisons">dump_k_comparisons</a></code></li>
 <li><code><a title="saev.broden.evaluate" href="#saev.broden.evaluate">evaluate</a></code></li>
 <li><code><a title="saev.broden.evaluate_category" href="#saev.broden.evaluate_category">evaluate_category</a></code></li>
-<li><code><a title="saev.broden.evaluate_materials" href="#saev.broden.evaluate_materials">evaluate_materials</a></code></li>
+<li><code><a title="saev.broden.evaluate_group" href="#saev.broden.evaluate_group">evaluate_group</a></code></li>
 <li><code><a title="saev.broden.evaluate_textures" href="#saev.broden.evaluate_textures">evaluate_textures</a></code></li>
+<li><code><a title="saev.broden.get_chart_dir" href="#saev.broden.get_chart_dir">get_chart_dir</a></code></li>
+<li><code><a title="saev.broden.get_im_dir" href="#saev.broden.get_im_dir">get_im_dir</a></code></li>
+<li><code><a title="saev.broden.get_patches" href="#saev.broden.get_patches">get_patches</a></code></li>
 <li><code><a title="saev.broden.get_sae_acts" href="#saev.broden.get_sae_acts">get_sae_acts</a></code></li>
 <li><code><a title="saev.broden.get_scores" href="#saev.broden.get_scores">get_scores</a></code></li>
 <li><code><a title="saev.broden.get_texture_datasets" href="#saev.broden.get_texture_datasets">get_texture_datasets</a></code></li>
@@ -803,6 +896,12 @@ class TextureDataset(torch.utils.data.Dataset):
 </ul>
 </li>
 <li>
+<h4><code><a title="saev.broden.Color" href="#saev.broden.Color">Color</a></code></h4>
+<ul class="">
+<li><code><a title="saev.broden.Color.category" href="#saev.broden.Color.category">category</a></code></li>
+</ul>
+</li>
+<li>
 <h4><code><a title="saev.broden.DummyExecutor" href="#saev.broden.DummyExecutor">DummyExecutor</a></code></h4>
 <ul class="">
 <li><code><a title="saev.broden.DummyExecutor.shutdown" href="#saev.broden.DummyExecutor.shutdown">shutdown</a></code></li>
@@ -816,10 +915,19 @@ class TextureDataset(torch.utils.data.Dataset):
 </ul>
 </li>
 <li>
-<h4><code><a title="saev.broden.PixelDataset" href="#saev.broden.PixelDataset">PixelDataset</a></code></h4>
+<h4><code><a title="saev.broden.Object" href="#saev.broden.Object">Object</a></code></h4>
 <ul class="">
-<li><code><a title="saev.broden.PixelDataset.get_patches" href="#saev.broden.PixelDataset.get_patches">get_patches</a></code></li>
+<li><code><a title="saev.broden.Object.category" href="#saev.broden.Object.category">category</a></code></li>
 </ul>
+</li>
+<li>
+<h4><code><a title="saev.broden.Part" href="#saev.broden.Part">Part</a></code></h4>
+<ul class="">
+<li><code><a title="saev.broden.Part.category" href="#saev.broden.Part.category">category</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="saev.broden.PixelDataset" href="#saev.broden.PixelDataset">PixelDataset</a></code></h4>
 </li>
 <li>
 <h4><code><a title="saev.broden.Record" href="#saev.broden.Record">Record</a></code></h4>

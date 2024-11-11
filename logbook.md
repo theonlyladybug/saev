@@ -395,3 +395,142 @@ What experiments can I do on the lab servers?
 2. Write.
 3. Work on hand-crafted tasks
 4. Explore large-patch models like ViT-S/32
+
+# 11/10/2024
+
+Thinking about a preprint.
+
+**What is the goal and why do people care?**
+
+The goal is to produce a reliable training recipe for SAEs for ViTs.
+People care because SAEs are a powerful tool for interpretability that are underused in vision.
+Training SAEs is challenging, but there exists a simple recipe so that everyone can get started in this area.
+
+**Who is your audience? Who will use this or build on this?**
+
+Computer vision interpretability researchers.
+
+**If you want it yourself to solve some problem, then that is a good sign. Explain why you want it.**
+
+I want to find traits in images of living organisms.
+I want to build a search engine using these patch-level traits.
+
+**What is your hypothesis? How will you know if it's true?**
+
+My hypothesis is that simple, cheap tricks like normalizing input vectors, using L1 magnitude in the sparsity term of the loss, etc will remove the need for more complex stuff like forcing W_dec to have unit norms, removing parallel gradients, ghost grads, etc.
+I'll know if it's true if adding ghost grads to my recipe R is not meaningfully better than just my recipe R.
+Same for removing parallel gradients, etc.
+
+A second hypothesis is that DINOv2 learns fine-grained visual patterns, while CLIP learns larger, semantic concepts.
+I hypothesize that DINOv2 will be better for recovering morphological traits within species, and CLIP will be better across more diverse clades.
+I will know if this is true by comparing scores on Broden.
+
+**What is the problem/impediment that means it has not been done yet?**
+
+No one is interested.
+Existing interpretability methods like GradCAM and such seem to be "good enough".
+There's not really an impediment to applying SAEs to ViTs, there just isn't as drastic a need.
+
+**Nugget — what is your key insight that makes it doable? This is probably the single most important thing in a good paper.**
+
+The nugget is that sparse autoencoders uncover features that are not easily recoverable by gradient based interpretability or clustering methods.
+
+> This isn't a good nugget. Keep thinking about it.
+
+**What is your elevator pitch? That is, if you meet a senior scientist in an elevator and she asks you what your paper is about, how do you describe it in 3 sentences or fewer.**
+
+We train sparse autoencoders on vision transformers and find new patterns in the features learned through different pre-training objectivs and data distributions.
+
+**Teaser — what would a teaser image show to explain this core idea?**
+
+
+
+**What are the key previous works and what do they get wrong? All papers have limitations. Find these and they point the way forward.**
+
+**How will you evaluate your method quantitatively?**
+
+**What is your “demo”? That is, how do you show that the idea works.**
+
+**What are the key risks?**
+
+**Do you have all the data you need?**
+
+
+---
+
+The answers to some of these questions imply that I need to compare to GradCAM and standard interpretability methods.
+First, I need to convince computer vision interpretability folks that our method has merit compared to other methods.
+Second, I need to show that GradCAM specifically isn't good enough for the types of things I want to do.
+On the other hand, that sounds boring and slow.
+Why do I care about SAEs over GradCAM?
+Because I want to find other images that have similar features at a patch level.
+Can I do that with the raw activations?
+Like just a clustering method?
+
+
+I should expand on this:
+
+> The goal is to produce a reliable training recipe for SAEs for ViTs.
+> People care because SAEs are a powerful tool for interpretability that are underused in vision.
+> Training SAEs is challenging, but there exists a simple recipe so that everyone can get started in this area.
+
+How do you know they're a powerful tool?
+What evidence do you have?
+
+I can use SAEs to produce interpretable classification trees.
+
+Why is training SAEs challenging?
+What's wrong with the simplest possible recipe?
+
+I know that training SAEs for vision is challenging because the default recipe doesn't work for CLIP for ImageNet-1K.
+But my recipe does.
+
+How do you know the default recipe "doesn't work"?
+
+* No interpretable features -> many features are dense/dead, not many features corespond with Broden concepts
+* 
+
+
+**What do I want?**
+
+I want a simple, reliable recipe for training sparse autoencoders on vision transformer patch activations for any pre-trained vision transformer and for any dataset of activations.
+
+**Why do I want that?**
+
+With such a recipe, I can train a sparse autoencoder for any ViT on any dataset.
+With sparse autoencoders, I can
+
+1. Train interpretable classifiers (decision trees, concept bottleneck models).
+2. Discover differences in the learned features of pre-trained vision models.
+3. Find morphological traits in living organism datasets that are consistent across species.
+
+**How do I know I have a reliable recipe?**
+
+If I have a recipe that works on DINOv2, CLIP, and BioCLIP across ImageNet-1K and iNat21 (mini), where
+
+* Larger SAEs outperform smaller SAEs on the reconstruction-sparsity tradeoff
+* larger SAEs outperform smaller SAEs on our downstream measures
+
+Then I am confident that I have a reliable recipe.
+
+**Why doesn't it exist?**
+
+I don't know.
+It doesn't seem that hard.
+
+What about from a perspective farther out?
+
+
+# 11/11/2024
+
+Wider models aren't doing better on the MSE-LO tradeoff.
+
+From the GemmaScope paper:
+
+> Holding all else equal, wide SAEs learn more latent directions and provide better reconstruction fidelity at a given level of sparsity than narrow SAEs.
+
+OpenAI's scaling paper also shows this.
+
+So there's probably something wrong with my setup.
+Let's start with the dumb baseline again and verify that each additional step of complexity leads to an improved model.
+

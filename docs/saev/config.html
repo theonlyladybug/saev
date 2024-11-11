@@ -220,10 +220,10 @@ def n_imgs(self) -&gt; int:
 </dd>
 <dt id="saev.config.BrodenEvaluate"><code class="flex name class">
 <span>class <span class="ident">BrodenEvaluate</span></span>
-<span>(</span><span>ckpt: str = './checkpoints/abcdefg/sae.pt', patch_size: tuple[int, int] = (16, 16), root: str = './broden', data: <a title="saev.config.DataLoad" href="#saev.config.DataLoad">DataLoad</a> = &lt;factory&gt;, n_workers: int = 8, batch_size: int = 1024, sample_range: tuple[int, int] = (200, 1000), dump_to: str = './logs/broden', device: str = 'cuda', log_every: int = 10, seed: int = 42)</span>
+<span>(</span><span>ckpt: str = './checkpoints/abcdefg/sae.pt', patch_size: tuple[int, int] = (16, 16), root: str = './broden', data: <a title="saev.config.DataLoad" href="#saev.config.DataLoad">DataLoad</a> = &lt;factory&gt;, n_workers: int = 8, batch_size: int = 1024, sample_range: tuple[int, int] = (200, 1000), dump_to: str = './logs/broden', device: str = 'cuda', log_every: int = 10, seed: int = 42, debug: bool = False, k: int = 16)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>BrodenEvaluate(ckpt: str = './checkpoints/abcdefg/sae.pt', patch_size: tuple[int, int] = (16, 16), root: str = './broden', data: saev.config.DataLoad = <factory>, n_workers: int = 8, batch_size: int = 1024, sample_range: tuple[int, int] = (200, 1000), dump_to: str = './logs/broden', device: str = 'cuda', log_every: int = 10, seed: int = 42)</p></div>
+<div class="desc"><p>BrodenEvaluate(ckpt: str = './checkpoints/abcdefg/sae.pt', patch_size: tuple[int, int] = (16, 16), root: str = './broden', data: saev.config.DataLoad = <factory>, n_workers: int = 8, batch_size: int = 1024, sample_range: tuple[int, int] = (200, 1000), dump_to: str = './logs/broden', device: str = 'cuda', log_every: int = 10, seed: int = 42, debug: bool = False, k: int = 16)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -252,7 +252,11 @@ class BrodenEvaluate:
     log_every: int = 10
     &#34;&#34;&#34;How often to log progress.&#34;&#34;&#34;
     seed: int = 42
-    &#34;&#34;&#34;Random seed.&#34;&#34;&#34;</code></pre>
+    &#34;&#34;&#34;Random seed.&#34;&#34;&#34;
+    debug: bool = False
+    &#34;&#34;&#34;Debugging?&#34;&#34;&#34;
+    k: int = 16
+    &#34;&#34;&#34;How man images at most to save.&#34;&#34;&#34;</code></pre>
 </details>
 <h3>Class variables</h3>
 <dl>
@@ -268,6 +272,10 @@ class BrodenEvaluate:
 <dd>
 <div class="desc"><p>ViT activations for Broden.</p></div>
 </dd>
+<dt id="saev.config.BrodenEvaluate.debug"><code class="name">var <span class="ident">debug</span> : bool</code></dt>
+<dd>
+<div class="desc"><p>Debugging?</p></div>
+</dd>
 <dt id="saev.config.BrodenEvaluate.device"><code class="name">var <span class="ident">device</span> : str</code></dt>
 <dd>
 <div class="desc"><p>Which accelerator to use.</p></div>
@@ -275,6 +283,10 @@ class BrodenEvaluate:
 <dt id="saev.config.BrodenEvaluate.dump_to"><code class="name">var <span class="ident">dump_to</span> : str</code></dt>
 <dd>
 <div class="desc"><p>Where to save charts.</p></div>
+</dd>
+<dt id="saev.config.BrodenEvaluate.k"><code class="name">var <span class="ident">k</span> : int</code></dt>
+<dd>
+<div class="desc"><p>How man images at most to save.</p></div>
 </dd>
 <dt id="saev.config.BrodenEvaluate.log_every"><code class="name">var <span class="ident">log_every</span> : int</code></dt>
 <dd>
@@ -402,10 +414,10 @@ class Evaluate:
 </dd>
 <dt id="saev.config.HistogramsEvaluate"><code class="flex name class">
 <span>class <span class="ident">HistogramsEvaluate</span></span>
-<span>(</span><span>ckpt: str = './checkpoints/abcdefg/sae.pt', data: <a title="saev.config.DataLoad" href="#saev.config.DataLoad">DataLoad</a> = &lt;factory&gt;, n_workers: int = 8, sae_batch_size: int = 8192, device: str = 'cuda', log_every: int = 10)</span>
+<span>(</span><span>ckpt: str = './checkpoints/abcdefg/sae.pt', data: <a title="saev.config.DataLoad" href="#saev.config.DataLoad">DataLoad</a> = &lt;factory&gt;, n_workers: int = 8, sae_batch_size: int = 8192, device: str = 'cuda', log_every: int = 10, log_to: str = './logs')</span>
 </code></dt>
 <dd>
-<div class="desc"><p>HistogramsEvaluate(ckpt: str = './checkpoints/abcdefg/sae.pt', data: saev.config.DataLoad = <factory>, n_workers: int = 8, sae_batch_size: int = 8192, device: str = 'cuda', log_every: int = 10)</p></div>
+<div class="desc"><p>HistogramsEvaluate(ckpt: str = './checkpoints/abcdefg/sae.pt', data: saev.config.DataLoad = <factory>, n_workers: int = 8, sae_batch_size: int = 8192, device: str = 'cuda', log_every: int = 10, log_to: str = './logs')</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -424,7 +436,9 @@ class HistogramsEvaluate:
     device: str = &#34;cuda&#34;
     &#34;&#34;&#34;Which accelerator to use.&#34;&#34;&#34;
     log_every: int = 10
-    &#34;&#34;&#34;How often to log progress.&#34;&#34;&#34;</code></pre>
+    &#34;&#34;&#34;How often to log progress.&#34;&#34;&#34;
+    log_to: str = os.path.join(&#34;.&#34;, &#34;logs&#34;)
+    &#34;&#34;&#34;Where to write charts to.&#34;&#34;&#34;</code></pre>
 </details>
 <h3>Class variables</h3>
 <dl>
@@ -443,6 +457,10 @@ class HistogramsEvaluate:
 <dt id="saev.config.HistogramsEvaluate.log_every"><code class="name">var <span class="ident">log_every</span> : int</code></dt>
 <dd>
 <div class="desc"><p>How often to log progress.</p></div>
+</dd>
+<dt id="saev.config.HistogramsEvaluate.log_to"><code class="name">var <span class="ident">log_to</span> : str</code></dt>
+<dd>
+<div class="desc"><p>Where to write charts to.</p></div>
 </dd>
 <dt id="saev.config.HistogramsEvaluate.n_workers"><code class="name">var <span class="ident">n_workers</span> : int</code></dt>
 <dd>
@@ -722,7 +740,7 @@ def url_list_filepath(self) -&gt; str:
 </dd>
 <dt id="saev.config.Train"><code class="flex name class">
 <span>class <span class="ident">Train</span></span>
-<span>(</span><span>data: <a title="saev.config.DataLoad" href="#saev.config.DataLoad">DataLoad</a> = &lt;factory&gt;, n_workers: int = 8, n_reinit_batches: int = 15, n_patches: int = 1000000000, exp_factor: int = 64, l1_coeff: float = 8e-05, lr: float = 0.0004, n_lr_warmup: int = 500, sae_batch_size: int = 1024, use_ghost_grads: bool = True, feature_sampling_window: int = 64, resample_batches: int = 32, dead_feature_window: int = 64, dead_feature_threshold: float = 1e-06, track: bool = True, wandb_project: str = 'saev', log_every: int = 25, ckpt_path: str = './checkpoints', device: str = 'cuda', seed: int = 42, slurm: bool = False, slurm_acct: str = 'PAS2136', log_to: str = './logs')</span>
+<span>(</span><span>data: <a title="saev.config.DataLoad" href="#saev.config.DataLoad">DataLoad</a> = &lt;factory&gt;, n_workers: int = 32, n_reinit_batches: int = 15, n_patches: int = 100000000, exp_factor: int = 64, sparsity_coeff: float = 8e-05, n_sparsity_warmup: int = 0, lr: float = 0.0004, n_lr_warmup: int = 500, sae_batch_size: int = 16384, remove_parallel_grads: bool = True, normalize_w_dec: bool = True, ghost_grads: bool = True, feature_sampling_window: int = 64, dead_feature_window: int = 64, dead_feature_threshold: float = 1e-06, track: bool = True, wandb_project: str = 'saev', tag: str = '', log_every: int = 25, ckpt_path: str = './checkpoints', device: Literal['cuda', 'cpu'] = 'cuda', seed: int = 42, slurm: bool = False, slurm_acct: str = 'PAS2136', log_to: str = './logs')</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Configuration for training a sparse autoencoder on a vision transformer.</p></div>
@@ -739,30 +757,32 @@ class Train:
 
     data: DataLoad = dataclasses.field(default_factory=DataLoad)
     &#34;&#34;&#34;Data configuration&#34;&#34;&#34;
-    n_workers: int = 8
+    n_workers: int = 32
     &#34;&#34;&#34;Number of dataloader workers.&#34;&#34;&#34;
-
-    # Training
     n_reinit_batches: int = 15
     &#34;&#34;&#34;Number of batches to use for SAE re-init.&#34;&#34;&#34;
-    n_patches: int = 1_000_000_000
+    n_patches: int = 100_000_000
     &#34;&#34;&#34;Number of SAE training examples.&#34;&#34;&#34;
     exp_factor: int = 64
     &#34;&#34;&#34;Expansion factor for SAE.&#34;&#34;&#34;
-    l1_coeff: float = 0.00008
-
+    sparsity_coeff: float = 0.00008
+    &#34;&#34;&#34;How much to weight sparsity loss term.&#34;&#34;&#34;
+    n_sparsity_warmup: int = 0
+    &#34;&#34;&#34;Number of sparsity coefficient warmup steps.&#34;&#34;&#34;
     lr: float = 0.0004
     &#34;&#34;&#34;Learning rate.&#34;&#34;&#34;
     n_lr_warmup: int = 500
     &#34;&#34;&#34;Number of learning rate warmup steps.&#34;&#34;&#34;
-    sae_batch_size: int = 1024
+    sae_batch_size: int = 1024 * 16
     &#34;&#34;&#34;Batch size for SAE training.&#34;&#34;&#34;
-
-    use_ghost_grads: bool = True
+    remove_parallel_grads: bool = True
+    &#34;&#34;&#34;Whether to remove gradients parallel to W_dec columns (which will be ignored because we force the columns to have unit norm).&#34;&#34;&#34;
+    normalize_w_dec: bool = True
+    &#34;&#34;&#34;Whether to make sure W_dec has unit norm columns.&#34;&#34;&#34;
+    ghost_grads: bool = True
+    &#34;&#34;&#34;Whether to use ghost grads.&#34;&#34;&#34;
 
     feature_sampling_window: int = 64
-
-    resample_batches: int = 32
 
     dead_feature_window: int = 64
 
@@ -772,18 +792,18 @@ class Train:
     track: bool = True
     &#34;&#34;&#34;Whether to track with WandB.&#34;&#34;&#34;
     wandb_project: str = &#34;saev&#34;
-
+    &#34;&#34;&#34;WandB project name.&#34;&#34;&#34;
+    tag: str = &#34;&#34;
+    &#34;&#34;&#34;Tag to add to WandB run.&#34;&#34;&#34;
     log_every: int = 25
     &#34;&#34;&#34;How often to log to WandB.&#34;&#34;&#34;
     ckpt_path: str = os.path.join(&#34;.&#34;, &#34;checkpoints&#34;)
     &#34;&#34;&#34;Where to save checkpoints.&#34;&#34;&#34;
 
-    # Misc.
-    device: str = &#34;cuda&#34;
-
+    device: typing.Literal[&#34;cuda&#34;, &#34;cpu&#34;] = &#34;cuda&#34;
+    &#34;&#34;&#34;Hardware device.&#34;&#34;&#34;
     seed: int = 42
     &#34;&#34;&#34;Random seed.&#34;&#34;&#34;
-
     slurm: bool = False
     &#34;&#34;&#34;Whether to use `submitit` to run jobs on a Slurm cluster.&#34;&#34;&#34;
     slurm_acct: str = &#34;PAS2136&#34;
@@ -813,9 +833,9 @@ class Train:
 <dd>
 <div class="desc"></div>
 </dd>
-<dt id="saev.config.Train.device"><code class="name">var <span class="ident">device</span> : str</code></dt>
+<dt id="saev.config.Train.device"><code class="name">var <span class="ident">device</span> : Literal['cuda', 'cpu']</code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Hardware device.</p></div>
 </dd>
 <dt id="saev.config.Train.exp_factor"><code class="name">var <span class="ident">exp_factor</span> : int</code></dt>
 <dd>
@@ -825,9 +845,9 @@ class Train:
 <dd>
 <div class="desc"></div>
 </dd>
-<dt id="saev.config.Train.l1_coeff"><code class="name">var <span class="ident">l1_coeff</span> : float</code></dt>
+<dt id="saev.config.Train.ghost_grads"><code class="name">var <span class="ident">ghost_grads</span> : bool</code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Whether to use ghost grads.</p></div>
 </dd>
 <dt id="saev.config.Train.log_every"><code class="name">var <span class="ident">log_every</span> : int</code></dt>
 <dd>
@@ -853,13 +873,21 @@ class Train:
 <dd>
 <div class="desc"><p>Number of batches to use for SAE re-init.</p></div>
 </dd>
+<dt id="saev.config.Train.n_sparsity_warmup"><code class="name">var <span class="ident">n_sparsity_warmup</span> : int</code></dt>
+<dd>
+<div class="desc"><p>Number of sparsity coefficient warmup steps.</p></div>
+</dd>
 <dt id="saev.config.Train.n_workers"><code class="name">var <span class="ident">n_workers</span> : int</code></dt>
 <dd>
 <div class="desc"><p>Number of dataloader workers.</p></div>
 </dd>
-<dt id="saev.config.Train.resample_batches"><code class="name">var <span class="ident">resample_batches</span> : int</code></dt>
+<dt id="saev.config.Train.normalize_w_dec"><code class="name">var <span class="ident">normalize_w_dec</span> : bool</code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Whether to make sure W_dec has unit norm columns.</p></div>
+</dd>
+<dt id="saev.config.Train.remove_parallel_grads"><code class="name">var <span class="ident">remove_parallel_grads</span> : bool</code></dt>
+<dd>
+<div class="desc"><p>Whether to remove gradients parallel to W_dec columns (which will be ignored because we force the columns to have unit norm).</p></div>
 </dd>
 <dt id="saev.config.Train.sae_batch_size"><code class="name">var <span class="ident">sae_batch_size</span> : int</code></dt>
 <dd>
@@ -877,17 +905,21 @@ class Train:
 <dd>
 <div class="desc"><p>Slurm account string.</p></div>
 </dd>
+<dt id="saev.config.Train.sparsity_coeff"><code class="name">var <span class="ident">sparsity_coeff</span> : float</code></dt>
+<dd>
+<div class="desc"><p>How much to weight sparsity loss term.</p></div>
+</dd>
+<dt id="saev.config.Train.tag"><code class="name">var <span class="ident">tag</span> : str</code></dt>
+<dd>
+<div class="desc"><p>Tag to add to WandB run.</p></div>
+</dd>
 <dt id="saev.config.Train.track"><code class="name">var <span class="ident">track</span> : bool</code></dt>
 <dd>
 <div class="desc"><p>Whether to track with WandB.</p></div>
 </dd>
-<dt id="saev.config.Train.use_ghost_grads"><code class="name">var <span class="ident">use_ghost_grads</span> : bool</code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
 <dt id="saev.config.Train.wandb_project"><code class="name">var <span class="ident">wandb_project</span> : str</code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>WandB project name.</p></div>
 </dd>
 </dl>
 <h3>Instance variables</h3>
@@ -1003,7 +1035,7 @@ def n_imgs(self) -&gt; int:
 </dd>
 <dt id="saev.config.Webapp"><code class="flex name class">
 <span>class <span class="ident">Webapp</span></span>
-<span>(</span><span>ckpt: str = './checkpoints/sae.pt', data: <a title="saev.config.DataLoad" href="#saev.config.DataLoad">DataLoad</a> = &lt;factory&gt;, images: <a title="saev.config.ImagenetDataset" href="#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.TreeOfLifeDataset" href="#saev.config.TreeOfLifeDataset">TreeOfLifeDataset</a> | <a title="saev.config.LaionDataset" href="#saev.config.LaionDataset">LaionDataset</a> | <a title="saev.config.Inat21Dataset" href="#saev.config.Inat21Dataset">Inat21Dataset</a> = &lt;factory&gt;, top_k: int = 16, n_workers: int = 16, topk_batch_size: int = 16384, sae_batch_size: int = 1024, epsilon: float = 1e-09, sort_by: Literal['cls', 'img', 'patch'] = 'cls', device: str = 'cuda', dump_to: str = './data')</span>
+<span>(</span><span>ckpt: str = './checkpoints/sae.pt', data: <a title="saev.config.DataLoad" href="#saev.config.DataLoad">DataLoad</a> = &lt;factory&gt;, images: <a title="saev.config.ImagenetDataset" href="#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.TreeOfLifeDataset" href="#saev.config.TreeOfLifeDataset">TreeOfLifeDataset</a> | <a title="saev.config.LaionDataset" href="#saev.config.LaionDataset">LaionDataset</a> | <a title="saev.config.Inat21Dataset" href="#saev.config.Inat21Dataset">Inat21Dataset</a> = &lt;factory&gt;, top_k: int = 16, n_workers: int = 16, topk_batch_size: int = 16384, sae_batch_size: int = 16384, epsilon: float = 1e-09, sort_by: Literal['cls', 'img', 'patch'] = 'cls', device: str = 'cuda', dump_to: str = './data')</span>
 </code></dt>
 <dd>
 <div class="desc"><div class="admonition todo">
@@ -1033,7 +1065,7 @@ class Webapp:
     &#34;&#34;&#34;Number of dataloader workers.&#34;&#34;&#34;
     topk_batch_size: int = 1024 * 16
     &#34;&#34;&#34;Number of examples to apply top-k op to.&#34;&#34;&#34;
-    sae_batch_size: int = 1024
+    sae_batch_size: int = 1024 * 16
     &#34;&#34;&#34;Batch size for SAE inference.&#34;&#34;&#34;
     epsilon: float = 1e-9
     &#34;&#34;&#34;Value to add to avoid log(0).&#34;&#34;&#34;
@@ -1242,8 +1274,10 @@ def top_values_fpath(self) -&gt; str:
 <li><code><a title="saev.config.BrodenEvaluate.batch_size" href="#saev.config.BrodenEvaluate.batch_size">batch_size</a></code></li>
 <li><code><a title="saev.config.BrodenEvaluate.ckpt" href="#saev.config.BrodenEvaluate.ckpt">ckpt</a></code></li>
 <li><code><a title="saev.config.BrodenEvaluate.data" href="#saev.config.BrodenEvaluate.data">data</a></code></li>
+<li><code><a title="saev.config.BrodenEvaluate.debug" href="#saev.config.BrodenEvaluate.debug">debug</a></code></li>
 <li><code><a title="saev.config.BrodenEvaluate.device" href="#saev.config.BrodenEvaluate.device">device</a></code></li>
 <li><code><a title="saev.config.BrodenEvaluate.dump_to" href="#saev.config.BrodenEvaluate.dump_to">dump_to</a></code></li>
+<li><code><a title="saev.config.BrodenEvaluate.k" href="#saev.config.BrodenEvaluate.k">k</a></code></li>
 <li><code><a title="saev.config.BrodenEvaluate.log_every" href="#saev.config.BrodenEvaluate.log_every">log_every</a></code></li>
 <li><code><a title="saev.config.BrodenEvaluate.n_workers" href="#saev.config.BrodenEvaluate.n_workers">n_workers</a></code></li>
 <li><code><a title="saev.config.BrodenEvaluate.patch_size" href="#saev.config.BrodenEvaluate.patch_size">patch_size</a></code></li>
@@ -1278,6 +1312,7 @@ def top_values_fpath(self) -&gt; str:
 <li><code><a title="saev.config.HistogramsEvaluate.data" href="#saev.config.HistogramsEvaluate.data">data</a></code></li>
 <li><code><a title="saev.config.HistogramsEvaluate.device" href="#saev.config.HistogramsEvaluate.device">device</a></code></li>
 <li><code><a title="saev.config.HistogramsEvaluate.log_every" href="#saev.config.HistogramsEvaluate.log_every">log_every</a></code></li>
+<li><code><a title="saev.config.HistogramsEvaluate.log_to" href="#saev.config.HistogramsEvaluate.log_to">log_to</a></code></li>
 <li><code><a title="saev.config.HistogramsEvaluate.n_workers" href="#saev.config.HistogramsEvaluate.n_workers">n_workers</a></code></li>
 <li><code><a title="saev.config.HistogramsEvaluate.sae_batch_size" href="#saev.config.HistogramsEvaluate.sae_batch_size">sae_batch_size</a></code></li>
 </ul>
@@ -1331,22 +1366,25 @@ def top_values_fpath(self) -&gt; str:
 <li><code><a title="saev.config.Train.device" href="#saev.config.Train.device">device</a></code></li>
 <li><code><a title="saev.config.Train.exp_factor" href="#saev.config.Train.exp_factor">exp_factor</a></code></li>
 <li><code><a title="saev.config.Train.feature_sampling_window" href="#saev.config.Train.feature_sampling_window">feature_sampling_window</a></code></li>
-<li><code><a title="saev.config.Train.l1_coeff" href="#saev.config.Train.l1_coeff">l1_coeff</a></code></li>
+<li><code><a title="saev.config.Train.ghost_grads" href="#saev.config.Train.ghost_grads">ghost_grads</a></code></li>
 <li><code><a title="saev.config.Train.log_every" href="#saev.config.Train.log_every">log_every</a></code></li>
 <li><code><a title="saev.config.Train.log_to" href="#saev.config.Train.log_to">log_to</a></code></li>
 <li><code><a title="saev.config.Train.lr" href="#saev.config.Train.lr">lr</a></code></li>
 <li><code><a title="saev.config.Train.n_lr_warmup" href="#saev.config.Train.n_lr_warmup">n_lr_warmup</a></code></li>
 <li><code><a title="saev.config.Train.n_patches" href="#saev.config.Train.n_patches">n_patches</a></code></li>
 <li><code><a title="saev.config.Train.n_reinit_batches" href="#saev.config.Train.n_reinit_batches">n_reinit_batches</a></code></li>
+<li><code><a title="saev.config.Train.n_sparsity_warmup" href="#saev.config.Train.n_sparsity_warmup">n_sparsity_warmup</a></code></li>
 <li><code><a title="saev.config.Train.n_workers" href="#saev.config.Train.n_workers">n_workers</a></code></li>
+<li><code><a title="saev.config.Train.normalize_w_dec" href="#saev.config.Train.normalize_w_dec">normalize_w_dec</a></code></li>
 <li><code><a title="saev.config.Train.reinit_size" href="#saev.config.Train.reinit_size">reinit_size</a></code></li>
-<li><code><a title="saev.config.Train.resample_batches" href="#saev.config.Train.resample_batches">resample_batches</a></code></li>
+<li><code><a title="saev.config.Train.remove_parallel_grads" href="#saev.config.Train.remove_parallel_grads">remove_parallel_grads</a></code></li>
 <li><code><a title="saev.config.Train.sae_batch_size" href="#saev.config.Train.sae_batch_size">sae_batch_size</a></code></li>
 <li><code><a title="saev.config.Train.seed" href="#saev.config.Train.seed">seed</a></code></li>
 <li><code><a title="saev.config.Train.slurm" href="#saev.config.Train.slurm">slurm</a></code></li>
 <li><code><a title="saev.config.Train.slurm_acct" href="#saev.config.Train.slurm_acct">slurm_acct</a></code></li>
+<li><code><a title="saev.config.Train.sparsity_coeff" href="#saev.config.Train.sparsity_coeff">sparsity_coeff</a></code></li>
+<li><code><a title="saev.config.Train.tag" href="#saev.config.Train.tag">tag</a></code></li>
 <li><code><a title="saev.config.Train.track" href="#saev.config.Train.track">track</a></code></li>
-<li><code><a title="saev.config.Train.use_ghost_grads" href="#saev.config.Train.use_ghost_grads">use_ghost_grads</a></code></li>
 <li><code><a title="saev.config.Train.wandb_project" href="#saev.config.Train.wandb_project">wandb_project</a></code></li>
 </ul>
 </li>
