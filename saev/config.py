@@ -6,9 +6,14 @@ All configs for all saev jobs.
 This module should be very fast to import so that `python main.py --help` is fast.
 This means that the top-level imports should not include big packages like numpy, torch, etc.
 For example, `TreeOfLife.n_imgs` imports numpy when it's needed, rather than importing it at the top level.
+
+Also contains code for expanding configs with lists into lists of configs (grid search).
+Might be expanded in the future to support pseudo-random sampling from distributions to support random hyperparameter search, as in [this file](https://github.com/samuelstevens/sax/blob/main/sax/sweep.py).
 """
 
+import collections.abc
 import dataclasses
+import itertools
 import os
 import typing
 
@@ -198,6 +203,28 @@ class DataLoad:
 
 @beartype.beartype
 @dataclasses.dataclass(frozen=True)
+class SparseAutoencoder:
+    d_vit: int = 1024
+    exp_factor: int = 64
+    """Expansion factor for SAE."""
+    sparsity_coeff: float = 0.00008
+    """How much to weight sparsity loss term."""
+    n_reinit_samples: int = 1024 * 16 * 32
+    """Number of samples to use for SAE re-init."""
+    ghost_grads: bool = True
+    """Whether to use ghost grads."""
+    normalize_w_dec: bool = True
+    """Whether to make sure W_dec has unit norm columns."""
+    seed: int = 0
+    """Random seed."""
+
+    @property
+    def d_sae(self) -> int:
+        return self.d_vit * self.exp_factor
+
+
+@beartype.beartype
+@dataclasses.dataclass(frozen=True)
 class Train:
     """
     Configuration for training a sparse autoencoder on a vision transformer.
@@ -207,32 +234,20 @@ class Train:
     """Data configuration"""
     n_workers: int = 32
     """Number of dataloader workers."""
-
-    # Training
-    n_reinit_batches: int = 15
-    """Number of batches to use for SAE re-init."""
     n_patches: int = 100_000_000
     """Number of SAE training examples."""
-    exp_factor: int = 64
-    """Expansion factor for SAE."""
-    sparsity_coeff: float = 0.00008
-    """How much to weight sparsity loss term."""
-    n_sparsity_coeff_warmup: int = 0
-    """Number of sparsity coeff. warmup steps."""
-
+    sae: SparseAutoencoder = dataclasses.field(default_factory=SparseAutoencoder)
+    """SAE configuration."""
+    n_sparsity_warmup: int = 0
+    """Number of sparsity coefficient warmup steps."""
     lr: float = 0.0004
     """Learning rate."""
     n_lr_warmup: int = 500
     """Number of learning rate warmup steps."""
     sae_batch_size: int = 1024 * 16
     """Batch size for SAE training."""
-
     remove_parallel_grads: bool = True
     """Whether to remove gradients parallel to W_dec columns (which will be ignored because we force the columns to have unit norm)."""
-    normalize_w_dec: bool = True
-    """Whether to make sure W_dec has unit norm columns."""
-
-    ghost_grads: bool = True
 
     feature_sampling_window: int = 64
 
@@ -247,28 +262,21 @@ class Train:
     """WandB project name."""
     tag: str = ""
     """Tag to add to WandB run."""
-
     log_every: int = 25
     """How often to log to WandB."""
     ckpt_path: str = os.path.join(".", "checkpoints")
     """Where to save checkpoints."""
 
-    # Misc.
-    device: str = "cuda"
-
+    device: typing.Literal["cuda", "cpu"] = "cuda"
+    """Hardware device."""
     seed: int = 42
     """Random seed."""
-
     slurm: bool = False
     """Whether to use `submitit` to run jobs on a Slurm cluster."""
     slurm_acct: str = "PAS2136"
     """Slurm account string."""
     log_to: str = os.path.join(".", "logs")
     """Where to log Slurm job stdout/stderr."""
-
-    @property
-    def reinit_size(self) -> int:
-        return self.n_reinit_batches * self.sae_batch_size
 
 
 @beartype.beartype
@@ -290,7 +298,7 @@ class Webapp:
     """Number of dataloader workers."""
     topk_batch_size: int = 1024 * 16
     """Number of examples to apply top-k op to."""
-    sae_batch_size: int = 1024
+    sae_batch_size: int = 1024 * 16
     """Batch size for SAE inference."""
     epsilon: float = 1e-9
     """Value to add to avoid log(0)."""
@@ -398,6 +406,8 @@ class BrodenEvaluate:
     """Random seed."""
     debug: bool = False
     """Debugging?"""
+    k: int = 16
+    """How man images at most to save."""
 
 
 @beartype.beartype
@@ -419,3 +429,64 @@ class Evaluate:
     """Slurm account string."""
     log_to: str = "./logs"
     """Where to log Slurm job stdout/stderr."""
+
+
+##########
+# SWEEPS #
+##########
+
+
+@beartype.beartype
+def grid(cfg: Train, sweep_dct: dict[str, object]) -> tuple[list[Train], list[str]]:
+    cfgs, errs = [], []
+    breakpoint()
+    for d, dct in enumerate(expand(sweep_dct)):
+        # .sae is a nested field that cannot be naively expanded.
+        sae_dct = dct.pop("sae")
+        if sae_dct:
+            sae_dct["seed"] = sae_dct.pop("seed", cfg.sae.seed) + cfg.seed + d
+            dct["sae"] = SparseAutoencoder(**sae_dct)
+
+        try:
+            cfgs.append(dataclasses.replace(cfg, **dct, seed=cfg.seed + d))
+        except Exception as err:
+            errs.append(str(err))
+
+    return cfgs, errs
+
+
+@beartype.beartype
+def expand(config: dict[str, object]) -> collections.abc.Iterator[dict[str, object]]:
+    """
+    Expands dicts with (nested) lists into a list of (nested) dicts.
+    """
+    yield from _expand_discrete(config)
+
+
+@beartype.beartype
+def _expand_discrete(
+    config: dict[str, object],
+) -> collections.abc.Iterator[dict[str, object]]:
+    """
+    Expands any (possibly nested) list values in `config`
+    """
+    if not config:
+        yield config
+        return
+
+    key, value = config.popitem()
+
+    if isinstance(value, list):
+        # Expand
+        for c in _expand_discrete(config):
+            for v in value:
+                yield {**c, key: v}
+    elif isinstance(value, dict):
+        # Expand
+        for c, v in itertools.product(
+            _expand_discrete(config), _expand_discrete(value)
+        ):
+            yield {**c, key: v}
+    else:
+        for c in _expand_discrete(config):
+            yield {**c, key: value}
