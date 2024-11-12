@@ -545,7 +545,28 @@ I did this.
 |---|---|---|---|---|---|---|
 | h52suuax | CLIP | iNat21 | True | True | True | 029ca197e |
 | 9d8r1qhs | CLIP | iNat21 | False | False | False | 029ca197e |
-| cesfj6kj | DINOv2 | iNat21 | False | False | False | b8e0fc701b95 |
+| cesfj6kj | DINOv2 | iNat21 | False | False | False | b8e0fc701 |
+| c57ddw4o | CLIP | ImageNet-1K | False | False | False | f46d3e7a3 |
+| lfesqa63 | DINOv2 | ImageNet-1K | False | False | False | 3c824621e |
+
+For iNat21
+```sh
+CUDA_VISIBLE_DEVICES=1 uv run main.py webapp \
+  --ckpt checkpoints/$CKPT/sae.pt \
+  --dump-to /local/scratch/stevens.994/cache/saev/webapp/$CKPT \
+  --data.shard-root /local/scratch/stevens.994/cache/saev/$CKPT_DATA \
+  --data.patches patches --data.layer -2 --top-k 64 --n-workers 32 --sort-by patch images:inat21-dataset --images.root /research/nfs_su_809/workspace/stevens.994/datasets/inat21/ --images.split train_mini
+```
+
+For ImageNet-1K
+```sh
+CKPT=c57ddw4o CKPT_DATA=f46d3e7a3223a50f1423ad03305cda971fac4512f03264392dd719c8f2381cab \
+CUDA_VISIBLE_DEVICES=1 uv run main.py webapp \
+  --ckpt checkpoints/$CKPT/sae.pt \
+  --dump-to /local/scratch/stevens.994/cache/saev/webapp/$CKPT \
+  --data.shard-root /local/scratch/stevens.994/cache/saev/$CKPT_DATA \
+  --data.patches patches --data.layer -2 --top-k 64 --n-workers 32 --sort-by patch images:imagenet-dataset
+```
 
 ## Notes on Checkpoint `cesfj6kj`
 
@@ -577,4 +598,6 @@ DINOv2, iNat21 train_mini split.
 
 ## Notes on Checkpoint `h52suuax`
 
-CLIP, iNat21 train_mini split
+CLIP, iNat21 train_mini split, *with CLIP tricks
+
+
