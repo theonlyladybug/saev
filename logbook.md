@@ -542,7 +542,7 @@ I did this.
 ## Checkpoint Notes
 
 | WandB ID | Model | Dataset | Remove Parallel Grads | Normalize W_dec | Re-Init b_dec | Shard Root |
-|---|
+|---|---|---|---|---|---|---|
 | h52suuax | CLIP | iNat21 | True | True | True | 029ca197e |
 | 9d8r1qhs | CLIP | iNat21 | False | False | False | 029ca197e |
 | cesfj6kj | DINOv2 | iNat21 | False | False | False | b8e0fc701b95 |
