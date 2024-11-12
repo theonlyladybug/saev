@@ -213,6 +213,8 @@ class SparseAutoencoder:
     """Number of samples to use for SAE re-init."""
     ghost_grads: bool = True
     """Whether to use ghost grads."""
+    remove_parallel_grads: bool = True
+    """Whether to remove gradients parallel to W_dec columns (which will be ignored because we force the columns to have unit norm)."""
     normalize_w_dec: bool = True
     """Whether to make sure W_dec has unit norm columns."""
     seed: int = 0
@@ -246,8 +248,6 @@ class Train:
     """Number of learning rate warmup steps."""
     sae_batch_size: int = 1024 * 16
     """Batch size for SAE training."""
-    remove_parallel_grads: bool = True
-    """Whether to remove gradients parallel to W_dec columns (which will be ignored because we force the columns to have unit norm)."""
 
     feature_sampling_window: int = 64
 
@@ -439,13 +439,12 @@ class Evaluate:
 @beartype.beartype
 def grid(cfg: Train, sweep_dct: dict[str, object]) -> tuple[list[Train], list[str]]:
     cfgs, errs = [], []
-    breakpoint()
     for d, dct in enumerate(expand(sweep_dct)):
         # .sae is a nested field that cannot be naively expanded.
         sae_dct = dct.pop("sae")
         if sae_dct:
             sae_dct["seed"] = sae_dct.pop("seed", cfg.sae.seed) + cfg.seed + d
-            dct["sae"] = SparseAutoencoder(**sae_dct)
+            dct["sae"] = dataclasses.replace(cfg.sae, **sae_dct)
 
         try:
             cfgs.append(dataclasses.replace(cfg, **dct, seed=cfg.seed + d))

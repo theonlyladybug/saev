@@ -1,4 +1,3 @@
-import dataclasses
 import logging
 import tomllib
 import typing
@@ -35,24 +34,18 @@ def sweep(cfg: typing.Annotated[saev.TrainConfig, tyro.conf.arg(name="")], sweep
     """
     import submitit
 
-    import saev.sweep
+    import saev.config
     import saev.training
 
     with open(sweep, "rb") as fd:
-        dcts = list(saev.sweep.expand(tomllib.load(fd)))
-    logger.info("Sweep has %d experiments.", len(dcts))
-
-    sweep_cfgs, errs = [], []
-    for d, dct in enumerate(dcts):
-        try:
-            sweep_cfgs.append(dataclasses.replace(cfg, **dct, seed=cfg.seed + d))
-        except Exception as err:
-            errs.append(str(err))
+        cfgs, errs = saev.config.grid(cfg, tomllib.load(fd))
 
     if errs:
         for err in errs:
             logger.warning("Error in config: %s", err)
         return
+
+    logger.info("Sweep has %d experiments.", len(cfgs))
 
     if cfg.slurm:
         executor = submitit.SlurmExecutor(folder=cfg.log_to)
@@ -67,10 +60,12 @@ def sweep(cfg: typing.Annotated[saev.TrainConfig, tyro.conf.arg(name="")], sweep
     else:
         executor = submitit.DebugExecutor(folder=cfg.log_to)
 
-    jobs = executor.map_array(saev.training.train, sweep_cfgs)
-    for i, result in enumerate(submitit.helpers.as_completed(jobs)):
-        exp_id = result.result()
-        logger.info("Finished task %s (%d/%d)", exp_id, i + 1, len(jobs))
+    job = executor.submit(saev.training.train, cfgs)
+    job.result()
+
+    # for i, result in enumerate(submitit.helpers.as_completed(jobs)):
+    #     exp_id = result.result()
+    #     logger.info("Finished task %s (%d/%d)", exp_id, i + 1, len(jobs))
 
 
 def train(cfg: typing.Annotated[saev.TrainConfig, tyro.conf.arg(name="")]):

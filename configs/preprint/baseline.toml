@@ -1,0 +1,14 @@
+lr = 0.0004
+
+n_lr_warmup = 500
+n_sparsity_warmup = 0
+
+tag = "baseline-v3.0"
+
+[sae]
+sparsity_coeff = 0.00008
+ghost_grads = false
+normalize_w_dec = [false, true]
+remove_parallel_grads = [false, true]
+exp_factor = 16
+n_reinit_samples = [0, 524_288]

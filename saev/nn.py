@@ -6,17 +6,16 @@ import typing
 
 import beartype
 import einops
-import numpy as np
 import torch
 from jaxtyping import Float, jaxtyped
 from torch import Tensor
 
-from . import activations, config
+from . import config
 
 
 class Loss(typing.NamedTuple):
-    reconstruction: Float[Tensor, ""]
-    """Reconstruction loss, typically L2."""
+    mse: Float[Tensor, ""]
+    """Reconstruction loss (mean squared error)."""
     sparsity: Float[Tensor, ""]
     """Sparsity loss, typically lambda * L1."""
     ghost_grad: Float[Tensor, ""]
@@ -29,7 +28,7 @@ class Loss(typing.NamedTuple):
     @property
     def loss(self) -> Float[Tensor, ""]:
         """Total loss."""
-        return self.reconstruction + self.sparsity + self.ghost_grad
+        return self.mse + self.sparsity + self.ghost_grad
 
 
 @jaxtyped(typechecker=beartype.beartype)
@@ -38,42 +37,24 @@ class SparseAutoencoder(torch.nn.Module):
     Sparse auto-encoder (SAE) using L1 sparsity penalty.
     """
 
-    d_vit: int
-    exp_factor: int
-    sparsity_coeff: float
-    ghost_grads: bool
+    cfg: config.SparseAutoencoder
 
-    def __init__(
-        self,
-        *,
-        d_vit: int,
-        exp_factor: int,
-        sparsity_coeff: float,
-        ghost_grads: bool,
-    ):
+    def __init__(self, cfg: config.SparseAutoencoder):
         super().__init__()
 
-        self.d_vit = d_vit
-        self.exp_factor = exp_factor
-
-        self.sparsity_coeff = sparsity_coeff
-        self.ghost_grads = ghost_grads
+        self.cfg = cfg
 
         self.W_enc = torch.nn.Parameter(
-            torch.nn.init.kaiming_uniform_(torch.empty(d_vit, self.d_sae))
+            torch.nn.init.kaiming_uniform_(torch.empty(cfg.d_vit, cfg.d_sae))
         )
-        self.b_enc = torch.nn.Parameter(torch.zeros(self.d_sae))
+        self.b_enc = torch.nn.Parameter(torch.zeros(cfg.d_sae))
 
         self.W_dec = torch.nn.Parameter(
-            torch.nn.init.kaiming_uniform_(torch.empty(self.d_sae, d_vit))
+            torch.nn.init.kaiming_uniform_(torch.empty(cfg.d_sae, cfg.d_vit))
         )
-        self.b_dec = torch.nn.Parameter(torch.zeros(d_vit))
+        self.b_dec = torch.nn.Parameter(torch.zeros(cfg.d_vit))
 
-        self.logger = logging.getLogger("sae")
-
-    @property
-    def d_sae(self) -> int:
-        return self.d_vit * self.exp_factor
+        self.logger = logging.getLogger(f"sae(seed={cfg.seed})")
 
     @jaxtyped(typechecker=beartype.beartype)
     def forward(
@@ -100,7 +81,7 @@ class SparseAutoencoder(torch.nn.Module):
         ghost_loss = torch.tensor(0.0, dtype=mse_loss.dtype, device=mse_loss.device)
         # gate on config and training so evals is not slowed down.
         if (
-            self.ghost_grads
+            self.cfg.ghost_grads
             and self.training
             and dead_neuron_mask is not None
             and dead_neuron_mask.sum() > 0
@@ -132,34 +113,37 @@ class SparseAutoencoder(torch.nn.Module):
         mse_loss = mse_loss.mean()
         l0 = (f_x > 0).float().sum(axis=1).mean(axis=0)
         l1 = f_x.sum(axis=1).mean(axis=0)
-        sparsity_loss = self.sparsity_coeff * l1
+        sparsity_loss = self.cfg.sparsity_coeff * l1
 
         return x_hat, f_x, Loss(mse_loss, sparsity_loss, ghost_loss, l0, l1)
 
     @torch.no_grad()
-    def init_b_dec(self, cfg: config.Train, dataset: activations.Dataset):
-        if cfg.n_reinit_batches <= 0:
+    def init_b_dec(self, vit_acts: Float[Tensor, "n d_vit"]):
+        if self.cfg.n_reinit_samples <= 0:
             self.logger.info("Skipping init_b_dec.")
             return
+
         previous_b_dec = self.b_dec.clone().cpu()
+        vit_acts = vit_acts[: self.cfg.n_reinit_samples]
+        assert len(vit_acts) == self.cfg.n_reinit_samples
 
-        all_activations = get_sae_batches(cfg, dataset).detach().cpu()
-        mean = all_activations.mean(dim=0)
-
-        previous_distances = torch.norm(all_activations - previous_b_dec, dim=-1)
-        distances = torch.norm(all_activations - mean, dim=-1)
+        mean = vit_acts.mean(axis=0)
+        previous_distances = torch.norm(vit_acts - previous_b_dec, dim=-1)
+        distances = torch.norm(vit_acts - mean, dim=-1)
 
         self.logger.info(
             "Prev dist: %.3f; new dist: %.3f",
-            previous_distances.median(0).values.mean().item(),
-            distances.median(0).values.mean().item(),
+            previous_distances.median(axis=0).values.mean().item(),
+            distances.median(axis=0).values.mean().item(),
         )
 
         self.b_dec.data = mean.to(self.b_dec.dtype).to(self.b_dec.device)
 
     @torch.no_grad()
     def normalize_w_dec(self):
-        self.W_dec.data /= torch.norm(self.W_dec.data, dim=1, keepdim=True)
+        # Make sure the W_dec is still unit-norm
+        if self.cfg.normalize_w_dec:
+            self.W_dec.data /= torch.norm(self.W_dec.data, dim=1, keepdim=True)
 
     @torch.no_grad()
     def remove_parallel_grads(self):
@@ -167,6 +151,8 @@ class SparseAutoencoder(torch.nn.Module):
         Update grads so that they remove the parallel component
             (d_sae, d_vit) shape
         """
+        if not self.cfg.remove_parallel_grads:
+            return
 
         parallel_component = einops.einsum(
             self.W_dec.grad,
@@ -181,37 +167,13 @@ class SparseAutoencoder(torch.nn.Module):
         )
 
 
-@jaxtyped(typechecker=beartype.beartype)
-def get_sae_batches(
-    cfg: config.Train, dataset: activations.Dataset
-) -> Float[Tensor, "reinit_size d_model"]:
-    """
-    Get a batch of vit activations to re-initialize the SAE.
-
-    Args:
-        cfg: Train.
-        dataset: Dataset.
-    """
-    perm = np.random.default_rng(seed=cfg.seed).permutation(len(dataset))
-    perm = perm[: cfg.reinit_size]
-
-    examples, _, _ = zip(*[dataset[p.item()] for p in perm])
-
-    return torch.stack(examples)
-
-
 @beartype.beartype
 def dump(fpath: str, sae: SparseAutoencoder):
-    sae_kwargs = dict(
-        d_vit=sae.d_vit,
-        exp_factor=sae.exp_factor,
-        sparsity_coeff=sae.sparsity_coeff,
-        ghost_grads=sae.ghost_grads,
-    )
+    kwargs = vars(sae.cfg)
 
     os.makedirs(os.path.dirname(fpath), exist_ok=True)
     with open(fpath, "wb") as fd:
-        kwargs_str = json.dumps(sae_kwargs)
+        kwargs_str = json.dumps(kwargs)
         fd.write((kwargs_str + "\n").encode("utf-8"))
         torch.save(sae.state_dict(), fd)
 
@@ -222,7 +184,8 @@ def load(fpath: str, *, device: str = "cpu") -> SparseAutoencoder:
         kwargs = json.loads(fd.readline().decode())
         buffer = io.BytesIO(fd.read())
 
-    model = SparseAutoencoder(**kwargs)
+    cfg = config.SparseAutoencoder(**kwargs)
+    model = SparseAutoencoder(cfg)
     state_dict = torch.load(buffer, weights_only=True, map_location=device)
     model.load_state_dict(state_dict)
     return model

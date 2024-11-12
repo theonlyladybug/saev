@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
 <meta name="generator" content="pdoc3 0.11.1">
 <title>saev.training API documentation</title>
-<meta name="description" content="">
+<meta name="description" content="Trains many SAEs in parallel to amortize the cost of loading a single batch of data over many SAE training runs.">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/sanitize.min.css" integrity="sha512-y1dtMcuvtTMJc1yPgEqF0ZjQbhnc/bFhyvIyVNb9Zk5mIGtqVaAB1Ttl28su8AvFMOY0EwRbAe+HCLqj6W7/KA==" crossorigin>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/typography.min.css" integrity="sha512-Y1DYSb995BAfxobCkKepB1BqJJTPrOp3zPL74AWFugHHmmdcvO+C48WLrUOlhGMc0QG7AE3f7gmvvcrmX2fDoA==" crossorigin>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css" crossorigin>
@@ -27,6 +27,7 @@ hljs.highlightAll();
 <h1 class="title">Module <code>saev.training</code></h1>
 </header>
 <section id="section-intro">
+<p>Trains many SAEs in parallel to amortize the cost of loading a single batch of data over many SAE training runs.</p>
 </section>
 <section>
 </section>
@@ -35,8 +36,14 @@ hljs.highlightAll();
 <section>
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
+<dt id="saev.training.check_cfgs"><code class="name flex">
+<span>def <span class="ident">check_cfgs</span></span>(<span>cfgs: list[<a title="saev.config.Train" href="config.html#saev.config.Train">Train</a>])</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
 <dt id="saev.training.evaluate"><code class="name flex">
-<span>def <span class="ident">evaluate</span></span>(<span>cfg: <a title="saev.config.Train" href="config.html#saev.config.Train">Train</a> | <a title="saev.config.HistogramsEvaluate" href="config.html#saev.config.HistogramsEvaluate">HistogramsEvaluate</a>, ckpt_fpath: str) ‑> <a title="saev.training.EvalMetrics" href="#saev.training.EvalMetrics">EvalMetrics</a></span>
+<span>def <span class="ident">evaluate</span></span>(<span>cfgs: list[<a title="saev.config.Train" href="config.html#saev.config.Train">Train</a> | <a title="saev.config.HistogramsEvaluate" href="config.html#saev.config.HistogramsEvaluate">HistogramsEvaluate</a>], saes: torch.nn.modules.container.ModuleList) ‑> list[<a title="saev.training.EvalMetrics" href="#saev.training.EvalMetrics">EvalMetrics</a>]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Evaluates SAE quality by counting the number of dead features and the number of dense features.
@@ -46,6 +53,18 @@ Also makes histogram plots to help human qualitative comparison.</p>
 <p>Develop automatic methods to use histogram and feature frequencies to evaluate quality with a single number.</p>
 </div></div>
 </dd>
+<dt id="saev.training.init_b_dec_batched"><code class="name flex">
+<span>def <span class="ident">init_b_dec_batched</span></span>(<span>saes: torch.nn.modules.container.ModuleList, dataset: <a title="saev.activations.Dataset" href="activations.html#saev.activations.Dataset">Dataset</a>)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="saev.training.make_saes"><code class="name flex">
+<span>def <span class="ident">make_saes</span></span>(<span>cfgs: list[<a title="saev.config.SparseAutoencoder" href="config.html#saev.config.SparseAutoencoder">SparseAutoencoder</a>], dataset: <a title="saev.activations.Dataset" href="activations.html#saev.activations.Dataset">Dataset</a>) ‑> tuple[torch.nn.modules.container.ModuleList, list[dict[str, object]]]</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
 <dt id="saev.training.plot_log10_hist"><code class="name flex">
 <span>def <span class="ident">plot_log10_hist</span></span>(<span>frequencies: jaxtyping.Float[Tensor, 'd_sae'], *, eps: float = 1e-09) ‑> tuple[object, object]</span>
 </code></dt>
@@ -53,7 +72,7 @@ Also makes histogram plots to help human qualitative comparison.</p>
 <div class="desc"><p>Plot the histogram of feature frequency.</p></div>
 </dd>
 <dt id="saev.training.train"><code class="name flex">
-<span>def <span class="ident">train</span></span>(<span>cfg: <a title="saev.config.Train" href="config.html#saev.config.Train">Train</a>) ‑> str</span>
+<span>def <span class="ident">train</span></span>(<span>cfgs: list[<a title="saev.config.Train" href="config.html#saev.config.Train">Train</a>]) ‑> list[str]</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -104,7 +123,7 @@ Also makes histogram plots to help human qualitative comparison.</p>
 </dd>
 <dt id="saev.training.EvalMetrics"><code class="flex name class">
 <span>class <span class="ident">EvalMetrics</span></span>
-<span>(</span><span>l0: float, l1: float, mse: float, n_dead: int, n_almost_dead: int, n_dense: int, almost_dead_threshold: float, dense_threshold: float)</span>
+<span>(</span><span>l0: float, l1: float, mse: float, n_dead: int, n_almost_dead: int, n_dense: int, almost_dead_threshold: float, dense_threshold: float, hist: object)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Results of evaluating a trained SAE on a datset.</p></div>
@@ -132,7 +151,14 @@ class EvalMetrics:
     almost_dead_threshold: float
     &#34;&#34;&#34;Threshold for an &#34;almost dead&#34; neuron.&#34;&#34;&#34;
     dense_threshold: float
-    &#34;&#34;&#34;Threshold for a dense neuron.&#34;&#34;&#34;</code></pre>
+    &#34;&#34;&#34;Threshold for a dense neuron.&#34;&#34;&#34;
+
+    hist: object
+
+    def for_wandb(self) -&gt; dict[str, int | float]:
+        dct = dataclasses.asdict(self)
+        dct[&#34;hist&#34;] = wandb.Image(dct.pop(&#34;hist&#34;))
+        return {f&#34;eval/{key}&#34;: value for key, value in dct.items()}</code></pre>
 </details>
 <h3>Class variables</h3>
 <dl>
@@ -143,6 +169,10 @@ class EvalMetrics:
 <dt id="saev.training.EvalMetrics.dense_threshold"><code class="name">var <span class="ident">dense_threshold</span> : float</code></dt>
 <dd>
 <div class="desc"><p>Threshold for a dense neuron.</p></div>
+</dd>
+<dt id="saev.training.EvalMetrics.hist"><code class="name">var <span class="ident">hist</span> : object</code></dt>
+<dd>
+<div class="desc"></div>
 </dd>
 <dt id="saev.training.EvalMetrics.l0"><code class="name">var <span class="ident">l0</span> : float</code></dt>
 <dd>
@@ -167,6 +197,84 @@ class EvalMetrics:
 <dt id="saev.training.EvalMetrics.n_dense"><code class="name">var <span class="ident">n_dense</span> : int</code></dt>
 <dd>
 <div class="desc"><p>Number of neurons that fired on more than <code>dense_threshold</code> of examples.</p></div>
+</dd>
+</dl>
+<h3>Methods</h3>
+<dl>
+<dt id="saev.training.EvalMetrics.for_wandb"><code class="name flex">
+<span>def <span class="ident">for_wandb</span></span>(<span>self) ‑> dict[str, int | float]</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+</dd>
+<dt id="saev.training.ParallelWandbRuns"><code class="flex name class">
+<span>class <span class="ident">ParallelWandbRuns</span></span>
+<span>(</span><span>project: str, cfgs: list[<a title="saev.config.Train" href="config.html#saev.config.Train">Train</a>], mode: str, tags: list[str])</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Inspired by <a href="https://community.wandb.ai/t/is-it-possible-to-log-to-multiple-runs-simultaneously/4387/3.">https://community.wandb.ai/t/is-it-possible-to-log-to-multiple-runs-simultaneously/4387/3.</a></p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class ParallelWandbRuns:
+    &#34;&#34;&#34;
+    Inspired by https://community.wandb.ai/t/is-it-possible-to-log-to-multiple-runs-simultaneously/4387/3.
+    &#34;&#34;&#34;
+
+    def __init__(
+        self, project: str, cfgs: list[config.Train], mode: str, tags: list[str]
+    ):
+        cfg, *cfgs = cfgs
+        self.project = project
+        self.cfgs = cfgs
+        self.mode = mode
+        self.tags = tags
+
+        self.live_run = wandb.init(project=project, config=cfg, mode=mode, tags=tags)
+
+        self.metric_queues: list[MetricQueue] = [[] for _ in self.cfgs]
+
+    def log(self, metrics: list[dict[str, object]], *, step: int):
+        metric, *metrics = metrics
+        self.live_run.log(metric, step=step)
+        for queue, metric in zip(self.metric_queues, metrics):
+            queue.append((step, metric))
+
+    def finish(self) -&gt; list[str]:
+        ids = [self.live_run.id]
+        # Log the rest of the runs.
+        self.live_run.finish()
+
+        for queue, cfg in zip(self.metric_queues, self.cfgs):
+            run = wandb.init(
+                project=self.project,
+                config=cfg,
+                mode=self.mode,
+                tags=self.tags + [&#34;queued&#34;],
+            )
+            for step, metric in queue:
+                run.log(metric, step=step)
+            ids.append(run.id)
+            run.finish()
+
+        return ids</code></pre>
+</details>
+<h3>Methods</h3>
+<dl>
+<dt id="saev.training.ParallelWandbRuns.finish"><code class="name flex">
+<span>def <span class="ident">finish</span></span>(<span>self) ‑> list[str]</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="saev.training.ParallelWandbRuns.log"><code class="name flex">
+<span>def <span class="ident">log</span></span>(<span>self, metrics: list[dict[str, object]], *, step: int)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
 </dd>
 </dl>
 </dd>
@@ -263,8 +371,11 @@ class Warmup(Scheduler):
 </ul>
 </li>
 <li><h3><a href="#header-functions">Functions</a></h3>
-<ul class="">
+<ul class="two-column">
+<li><code><a title="saev.training.check_cfgs" href="#saev.training.check_cfgs">check_cfgs</a></code></li>
 <li><code><a title="saev.training.evaluate" href="#saev.training.evaluate">evaluate</a></code></li>
+<li><code><a title="saev.training.init_b_dec_batched" href="#saev.training.init_b_dec_batched">init_b_dec_batched</a></code></li>
+<li><code><a title="saev.training.make_saes" href="#saev.training.make_saes">make_saes</a></code></li>
 <li><code><a title="saev.training.plot_log10_hist" href="#saev.training.plot_log10_hist">plot_log10_hist</a></code></li>
 <li><code><a title="saev.training.train" href="#saev.training.train">train</a></code></li>
 </ul>
@@ -279,12 +390,21 @@ class Warmup(Scheduler):
 <ul class="">
 <li><code><a title="saev.training.EvalMetrics.almost_dead_threshold" href="#saev.training.EvalMetrics.almost_dead_threshold">almost_dead_threshold</a></code></li>
 <li><code><a title="saev.training.EvalMetrics.dense_threshold" href="#saev.training.EvalMetrics.dense_threshold">dense_threshold</a></code></li>
+<li><code><a title="saev.training.EvalMetrics.for_wandb" href="#saev.training.EvalMetrics.for_wandb">for_wandb</a></code></li>
+<li><code><a title="saev.training.EvalMetrics.hist" href="#saev.training.EvalMetrics.hist">hist</a></code></li>
 <li><code><a title="saev.training.EvalMetrics.l0" href="#saev.training.EvalMetrics.l0">l0</a></code></li>
 <li><code><a title="saev.training.EvalMetrics.l1" href="#saev.training.EvalMetrics.l1">l1</a></code></li>
 <li><code><a title="saev.training.EvalMetrics.mse" href="#saev.training.EvalMetrics.mse">mse</a></code></li>
 <li><code><a title="saev.training.EvalMetrics.n_almost_dead" href="#saev.training.EvalMetrics.n_almost_dead">n_almost_dead</a></code></li>
 <li><code><a title="saev.training.EvalMetrics.n_dead" href="#saev.training.EvalMetrics.n_dead">n_dead</a></code></li>
 <li><code><a title="saev.training.EvalMetrics.n_dense" href="#saev.training.EvalMetrics.n_dense">n_dense</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="saev.training.ParallelWandbRuns" href="#saev.training.ParallelWandbRuns">ParallelWandbRuns</a></code></h4>
+<ul class="">
+<li><code><a title="saev.training.ParallelWandbRuns.finish" href="#saev.training.ParallelWandbRuns.finish">finish</a></code></li>
+<li><code><a title="saev.training.ParallelWandbRuns.log" href="#saev.training.ParallelWandbRuns.log">log</a></code></li>
 </ul>
 </li>
 <li>
