@@ -534,3 +534,47 @@ OpenAI's scaling paper also shows this.
 So there's probably something wrong with my setup.
 Let's start with the dumb baseline again and verify that each additional step of complexity leads to an improved model.
 
+Performance:
+
+I can take the idea from [this post](https://community.wandb.ai/t/is-it-possible-to-log-to-multiple-runs-simultaneously/4387/2) and train many models in parallel so that I can amortize the cost of loading a batch over many training runs.
+I did this.
+
+## Checkpoint Notes
+
+| WandB ID | Model | Dataset | Remove Parallel Grads | Normalize W_dec | Re-Init b_dec | Shard Root |
+|---|
+| h52suuax | CLIP | iNat21 | True | True | True | 029ca197e |
+| 9d8r1qhs | CLIP | iNat21 | False | False | False | 029ca197e |
+| cesfj6kj | DINOv2 | iNat21 | False | False | False | b8e0fc701b95 |
+
+## Notes on Checkpoint `cesfj6kj`
+
+DINOv2, iNat21 train_mini split.
+
+* 402 is bird heads
+* 561 is bird wings
+* 575 AND 712 are flower anthers
+* 741 is ungulate noses
+* 850 is bird wing *tips*
+* 1196 has porcupine spines and antelope horns, but 1203 is sea urchin spines.
+* 1638 has timestamps (artifacts of data)
+* 1665 is reptile and amphibian noses
+* 1823 is fish caudal (tail) fin
+* 1900 is flower petals
+* 2010, 2635 are bird tail
+* 2094 is owl heads
+* 2193 is insect legs
+* 2247 is spiral shells
+* 2358 is bird feeders
+* 2606 is protective shells, like porcupines, echidnas and armadillos.
+
+* 2948 is callouts in the images
+* 4748 might be legs of ungulates.
+* 6995 looks like dorsal fins of fish.
+* 10863 seems to activate on fur.
+* 10992 might be fish pectoral fins
+
+
+## Notes on Checkpoint `h52suuax`
+
+CLIP, iNat21 train_mini split

@@ -228,8 +228,8 @@ class SparseAutoencoder(torch.nn.Module):
         assert len(vit_acts) == self.cfg.n_reinit_samples
 
         mean = vit_acts.mean(axis=0)
-        previous_distances = torch.norm(vit_acts - previous_b_dec, axis=-1)
-        distances = torch.norm(vit_acts - mean, axis=-1)
+        previous_distances = torch.norm(vit_acts - previous_b_dec, dim=-1)
+        distances = torch.norm(vit_acts - mean, dim=-1)
 
         self.logger.info(
             &#34;Prev dist: %.3f; new dist: %.3f&#34;,

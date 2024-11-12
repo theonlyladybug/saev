@@ -441,7 +441,7 @@ class Train:
 </dd>
 <dt id="saev.Webapp"><code class="flex name class">
 <span>class <span class="ident">WebappConfig</span></span>
-<span>(</span><span>ckpt: str = './checkpoints/sae.pt', data: <a title="saev.config.DataLoad" href="config.html#saev.config.DataLoad">DataLoad</a> = &lt;factory&gt;, images: <a title="saev.config.ImagenetDataset" href="config.html#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.TreeOfLifeDataset" href="config.html#saev.config.TreeOfLifeDataset">TreeOfLifeDataset</a> | <a title="saev.config.LaionDataset" href="config.html#saev.config.LaionDataset">LaionDataset</a> | <a title="saev.config.Inat21Dataset" href="config.html#saev.config.Inat21Dataset">Inat21Dataset</a> = &lt;factory&gt;, top_k: int = 16, n_workers: int = 16, topk_batch_size: int = 16384, sae_batch_size: int = 16384, epsilon: float = 1e-09, sort_by: Literal['cls', 'img', 'patch'] = 'cls', device: str = 'cuda', dump_to: str = './data')</span>
+<span>(</span><span>ckpt: str = './checkpoints/sae.pt', data: <a title="saev.config.DataLoad" href="config.html#saev.config.DataLoad">DataLoad</a> = &lt;factory&gt;, images: <a title="saev.config.ImagenetDataset" href="config.html#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.TreeOfLifeDataset" href="config.html#saev.config.TreeOfLifeDataset">TreeOfLifeDataset</a> | <a title="saev.config.LaionDataset" href="config.html#saev.config.LaionDataset">LaionDataset</a> | <a title="saev.config.Inat21Dataset" href="config.html#saev.config.Inat21Dataset">Inat21Dataset</a> = &lt;factory&gt;, top_k: int = 16, n_workers: int = 16, topk_batch_size: int = 16384, sae_batch_size: int = 16384, epsilon: float = 1e-09, sort_by: Literal['cls', 'img', 'patch'] = 'cls', device: str = 'cuda', dump_to: str = './data', log_freq_range: tuple[float, float] = (-6, -2), log_value_range: tuple[float, float] = (-1, 1))</span>
 </code></dt>
 <dd>
 <div class="desc"><div class="admonition todo">
@@ -481,6 +481,10 @@ class Webapp:
     &#34;&#34;&#34;Which accelerator to use.&#34;&#34;&#34;
     dump_to: str = os.path.join(&#34;.&#34;, &#34;data&#34;)
     &#34;&#34;&#34;Where to save data.&#34;&#34;&#34;
+    log_freq_range: tuple[float, float] = (-6, -2)
+    &#34;&#34;&#34;Log10 frequency range for which to save images.&#34;&#34;&#34;
+    log_value_range: tuple[float, float] = (-1, 1)
+    &#34;&#34;&#34;Log10 frequency range for which to save images.&#34;&#34;&#34;
 
     @property
     def root(self) -&gt; str:
@@ -531,6 +535,14 @@ class Webapp:
 <dt id="saev.Webapp.images"><code class="name">var <span class="ident">images</span> : <a title="saev.config.ImagenetDataset" href="config.html#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.TreeOfLifeDataset" href="config.html#saev.config.TreeOfLifeDataset">TreeOfLifeDataset</a> | <a title="saev.config.LaionDataset" href="config.html#saev.config.LaionDataset">LaionDataset</a> | <a title="saev.config.Inat21Dataset" href="config.html#saev.config.Inat21Dataset">Inat21Dataset</a></code></dt>
 <dd>
 <div class="desc"><p>Which images to use.</p></div>
+</dd>
+<dt id="saev.Webapp.log_freq_range"><code class="name">var <span class="ident">log_freq_range</span> : tuple[float, float]</code></dt>
+<dd>
+<div class="desc"><p>Log10 frequency range for which to save images.</p></div>
+</dd>
+<dt id="saev.Webapp.log_value_range"><code class="name">var <span class="ident">log_value_range</span> : tuple[float, float]</code></dt>
+<dd>
+<div class="desc"><p>Log10 frequency range for which to save images.</p></div>
 </dd>
 <dt id="saev.Webapp.n_workers"><code class="name">var <span class="ident">n_workers</span> : int</code></dt>
 <dd>
@@ -725,6 +737,8 @@ def top_values_fpath(self) -&gt; str:
 <li><code><a title="saev.Webapp.dump_to" href="#saev.Webapp.dump_to">dump_to</a></code></li>
 <li><code><a title="saev.Webapp.epsilon" href="#saev.Webapp.epsilon">epsilon</a></code></li>
 <li><code><a title="saev.Webapp.images" href="#saev.Webapp.images">images</a></code></li>
+<li><code><a title="saev.Webapp.log_freq_range" href="#saev.Webapp.log_freq_range">log_freq_range</a></code></li>
+<li><code><a title="saev.Webapp.log_value_range" href="#saev.Webapp.log_value_range">log_value_range</a></code></li>
 <li><code><a title="saev.Webapp.mean_values_fpath" href="#saev.Webapp.mean_values_fpath">mean_values_fpath</a></code></li>
 <li><code><a title="saev.Webapp.n_workers" href="#saev.Webapp.n_workers">n_workers</a></code></li>
 <li><code><a title="saev.Webapp.root" href="#saev.Webapp.root">root</a></code></li>

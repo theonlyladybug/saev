@@ -7,7 +7,6 @@ Variables suffixed with `_im` refer to entire images, and variables suffixed wit
 
 import collections.abc
 import logging
-import math
 import os
 import pickle
 import typing
@@ -15,12 +14,13 @@ import typing
 import beartype
 import datasets
 import torch
+import torchvision.datasets
 import tqdm
 from jaxtyping import Float, Int, jaxtyped
-from PIL import Image, ImageDraw
+from PIL import Image
 from torch import Tensor
 
-from . import activations, config, helpers, histograms, nn
+from . import activations, config, helpers, imaging, nn, training
 
 logger = logging.getLogger("webapp")
 
@@ -39,39 +39,6 @@ def gather_batched(
 
     batch_i = torch.arange(batch_size, device=value.device)[:, None].expand(-1, k)
     return value[batch_i, i]
-
-
-@jaxtyped(typechecker=beartype.beartype)
-def add_highlights(
-    img: Image.Image,
-    patches: Float[Tensor, " n_patches"],
-    *,
-    upper: float | None = None,
-) -> Image.Image:
-    iw_np, ih_np = int(math.sqrt(len(patches))), int(math.sqrt(len(patches)))
-    iw_px, ih_px = img.size
-    pw_px, ph_px = iw_px // iw_np, ih_px // ih_np
-    assert iw_np * ih_np == len(patches)
-
-    # Create a transparent red overlay
-    overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
-    draw = ImageDraw.Draw(overlay)
-
-    # Using semi-transparent red (255, 0, 0, alpha)
-    for p, val in enumerate(patches):
-        assert upper is not None
-        alpha = int(val / upper * 128)
-        x_np, y_np = p % iw_np, p // ih_np
-        draw.rectangle(
-            [
-                (x_np * pw_px, y_np * ph_px),
-                (x_np * pw_px + pw_px, y_np * ph_px + ph_px),
-            ],
-            fill=(255, 0, 0, alpha),
-        )
-
-    # Composite the original image and the overlay
-    return Image.alpha_composite(img, overlay)
 
 
 @beartype.beartype
@@ -112,7 +79,7 @@ def make_img_grid(
     x_offset, y_offset = 0, 0
     for i, (img, patches) in enumerate(imgs):
         img = img.resize(resize_size_px).crop(crop_coords_px).convert("RGBA")
-        img = add_highlights(img, patches, upper=upper)
+        img = imaging.add_highlights(img, patches.numpy(), upper=upper)
         img_grid.paste(img, (x_offset, y_offset))
 
         x_offset += crop_w_px + border_size
@@ -195,6 +162,7 @@ def get_topk_cls(
 ]:
     assert cfg.sort_by == "cls"
     breakpoint()
+    raise NotImplementedError()
 
 
 @beartype.beartype
@@ -217,14 +185,16 @@ def get_topk_img(
     dataset = activations.Dataset(cfg.data)
 
     top_values_p = torch.full(
-        (sae.d_sae, cfg.top_k, dataset.metadata.n_patches_per_img),
+        (sae.cfg.d_sae, cfg.top_k, dataset.metadata.n_patches_per_img),
         -1.0,
         device=cfg.device,
     )
-    top_i_im = torch.zeros((sae.d_sae, cfg.top_k), dtype=torch.int, device=cfg.device)
+    top_i_im = torch.zeros(
+        (sae.cfg.d_sae, cfg.top_k), dtype=torch.int, device=cfg.device
+    )
 
-    sparsity = torch.zeros((sae.d_sae,), device=cfg.device)
-    mean_values = torch.zeros((sae.d_sae,), device=cfg.device)
+    sparsity = torch.zeros((sae.cfg.d_sae,), device=cfg.device)
+    mean_values = torch.zeros((sae.cfg.d_sae,), device=cfg.device)
 
     batch_size = (
         cfg.topk_batch_size
@@ -244,12 +214,12 @@ def get_topk_img(
 
     logger.info("Loaded SAE and data.")
 
-    for vit_acts, i_im, _ in helpers.progress(dataloader):
+    for vit_acts, i_im, _ in helpers.progress(dataloader, desc="picking top-k"):
         sae_acts = get_sae_acts(vit_acts, sae, cfg).transpose(0, 1)
         mean_values += sae_acts.sum(dim=1)
         sparsity += (sae_acts > 0).sum(dim=1)
 
-        values_p = sae_acts.view(sae.d_sae, -1, dataset.metadata.n_patches_per_img)
+        values_p = sae_acts.view(sae.cfg.d_sae, -1, dataset.metadata.n_patches_per_img)
         values_im = values_p.sum(axis=-1)
         i_im = torch.sort(torch.unique(i_im)).values
 
@@ -260,8 +230,11 @@ def get_topk_img(
         # Pick out the top 16 images for each latent in this batch.
         values_im, i = torch.topk(values_im, k=cfg.top_k, dim=1)
         # Update patch-level values
-        shape_in = (sae.d_sae * n_imgs_per_batch, dataset.metadata.n_patches_per_img)
-        shape_out = (sae.d_sae, cfg.top_k, dataset.metadata.n_patches_per_img)
+        shape_in = (
+            sae.cfg.d_sae * n_imgs_per_batch,
+            dataset.metadata.n_patches_per_img,
+        )
+        shape_out = (sae.cfg.d_sae, cfg.top_k, dataset.metadata.n_patches_per_img)
         values_p = values_p.reshape(shape_in)[i.view(-1)].reshape(shape_out)
         # Update image indices
         i_im = i_im.to(cfg.device)[i.view(-1)].view(i.shape)
@@ -272,7 +245,7 @@ def get_topk_img(
         all_values_im = torch.cat((top_values_im, values_im), dim=1)
         _, j = torch.topk(all_values_im, k=cfg.top_k, dim=1)
 
-        shape_in = (sae.d_sae * cfg.top_k * 2, dataset.metadata.n_patches_per_img)
+        shape_in = (sae.cfg.d_sae * cfg.top_k * 2, dataset.metadata.n_patches_per_img)
         top_values_p = all_values_p.reshape(shape_in)[j.view(-1)].reshape(
             top_values_p.shape
         )
@@ -317,14 +290,16 @@ def get_topk_patch(
     dataset = activations.Dataset(cfg.data)
 
     top_values_p = torch.full(
-        (sae.d_sae, cfg.top_k, dataset.metadata.n_patches_per_img),
+        (sae.cfg.d_sae, cfg.top_k, dataset.metadata.n_patches_per_img),
         -1.0,
         device=cfg.device,
     )
-    top_i_im = torch.zeros((sae.d_sae, cfg.top_k), dtype=torch.int, device=cfg.device)
+    top_i_im = torch.zeros(
+        (sae.cfg.d_sae, cfg.top_k), dtype=torch.int, device=cfg.device
+    )
 
-    sparsity = torch.zeros((sae.d_sae,), device=cfg.device)
-    mean_values = torch.zeros((sae.d_sae,), device=cfg.device)
+    sparsity = torch.zeros((sae.cfg.d_sae,), device=cfg.device)
+    mean_values = torch.zeros((sae.cfg.d_sae,), device=cfg.device)
 
     batch_size = (
         cfg.topk_batch_size
@@ -344,14 +319,14 @@ def get_topk_patch(
 
     logger.info("Loaded SAE and data.")
 
-    for vit_acts, i_im, i_patch in helpers.progress(dataloader):
+    for vit_acts, i_im, _ in helpers.progress(dataloader, desc="picking top-k"):
         sae_acts = get_sae_acts(vit_acts, sae, cfg).transpose(0, 1)
         mean_values += sae_acts.sum(dim=1)
         sparsity += (sae_acts > 0).sum(dim=1)
 
         i_im = torch.sort(torch.unique(i_im)).values
         values_p = sae_acts.view(
-            sae.d_sae, len(i_im), dataset.metadata.n_patches_per_img
+            sae.cfg.d_sae, len(i_im), dataset.metadata.n_patches_per_img
         )
 
         # Checks that I did my reshaping correctly.
@@ -436,12 +411,12 @@ def main(cfg: config.Webapp):
 
     logger.info("Loaded sorted data.")
 
-    fig = histograms.plot_log10_hist(sparsity + cfg.epsilon)
+    fig, _ = training.plot_log10_hist(sparsity, eps=cfg.epsilon)
     fig_fpath = os.path.join(cfg.dump_to, "feature-freq.png")
     fig.savefig(fig_fpath)
     logger.info("Saved feature frequency histogram to %s.", fig_fpath)
 
-    fig = histograms.plot_log10_hist(mean_values + cfg.epsilon)
+    fig, _ = training.plot_log10_hist(mean_values, eps=cfg.epsilon)
     fig_fpath = os.path.join(cfg.dump_to, "feature-val.png")
     fig.savefig(fig_fpath)
     logger.info("Saved feature mean value histogram to %s.", fig_fpath)
@@ -456,15 +431,34 @@ def main(cfg: config.Webapp):
         dataset = datasets.load_dataset(cfg.images.name, split="train")
     elif isinstance(cfg.images, config.LaionDataset):
         raise NotImplementedError(cfg.images)
+    elif isinstance(cfg.images, config.Inat21Dataset):
+
+        class Inat21Images(torchvision.datasets.ImageFolder):
+            def __getitem__(self, index: int) -> dict[str, object]:
+                """
+                Args:
+                    index: Index
+
+                Returns:
+                    dict with keys 'image', 'index' and 'label'.
+                """
+                path, target = self.samples[index]
+                sample = self.loader(path)
+
+                return {"image": sample, "label": target, "index": index}
+
+        dataset = Inat21Images(os.path.join(cfg.images.root, cfg.images.split))
+
     else:
         typing.assert_never(cfg.images)
 
     # Mask all neurons in the dense cluster
     # TODO: actually need to plot the 2d cluster instead of two 1d histograms
     mask = (
-        (-2.5 < torch.log10(sparsity))
-        & (torch.log10(sparsity) < 2.0)
-        & (torch.log10(mean_values) > -0.5)
+        (-6 < torch.log10(sparsity))
+        & (torch.log10(sparsity) < -1.0)
+        & (-0.75 < torch.log10(mean_values))
+        & (torch.log10(mean_values) < 1.0)
     )
 
     neuron_i = torch.arange(d_sae)[mask.cpu()].tolist()
