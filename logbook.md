@@ -547,23 +547,25 @@ I did this.
 | 9d8r1qhs | CLIP | iNat21 | False | False | False | 029ca197e |
 | cesfj6kj | DINOv2 | iNat21 | False | False | False | b8e0fc701 |
 | c57ddw4o | CLIP | ImageNet-1K | False | False | False | f46d3e7a3 |
+| 1lm0m9d2 | CLIP | ImageNet-1K | True | True | True | f46d3e7a3 |
 | lfesqa63 | DINOv2 | ImageNet-1K | False | False | False | 3c824621e |
 
 For iNat21
 ```sh
-CUDA_VISIBLE_DEVICES=1 uv run main.py webapp \
+CKPT=cesfj6kj CKPT_DATA=b8e0fc701b95ffe84a99d1beeb57a16c2d8aa462c888e114f8e22658bf601fb4 CUDA_VISIBLE_DEVICES=1 \
+  uv run main.py webapp \
   --ckpt checkpoints/$CKPT/sae.pt \
-  --dump-to /local/scratch/stevens.994/cache/saev/webapp/$CKPT \
+  --dump-to /research/nfs_su_809/workspace/stevens.994/saev/webapp/$CKPT \
   --data.shard-root /local/scratch/stevens.994/cache/saev/$CKPT_DATA \
   --data.patches patches --data.layer -2 --top-k 64 --n-workers 32 --sort-by patch images:inat21-dataset --images.root /research/nfs_su_809/workspace/stevens.994/datasets/inat21/ --images.split train_mini
 ```
 
 For ImageNet-1K
 ```sh
-CKPT=c57ddw4o CKPT_DATA=f46d3e7a3223a50f1423ad03305cda971fac4512f03264392dd719c8f2381cab \
-CUDA_VISIBLE_DEVICES=1 uv run main.py webapp \
+CKPT=1lm0m9d2 CKPT_DATA=f46d3e7a3223a50f1423ad03305cda971fac4512f03264392dd719c8f2381cab CUDA_VISIBLE_DEVICES=3 \
+  uv run main.py webapp \
   --ckpt checkpoints/$CKPT/sae.pt \
-  --dump-to /local/scratch/stevens.994/cache/saev/webapp/$CKPT \
+  --dump-to /research/nfs_su_809/workspace/stevens.994/saev/webapp/$CKPT \
   --data.shard-root /local/scratch/stevens.994/cache/saev/$CKPT_DATA \
   --data.patches patches --data.layer -2 --top-k 64 --n-workers 32 --sort-by patch images:imagenet-dataset
 ```
@@ -572,13 +574,14 @@ CUDA_VISIBLE_DEVICES=1 uv run main.py webapp \
 
 DINOv2, iNat21 train_mini split.
 
+* 235 is bovine horns. 3300 is also bovine horns but a different kind; larger animals like bison and cows.
 * 402 is bird heads
 * 561 is bird wings
-* 575 AND 712 are flower anthers
+* 103, 575 712 are flower anthers
 * 741 is ungulate noses
 * 850 is bird wing *tips*
 * 1196 has porcupine spines and antelope horns, but 1203 is sea urchin spines.
-* 1638 has timestamps (artifacts of data)
+* 1638, 2709 have timestamps (artifacts of data)
 * 1665 is reptile and amphibian noses
 * 1823 is fish caudal (tail) fin
 * 1900 is flower petals
@@ -587,17 +590,116 @@ DINOv2, iNat21 train_mini split.
 * 2193 is insect legs
 * 2247 is spiral shells
 * 2358 is bird feeders
+* 2537, 3568 are split images
 * 2606 is protective shells, like porcupines, echidnas and armadillos.
-
+* 2635 is bird tails
+* 2746 is mushrool stalks
+* 2770 is legs but only for Aphonopelma (tarantula genus)
 * 2948 is callouts in the images
+* 3007, 3691 are phoenix (palm tree genus)
+* 3009 is Trochilidae (hummingbird family)
+* 3093 is birds with black markings on the eyes <- TRAIT?
+* 3218 is bird wings with white stripes on wing
+* 3226 is rings on a finger (human jewelery)
+* 3332 is cacti spines
+* 3410 is Echinacea purpurea (but both images are labeled as animals because they contain insects).
+* 3476 is human hair
+* 3652 is coins (used for scale)
+* 3664 is a bird wing pattern (not sure what it's called, but very distinctive).
+* 3738 is a long bird beak. All sandpipers and pelicans.
+* 3786 seems to be a thin white stripe at the front edge of bird wings.
+* 3897 is a moth body
+* 3988 is Ramphastos (toucan genus) bills (there are definitely other neurons for this feature)
 * 4748 might be legs of ungulates.
 * 6995 looks like dorsal fins of fish.
 * 10863 seems to activate on fur.
 * 10992 might be fish pectoral fins
 
 
+
 ## Notes on Checkpoint `h52suuax`
 
 CLIP, iNat21 train_mini split, *with CLIP tricks
 
+* 647 is mammal feet; covers rodents, carnivores, marsupials, *and* hyraxes
+* 674 is stripes across zebras, fish, *and* butterflies.
+* 1128 is camoflage across spiders, insects and frogs.
+* 1246 is only on flowering plants --> is this reliable??
+* 1282 is spines across sea urchins and porcupines
 
+* 6826 is the spines of Erinaceus roumanicus (specific hedgehog species)
+* 6819 is the spikes of Asphodelaceae family, which has the following description on Wikipedia: "The flowers (the inflorescence) are typically borne on a leafless stalk (scape) which arises from a basal rosette of leaves."
+* 6371 is both dorsal and anal fins
+* 6293 is birds with white markings on their head
+
+## Notes on Checkpoint `lfesqa63`
+
+DINO, ImageNet-1K train without tricks
+
+* 128 is round things (donuts, tubas, trumpets)
+* 218 and 1931 are fluffly pink things
+* 435 is the round trumpet bell, but from the side.
+* 461 is the crossed legs of folding tables, folding chairs, folding ironing boards, etc.
+* 626 is window screens, which have a very distinct texture.
+* 687 is flower bouqets, typically held, but I expect that to be a result of ImageNet, not the SAE.
+* 819 is tank treads from a 45 degree angle, but 83 is tank treads straight from the side. **I think DINOv2 doesn't learn object rotation invariances because of a lack of labels.** 3600 is also tank treads, from a different angle again.
+* 882 is animal hind (all from the side view).
+* 932 is a flower pattern
+* 951 is open animal mouths
+* 1075 is flags (all american--ImageNet or SAE?)
+* 1172 is metal wings (often from "pickelhaube")
+* 1235 is the specific "knee" joint of birds with long legs
+* 1328 is the Coca-Cola logo
+* 1368 is ram/bighorn sheep curved horns.
+* 1572 is "cursive"
+* 1888 is kingsnakes; 2417 is kingsnake and other snakes
+* 10143 is human ears
+* 10312 is human shoulders (hoodie, lab coat, black and white)
+* 10778 is masks (ski mask, knight helmet, burka)
+* 10858 is dog litters. But is this all young, or specifically dog littles because they look the same?
+* 2264 is animal ears (cats, fox, lynx)
+* 2389 is the dung ball
+* 2504 is echidna spines
+* 2791 is the spiky bit below the petals in a cardoon flower.
+* 2940 is the hood of a cobra (3892)
+* 3090 is the legs of a tarantula
+* 3428 is antenna of leaf beetles
+* 3604 is generic text on shiny packaging
+* 3901 is specifically the *top* of the treads
+* 3919 is generic characters -> no OCR!
+* 3956 is whisker (cat otter, lync, etc)
+* 10966 is sneakers
+* 11170 is bird feet
+* 11183 is gauges
+* 11248 is cat whiskers (tigers, cats, leopards)
+* 11264 is onions on burgers.
+* 11492 is rice (specifically with other food? Visual or semantic?)
+* 11565 is just generic "black text on white background", but not reading the symbols
+* 11650 is jack o lanterns. Compare to CLIP's "october" feature
+* 11744 is striped rodent ears (possom, badger, lemur)
+* 11851 is wing tips in birds of prey (again)
+
+## Notes on Checkpoint `1lm0m9d2`
+
+CLIP, ImageNet-1K train, *with* SAE tricks
+
+* 113 is "cloud" (text and symbol)
+* 188 is god and bible
+* 299 is dog tongues
+* 315 is ungulate legs/hooves
+* 350 is bald heads
+* 376 is "October" with just text. Does it work for Halloween stuff too?
+* 407 is "Support" text.
+* 425 might an example of needing a register.
+* 537 is grated cheese on top of food
+* 594 is photography (OCR and concepts)
+* 599 is teeth (drawing and photographs)
+* 613 is snow dog tails
+* 768 is images that are split (multiple shots in one image)
+* 889 is linoleum tile (flooring)
+* 927 is Russia (OCR, symbols, concepts like U-boat, locomotive)
+
+What patterns am I seeing now?
+
+* CLIP groups text, symbols, drawings and images together in the semantic space. This is really useful for things like LMMs.
+* DINOv2 identifies traits more often than CLIP when looking at iNat21. Like, 5x as often
