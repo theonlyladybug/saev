@@ -156,9 +156,8 @@ class SparseAutoencoder(torch.nn.Module):
 
         self.logger = logging.getLogger(f&#34;sae(seed={cfg.seed})&#34;)
 
-    @jaxtyped(typechecker=beartype.beartype)
     def forward(
-        self, x: Float[Tensor, &#34;batch d_model&#34;], dead_neuron_mask=None
+        self, x: Float[Tensor, &#34;batch d_model&#34;], dead_neuron_mask: None = None
     ) -&gt; tuple[Float[Tensor, &#34;batch d_model&#34;], Float[Tensor, &#34;batch d_sae&#34;], Loss]:
         # Remove encoder bias as per Anthropic
         h_pre = (
@@ -280,10 +279,18 @@ class SparseAutoencoder(torch.nn.Module):
 <h3>Methods</h3>
 <dl>
 <dt id="saev.nn.SparseAutoencoder.forward"><code class="name flex">
-<span>def <span class="ident">forward</span></span>(<span>self, x: jaxtyping.Float[Tensor, 'batch d_model'], dead_neuron_mask=None) ‑> tuple[jaxtyping.Float[Tensor, 'batch d_model'], jaxtyping.Float[Tensor, 'batch d_sae'], <a title="saev.nn.Loss" href="#saev.nn.Loss">Loss</a>]</span>
+<span>def <span class="ident">forward</span></span>(<span>self, x: jaxtyping.Float[Tensor, 'batch d_model'], dead_neuron_mask: None = None) ‑> tuple[jaxtyping.Float[Tensor, 'batch d_model'], jaxtyping.Float[Tensor, 'batch d_sae'], <a title="saev.nn.Loss" href="#saev.nn.Loss">Loss</a>]</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Define the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the :class:<code>Module</code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div></div>
 </dd>
 <dt id="saev.nn.SparseAutoencoder.init_b_dec"><code class="name flex">
 <span>def <span class="ident">init_b_dec</span></span>(<span>self, vit_acts: jaxtyping.Float[Tensor, 'n d_vit'])</span>

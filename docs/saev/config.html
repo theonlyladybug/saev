@@ -61,7 +61,7 @@ Might be expanded in the future to support pseudo-random sampling from distribut
 <dl>
 <dt id="saev.config.Activations"><code class="flex name class">
 <span>class <span class="ident">Activations</span></span>
-<span>(</span><span>data: <a title="saev.config.ImagenetDataset" href="#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.TreeOfLifeDataset" href="#saev.config.TreeOfLifeDataset">TreeOfLifeDataset</a> | <a title="saev.config.LaionDataset" href="#saev.config.LaionDataset">LaionDataset</a> | <a title="saev.config.Inat21Dataset" href="#saev.config.Inat21Dataset">Inat21Dataset</a> | <a title="saev.config.BrodenDataset" href="#saev.config.BrodenDataset">BrodenDataset</a> = &lt;factory&gt;, dump_to: str = './shards', model_org: Literal['open-clip', 'timm', 'dinov2'] = 'open-clip', model_ckpt: str = 'ViT-L-14/openai', vit_batch_size: int = 1024, n_workers: int = 8, d_vit: int = 1024, n_layers: int = 6, n_patches_per_img: int = 256, n_patches_per_shard: int = 2400000, seed: int = 42, ssl: bool = True, device: str = 'cuda', slurm: bool = False, slurm_acct: str = 'PAS2136', log_to: str = './logs')</span>
+<span>(</span><span>data: <a title="saev.config.ImagenetDataset" href="#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.TreeOfLifeDataset" href="#saev.config.TreeOfLifeDataset">TreeOfLifeDataset</a> | <a title="saev.config.LaionDataset" href="#saev.config.LaionDataset">LaionDataset</a> | <a title="saev.config.Inat21Dataset" href="#saev.config.Inat21Dataset">Inat21Dataset</a> | <a title="saev.config.BrodenDataset" href="#saev.config.BrodenDataset">BrodenDataset</a> | <a title="saev.config.ProbeDataset" href="#saev.config.ProbeDataset">ProbeDataset</a> = &lt;factory&gt;, dump_to: str = './shards', model_org: Literal['open-clip', 'timm', 'dinov2'] = 'open-clip', model_ckpt: str = 'ViT-L-14/openai', vit_batch_size: int = 1024, n_workers: int = 8, d_vit: int = 1024, n_layers: int = 6, n_patches_per_img: int = 256, n_patches_per_shard: int = 2400000, seed: int = 42, ssl: bool = True, device: str = 'cuda', slurm: bool = False, slurm_acct: str = 'PAS2136', log_to: str = './logs')</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Configuration for calculating and saving ViT activations.</p></div>
@@ -82,6 +82,7 @@ class Activations:
         | LaionDataset
         | Inat21Dataset
         | BrodenDataset
+        | ProbeDataset
     ) = dataclasses.field(default_factory=ImagenetDataset)
     &#34;&#34;&#34;Which dataset to use.&#34;&#34;&#34;
     dump_to: str = os.path.join(&#34;.&#34;, &#34;shards&#34;)
@@ -124,7 +125,7 @@ class Activations:
 <dd>
 <div class="desc"><p>Dimension of the ViT activations (depends on model).</p></div>
 </dd>
-<dt id="saev.config.Activations.data"><code class="name">var <span class="ident">data</span> : <a title="saev.config.ImagenetDataset" href="#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.TreeOfLifeDataset" href="#saev.config.TreeOfLifeDataset">TreeOfLifeDataset</a> | <a title="saev.config.LaionDataset" href="#saev.config.LaionDataset">LaionDataset</a> | <a title="saev.config.Inat21Dataset" href="#saev.config.Inat21Dataset">Inat21Dataset</a> | <a title="saev.config.BrodenDataset" href="#saev.config.BrodenDataset">BrodenDataset</a></code></dt>
+<dt id="saev.config.Activations.data"><code class="name">var <span class="ident">data</span> : <a title="saev.config.ImagenetDataset" href="#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.TreeOfLifeDataset" href="#saev.config.TreeOfLifeDataset">TreeOfLifeDataset</a> | <a title="saev.config.LaionDataset" href="#saev.config.LaionDataset">LaionDataset</a> | <a title="saev.config.Inat21Dataset" href="#saev.config.Inat21Dataset">Inat21Dataset</a> | <a title="saev.config.BrodenDataset" href="#saev.config.BrodenDataset">BrodenDataset</a> | <a title="saev.config.ProbeDataset" href="#saev.config.ProbeDataset">ProbeDataset</a></code></dt>
 <dd>
 <div class="desc"><p>Which dataset to use.</p></div>
 </dd>
@@ -755,12 +756,134 @@ def url_list_filepath(self) -&gt; str:
 </dd>
 </dl>
 </dd>
-<dt id="saev.config.SparseAutoencoder"><code class="flex name class">
-<span>class <span class="ident">SparseAutoencoder</span></span>
-<span>(</span><span>d_vit: int = 1024, exp_factor: int = 64, sparsity_coeff: float = 8e-05, n_reinit_samples: int = 524288, ghost_grads: bool = True, remove_parallel_grads: bool = True, normalize_w_dec: bool = True, seed: int = 0)</span>
+<dt id="saev.config.Probe"><code class="flex name class">
+<span>class <span class="ident">Probe</span></span>
+<span>(</span><span>ckpt: str = './checkpoints/abcdefg/sae.pt', data: <a title="saev.config.DataLoad" href="#saev.config.DataLoad">DataLoad</a> = &lt;factory&gt;, n_workers: int = 8, sae_batch_size: int = 16384, device: str = 'cuda', images: <a title="saev.config.ProbeDataset" href="#saev.config.ProbeDataset">ProbeDataset</a> = &lt;factory&gt;, dump_to: str = './logs/probes')</span>
 </code></dt>
 <dd>
-<div class="desc"><p>SparseAutoencoder(d_vit: int = 1024, exp_factor: int = 64, sparsity_coeff: float = 8e-05, n_reinit_samples: int = 524288, ghost_grads: bool = True, remove_parallel_grads: bool = True, normalize_w_dec: bool = True, seed: int = 0)</p></div>
+<div class="desc"><p>Probe(ckpt: str = './checkpoints/abcdefg/sae.pt', data: saev.config.DataLoad = <factory>, n_workers: int = 8, sae_batch_size: int = 16384, device: str = 'cuda', images: saev.config.ProbeDataset = <factory>, dump_to: str = './logs/probes')</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@beartype.beartype
+@dataclasses.dataclass(frozen=True)
+class Probe:
+    ckpt: str = os.path.join(&#34;.&#34;, &#34;checkpoints&#34;, &#34;abcdefg&#34;, &#34;sae.pt&#34;)
+    &#34;&#34;&#34;Path to the sae.pt file.&#34;&#34;&#34;
+    data: DataLoad = dataclasses.field(default_factory=DataLoad)
+    &#34;&#34;&#34;ViT activations for probing tasks.&#34;&#34;&#34;
+    n_workers: int = 8
+    &#34;&#34;&#34;Number of dataloader workers.&#34;&#34;&#34;
+    sae_batch_size: int = 1024 * 16
+    &#34;&#34;&#34;Batch size for SAE inference.&#34;&#34;&#34;
+    device: str = &#34;cuda&#34;
+    &#34;&#34;&#34;Which accelerator to use.&#34;&#34;&#34;
+    images: ProbeDataset = dataclasses.field(default_factory=ProbeDataset)
+    &#34;&#34;&#34;Where the raw images are.&#34;&#34;&#34;
+    dump_to: str = os.path.join(&#34;.&#34;, &#34;logs&#34;, &#34;probes&#34;)
+    &#34;&#34;&#34;Where to save images.&#34;&#34;&#34;</code></pre>
+</details>
+<h3>Class variables</h3>
+<dl>
+<dt id="saev.config.Probe.ckpt"><code class="name">var <span class="ident">ckpt</span> : str</code></dt>
+<dd>
+<div class="desc"><p>Path to the sae.pt file.</p></div>
+</dd>
+<dt id="saev.config.Probe.data"><code class="name">var <span class="ident">data</span> : <a title="saev.config.DataLoad" href="#saev.config.DataLoad">DataLoad</a></code></dt>
+<dd>
+<div class="desc"><p>ViT activations for probing tasks.</p></div>
+</dd>
+<dt id="saev.config.Probe.device"><code class="name">var <span class="ident">device</span> : str</code></dt>
+<dd>
+<div class="desc"><p>Which accelerator to use.</p></div>
+</dd>
+<dt id="saev.config.Probe.dump_to"><code class="name">var <span class="ident">dump_to</span> : str</code></dt>
+<dd>
+<div class="desc"><p>Where to save images.</p></div>
+</dd>
+<dt id="saev.config.Probe.images"><code class="name">var <span class="ident">images</span> : <a title="saev.config.ProbeDataset" href="#saev.config.ProbeDataset">ProbeDataset</a></code></dt>
+<dd>
+<div class="desc"><p>Where the raw images are.</p></div>
+</dd>
+<dt id="saev.config.Probe.n_workers"><code class="name">var <span class="ident">n_workers</span> : int</code></dt>
+<dd>
+<div class="desc"><p>Number of dataloader workers.</p></div>
+</dd>
+<dt id="saev.config.Probe.sae_batch_size"><code class="name">var <span class="ident">sae_batch_size</span> : int</code></dt>
+<dd>
+<div class="desc"><p>Batch size for SAE inference.</p></div>
+</dd>
+</dl>
+</dd>
+<dt id="saev.config.ProbeDataset"><code class="flex name class">
+<span>class <span class="ident">ProbeDataset</span></span>
+</code></dt>
+<dd>
+<div class="desc"><p>Configuration for manual probing dataset.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@beartype.beartype
+@dataclasses.dataclass(frozen=True)
+class ProbeDataset:
+    &#34;&#34;&#34;Configuration for manual probing dataset.&#34;&#34;&#34;
+
+    @property
+    def n_imgs(self) -&gt; int:
+        &#34;&#34;&#34;Number of images in the dataset. Calculated on the fly, but is non-trivial to calculate because it requires loading the dataset. If you need to reference this number very often, cache it in a local variable.&#34;&#34;&#34;
+        import datasets
+
+        n = 0
+
+        name = &#34;samuelstevens/sae-probing&#34;
+        cfgs = datasets.get_dataset_config_names(name)
+        for cfg in sorted(cfgs):
+            if cfg == &#34;default&#34;:
+                continue
+
+            dataset = datasets.load_dataset(name, cfg, split=&#34;train&#34;)
+            n += len(dataset)
+
+        return n</code></pre>
+</details>
+<h3>Instance variables</h3>
+<dl>
+<dt id="saev.config.ProbeDataset.n_imgs"><code class="name">prop <span class="ident">n_imgs</span> : int</code></dt>
+<dd>
+<div class="desc"><p>Number of images in the dataset. Calculated on the fly, but is non-trivial to calculate because it requires loading the dataset. If you need to reference this number very often, cache it in a local variable.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def n_imgs(self) -&gt; int:
+    &#34;&#34;&#34;Number of images in the dataset. Calculated on the fly, but is non-trivial to calculate because it requires loading the dataset. If you need to reference this number very often, cache it in a local variable.&#34;&#34;&#34;
+    import datasets
+
+    n = 0
+
+    name = &#34;samuelstevens/sae-probing&#34;
+    cfgs = datasets.get_dataset_config_names(name)
+    for cfg in sorted(cfgs):
+        if cfg == &#34;default&#34;:
+            continue
+
+        dataset = datasets.load_dataset(name, cfg, split=&#34;train&#34;)
+        n += len(dataset)
+
+    return n</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+<dt id="saev.config.SparseAutoencoder"><code class="flex name class">
+<span>class <span class="ident">SparseAutoencoder</span></span>
+<span>(</span><span>d_vit: int = 1024, exp_factor: int = 64, sparsity_coeff: float = 8e-05, n_reinit_samples: int = 524288, ghost_grads: bool = False, remove_parallel_grads: bool = True, normalize_w_dec: bool = True, seed: int = 0)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>SparseAutoencoder(d_vit: int = 1024, exp_factor: int = 64, sparsity_coeff: float = 8e-05, n_reinit_samples: int = 524288, ghost_grads: bool = False, remove_parallel_grads: bool = True, normalize_w_dec: bool = True, seed: int = 0)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -774,13 +897,13 @@ class SparseAutoencoder:
     sparsity_coeff: float = 0.00008
     &#34;&#34;&#34;How much to weight sparsity loss term.&#34;&#34;&#34;
     n_reinit_samples: int = 1024 * 16 * 32
-    &#34;&#34;&#34;Number of samples to use for SAE re-init.&#34;&#34;&#34;
-    ghost_grads: bool = True
+    &#34;&#34;&#34;Number of samples to use for SAE re-init. Anthropic proposes initializing b_dec to the geometric median of the dataset here: https://transformer-circuits.pub/2023/monosemantic-features/index.html#appendix-autoencoder-bias. We use the regular mean.&#34;&#34;&#34;
+    ghost_grads: bool = False
     &#34;&#34;&#34;Whether to use ghost grads.&#34;&#34;&#34;
     remove_parallel_grads: bool = True
-    &#34;&#34;&#34;Whether to remove gradients parallel to W_dec columns (which will be ignored because we force the columns to have unit norm).&#34;&#34;&#34;
+    &#34;&#34;&#34;Whether to remove gradients parallel to W_dec columns (which will be ignored because we force the columns to have unit norm). See https://transformer-circuits.pub/2023/monosemantic-features/index.html#appendix-autoencoder-optimization for the original discussion from Anthropic.&#34;&#34;&#34;
     normalize_w_dec: bool = True
-    &#34;&#34;&#34;Whether to make sure W_dec has unit norm columns.&#34;&#34;&#34;
+    &#34;&#34;&#34;Whether to make sure W_dec has unit norm columns. See https://transformer-circuits.pub/2023/monosemantic-features/index.html#appendix-autoencoder for original citation.&#34;&#34;&#34;
     seed: int = 0
     &#34;&#34;&#34;Random seed.&#34;&#34;&#34;
 
@@ -804,15 +927,15 @@ class SparseAutoencoder:
 </dd>
 <dt id="saev.config.SparseAutoencoder.n_reinit_samples"><code class="name">var <span class="ident">n_reinit_samples</span> : int</code></dt>
 <dd>
-<div class="desc"><p>Number of samples to use for SAE re-init.</p></div>
+<div class="desc"><p>Number of samples to use for SAE re-init. Anthropic proposes initializing b_dec to the geometric median of the dataset here: <a href="https://transformer-circuits.pub/2023/monosemantic-features/index.html#appendix-autoencoder-bias.">https://transformer-circuits.pub/2023/monosemantic-features/index.html#appendix-autoencoder-bias.</a> We use the regular mean.</p></div>
 </dd>
 <dt id="saev.config.SparseAutoencoder.normalize_w_dec"><code class="name">var <span class="ident">normalize_w_dec</span> : bool</code></dt>
 <dd>
-<div class="desc"><p>Whether to make sure W_dec has unit norm columns.</p></div>
+<div class="desc"><p>Whether to make sure W_dec has unit norm columns. See <a href="https://transformer-circuits.pub/2023/monosemantic-features/index.html#appendix-autoencoder">https://transformer-circuits.pub/2023/monosemantic-features/index.html#appendix-autoencoder</a> for original citation.</p></div>
 </dd>
 <dt id="saev.config.SparseAutoencoder.remove_parallel_grads"><code class="name">var <span class="ident">remove_parallel_grads</span> : bool</code></dt>
 <dd>
-<div class="desc"><p>Whether to remove gradients parallel to W_dec columns (which will be ignored because we force the columns to have unit norm).</p></div>
+<div class="desc"><p>Whether to remove gradients parallel to W_dec columns (which will be ignored because we force the columns to have unit norm). See <a href="https://transformer-circuits.pub/2023/monosemantic-features/index.html#appendix-autoencoder-optimization">https://transformer-circuits.pub/2023/monosemantic-features/index.html#appendix-autoencoder-optimization</a> for the original discussion from Anthropic.</p></div>
 </dd>
 <dt id="saev.config.SparseAutoencoder.seed"><code class="name">var <span class="ident">seed</span> : int</code></dt>
 <dd>
@@ -1087,7 +1210,7 @@ def n_imgs(self) -&gt; int:
 </dd>
 <dt id="saev.config.Webapp"><code class="flex name class">
 <span>class <span class="ident">Webapp</span></span>
-<span>(</span><span>ckpt: str = './checkpoints/sae.pt', data: <a title="saev.config.DataLoad" href="#saev.config.DataLoad">DataLoad</a> = &lt;factory&gt;, images: <a title="saev.config.ImagenetDataset" href="#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.TreeOfLifeDataset" href="#saev.config.TreeOfLifeDataset">TreeOfLifeDataset</a> | <a title="saev.config.LaionDataset" href="#saev.config.LaionDataset">LaionDataset</a> | <a title="saev.config.Inat21Dataset" href="#saev.config.Inat21Dataset">Inat21Dataset</a> = &lt;factory&gt;, top_k: int = 16, n_workers: int = 16, topk_batch_size: int = 16384, sae_batch_size: int = 16384, epsilon: float = 1e-09, sort_by: Literal['cls', 'img', 'patch'] = 'cls', device: str = 'cuda', dump_to: str = './data', log_freq_range: tuple[float, float] = (-6, -2), log_value_range: tuple[float, float] = (-1, 1))</span>
+<span>(</span><span>ckpt: str = './checkpoints/sae.pt', data: <a title="saev.config.DataLoad" href="#saev.config.DataLoad">DataLoad</a> = &lt;factory&gt;, images: <a title="saev.config.ImagenetDataset" href="#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.Inat21Dataset" href="#saev.config.Inat21Dataset">Inat21Dataset</a> | <a title="saev.config.ProbeDataset" href="#saev.config.ProbeDataset">ProbeDataset</a> = &lt;factory&gt;, top_k: int = 16, n_workers: int = 16, topk_batch_size: int = 16384, sae_batch_size: int = 16384, epsilon: float = 1e-09, sort_by: Literal['cls', 'img', 'patch'] = 'cls', device: str = 'cuda', dump_to: str = './data', log_freq_range: tuple[float, float] = (-6.0, -2.0), log_value_range: tuple[float, float] = (-1.0, 1.0), include_latents: list[int] = &lt;factory&gt;)</span>
 </code></dt>
 <dd>
 <div class="desc"><div class="admonition todo">
@@ -1107,8 +1230,8 @@ class Webapp:
     &#34;&#34;&#34;Path to the sae.pt file.&#34;&#34;&#34;
     data: DataLoad = dataclasses.field(default_factory=DataLoad)
     &#34;&#34;&#34;Data configuration.&#34;&#34;&#34;
-    images: ImagenetDataset | TreeOfLifeDataset | LaionDataset | Inat21Dataset = (
-        dataclasses.field(default_factory=ImagenetDataset)
+    images: ImagenetDataset | Inat21Dataset | ProbeDataset = dataclasses.field(
+        default_factory=ImagenetDataset
     )
     &#34;&#34;&#34;Which images to use.&#34;&#34;&#34;
     top_k: int = 16
@@ -1127,10 +1250,12 @@ class Webapp:
     &#34;&#34;&#34;Which accelerator to use.&#34;&#34;&#34;
     dump_to: str = os.path.join(&#34;.&#34;, &#34;data&#34;)
     &#34;&#34;&#34;Where to save data.&#34;&#34;&#34;
-    log_freq_range: tuple[float, float] = (-6, -2)
+    log_freq_range: tuple[float, float] = (-6.0, -2.0)
     &#34;&#34;&#34;Log10 frequency range for which to save images.&#34;&#34;&#34;
-    log_value_range: tuple[float, float] = (-1, 1)
+    log_value_range: tuple[float, float] = (-1.0, 1.0)
     &#34;&#34;&#34;Log10 frequency range for which to save images.&#34;&#34;&#34;
+    include_latents: list[int] = dataclasses.field(default_factory=list)
+    &#34;&#34;&#34;Latents to always include, no matter what.&#34;&#34;&#34;
 
     @property
     def root(self) -&gt; str:
@@ -1178,9 +1303,13 @@ class Webapp:
 <dd>
 <div class="desc"><p>Value to add to avoid log(0).</p></div>
 </dd>
-<dt id="saev.config.Webapp.images"><code class="name">var <span class="ident">images</span> : <a title="saev.config.ImagenetDataset" href="#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.TreeOfLifeDataset" href="#saev.config.TreeOfLifeDataset">TreeOfLifeDataset</a> | <a title="saev.config.LaionDataset" href="#saev.config.LaionDataset">LaionDataset</a> | <a title="saev.config.Inat21Dataset" href="#saev.config.Inat21Dataset">Inat21Dataset</a></code></dt>
+<dt id="saev.config.Webapp.images"><code class="name">var <span class="ident">images</span> : <a title="saev.config.ImagenetDataset" href="#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.Inat21Dataset" href="#saev.config.Inat21Dataset">Inat21Dataset</a> | <a title="saev.config.ProbeDataset" href="#saev.config.ProbeDataset">ProbeDataset</a></code></dt>
 <dd>
 <div class="desc"><p>Which images to use.</p></div>
+</dd>
+<dt id="saev.config.Webapp.include_latents"><code class="name">var <span class="ident">include_latents</span> : list[int]</code></dt>
+<dd>
+<div class="desc"><p>Latents to always include, no matter what.</p></div>
 </dd>
 <dt id="saev.config.Webapp.log_freq_range"><code class="name">var <span class="ident">log_freq_range</span> : tuple[float, float]</code></dt>
 <dd>
@@ -1427,6 +1556,24 @@ def top_values_fpath(self) -&gt; str:
 </ul>
 </li>
 <li>
+<h4><code><a title="saev.config.Probe" href="#saev.config.Probe">Probe</a></code></h4>
+<ul class="two-column">
+<li><code><a title="saev.config.Probe.ckpt" href="#saev.config.Probe.ckpt">ckpt</a></code></li>
+<li><code><a title="saev.config.Probe.data" href="#saev.config.Probe.data">data</a></code></li>
+<li><code><a title="saev.config.Probe.device" href="#saev.config.Probe.device">device</a></code></li>
+<li><code><a title="saev.config.Probe.dump_to" href="#saev.config.Probe.dump_to">dump_to</a></code></li>
+<li><code><a title="saev.config.Probe.images" href="#saev.config.Probe.images">images</a></code></li>
+<li><code><a title="saev.config.Probe.n_workers" href="#saev.config.Probe.n_workers">n_workers</a></code></li>
+<li><code><a title="saev.config.Probe.sae_batch_size" href="#saev.config.Probe.sae_batch_size">sae_batch_size</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="saev.config.ProbeDataset" href="#saev.config.ProbeDataset">ProbeDataset</a></code></h4>
+<ul class="">
+<li><code><a title="saev.config.ProbeDataset.n_imgs" href="#saev.config.ProbeDataset.n_imgs">n_imgs</a></code></li>
+</ul>
+</li>
+<li>
 <h4><code><a title="saev.config.SparseAutoencoder" href="#saev.config.SparseAutoencoder">SparseAutoencoder</a></code></h4>
 <ul class="">
 <li><code><a title="saev.config.SparseAutoencoder.d_sae" href="#saev.config.SparseAutoencoder.d_sae">d_sae</a></code></li>
@@ -1483,6 +1630,7 @@ def top_values_fpath(self) -&gt; str:
 <li><code><a title="saev.config.Webapp.dump_to" href="#saev.config.Webapp.dump_to">dump_to</a></code></li>
 <li><code><a title="saev.config.Webapp.epsilon" href="#saev.config.Webapp.epsilon">epsilon</a></code></li>
 <li><code><a title="saev.config.Webapp.images" href="#saev.config.Webapp.images">images</a></code></li>
+<li><code><a title="saev.config.Webapp.include_latents" href="#saev.config.Webapp.include_latents">include_latents</a></code></li>
 <li><code><a title="saev.config.Webapp.log_freq_range" href="#saev.config.Webapp.log_freq_range">log_freq_range</a></code></li>
 <li><code><a title="saev.config.Webapp.log_value_range" href="#saev.config.Webapp.log_value_range">log_value_range</a></code></li>
 <li><code><a title="saev.config.Webapp.mean_values_fpath" href="#saev.config.Webapp.mean_values_fpath">mean_values_fpath</a></code></li>

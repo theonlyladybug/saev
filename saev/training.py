@@ -6,12 +6,13 @@ import collections
 import dataclasses
 import json
 import logging
+import einops
 import os.path
 
 import beartype
 import numpy as np
 import torch
-from jaxtyping import Float, jaxtyped
+from jaxtyping import Float
 from torch import Tensor
 
 import wandb
@@ -93,8 +94,104 @@ def make_saes(
     return torch.nn.ModuleList(saes), param_groups
 
 
+##################
+# Parallel Wandb #
+##################
+
+
+MetricQueue = list[tuple[int, dict[str, object]]]
+
+
+class ParallelWandbRun:
+    """
+    Inspired by https://community.wandb.ai/t/is-it-possible-to-log-to-multiple-runs-simultaneously/4387/3.
+    """
+
+    def __init__(
+        self, project: str, cfgs: list[config.Train], mode: str, tags: list[str]
+    ):
+        cfg, *cfgs = cfgs
+        self.project = project
+        self.cfgs = cfgs
+        self.mode = mode
+        self.tags = tags
+
+        self.live_run = wandb.init(project=project, config=cfg, mode=mode, tags=tags)
+
+        self.metric_queues: list[MetricQueue] = [[] for _ in self.cfgs]
+
+    def log(self, metrics: list[dict[str, object]], *, step: int):
+        metric, *metrics = metrics
+        self.live_run.log(metric, step=step)
+        for queue, metric in zip(self.metric_queues, metrics):
+            queue.append((step, metric))
+
+    def finish(self) -> list[str]:
+        ids = [self.live_run.id]
+        # Log the rest of the runs.
+        self.live_run.finish()
+
+        for queue, cfg in zip(self.metric_queues, self.cfgs):
+            run = wandb.init(
+                project=self.project,
+                config=cfg,
+                mode=self.mode,
+                tags=self.tags + ["queued"],
+            )
+            for step, metric in queue:
+                run.log(metric, step=step)
+            ids.append(run.id)
+            run.finish()
+
+        return ids
+
+
 @beartype.beartype
-def train(cfgs: list[config.Train]) -> list[str]:
+def main(cfgs: list[config.Train]) -> list[str]:
+    saes, run, steps = train(cfgs)
+    # Cheap(-ish) evaluation
+    eval_metrics = evaluate(cfgs, saes)
+    metrics = [metric.for_wandb() for metric in eval_metrics]
+    run.log(metrics, step=steps)
+    ids = run.finish()
+
+    for cfg, id, metric, sae in zip(cfgs, ids, eval_metrics, saes):
+        logger.info(
+            "Checkpoint %s has %d dense features (%.1f)",
+            id,
+            metric.n_dense,
+            metric.n_dense / sae.cfg.d_sae * 100,
+        )
+        logger.info(
+            "Checkpoint %s has %d dead features (%.1f%%)",
+            id,
+            metric.n_dead,
+            metric.n_dead / sae.cfg.d_sae * 100,
+        )
+        logger.info(
+            "Checkpoint %s has %d *almost* dead (<1e-7) features (%.1f)",
+            id,
+            metric.n_almost_dead,
+            metric.n_almost_dead / sae.cfg.d_sae * 100,
+        )
+
+        ckpt_fpath = os.path.join(cfg.ckpt_path, id, "sae.pt")
+        nn.dump(ckpt_fpath, sae)
+        logger.info("Dumped checkpoint to '%s'.", ckpt_fpath)
+        cfg_fpath = os.path.join(cfg.ckpt_path, id, "cfg.json")
+        with open(cfg_fpath, "w") as fd:
+            json.dump(dataclasses.asdict(cfg), fd, indent=4)
+
+    return ids
+
+
+@beartype.beartype
+def train(
+    cfgs: list[config.Train],
+) -> tuple[torch.nn.ModuleList, ParallelWandbRun, int]:
+    """
+    Explicitly declare the optimizer, schedulers, dataloader, etc outside of `main` so that all the variables are dropped from scope and can be garbage collected.
+    """
     check_cfgs(cfgs)
 
     err_msg = "ghost grads are disabled in current codebase."
@@ -115,7 +212,7 @@ def train(cfgs: list[config.Train]) -> list[str]:
 
     mode = "online" if cfg.track else "disabled"
     tags = [cfg.tag] if cfg.tag else []
-    run = ParallelWandbRuns(cfg.wandb_project, cfgs, mode, tags)
+    run = ParallelWandbRun(cfg.wandb_project, cfgs, mode, tags)
 
     optimizer = torch.optim.Adam(param_groups, fused=True)
     lr_schedulers = [Warmup(0.0, c.lr, c.n_lr_warmup) for c in cfgs]
@@ -136,7 +233,7 @@ def train(cfgs: list[config.Train]) -> list[str]:
         vit_acts = vit_acts.to(cfg.device, non_blocking=True)
         for sae in saes:
             sae.normalize_w_dec()
-        # Forward and Backward Passes
+        # Forward passes
         _, _, losses = zip(*(sae(vit_acts) for sae in saes))
 
         n_patches_seen += len(vit_acts)
@@ -189,55 +286,7 @@ def train(cfgs: list[config.Train]) -> list[str]:
 
         global_step += 1
 
-    # Cheap(-ish) evaluation
-    eval_metrics = evaluate(cfgs, saes)
-    metrics = [metric.for_wandb() for metric in eval_metrics]
-    run.log(metrics, step=global_step)
-    ids = run.finish()
-
-    for id, metric, sae in zip(ids, eval_metrics, saes):
-        logger.info(
-            "Checkpoint %s has %d dense features (%.1f)",
-            id,
-            metric.n_dense,
-            metric.n_dense / sae.cfg.d_sae * 100,
-        )
-        logger.info(
-            "Checkpoint %s has %d dead features (%.1f%%)",
-            id,
-            metric.n_dead,
-            metric.n_dead / sae.cfg.d_sae * 100,
-        )
-        logger.info(
-            "Checkpoint %s has %d *almost* dead (<1e-7) features (%.1f)",
-            id,
-            metric.n_almost_dead,
-            metric.n_almost_dead / sae.cfg.d_sae * 100,
-        )
-
-        ckpt_fpath = os.path.join(cfg.ckpt_path, id, "sae.pt")
-        nn.dump(ckpt_fpath, sae)
-        logger.info("Dumped checkpoint to '%s'.", ckpt_fpath)
-        cfg_fpath = os.path.join(cfg.ckpt_path, id, "cfg.json")
-        with open(cfg_fpath, "w") as fd:
-            json.dump(dataclasses.asdict(cfg), fd, indent=4)
-
-    return ids
-
-
-@jaxtyped(typechecker=beartype.beartype)
-def plot_log10_hist(
-    frequencies: Float[Tensor, " d_sae"], *, eps: float = 1e-9
-) -> tuple[object, object]:
-    """
-    Plot the histogram of feature frequency.
-    """
-    import matplotlib.pyplot as plt
-
-    fig, ax = plt.subplots()
-    frequencies = torch.log10(frequencies + eps)
-    ax.hist(frequencies, bins=50)
-    return fig, ax
+    return saes, run, global_step
 
 
 @beartype.beartype
@@ -257,21 +306,24 @@ class EvalMetrics:
     """Number of neurons that fired on fewer than `almost_dead_threshold` of examples."""
     n_dense: int
     """Number of neurons that fired on more than `dense_threshold` of examples."""
+
+    freqs: Float[Tensor, " d_sae"]
+    """How often each feature fired."""
+    mean_values: Float[Tensor, " d_sae"]
+    """The mean value for each feature when it did fire."""
+
     almost_dead_threshold: float
     """Threshold for an "almost dead" neuron."""
     dense_threshold: float
     """Threshold for a dense neuron."""
 
-    hist: object
-
     def for_wandb(self) -> dict[str, int | float]:
         dct = dataclasses.asdict(self)
-        dct["hist"] = wandb.Image(dct.pop("hist"))
         return {f"eval/{key}": value for key, value in dct.items()}
 
 
 @beartype.beartype
-@torch.inference_mode()
+@torch.no_grad()
 def evaluate(
     cfgs: list[config.Train | config.HistogramsEvaluate], saes: torch.nn.ModuleList
 ) -> list[EvalMetrics]:
@@ -281,12 +333,16 @@ def evaluate(
 
     .. todo:: Develop automatic methods to use histogram and feature frequencies to evaluate quality with a single number.
     """
+
+    torch.cuda.empty_cache()
+
     check_cfgs(cfgs)
 
     # Also manually check that all SAEs are the same dimension
     d_sae = saes[0].cfg.d_sae
     for sae in saes:
         assert sae.cfg.d_sae == d_sae
+    saes.eval()
 
     cfg = cfgs[0]
 
@@ -295,14 +351,11 @@ def evaluate(
 
     dataset = activations.Dataset(cfg.data)
     dataloader = torch.utils.data.DataLoader(
-        dataset,
-        batch_size=cfg.sae_batch_size,
-        num_workers=cfg.n_workers,
-        shuffle=False,
-        pin_memory=True,
+        dataset, batch_size=cfg.sae_batch_size, num_workers=cfg.n_workers, shuffle=False
     )
 
-    n_fired = torch.zeros((len(cfgs), saes[0].cfg.d_sae)).to(cfg.device)
+    n_fired = torch.zeros((len(cfgs), saes[0].cfg.d_sae))
+    values = torch.zeros((len(cfgs), saes[0].cfg.d_sae))
     total_l0 = torch.zeros(len(cfgs))
     total_l1 = torch.zeros(len(cfgs))
     total_mse = torch.zeros(len(cfgs))
@@ -311,37 +364,32 @@ def evaluate(
         dataloader, desc="eval", every=cfg.log_every
     ):
         vit_acts = vit_acts.to(cfg.device, non_blocking=True)
-        _, f_x, losses = zip(*(sae(vit_acts) for sae in saes))
-        f_x = torch.stack(f_x)
-        n_fired += (f_x > 0).sum(axis=1)
-        total_l0 += torch.tensor([loss.l0 for loss in losses])
-        total_l1 += torch.tensor([loss.l1 for loss in losses])
-        total_mse += torch.tensor([loss.mse for loss in losses])
+        for i, sae in enumerate(saes):
+            _, f_x, loss = sae(vit_acts)
+            n_fired[i] += einops.reduce(f_x > 0, "batch d_sae -> d_sae", "sum").cpu()
+            values[i] += einops.reduce(f_x, "batch d_sae -> d_sae", "sum").cpu()
+            total_l0[i] += loss.l0.cpu()
+            total_l1[i] += loss.l1.cpu()
+            total_mse[i] += loss.mse.cpu()
 
+        break
+
+    mean_values = values = n_fired
     freqs = n_fired / len(dataset)
 
     l0 = (total_l0 / len(dataloader)).tolist()
     l1 = (total_l1 / len(dataloader)).tolist()
     mse = (total_mse / len(dataloader)).tolist()
 
-    n_dead = (freqs == 0).sum(axis=1).tolist()
-    n_almost_dead = (freqs < almost_dead_lim).sum(axis=1).tolist()
-    n_dense = (freqs > dense_lim).sum(axis=1).tolist()
+    n_dead = einops.reduce(freqs == 0, "n_saes d_sae -> n_saes", "sum").tolist()
+    n_almost_dead = einops.reduce(
+        freqs < almost_dead_lim, "n_saes d_sae -> n_saes", "sum"
+    ).tolist()
+    n_dense = einops.reduce(freqs > dense_lim, "n_saes d_sae -> n_saes", "sum").tolist()
 
     metrics = []
-    for l0, l1, mse, n_dead, n_almost_dead, n_dense, freqs in zip(
-        l0, l1, mse, n_dead, n_almost_dead, n_dense, freqs
-    ):
-        fig, ax = plot_log10_hist(freqs.cpu())
-        ax.set_title("Feature Frequencies")
-        ax.set_xlabel("% of inputs a feature fires on (log10)")
-        ax.set_ylabel("number of features")
-        fig.tight_layout()
-
-        metric = EvalMetrics(
-            l0, l1, mse, n_dead, n_almost_dead, n_dense, almost_dead_lim, dense_lim, fig
-        )
-        metrics.append(metric)
+    for row in zip(l0, l1, mse, n_dead, n_almost_dead, n_dense, freqs, mean_values):
+        metrics.append(EvalMetrics(*row, almost_dead_lim, dense_lim))
 
     return metrics
 
@@ -373,53 +421,6 @@ class BatchLimiter:
             # We try to mitigate the above issue by ignoring the last batch if we don't have drop_last.
             if not self.dataloader.drop_last:
                 self.n_seen -= self.batch_size
-
-
-MetricQueue = list[tuple[int, dict[str, object]]]
-
-
-class ParallelWandbRuns:
-    """
-    Inspired by https://community.wandb.ai/t/is-it-possible-to-log-to-multiple-runs-simultaneously/4387/3.
-    """
-
-    def __init__(
-        self, project: str, cfgs: list[config.Train], mode: str, tags: list[str]
-    ):
-        cfg, *cfgs = cfgs
-        self.project = project
-        self.cfgs = cfgs
-        self.mode = mode
-        self.tags = tags
-
-        self.live_run = wandb.init(project=project, config=cfg, mode=mode, tags=tags)
-
-        self.metric_queues: list[MetricQueue] = [[] for _ in self.cfgs]
-
-    def log(self, metrics: list[dict[str, object]], *, step: int):
-        metric, *metrics = metrics
-        self.live_run.log(metric, step=step)
-        for queue, metric in zip(self.metric_queues, metrics):
-            queue.append((step, metric))
-
-    def finish(self) -> list[str]:
-        ids = [self.live_run.id]
-        # Log the rest of the runs.
-        self.live_run.finish()
-
-        for queue, cfg in zip(self.metric_queues, self.cfgs):
-            run = wandb.init(
-                project=self.project,
-                config=cfg,
-                mode=self.mode,
-                tags=self.tags + ["queued"],
-            )
-            for step, metric in queue:
-                run.log(metric, step=step)
-            ids.append(run.id)
-            run.finish()
-
-        return ids
 
 
 ##############

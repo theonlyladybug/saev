@@ -56,9 +56,8 @@ class SparseAutoencoder(torch.nn.Module):
 
         self.logger = logging.getLogger(f"sae(seed={cfg.seed})")
 
-    @jaxtyped(typechecker=beartype.beartype)
     def forward(
-        self, x: Float[Tensor, "batch d_model"], dead_neuron_mask=None
+        self, x: Float[Tensor, "batch d_model"], dead_neuron_mask: None = None
     ) -> tuple[Float[Tensor, "batch d_model"], Float[Tensor, "batch d_sae"], Loss]:
         # Remove encoder bias as per Anthropic
         h_pre = (

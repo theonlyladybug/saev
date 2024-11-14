@@ -60,7 +60,7 @@ def sweep(cfg: typing.Annotated[saev.TrainConfig, tyro.conf.arg(name="")], sweep
     else:
         executor = submitit.DebugExecutor(folder=cfg.log_to)
 
-    job = executor.submit(saev.training.train, cfgs)
+    job = executor.submit(saev.training.main, cfgs)
     job.result()
 
     # for i, result in enumerate(submitit.helpers.as_completed(jobs)):

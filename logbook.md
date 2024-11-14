@@ -698,8 +698,30 @@ CLIP, ImageNet-1K train, *with* SAE tricks
 * 768 is images that are split (multiple shots in one image)
 * 889 is linoleum tile (flooring)
 * 927 is Russia (OCR, symbols, concepts like U-boat, locomotive)
+* 949 is "royal"
 
 What patterns am I seeing now?
 
 * CLIP groups text, symbols, drawings and images together in the semantic space. This is really useful for things like LMMs.
 * DINOv2 identifies traits more often than CLIP when looking at iNat21. Like, 5x as often
+
+
+
+
+I'm writing a submission to CVPR. The premise is that we apply sparse autoencoders to vision models to interpret their internal representations.
+
+My current outline is
+
+1. Introduction: we want to interpret foundation vision models and see examples of the concepts being represented. SAEs are the best way to do this. We apply SAEs to DINOv2 and CLIP vision models and find some neat stuff.
+2. Related work.
+3. How we train the SAEs (technical details, easy to write)
+4. Findings
+    1. CLIP learns abstract semantic relationships, DINOv2 doesn't.
+    2. DINOv2 identifies morphological traits in animals much more often than CLIP.
+    3. Training an SAE on one datset transfers to a new dataset.
+5. Conclusion & Future Work
+
+# 11/14/2024
+
+Anthropic discusses ways to search for particular features [here](https://transformer-circuits.pub/2024/scaling-monosemanticity/index.html#searching).
+In general, it seems using combinations of positive/negative examples and filtering by "fire/no fire" is good, rather than the LDA-based classifier I have now.
