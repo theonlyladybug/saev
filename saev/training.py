@@ -6,10 +6,10 @@ import collections
 import dataclasses
 import json
 import logging
-import einops
 import os.path
 
 import beartype
+import einops
 import numpy as np
 import torch
 from jaxtyping import Float
@@ -374,7 +374,7 @@ def evaluate(
 
         break
 
-    mean_values = values = n_fired
+    mean_values = values / n_fired
     freqs = n_fired / len(dataset)
 
     l0 = (total_l0 / len(dataloader)).tolist()
