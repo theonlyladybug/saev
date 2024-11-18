@@ -1,0 +1,41 @@
+I'm writing a submission to ICML. The premise is that we apply sparse autoencoders to vision models like DINOv2 and CLIP to interpret their internal representations.
+
+My current outline is
+
+1. Introduction
+	1. We want to interpret foundation vision models 
+	2. We want to see examples of the concepts being represented. 
+	3. SAEs are the best way to do this. 
+	4. We apply SAEs to DINOv2 and CLIP vision models and find some neat stuff.
+2. Related work.
+3. How we train the SAEs (technical details, easy to write)
+4. Findings
+    1. CLIP learns abstract semantic relationships, DINOv2 doesn't.
+    2. DINOv2 identifies morphological traits in animals much more often than CLIP.
+    3. Training an SAE on one datset transfers to a new dataset.
+5. Conclusion & Future Work
+
+---
+
+I also like the following setup for the paper:
+
+
+Vision foundation models (like DINOv2 and CLIP) are widely used as feature extractors across diverse tasks. However, **their success hinges on their internal representations capturing the right concepts for downstream decision-making.**
+
+With respect to writing, we want to frame everything as Goal->Problem->Solution. In general, I want you to be skeptical and challenging of arguments that are not supported by evidence.
+
+Some questions that come up that are not in the outline yet:
+
+Q: Am you using standard SAEs or have you adopted the architecture?
+
+A: I am using ReLU SAEs with an L1 sparsity term and I have constrained the columns of W_dec to be unit norm to prevent shrinkage.
+
+Q: What datasets are you using?
+
+A: I am using ImageNet-1K for training and testing. I am extending it to iNat2021 (train-mini, 500K images) to demonstrate that results hold beyond ImageNet. 
+
+---
+
+We're going to work together on writing this paper, so I want to give you an opportunity to ask any questions you might have.
+
+It can be helpful to think about this project from the perspective of a top machine learning researcher, like Lucas Beyer, Yann LeCun, or Francois Chollet. What would they think about this project? What criticisms would they have? What parts would be novel or exciting to them?
