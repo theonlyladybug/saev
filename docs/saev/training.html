@@ -161,6 +161,11 @@ class EvalMetrics:
 
     def for_wandb(self) -&gt; dict[str, int | float]:
         dct = dataclasses.asdict(self)
+        # Store arrays as tables.
+        dct[&#34;freqs&#34;] = wandb.Table(columns=[&#34;freq&#34;], data=dct[&#34;freqs&#34;][:, None].numpy())
+        dct[&#34;mean_values&#34;] = wandb.Table(
+            columns=[&#34;mean_value&#34;], data=dct[&#34;mean_values&#34;][:, None].numpy()
+        )
         return {f&#34;eval/{key}&#34;: value for key, value in dct.items()}</code></pre>
 </details>
 <h3>Class variables</h3>

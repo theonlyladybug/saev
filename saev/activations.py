@@ -13,6 +13,7 @@ import dataclasses
 import hashlib
 import json
 import logging
+import math
 import os
 import shutil
 import typing
@@ -49,9 +50,9 @@ class VitRecorder(torch.nn.Module):
         self._i = 0
         self.logger = logging.getLogger(f"recorder({cfg.model_org}:{cfg.model_ckpt})")
 
-    def register(self, modules):
-        for layer in helpers.tail(self.cfg.n_layers, modules):
-            layer.register_forward_hook(self.hook)
+    def register(self, modules: list[torch.nn.Module]):
+        for i in self.cfg.layers:
+            modules[i].register_forward_hook(self.hook)
         return self
 
     def hook(
@@ -59,10 +60,7 @@ class VitRecorder(torch.nn.Module):
     ) -> None:
         if self._storage is None:
             batch, _, dim = output.shape
-            self._storage = torch.zeros(
-                (batch, self.cfg.n_layers, self.cfg.n_patches_per_img + 1, dim),
-                device=output.device,
-            )
+            self._storage = self._empty_storage(batch, dim, output.device)
 
         if self._storage[:, self._i, 0, :].shape != output[:, 0, :].shape:
             batch, _, dim = output.shape
@@ -71,12 +69,19 @@ class VitRecorder(torch.nn.Module):
             msg = "Output shape does not match storage shape: (batch) %d != %d or (dim) %d != %d"
             self.logger.warning(msg, old_batch, batch, old_dim, dim)
 
-            self._storage = torch.zeros(
-                (batch, self.cfg.n_layers, self.cfg.n_patches_per_img + 1, dim),
-                device=output.device,
-            )
+            self._storage = self._empty_storage(batch, dim, output.device)
+
         self._storage[:, self._i] = output[:, self.patches, :].detach()
         self._i += 1
+
+    def _empty_storage(self, batch: int, dim: int, device: torch.device):
+        n_patches_per_img = self.cfg.n_patches_per_img
+        if self.cfg.cls_token:
+            n_patches_per_img += 1
+
+        return torch.zeros(
+            (batch, len(self.cfg.layers), n_patches_per_img, dim), device=device
+        )
 
     def reset(self):
         self._i = 0
@@ -89,11 +94,11 @@ class VitRecorder(torch.nn.Module):
 
 
 @jaxtyped(typechecker=beartype.beartype)
-class OpenClip(torch.nn.Module):
+class Clip(torch.nn.Module):
     def __init__(self, cfg: config.Activations):
         super().__init__()
 
-        assert cfg.model_org == "open-clip"
+        assert cfg.model_org == "clip"
 
         import open_clip
 
@@ -112,7 +117,43 @@ class OpenClip(torch.nn.Module):
         model.output_tokens = True  # type: ignore
         self.model = model
 
+        assert not isinstance(self.model, open_clip.timm_model.TimmModel)
         self.recorder = VitRecorder(cfg).register(self.model.transformer.resblocks)
+
+    def make_img_transform(self):
+        return self._img_transform
+
+    def forward(self, batch: Float[Tensor, "batch 3 width height"]):
+        self.recorder.reset()
+        result = self.model(batch)
+        return result, self.recorder.activations
+
+
+@jaxtyped(typechecker=beartype.beartype)
+class Siglip(torch.nn.Module):
+    def __init__(self, cfg: config.Activations):
+        super().__init__()
+        assert cfg.model_org == "siglip"
+
+        import open_clip
+
+        if cfg.model_ckpt.startswith("hf-hub:"):
+            clip, self._img_transform = open_clip.create_model_from_pretrained(
+                cfg.model_ckpt, cache_dir=helpers.get_cache_dir()
+            )
+        else:
+            arch, ckpt = cfg.model_ckpt.split("/")
+            clip, self._img_transform = open_clip.create_model_from_pretrained(
+                arch, pretrained=ckpt, cache_dir=helpers.get_cache_dir()
+            )
+
+        model = clip.visual
+        model.proj = None
+        model.output_tokens = True  # type: ignore
+        self.model = model
+
+        assert isinstance(self.model, open_clip.timm_model.TimmModel)
+        self.recorder = VitRecorder(cfg).register(self.model.trunk.blocks)
 
     def make_img_transform(self):
         return self._img_transform
@@ -201,8 +242,10 @@ class DinoV2(torch.nn.Module):
 def make_vit(cfg: config.Activations):
     if cfg.model_org == "timm":
         return TimmVit(cfg)
-    elif cfg.model_org == "open-clip":
-        return OpenClip(cfg)
+    elif cfg.model_org == "clip":
+        return Clip(cfg)
+    elif cfg.model_org == "siglip":
+        return Siglip(cfg)
     elif cfg.model_org == "dinov2":
         return DinoV2(cfg)
     else:
@@ -222,6 +265,12 @@ class Dataset(torch.utils.data.Dataset):
 
     cfg: config.DataLoad
     metadata: "Metadata"
+    layer_index: int
+    """Layer index into the shards if we are choosing a specific layer."""
+    scalar: float
+    """Normalizing scalar such that ||x / scalar ||_2 ~= sqrt(d_vit)."""
+    act_mean: Float[Tensor, " d_vit"]
+    """Mean activation."""
 
     def __init__(self, cfg: config.DataLoad):
         self.cfg = cfg
@@ -230,6 +279,58 @@ class Dataset(torch.utils.data.Dataset):
 
         metadata_fpath = os.path.join(self.cfg.shard_root, "metadata.json")
         self.metadata = Metadata.load(metadata_fpath)
+
+        # Pick a really big number so that if you accidentally use this when you shouldn't, you get an out of bounds IndexError.
+        self.layer_index = 1_000_000
+        if isinstance(self.cfg.layer, int):
+            err_msg = f"Non-exact matches for .layer field not supported; {self.cfg.layer} not in {self.metadata.layers}."
+            assert self.cfg.layer in self.metadata.layers, err_msg
+            self.layer_index = self.metadata.layers.index(self.cfg.layer)
+
+        # Premptively set this value so that preprocess() doesn't freak out.
+        self.scalar = 1.0
+
+        # Load a random subset of samples to calculate the mean activation and mean L2 norm.
+        perm = np.random.default_rng(seed=42).permutation(len(self))
+        perm = perm[: cfg.n_random_samples]
+
+        samples, _, _ = zip(*[
+            self[p.item()]
+            for p in helpers.progress(perm, every=25_000, desc="examples to calc means")
+        ])
+        samples = torch.stack(samples)
+        if samples.abs().max() > 1e3:
+            raise ValueError(
+                "You found an abnormally large activation {example.abs().max().item():.5f} that will mess up your L2 mean."
+            )
+
+        # Activation mean
+        self.act_mean = samples.mean(axis=0)
+        if (self.act_mean > 1e3).any():
+            raise ValueError(
+                "You found an abnormally large activation that is messing up your activation mean."
+            )
+
+        # Scalar
+        l2_mean = torch.linalg.norm(samples - self.act_mean, axis=1).mean()
+        if l2_mean > 1e3:
+            raise ValueError(
+                "You found an abnormally large activation that is messing up your L2 mean."
+            )
+
+        self.scalar = l2_mean / math.sqrt(self.d_vit)
+
+    def preprocess(self, act: Float[np.ndarray, " d_vit"]) -> Float[Tensor, " d_vit"]:
+        """
+        Apply a scalar normalization so the mean squared L2 norm is same as d_vit. This is from 'Scaling Monosemanticity':
+
+        > As a preprocessing step we apply a scalar normalization to the model activations so their average squared L2 norm is the residual stream dimension
+
+        So we divide by self.scalar which is the datasets (approximate) L2 mean before normalization divided by sqrt(d_vit).
+        """
+        act = torch.from_numpy(act.copy())
+        act = act.clamp(-self.cfg.clamp, self.cfg.clamp)
+        return (act - self.act_mean) / self.scalar
 
     @property
     def d_vit(self) -> int:
@@ -242,9 +343,9 @@ class Dataset(torch.utils.data.Dataset):
             case ("cls", int()):
                 img_act = self.get_img_patches(i)
                 # Select layer's cls token.
-                act = img_act[self.cfg.layer, 0, :]
+                act = img_act[self.layer_index, 0, :]
                 return self.Example(
-                    torch.from_numpy(act.copy()), torch.tensor(i), torch.tensor(-1)
+                    self.preprocess(act), torch.tensor(i), torch.tensor(-1)
                 )
             case ("cls", "meanpool"):
                 img_act = self.get_img_patches(i)
@@ -253,16 +354,16 @@ class Dataset(torch.utils.data.Dataset):
                 # Meanpool over the layers
                 act = cls_act.mean(axis=0)
                 return self.Example(
-                    torch.from_numpy(act.copy()), torch.tensor(i), torch.tensor(-1)
+                    self.preprocess(act), torch.tensor(i), torch.tensor(-1)
                 )
             case ("meanpool", int()):
                 img_act = self.get_img_patches(i)
                 # Select layer's patches.
-                layer_act = img_act[self.cfg.layer, 1:, :]
+                layer_act = img_act[self.layer_index, 1:, :]
                 # Meanpool over the patches
                 act = layer_act.mean(axis=0)
                 return self.Example(
-                    torch.from_numpy(act.copy()), torch.tensor(i), torch.tensor(-1)
+                    self.preprocess(act), torch.tensor(i), torch.tensor(-1)
                 )
             case ("meanpool", "meanpool"):
                 img_act = self.get_img_patches(i)
@@ -271,12 +372,12 @@ class Dataset(torch.utils.data.Dataset):
                 # Meanpool over the layers and patches
                 act = act.mean(axis=(0, 1))
                 return self.Example(
-                    torch.from_numpy(act.copy()), torch.tensor(i), torch.tensor(-1)
+                    self.preprocess(act), torch.tensor(i), torch.tensor(-1)
                 )
             case ("patches", int()):
                 n_imgs_per_shard = (
                     self.metadata.n_patches_per_shard
-                    // self.metadata.n_layers
+                    // len(self.metadata.layers)
                     // (self.metadata.n_patches_per_img + 1)
                 )
                 n_examples_per_shard = (
@@ -289,13 +390,13 @@ class Dataset(torch.utils.data.Dataset):
                 acts_fpath = os.path.join(self.cfg.shard_root, f"acts{shard:06}.bin")
                 shape = (
                     n_imgs_per_shard,
-                    self.metadata.n_layers,
+                    len(self.metadata.layers),
                     self.metadata.n_patches_per_img + 1,
                     self.metadata.d_vit,
                 )
                 acts = np.memmap(acts_fpath, mode="c", dtype=np.float32, shape=shape)
                 # Choose the layer and the non-CLS tokens.
-                acts = acts[:, self.cfg.layer, 1:]
+                acts = acts[:, self.layer_index, 1:]
 
                 # Choose a patch among n and the patches.
                 act = acts[
@@ -303,7 +404,7 @@ class Dataset(torch.utils.data.Dataset):
                     pos % self.metadata.n_patches_per_img,
                 ]
                 return self.Example(
-                    torch.from_numpy(act.copy()),
+                    self.preprocess(act),
                     # What image is this?
                     torch.tensor(i // self.metadata.n_patches_per_img),
                     torch.tensor(i % self.metadata.n_patches_per_img),
@@ -320,7 +421,7 @@ class Dataset(torch.utils.data.Dataset):
     ) -> Float[np.ndarray, "n_layers all_patches d_vit"]:
         n_imgs_per_shard = (
             self.metadata.n_patches_per_shard
-            // self.metadata.n_layers
+            // len(self.metadata.layers)
             // (self.metadata.n_patches_per_img + 1)
         )
         shard = i // n_imgs_per_shard
@@ -328,7 +429,7 @@ class Dataset(torch.utils.data.Dataset):
         acts_fpath = os.path.join(self.cfg.shard_root, f"acts{shard:06}.bin")
         shape = (
             n_imgs_per_shard,
-            self.metadata.n_layers,
+            len(self.metadata.layers),
             self.metadata.n_patches_per_img + 1,
             self.metadata.d_vit,
         )
@@ -343,7 +444,7 @@ class Dataset(torch.utils.data.Dataset):
         match (self.cfg.patches, self.cfg.layer):
             case ("cls", "all"):
                 # Return a CLS token from a random image and random layer.
-                return self.metadata.n_imgs * self.metadata.n_layers
+                return self.metadata.n_imgs * len(self.metadata.layers)
             case ("cls", int()):
                 # Return a CLS token from a random image and fixed layer.
                 return self.metadata.n_imgs
@@ -352,7 +453,7 @@ class Dataset(torch.utils.data.Dataset):
                 return self.metadata.n_imgs
             case ("meanpool", "all"):
                 # Return the meanpool of all patches from a random image and random layer.
-                return self.metadata.n_imgs * self.metadata.n_layers
+                return self.metadata.n_imgs * len(self.metadata.layers)
             case ("meanpool", int()):
                 # Return the meanpool of all patches from a random image and fixed layer.
                 return self.metadata.n_imgs
@@ -369,7 +470,7 @@ class Dataset(torch.utils.data.Dataset):
                 # Return a patch from a random image, random layer and random patch.
                 return (
                     self.metadata.n_imgs
-                    * self.metadata.n_layers
+                    * len(self.metadata.layers)
                     * self.metadata.n_patches_per_img
                 )
             case _:
@@ -391,6 +492,8 @@ def setup(cfg: config.Activations):
         setup_inat21(cfg)
     elif isinstance(cfg.data, config.BrodenDataset):
         setup_broden(cfg)
+    elif isinstance(cfg.data, config.ProbeDataset):
+        setup_probe(cfg)
     else:
         typing.assert_never(cfg.data)
 
@@ -567,6 +670,11 @@ def setup_broden(cfg: config.Activations):
 
 
 @beartype.beartype
+def setup_probe(cfg: config.Activations):
+    assert isinstance(cfg.data, config.ProbeDataset)
+
+
+@beartype.beartype
 def get_dataloader(cfg: config.Activations, preprocess):
     """
     Gets the dataloader for the current experiment; delegates dataloader construction to dataset-specific functions.
@@ -588,6 +696,8 @@ def get_dataloader(cfg: config.Activations, preprocess):
         dataloader = get_inat21_dataloader(cfg, preprocess)
     elif isinstance(cfg.data, config.BrodenDataset):
         dataloader = get_broden_dataloader(cfg, preprocess)
+    elif isinstance(cfg.data, config.ProbeDataset):
+        dataloader = get_probe_dataloader(cfg, preprocess)
     else:
         typing.assert_never(cfg.data)
 
@@ -804,6 +914,67 @@ def get_broden_dataloader(
     return dataloader
 
 
+class ProbeDataset(torch.utils.data.Dataset):
+    def __init__(self, *, transform=None):
+        self.logger = logging.getLogger("probe-dataset")
+        import datasets
+
+        name = "samuelstevens/sae-probing"
+
+        self.hf_datasets = {}
+        cfgs = datasets.get_dataset_config_names(name)
+        for cfg in sorted(cfgs):
+            if cfg == "default":
+                self.logger.warning(
+                    "%s has 'default' config; you don't want this!", name
+                )
+                continue
+
+            self.hf_datasets[cfg] = datasets.load_dataset(name, cfg, split="train")
+
+        self.transform = transform
+
+    def __getitem__(self, i):
+        n = 0
+        for dataset in self.hf_datasets.values():
+            if i >= n + len(dataset):
+                n += len(dataset)
+                continue
+
+            example = dataset[i - n]
+            example["index"] = i
+            example["image"] = example["image"].convert("RGB")
+            if self.transform:
+                example["image"] = self.transform(example["image"])
+            example["split"] = dataset.info.config_name
+
+            return example
+
+        raise IndexError(i)
+
+    def __len__(self) -> int:
+        return sum(len(dataset) for dataset in self.hf_datasets.values())
+
+
+@beartype.beartype
+def get_probe_dataloader(
+    cfg: config.Activations, preprocess
+) -> torch.utils.data.DataLoader:
+    assert isinstance(cfg.data, config.ProbeDataset)
+
+    dataloader = torch.utils.data.DataLoader(
+        ProbeDataset(transform=preprocess),
+        batch_size=cfg.vit_batch_size,
+        drop_last=False,
+        num_workers=cfg.n_workers,
+        persistent_workers=cfg.n_workers > 0,
+        shuffle=False,
+        pin_memory=True,
+    )
+
+    return dataloader
+
+
 @beartype.beartype
 def dump(cfg: config.Activations):
     """
@@ -910,13 +1081,16 @@ class ShardWriter:
 
         self.root = get_acts_dir(cfg)
 
+        n_patches_per_img = cfg.n_patches_per_img
+        if cfg.cls_token:
+            n_patches_per_img += 1
         self.n_imgs_per_shard = (
-            cfg.n_patches_per_shard // cfg.n_layers // (cfg.n_patches_per_img + 1)
+            cfg.n_patches_per_shard // len(cfg.layers) // n_patches_per_img
         )
         self.shape = (
             self.n_imgs_per_shard,
-            cfg.n_layers,
-            cfg.n_patches_per_img + 1,
+            len(cfg.layers),
+            n_patches_per_img,
             cfg.d_vit,
         )
 
@@ -977,8 +1151,9 @@ class ShardWriter:
 class Metadata:
     model_org: str
     model_ckpt: str
-    n_layers: int
+    layers: tuple[int, ...]
     n_patches_per_img: int
+    cls_token: bool
     d_vit: int
     seed: int
     n_imgs: int
@@ -990,8 +1165,9 @@ class Metadata:
         return cls(
             cfg.model_org,
             cfg.model_ckpt,
-            cfg.n_layers,
+            tuple(cfg.layers),
             cfg.n_patches_per_img,
+            cfg.cls_token,
             cfg.d_vit,
             cfg.seed,
             cfg.data.n_imgs,
@@ -1002,7 +1178,9 @@ class Metadata:
     @classmethod
     def load(cls, fpath) -> "Metadata":
         with open(fpath) as fd:
-            return cls(**json.load(fd))
+            dct = json.load(fd)
+        dct["layers"] = tuple(dct.pop("layers"))
+        return cls(**dct)
 
     def dump(self, fpath):
         with open(fpath, "w") as fd:

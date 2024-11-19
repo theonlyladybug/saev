@@ -72,10 +72,10 @@ class SparseAutoencoder(torch.nn.Module):
             einops.einsum(f_x, self.W_dec, "... d_sae, d_sae d_vit -> ... d_vit")
             + self.b_dec
         )
+        # (sam): I am now realizing that we normalize by the L2 norm of x.
 
-        mse_loss = (
-            torch.pow((x_hat - x.float()), 2) / (x**2).sum(dim=-1, keepdim=True).sqrt()
-        )
+        # Some values of x and x_hat can be very large. We can calculate a safe MSE
+        mse_loss = safe_mse(x_hat, x)
 
         ghost_loss = torch.tensor(0.0, dtype=mse_loss.dtype, device=mse_loss.device)
         # gate on config and training so evals is not slowed down.
@@ -164,6 +164,33 @@ class SparseAutoencoder(torch.nn.Module):
             self.W_dec.data,
             "d_sae, d_sae d_vit -> d_sae d_vit",
         )
+
+
+@jaxtyped(typechecker=beartype.beartype)
+def ref_mse(
+    x_hat: Float[Tensor, "*d"], x: Float[Tensor, "*d"], norm: bool = True
+) -> Float[Tensor, "*d"]:
+    mse_loss = torch.pow((x_hat - x.float()), 2)
+
+    if norm:
+        mse_loss /= (x**2).sum(dim=-1, keepdim=True).sqrt()
+    return mse_loss
+
+
+@jaxtyped(typechecker=beartype.beartype)
+def safe_mse(
+    x_hat: Float[Tensor, "*batch d"], x: Float[Tensor, "*batch d"], norm: bool = True
+) -> Float[Tensor, "*batch d"]:
+    upper = x.abs().max()
+    x = x / upper
+    x_hat = x_hat / upper
+
+    mse = (x_hat - x) ** 2
+    if norm:
+        mse /= torch.linalg.norm(x, axis=-1, keepdim=True) + 1e-12
+        return mse * upper
+
+    return mse * upper * upper
 
 
 @beartype.beartype

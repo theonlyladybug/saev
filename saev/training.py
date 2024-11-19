@@ -319,6 +319,11 @@ class EvalMetrics:
 
     def for_wandb(self) -> dict[str, int | float]:
         dct = dataclasses.asdict(self)
+        # Store arrays as tables.
+        dct["freqs"] = wandb.Table(columns=["freq"], data=dct["freqs"][:, None].numpy())
+        dct["mean_values"] = wandb.Table(
+            columns=["mean_value"], data=dct["mean_values"][:, None].numpy()
+        )
         return {f"eval/{key}": value for key, value in dct.items()}
 
 
@@ -371,8 +376,6 @@ def evaluate(
             total_l0[i] += loss.l0.cpu()
             total_l1[i] += loss.l1.cpu()
             total_mse[i] += loss.mse.cpu()
-
-        break
 
     mean_values = values / n_fired
     freqs = n_fired / len(dataset)

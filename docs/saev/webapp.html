@@ -135,14 +135,11 @@ The top k images are for latent i are sorted by</p>
 <dd>Configuration object.</dd>
 </dl></div>
 </dd>
-<dt id="saev.webapp.make_img_grid"><code class="name flex">
-<span>def <span class="ident">make_img_grid</span></span>(<span>imgs: list[tuple[PIL.Image.Image, jaxtyping.Float[Tensor, 'n_patches']]], *, upper: float | None = None)</span>
+<dt id="saev.webapp.make_img"><code class="name flex">
+<span>def <span class="ident">make_img</span></span>(<span>elem: <a title="saev.webapp.GridElement" href="#saev.webapp.GridElement">GridElement</a>, *, upper: float | None = None) ‑> PIL.Image.Image</span>
 </code></dt>
 <dd>
-<div class="desc"><div class="admonition todo">
-<p class="admonition-title">TODO</p>
-<p>document this function.</p>
-</div></div>
+<div class="desc"></div>
 </dd>
 <dt id="saev.webapp.safe_load"><code class="name flex">
 <span>def <span class="ident">safe_load</span></span>(<span>path: str) ‑> object</span>
@@ -153,6 +150,42 @@ The top k images are for latent i are sorted by</p>
 </dl>
 </section>
 <section>
+<h2 class="section-title" id="header-classes">Classes</h2>
+<dl>
+<dt id="saev.webapp.GridElement"><code class="flex name class">
+<span>class <span class="ident">GridElement</span></span>
+<span>(</span><span>img: PIL.Image.Image, label: str, patches: jaxtyping.Float[Tensor, 'n_patches'])</span>
+</code></dt>
+<dd>
+<div class="desc"><p>GridElement(img: PIL.Image.Image, label: str, patches: jaxtyping.Float[Tensor, 'n_patches'])</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@jaxtyped(typechecker=beartype.beartype)
+@dataclasses.dataclass
+class GridElement:
+    img: Image.Image
+    label: str
+    patches: Float[Tensor, &#34; n_patches&#34;]</code></pre>
+</details>
+<h3>Class variables</h3>
+<dl>
+<dt id="saev.webapp.GridElement.img"><code class="name">var <span class="ident">img</span> : PIL.Image.Image</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="saev.webapp.GridElement.label"><code class="name">var <span class="ident">label</span> : str</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="saev.webapp.GridElement.patches"><code class="name">var <span class="ident">patches</span> : jaxtyping.Float[Tensor, 'n_patches']</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+</dd>
+</dl>
 </section>
 </article>
 <nav id="sidebar">
@@ -176,8 +209,20 @@ The top k images are for latent i are sorted by</p>
 <li><code><a title="saev.webapp.get_topk_img" href="#saev.webapp.get_topk_img">get_topk_img</a></code></li>
 <li><code><a title="saev.webapp.get_topk_patch" href="#saev.webapp.get_topk_patch">get_topk_patch</a></code></li>
 <li><code><a title="saev.webapp.main" href="#saev.webapp.main">main</a></code></li>
-<li><code><a title="saev.webapp.make_img_grid" href="#saev.webapp.make_img_grid">make_img_grid</a></code></li>
+<li><code><a title="saev.webapp.make_img" href="#saev.webapp.make_img">make_img</a></code></li>
 <li><code><a title="saev.webapp.safe_load" href="#saev.webapp.safe_load">safe_load</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-classes">Classes</a></h3>
+<ul>
+<li>
+<h4><code><a title="saev.webapp.GridElement" href="#saev.webapp.GridElement">GridElement</a></code></h4>
+<ul class="">
+<li><code><a title="saev.webapp.GridElement.img" href="#saev.webapp.GridElement.img">img</a></code></li>
+<li><code><a title="saev.webapp.GridElement.label" href="#saev.webapp.GridElement.label">label</a></code></li>
+<li><code><a title="saev.webapp.GridElement.patches" href="#saev.webapp.GridElement.patches">patches</a></code></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>

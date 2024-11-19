@@ -83,9 +83,9 @@ These tests are quite slow</p></div>
 <dd>
 <div class="desc"></div>
 </dd>
-<dt><code class="name"><a title="saev.test_sweep" href="test_sweep.html">saev.test_sweep</a></code></dt>
+<dt><code class="name"><a title="saev.test_nn" href="test_nn.html">saev.test_nn</a></code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Uses <a href="">hypothesis</a> and <a href="https://hypothesis-torch.readthedocs.io/en/stable/compatability/">hypothesis-torch</a> to generate test cases to compare our …</p></div>
 </dd>
 <dt><code class="name"><a title="saev.test_webapp" href="test_webapp.html">saev.test_webapp</a></code></dt>
 <dd>
@@ -114,7 +114,7 @@ These tests are quite slow</p></div>
 <dl>
 <dt id="saev.Activations"><code class="flex name class">
 <span>class <span class="ident">ActivationsConfig</span></span>
-<span>(</span><span>data: <a title="saev.config.ImagenetDataset" href="config.html#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.TreeOfLifeDataset" href="config.html#saev.config.TreeOfLifeDataset">TreeOfLifeDataset</a> | <a title="saev.config.LaionDataset" href="config.html#saev.config.LaionDataset">LaionDataset</a> | <a title="saev.config.Inat21Dataset" href="config.html#saev.config.Inat21Dataset">Inat21Dataset</a> | <a title="saev.config.BrodenDataset" href="config.html#saev.config.BrodenDataset">BrodenDataset</a> | <a title="saev.config.ProbeDataset" href="config.html#saev.config.ProbeDataset">ProbeDataset</a> = &lt;factory&gt;, dump_to: str = './shards', model_org: Literal['open-clip', 'timm', 'dinov2'] = 'open-clip', model_ckpt: str = 'ViT-L-14/openai', vit_batch_size: int = 1024, n_workers: int = 8, d_vit: int = 1024, n_layers: int = 6, n_patches_per_img: int = 256, n_patches_per_shard: int = 2400000, seed: int = 42, ssl: bool = True, device: str = 'cuda', slurm: bool = False, slurm_acct: str = 'PAS2136', log_to: str = './logs')</span>
+<span>(</span><span>data: <a title="saev.config.ImagenetDataset" href="config.html#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.TreeOfLifeDataset" href="config.html#saev.config.TreeOfLifeDataset">TreeOfLifeDataset</a> | <a title="saev.config.LaionDataset" href="config.html#saev.config.LaionDataset">LaionDataset</a> | <a title="saev.config.Inat21Dataset" href="config.html#saev.config.Inat21Dataset">Inat21Dataset</a> | <a title="saev.config.BrodenDataset" href="config.html#saev.config.BrodenDataset">BrodenDataset</a> | <a title="saev.config.ProbeDataset" href="config.html#saev.config.ProbeDataset">ProbeDataset</a> = &lt;factory&gt;, dump_to: str = './shards', model_org: Literal['clip', 'siglip', 'timm', 'dinov2'] = 'clip', model_ckpt: str = 'ViT-L-14/openai', vit_batch_size: int = 1024, n_workers: int = 8, d_vit: int = 1024, layers: list[int] = &lt;factory&gt;, n_patches_per_img: int = 256, cls_token: bool = True, n_patches_per_shard: int = 2400000, seed: int = 42, ssl: bool = True, device: str = 'cuda', slurm: bool = False, slurm_acct: str = 'PAS2136', log_to: str = './logs')</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Configuration for calculating and saving ViT activations.</p></div>
@@ -129,18 +129,11 @@ class Activations:
     Configuration for calculating and saving ViT activations.
     &#34;&#34;&#34;
 
-    data: (
-        ImagenetDataset
-        | TreeOfLifeDataset
-        | LaionDataset
-        | Inat21Dataset
-        | BrodenDataset
-        | ProbeDataset
-    ) = dataclasses.field(default_factory=ImagenetDataset)
+    data: DatasetConfig = dataclasses.field(default_factory=ImagenetDataset)
     &#34;&#34;&#34;Which dataset to use.&#34;&#34;&#34;
     dump_to: str = os.path.join(&#34;.&#34;, &#34;shards&#34;)
     &#34;&#34;&#34;Where to write shards.&#34;&#34;&#34;
-    model_org: typing.Literal[&#34;open-clip&#34;, &#34;timm&#34;, &#34;dinov2&#34;] = &#34;open-clip&#34;
+    model_org: typing.Literal[&#34;clip&#34;, &#34;siglip&#34;, &#34;timm&#34;, &#34;dinov2&#34;] = &#34;clip&#34;
     &#34;&#34;&#34;Where to load models from.&#34;&#34;&#34;
     model_ckpt: str = &#34;ViT-L-14/openai&#34;
     &#34;&#34;&#34;Specific model checkpoint.&#34;&#34;&#34;
@@ -150,10 +143,12 @@ class Activations:
     &#34;&#34;&#34;Number of dataloader workers.&#34;&#34;&#34;
     d_vit: int = 1024
     &#34;&#34;&#34;Dimension of the ViT activations (depends on model).&#34;&#34;&#34;
-    n_layers: int = 6
+    layers: list[int] = dataclasses.field(default_factory=lambda: [-2])
     &#34;&#34;&#34;How many of the last ViT layers to save.&#34;&#34;&#34;
     n_patches_per_img: int = 256
     &#34;&#34;&#34;Number of ViT patches per image (depends on model).&#34;&#34;&#34;
+    cls_token: bool = True
+    &#34;&#34;&#34;Whether the model has a [CLS] token.&#34;&#34;&#34;
     n_patches_per_shard: int = 2_400_000
     &#34;&#34;&#34;Number of activations per shard; 2.4M is approximately 10GB for 1024-dimensional 4-byte activations.&#34;&#34;&#34;
 
@@ -174,6 +169,10 @@ class Activations:
 </details>
 <h3>Class variables</h3>
 <dl>
+<dt id="saev.Activations.cls_token"><code class="name">var <span class="ident">cls_token</span> : bool</code></dt>
+<dd>
+<div class="desc"><p>Whether the model has a [CLS] token.</p></div>
+</dd>
 <dt id="saev.Activations.d_vit"><code class="name">var <span class="ident">d_vit</span> : int</code></dt>
 <dd>
 <div class="desc"><p>Dimension of the ViT activations (depends on model).</p></div>
@@ -190,6 +189,10 @@ class Activations:
 <dd>
 <div class="desc"><p>Where to write shards.</p></div>
 </dd>
+<dt id="saev.Activations.layers"><code class="name">var <span class="ident">layers</span> : list[int]</code></dt>
+<dd>
+<div class="desc"><p>How many of the last ViT layers to save.</p></div>
+</dd>
 <dt id="saev.Activations.log_to"><code class="name">var <span class="ident">log_to</span> : str</code></dt>
 <dd>
 <div class="desc"><p>Where to log Slurm job stdout/stderr.</p></div>
@@ -198,13 +201,9 @@ class Activations:
 <dd>
 <div class="desc"><p>Specific model checkpoint.</p></div>
 </dd>
-<dt id="saev.Activations.model_org"><code class="name">var <span class="ident">model_org</span> : Literal['open-clip', 'timm', 'dinov2']</code></dt>
+<dt id="saev.Activations.model_org"><code class="name">var <span class="ident">model_org</span> : Literal['clip', 'siglip', 'timm', 'dinov2']</code></dt>
 <dd>
 <div class="desc"><p>Where to load models from.</p></div>
-</dd>
-<dt id="saev.Activations.n_layers"><code class="name">var <span class="ident">n_layers</span> : int</code></dt>
-<dd>
-<div class="desc"><p>How many of the last ViT layers to save.</p></div>
 </dd>
 <dt id="saev.Activations.n_patches_per_img"><code class="name">var <span class="ident">n_patches_per_img</span> : int</code></dt>
 <dd>
@@ -739,7 +738,7 @@ def top_values_fpath(self) -&gt; str:
 <li><code><a title="saev.probing" href="probing.html">saev.probing</a></code></li>
 <li><code><a title="saev.test_activations" href="test_activations.html">saev.test_activations</a></code></li>
 <li><code><a title="saev.test_config" href="test_config.html">saev.test_config</a></code></li>
-<li><code><a title="saev.test_sweep" href="test_sweep.html">saev.test_sweep</a></code></li>
+<li><code><a title="saev.test_nn" href="test_nn.html">saev.test_nn</a></code></li>
 <li><code><a title="saev.test_webapp" href="test_webapp.html">saev.test_webapp</a></code></li>
 <li><code><a title="saev.training" href="training.html">saev.training</a></code></li>
 <li><code><a title="saev.web" href="web/index.html">saev.web</a></code></li>
@@ -751,14 +750,15 @@ def top_values_fpath(self) -&gt; str:
 <li>
 <h4><code><a title="saev.Activations" href="#saev.Activations">Activations</a></code></h4>
 <ul class="two-column">
+<li><code><a title="saev.Activations.cls_token" href="#saev.Activations.cls_token">cls_token</a></code></li>
 <li><code><a title="saev.Activations.d_vit" href="#saev.Activations.d_vit">d_vit</a></code></li>
 <li><code><a title="saev.Activations.data" href="#saev.Activations.data">data</a></code></li>
 <li><code><a title="saev.Activations.device" href="#saev.Activations.device">device</a></code></li>
 <li><code><a title="saev.Activations.dump_to" href="#saev.Activations.dump_to">dump_to</a></code></li>
+<li><code><a title="saev.Activations.layers" href="#saev.Activations.layers">layers</a></code></li>
 <li><code><a title="saev.Activations.log_to" href="#saev.Activations.log_to">log_to</a></code></li>
 <li><code><a title="saev.Activations.model_ckpt" href="#saev.Activations.model_ckpt">model_ckpt</a></code></li>
 <li><code><a title="saev.Activations.model_org" href="#saev.Activations.model_org">model_org</a></code></li>
-<li><code><a title="saev.Activations.n_layers" href="#saev.Activations.n_layers">n_layers</a></code></li>
 <li><code><a title="saev.Activations.n_patches_per_img" href="#saev.Activations.n_patches_per_img">n_patches_per_img</a></code></li>
 <li><code><a title="saev.Activations.n_patches_per_shard" href="#saev.Activations.n_patches_per_shard">n_patches_per_shard</a></code></li>
 <li><code><a title="saev.Activations.n_workers" href="#saev.Activations.n_workers">n_workers</a></code></li>

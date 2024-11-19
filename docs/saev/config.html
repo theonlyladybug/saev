@@ -61,7 +61,7 @@ Might be expanded in the future to support pseudo-random sampling from distribut
 <dl>
 <dt id="saev.config.Activations"><code class="flex name class">
 <span>class <span class="ident">Activations</span></span>
-<span>(</span><span>data: <a title="saev.config.ImagenetDataset" href="#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.TreeOfLifeDataset" href="#saev.config.TreeOfLifeDataset">TreeOfLifeDataset</a> | <a title="saev.config.LaionDataset" href="#saev.config.LaionDataset">LaionDataset</a> | <a title="saev.config.Inat21Dataset" href="#saev.config.Inat21Dataset">Inat21Dataset</a> | <a title="saev.config.BrodenDataset" href="#saev.config.BrodenDataset">BrodenDataset</a> | <a title="saev.config.ProbeDataset" href="#saev.config.ProbeDataset">ProbeDataset</a> = &lt;factory&gt;, dump_to: str = './shards', model_org: Literal['open-clip', 'timm', 'dinov2'] = 'open-clip', model_ckpt: str = 'ViT-L-14/openai', vit_batch_size: int = 1024, n_workers: int = 8, d_vit: int = 1024, n_layers: int = 6, n_patches_per_img: int = 256, n_patches_per_shard: int = 2400000, seed: int = 42, ssl: bool = True, device: str = 'cuda', slurm: bool = False, slurm_acct: str = 'PAS2136', log_to: str = './logs')</span>
+<span>(</span><span>data: <a title="saev.config.ImagenetDataset" href="#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.TreeOfLifeDataset" href="#saev.config.TreeOfLifeDataset">TreeOfLifeDataset</a> | <a title="saev.config.LaionDataset" href="#saev.config.LaionDataset">LaionDataset</a> | <a title="saev.config.Inat21Dataset" href="#saev.config.Inat21Dataset">Inat21Dataset</a> | <a title="saev.config.BrodenDataset" href="#saev.config.BrodenDataset">BrodenDataset</a> | <a title="saev.config.ProbeDataset" href="#saev.config.ProbeDataset">ProbeDataset</a> = &lt;factory&gt;, dump_to: str = './shards', model_org: Literal['clip', 'siglip', 'timm', 'dinov2'] = 'clip', model_ckpt: str = 'ViT-L-14/openai', vit_batch_size: int = 1024, n_workers: int = 8, d_vit: int = 1024, layers: list[int] = &lt;factory&gt;, n_patches_per_img: int = 256, cls_token: bool = True, n_patches_per_shard: int = 2400000, seed: int = 42, ssl: bool = True, device: str = 'cuda', slurm: bool = False, slurm_acct: str = 'PAS2136', log_to: str = './logs')</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Configuration for calculating and saving ViT activations.</p></div>
@@ -76,18 +76,11 @@ class Activations:
     Configuration for calculating and saving ViT activations.
     &#34;&#34;&#34;
 
-    data: (
-        ImagenetDataset
-        | TreeOfLifeDataset
-        | LaionDataset
-        | Inat21Dataset
-        | BrodenDataset
-        | ProbeDataset
-    ) = dataclasses.field(default_factory=ImagenetDataset)
+    data: DatasetConfig = dataclasses.field(default_factory=ImagenetDataset)
     &#34;&#34;&#34;Which dataset to use.&#34;&#34;&#34;
     dump_to: str = os.path.join(&#34;.&#34;, &#34;shards&#34;)
     &#34;&#34;&#34;Where to write shards.&#34;&#34;&#34;
-    model_org: typing.Literal[&#34;open-clip&#34;, &#34;timm&#34;, &#34;dinov2&#34;] = &#34;open-clip&#34;
+    model_org: typing.Literal[&#34;clip&#34;, &#34;siglip&#34;, &#34;timm&#34;, &#34;dinov2&#34;] = &#34;clip&#34;
     &#34;&#34;&#34;Where to load models from.&#34;&#34;&#34;
     model_ckpt: str = &#34;ViT-L-14/openai&#34;
     &#34;&#34;&#34;Specific model checkpoint.&#34;&#34;&#34;
@@ -97,10 +90,12 @@ class Activations:
     &#34;&#34;&#34;Number of dataloader workers.&#34;&#34;&#34;
     d_vit: int = 1024
     &#34;&#34;&#34;Dimension of the ViT activations (depends on model).&#34;&#34;&#34;
-    n_layers: int = 6
+    layers: list[int] = dataclasses.field(default_factory=lambda: [-2])
     &#34;&#34;&#34;How many of the last ViT layers to save.&#34;&#34;&#34;
     n_patches_per_img: int = 256
     &#34;&#34;&#34;Number of ViT patches per image (depends on model).&#34;&#34;&#34;
+    cls_token: bool = True
+    &#34;&#34;&#34;Whether the model has a [CLS] token.&#34;&#34;&#34;
     n_patches_per_shard: int = 2_400_000
     &#34;&#34;&#34;Number of activations per shard; 2.4M is approximately 10GB for 1024-dimensional 4-byte activations.&#34;&#34;&#34;
 
@@ -121,6 +116,10 @@ class Activations:
 </details>
 <h3>Class variables</h3>
 <dl>
+<dt id="saev.config.Activations.cls_token"><code class="name">var <span class="ident">cls_token</span> : bool</code></dt>
+<dd>
+<div class="desc"><p>Whether the model has a [CLS] token.</p></div>
+</dd>
 <dt id="saev.config.Activations.d_vit"><code class="name">var <span class="ident">d_vit</span> : int</code></dt>
 <dd>
 <div class="desc"><p>Dimension of the ViT activations (depends on model).</p></div>
@@ -137,6 +136,10 @@ class Activations:
 <dd>
 <div class="desc"><p>Where to write shards.</p></div>
 </dd>
+<dt id="saev.config.Activations.layers"><code class="name">var <span class="ident">layers</span> : list[int]</code></dt>
+<dd>
+<div class="desc"><p>How many of the last ViT layers to save.</p></div>
+</dd>
 <dt id="saev.config.Activations.log_to"><code class="name">var <span class="ident">log_to</span> : str</code></dt>
 <dd>
 <div class="desc"><p>Where to log Slurm job stdout/stderr.</p></div>
@@ -145,13 +148,9 @@ class Activations:
 <dd>
 <div class="desc"><p>Specific model checkpoint.</p></div>
 </dd>
-<dt id="saev.config.Activations.model_org"><code class="name">var <span class="ident">model_org</span> : Literal['open-clip', 'timm', 'dinov2']</code></dt>
+<dt id="saev.config.Activations.model_org"><code class="name">var <span class="ident">model_org</span> : Literal['clip', 'siglip', 'timm', 'dinov2']</code></dt>
 <dd>
 <div class="desc"><p>Where to load models from.</p></div>
-</dd>
-<dt id="saev.config.Activations.n_layers"><code class="name">var <span class="ident">n_layers</span> : int</code></dt>
-<dd>
-<div class="desc"><p>How many of the last ViT layers to save.</p></div>
 </dd>
 <dt id="saev.config.Activations.n_patches_per_img"><code class="name">var <span class="ident">n_patches_per_img</span> : int</code></dt>
 <dd>
@@ -334,7 +333,7 @@ class BrodenEvaluate:
 </dd>
 <dt id="saev.config.DataLoad"><code class="flex name class">
 <span>class <span class="ident">DataLoad</span></span>
-<span>(</span><span>shard_root: str = './shards', patches: Literal['cls', 'patches', 'meanpool'] = 'cls', layer: Union[int, Literal['all', 'meanpool']] = -1)</span>
+<span>(</span><span>shard_root: str = './shards', patches: Literal['cls', 'patches', 'meanpool'] = 'cls', layer: Union[int, Literal['all', 'meanpool']] = -1, clamp: float = 100000.0, n_random_samples: int = 524288)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Configuration for loading activation data from disk.</p></div>
@@ -354,13 +353,25 @@ class DataLoad:
     patches: typing.Literal[&#34;cls&#34;, &#34;patches&#34;, &#34;meanpool&#34;] = &#34;cls&#34;
     &#34;&#34;&#34;Which kinds of patches to use. &#39;cls&#39; indicates just the [CLS] token (if any). &#39;patches&#39; indicates it will return all patches. &#39;meanpool&#39; returns the mean of all image patches.&#34;&#34;&#34;
     layer: int | typing.Literal[&#34;all&#34;, &#34;meanpool&#34;] = -1
-    &#34;&#34;&#34;.. todo: document this field.&#34;&#34;&#34;</code></pre>
+    &#34;&#34;&#34;.. todo: document this field.&#34;&#34;&#34;
+    clamp: float = 1e5
+    &#34;&#34;&#34;Maximum value for activations; activations will be clamped to within [-clamp, clamp]`.&#34;&#34;&#34;
+    n_random_samples: int = 2**19
+    &#34;&#34;&#34;Number of random samples used to calculate dataset means at startup.&#34;&#34;&#34;</code></pre>
 </details>
 <h3>Class variables</h3>
 <dl>
+<dt id="saev.config.DataLoad.clamp"><code class="name">var <span class="ident">clamp</span> : float</code></dt>
+<dd>
+<div class="desc"><p>Maximum value for activations; activations will be clamped to within [-clamp, clamp]`.</p></div>
+</dd>
 <dt id="saev.config.DataLoad.layer"><code class="name">var <span class="ident">layer</span> : Union[int, Literal['all', 'meanpool']]</code></dt>
 <dd>
 <div class="desc"><p>.. todo: document this field.</p></div>
+</dd>
+<dt id="saev.config.DataLoad.n_random_samples"><code class="name">var <span class="ident">n_random_samples</span> : int</code></dt>
+<dd>
+<div class="desc"><p>Number of random samples used to calculate dataset means at startup.</p></div>
 </dd>
 <dt id="saev.config.DataLoad.patches"><code class="name">var <span class="ident">patches</span> : Literal['cls', 'patches', 'meanpool']</code></dt>
 <dd>
@@ -1442,14 +1453,15 @@ def top_values_fpath(self) -&gt; str:
 <li>
 <h4><code><a title="saev.config.Activations" href="#saev.config.Activations">Activations</a></code></h4>
 <ul class="two-column">
+<li><code><a title="saev.config.Activations.cls_token" href="#saev.config.Activations.cls_token">cls_token</a></code></li>
 <li><code><a title="saev.config.Activations.d_vit" href="#saev.config.Activations.d_vit">d_vit</a></code></li>
 <li><code><a title="saev.config.Activations.data" href="#saev.config.Activations.data">data</a></code></li>
 <li><code><a title="saev.config.Activations.device" href="#saev.config.Activations.device">device</a></code></li>
 <li><code><a title="saev.config.Activations.dump_to" href="#saev.config.Activations.dump_to">dump_to</a></code></li>
+<li><code><a title="saev.config.Activations.layers" href="#saev.config.Activations.layers">layers</a></code></li>
 <li><code><a title="saev.config.Activations.log_to" href="#saev.config.Activations.log_to">log_to</a></code></li>
 <li><code><a title="saev.config.Activations.model_ckpt" href="#saev.config.Activations.model_ckpt">model_ckpt</a></code></li>
 <li><code><a title="saev.config.Activations.model_org" href="#saev.config.Activations.model_org">model_org</a></code></li>
-<li><code><a title="saev.config.Activations.n_layers" href="#saev.config.Activations.n_layers">n_layers</a></code></li>
 <li><code><a title="saev.config.Activations.n_patches_per_img" href="#saev.config.Activations.n_patches_per_img">n_patches_per_img</a></code></li>
 <li><code><a title="saev.config.Activations.n_patches_per_shard" href="#saev.config.Activations.n_patches_per_shard">n_patches_per_shard</a></code></li>
 <li><code><a title="saev.config.Activations.n_workers" href="#saev.config.Activations.n_workers">n_workers</a></code></li>
@@ -1488,7 +1500,9 @@ def top_values_fpath(self) -&gt; str:
 <li>
 <h4><code><a title="saev.config.DataLoad" href="#saev.config.DataLoad">DataLoad</a></code></h4>
 <ul class="">
+<li><code><a title="saev.config.DataLoad.clamp" href="#saev.config.DataLoad.clamp">clamp</a></code></li>
 <li><code><a title="saev.config.DataLoad.layer" href="#saev.config.DataLoad.layer">layer</a></code></li>
+<li><code><a title="saev.config.DataLoad.n_random_samples" href="#saev.config.DataLoad.n_random_samples">n_random_samples</a></code></li>
 <li><code><a title="saev.config.DataLoad.patches" href="#saev.config.DataLoad.patches">patches</a></code></li>
 <li><code><a title="saev.config.DataLoad.shard_root" href="#saev.config.DataLoad.shard_root">shard_root</a></code></li>
 </ul>

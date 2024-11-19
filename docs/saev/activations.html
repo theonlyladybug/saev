@@ -139,6 +139,12 @@ Also saves a metadata.json file to that directory for human reference.</p>
 </ol>
 <p>So that we don't have to redo any of these steps, we check on the existence of various files to check if this stuff is done already.</p></div>
 </dd>
+<dt id="saev.activations.get_probe_dataloader"><code class="name flex">
+<span>def <span class="ident">get_probe_dataloader</span></span>(<span>cfg: <a title="saev.config.Activations" href="config.html#saev.config.Activations">Activations</a>, preprocess) ‑> torch.utils.data.dataloader.DataLoader</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
 <dt id="saev.activations.get_tol_dataloader"><code class="name flex">
 <span>def <span class="ident">get_tol_dataloader</span></span>(<span>cfg: <a title="saev.config.Activations" href="config.html#saev.config.Activations">Activations</a>, preprocess) ‑> torch.utils.data.dataloader.DataLoader</span>
 </code></dt>
@@ -191,6 +197,12 @@ Also saves a metadata.json file to that directory for human reference.</p>
 <dd>
 <div class="desc"><p>Do setup for LAION dataloader.</p></div>
 </dd>
+<dt id="saev.activations.setup_probe"><code class="name flex">
+<span>def <span class="ident">setup_probe</span></span>(<span>cfg: <a title="saev.config.Activations" href="config.html#saev.config.Activations">Activations</a>)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
 <dt id="saev.activations.setup_tol"><code class="name flex">
 <span>def <span class="ident">setup_tol</span></span>(<span>cfg: <a title="saev.config.Activations" href="config.html#saev.config.Activations">Activations</a>)</span>
 </code></dt>
@@ -212,6 +224,106 @@ Also saves a metadata.json file to that directory for human reference.</p>
 <section>
 <h2 class="section-title" id="header-classes">Classes</h2>
 <dl>
+<dt id="saev.activations.Clip"><code class="flex name class">
+<span>class <span class="ident">Clip</span></span>
+<span>(</span><span>cfg: <a title="saev.config.Activations" href="config.html#saev.config.Activations">Activations</a>)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Base class for all neural network modules.</p>
+<p>Your models should also subclass this class.</p>
+<p>Modules can also contain other Modules, allowing to nest them in
+a tree structure. You can assign the submodules as regular attributes::</p>
+<pre><code>import torch.nn as nn
+import torch.nn.functional as F
+
+class Model(nn.Module):
+    def __init__(self) -&gt; None:
+        super().__init__()
+        self.conv1 = nn.Conv2d(1, 20, 5)
+        self.conv2 = nn.Conv2d(20, 20, 5)
+
+    def forward(self, x):
+        x = F.relu(self.conv1(x))
+        return F.relu(self.conv2(x))
+</code></pre>
+<p>Submodules assigned in this way will be registered, and will have their
+parameters converted too when you call :meth:<code>to</code>, etc.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>As per the example above, an <code>__init__()</code> call to the parent class
+must be made before assignment on the child.</p>
+</div>
+<p>:ivar training: Boolean represents whether this module is in training or
+evaluation mode.
+:vartype training: bool</p>
+<p>Initialize internal Module state, shared by both nn.Module and ScriptModule.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@jaxtyped(typechecker=beartype.beartype)
+class Clip(torch.nn.Module):
+    def __init__(self, cfg: config.Activations):
+        super().__init__()
+
+        assert cfg.model_org == &#34;clip&#34;
+
+        import open_clip
+
+        if cfg.model_ckpt.startswith(&#34;hf-hub:&#34;):
+            clip, self._img_transform = open_clip.create_model_from_pretrained(
+                cfg.model_ckpt, cache_dir=helpers.get_cache_dir()
+            )
+        else:
+            arch, ckpt = cfg.model_ckpt.split(&#34;/&#34;)
+            clip, self._img_transform = open_clip.create_model_from_pretrained(
+                arch, pretrained=ckpt, cache_dir=helpers.get_cache_dir()
+            )
+
+        model = clip.visual
+        model.proj = None
+        model.output_tokens = True  # type: ignore
+        self.model = model
+
+        assert not isinstance(self.model, open_clip.timm_model.TimmModel)
+        self.recorder = VitRecorder(cfg).register(self.model.transformer.resblocks)
+
+    def make_img_transform(self):
+        return self._img_transform
+
+    def forward(self, batch: Float[Tensor, &#34;batch 3 width height&#34;]):
+        self.recorder.reset()
+        result = self.model(batch)
+        return result, self.recorder.activations</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>torch.nn.modules.module.Module</li>
+</ul>
+<h3>Methods</h3>
+<dl>
+<dt id="saev.activations.Clip.forward"><code class="name flex">
+<span>def <span class="ident">forward</span></span>(<span>self, batch: jaxtyping.Float[Tensor, 'batch 3 width height']) ‑> Callable[..., Any]</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Define the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the :class:<code>Module</code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div></div>
+</dd>
+<dt id="saev.activations.Clip.make_img_transform"><code class="name flex">
+<span>def <span class="ident">make_img_transform</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+</dd>
 <dt id="saev.activations.Dataset"><code class="flex name class">
 <span>class <span class="ident">Dataset</span></span>
 <span>(</span><span>cfg: <a title="saev.config.DataLoad" href="config.html#saev.config.DataLoad">DataLoad</a>)</span>
@@ -235,6 +347,12 @@ class Dataset(torch.utils.data.Dataset):
 
     cfg: config.DataLoad
     metadata: &#34;Metadata&#34;
+    layer_index: int
+    &#34;&#34;&#34;Layer index into the shards if we are choosing a specific layer.&#34;&#34;&#34;
+    scalar: float
+    &#34;&#34;&#34;Normalizing scalar such that ||x / scalar ||_2 ~= sqrt(d_vit).&#34;&#34;&#34;
+    act_mean: Float[Tensor, &#34; d_vit&#34;]
+    &#34;&#34;&#34;Mean activation.&#34;&#34;&#34;
 
     def __init__(self, cfg: config.DataLoad):
         self.cfg = cfg
@@ -243,6 +361,58 @@ class Dataset(torch.utils.data.Dataset):
 
         metadata_fpath = os.path.join(self.cfg.shard_root, &#34;metadata.json&#34;)
         self.metadata = Metadata.load(metadata_fpath)
+
+        # Pick a really big number so that if you accidentally use this when you shouldn&#39;t, you get an out of bounds IndexError.
+        self.layer_index = 1_000_000
+        if isinstance(self.cfg.layer, int):
+            err_msg = f&#34;Non-exact matches for .layer field not supported; {self.cfg.layer} not in {self.metadata.layers}.&#34;
+            assert self.cfg.layer in self.metadata.layers, err_msg
+            self.layer_index = self.metadata.layers.index(self.cfg.layer)
+
+        # Premptively set this value so that preprocess() doesn&#39;t freak out.
+        self.scalar = 1.0
+
+        # Load a random subset of samples to calculate the mean activation and mean L2 norm.
+        perm = np.random.default_rng(seed=42).permutation(len(self))
+        perm = perm[: cfg.n_random_samples]
+
+        samples, _, _ = zip(*[
+            self[p.item()]
+            for p in helpers.progress(perm, every=25_000, desc=&#34;examples to calc means&#34;)
+        ])
+        samples = torch.stack(samples)
+        if samples.abs().max() &gt; 1e3:
+            raise ValueError(
+                &#34;You found an abnormally large activation {example.abs().max().item():.5f} that will mess up your L2 mean.&#34;
+            )
+
+        # Activation mean
+        self.act_mean = samples.mean(axis=0)
+        if (self.act_mean &gt; 1e3).any():
+            raise ValueError(
+                &#34;You found an abnormally large activation that is messing up your activation mean.&#34;
+            )
+
+        # Scalar
+        l2_mean = torch.linalg.norm(samples - self.act_mean, axis=1).mean()
+        if l2_mean &gt; 1e3:
+            raise ValueError(
+                &#34;You found an abnormally large activation that is messing up your L2 mean.&#34;
+            )
+
+        self.scalar = l2_mean / math.sqrt(self.d_vit)
+
+    def preprocess(self, act: Float[np.ndarray, &#34; d_vit&#34;]) -&gt; Float[Tensor, &#34; d_vit&#34;]:
+        &#34;&#34;&#34;
+        Apply a scalar normalization so the mean squared L2 norm is same as d_vit. This is from &#39;Scaling Monosemanticity&#39;:
+
+        &gt; As a preprocessing step we apply a scalar normalization to the model activations so their average squared L2 norm is the residual stream dimension
+
+        So we divide by self.scalar which is the datasets (approximate) L2 mean before normalization divided by sqrt(d_vit).
+        &#34;&#34;&#34;
+        act = torch.from_numpy(act.copy())
+        act = act.clamp(-self.cfg.clamp, self.cfg.clamp)
+        return (act - self.act_mean) / self.scalar
 
     @property
     def d_vit(self) -&gt; int:
@@ -255,9 +425,9 @@ class Dataset(torch.utils.data.Dataset):
             case (&#34;cls&#34;, int()):
                 img_act = self.get_img_patches(i)
                 # Select layer&#39;s cls token.
-                act = img_act[self.cfg.layer, 0, :]
+                act = img_act[self.layer_index, 0, :]
                 return self.Example(
-                    torch.from_numpy(act.copy()), torch.tensor(i), torch.tensor(-1)
+                    self.preprocess(act), torch.tensor(i), torch.tensor(-1)
                 )
             case (&#34;cls&#34;, &#34;meanpool&#34;):
                 img_act = self.get_img_patches(i)
@@ -266,16 +436,16 @@ class Dataset(torch.utils.data.Dataset):
                 # Meanpool over the layers
                 act = cls_act.mean(axis=0)
                 return self.Example(
-                    torch.from_numpy(act.copy()), torch.tensor(i), torch.tensor(-1)
+                    self.preprocess(act), torch.tensor(i), torch.tensor(-1)
                 )
             case (&#34;meanpool&#34;, int()):
                 img_act = self.get_img_patches(i)
                 # Select layer&#39;s patches.
-                layer_act = img_act[self.cfg.layer, 1:, :]
+                layer_act = img_act[self.layer_index, 1:, :]
                 # Meanpool over the patches
                 act = layer_act.mean(axis=0)
                 return self.Example(
-                    torch.from_numpy(act.copy()), torch.tensor(i), torch.tensor(-1)
+                    self.preprocess(act), torch.tensor(i), torch.tensor(-1)
                 )
             case (&#34;meanpool&#34;, &#34;meanpool&#34;):
                 img_act = self.get_img_patches(i)
@@ -284,12 +454,12 @@ class Dataset(torch.utils.data.Dataset):
                 # Meanpool over the layers and patches
                 act = act.mean(axis=(0, 1))
                 return self.Example(
-                    torch.from_numpy(act.copy()), torch.tensor(i), torch.tensor(-1)
+                    self.preprocess(act), torch.tensor(i), torch.tensor(-1)
                 )
             case (&#34;patches&#34;, int()):
                 n_imgs_per_shard = (
                     self.metadata.n_patches_per_shard
-                    // self.metadata.n_layers
+                    // len(self.metadata.layers)
                     // (self.metadata.n_patches_per_img + 1)
                 )
                 n_examples_per_shard = (
@@ -302,13 +472,13 @@ class Dataset(torch.utils.data.Dataset):
                 acts_fpath = os.path.join(self.cfg.shard_root, f&#34;acts{shard:06}.bin&#34;)
                 shape = (
                     n_imgs_per_shard,
-                    self.metadata.n_layers,
+                    len(self.metadata.layers),
                     self.metadata.n_patches_per_img + 1,
                     self.metadata.d_vit,
                 )
                 acts = np.memmap(acts_fpath, mode=&#34;c&#34;, dtype=np.float32, shape=shape)
                 # Choose the layer and the non-CLS tokens.
-                acts = acts[:, self.cfg.layer, 1:]
+                acts = acts[:, self.layer_index, 1:]
 
                 # Choose a patch among n and the patches.
                 act = acts[
@@ -316,7 +486,7 @@ class Dataset(torch.utils.data.Dataset):
                     pos % self.metadata.n_patches_per_img,
                 ]
                 return self.Example(
-                    torch.from_numpy(act.copy()),
+                    self.preprocess(act),
                     # What image is this?
                     torch.tensor(i // self.metadata.n_patches_per_img),
                     torch.tensor(i % self.metadata.n_patches_per_img),
@@ -333,7 +503,7 @@ class Dataset(torch.utils.data.Dataset):
     ) -&gt; Float[np.ndarray, &#34;n_layers all_patches d_vit&#34;]:
         n_imgs_per_shard = (
             self.metadata.n_patches_per_shard
-            // self.metadata.n_layers
+            // len(self.metadata.layers)
             // (self.metadata.n_patches_per_img + 1)
         )
         shard = i // n_imgs_per_shard
@@ -341,7 +511,7 @@ class Dataset(torch.utils.data.Dataset):
         acts_fpath = os.path.join(self.cfg.shard_root, f&#34;acts{shard:06}.bin&#34;)
         shape = (
             n_imgs_per_shard,
-            self.metadata.n_layers,
+            len(self.metadata.layers),
             self.metadata.n_patches_per_img + 1,
             self.metadata.d_vit,
         )
@@ -356,7 +526,7 @@ class Dataset(torch.utils.data.Dataset):
         match (self.cfg.patches, self.cfg.layer):
             case (&#34;cls&#34;, &#34;all&#34;):
                 # Return a CLS token from a random image and random layer.
-                return self.metadata.n_imgs * self.metadata.n_layers
+                return self.metadata.n_imgs * len(self.metadata.layers)
             case (&#34;cls&#34;, int()):
                 # Return a CLS token from a random image and fixed layer.
                 return self.metadata.n_imgs
@@ -365,7 +535,7 @@ class Dataset(torch.utils.data.Dataset):
                 return self.metadata.n_imgs
             case (&#34;meanpool&#34;, &#34;all&#34;):
                 # Return the meanpool of all patches from a random image and random layer.
-                return self.metadata.n_imgs * self.metadata.n_layers
+                return self.metadata.n_imgs * len(self.metadata.layers)
             case (&#34;meanpool&#34;, int()):
                 # Return the meanpool of all patches from a random image and fixed layer.
                 return self.metadata.n_imgs
@@ -382,7 +552,7 @@ class Dataset(torch.utils.data.Dataset):
                 # Return a patch from a random image, random layer and random patch.
                 return (
                     self.metadata.n_imgs
-                    * self.metadata.n_layers
+                    * len(self.metadata.layers)
                     * self.metadata.n_patches_per_img
                 )
             case _:
@@ -399,13 +569,25 @@ class Dataset(torch.utils.data.Dataset):
 <dd>
 <div class="desc"></div>
 </dd>
+<dt id="saev.activations.Dataset.act_mean"><code class="name">var <span class="ident">act_mean</span> : jaxtyping.Float[Tensor, 'd_vit']</code></dt>
+<dd>
+<div class="desc"><p>Mean activation.</p></div>
+</dd>
 <dt id="saev.activations.Dataset.cfg"><code class="name">var <span class="ident">cfg</span> : <a title="saev.config.DataLoad" href="config.html#saev.config.DataLoad">DataLoad</a></code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
+<dt id="saev.activations.Dataset.layer_index"><code class="name">var <span class="ident">layer_index</span> : int</code></dt>
+<dd>
+<div class="desc"><p>Layer index into the shards if we are choosing a specific layer.</p></div>
+</dd>
 <dt id="saev.activations.Dataset.metadata"><code class="name">var <span class="ident">metadata</span> : <a title="saev.activations.Metadata" href="#saev.activations.Metadata">Metadata</a></code></dt>
 <dd>
 <div class="desc"></div>
+</dd>
+<dt id="saev.activations.Dataset.scalar"><code class="name">var <span class="ident">scalar</span> : float</code></dt>
+<dd>
+<div class="desc"><p>Normalizing scalar such that ||x / scalar ||_2 ~= sqrt(d_vit).</p></div>
 </dd>
 </dl>
 <h3>Instance variables</h3>
@@ -437,6 +619,16 @@ def d_vit(self) -&gt; int:
 </code></dt>
 <dd>
 <div class="desc"></div>
+</dd>
+<dt id="saev.activations.Dataset.preprocess"><code class="name flex">
+<span>def <span class="ident">preprocess</span></span>(<span>self, act: jaxtyping.Float[ndarray, 'd_vit']) ‑> jaxtyping.Float[Tensor, 'd_vit']</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Apply a scalar normalization so the mean squared L2 norm is same as d_vit. This is from 'Scaling Monosemanticity':</p>
+<blockquote>
+<p>As a preprocessing step we apply a scalar normalization to the model activations so their average squared L2 norm is the residual stream dimension</p>
+</blockquote>
+<p>So we divide by self.scalar which is the datasets (approximate) L2 mean before normalization divided by sqrt(d_vit).</p></div>
 </dd>
 </dl>
 </dd>
@@ -545,10 +737,10 @@ registered hooks while the latter silently ignores them.</p>
 </dd>
 <dt id="saev.activations.Metadata"><code class="flex name class">
 <span>class <span class="ident">Metadata</span></span>
-<span>(</span><span>model_org: str, model_ckpt: str, n_layers: int, n_patches_per_img: int, d_vit: int, seed: int, n_imgs: int, n_patches_per_shard: int, data: str)</span>
+<span>(</span><span>model_org: str, model_ckpt: str, layers: tuple[int, ...], n_patches_per_img: int, cls_token: bool, d_vit: int, seed: int, n_imgs: int, n_patches_per_shard: int, data: str)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Metadata(model_org: str, model_ckpt: str, n_layers: int, n_patches_per_img: int, d_vit: int, seed: int, n_imgs: int, n_patches_per_shard: int, data: str)</p></div>
+<div class="desc"><p>Metadata(model_org: str, model_ckpt: str, layers: tuple[int, &hellip;], n_patches_per_img: int, cls_token: bool, d_vit: int, seed: int, n_imgs: int, n_patches_per_shard: int, data: str)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -558,8 +750,9 @@ registered hooks while the latter silently ignores them.</p>
 class Metadata:
     model_org: str
     model_ckpt: str
-    n_layers: int
+    layers: tuple[int, ...]
     n_patches_per_img: int
+    cls_token: bool
     d_vit: int
     seed: int
     n_imgs: int
@@ -571,8 +764,9 @@ class Metadata:
         return cls(
             cfg.model_org,
             cfg.model_ckpt,
-            cfg.n_layers,
+            tuple(cfg.layers),
             cfg.n_patches_per_img,
+            cfg.cls_token,
             cfg.d_vit,
             cfg.seed,
             cfg.data.n_imgs,
@@ -583,7 +777,9 @@ class Metadata:
     @classmethod
     def load(cls, fpath) -&gt; &#34;Metadata&#34;:
         with open(fpath) as fd:
-            return cls(**json.load(fd))
+            dct = json.load(fd)
+        dct[&#34;layers&#34;] = tuple(dct.pop(&#34;layers&#34;))
+        return cls(**dct)
 
     def dump(self, fpath):
         with open(fpath, &#34;w&#34;) as fd:
@@ -596,11 +792,19 @@ class Metadata:
 </details>
 <h3>Class variables</h3>
 <dl>
+<dt id="saev.activations.Metadata.cls_token"><code class="name">var <span class="ident">cls_token</span> : bool</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
 <dt id="saev.activations.Metadata.d_vit"><code class="name">var <span class="ident">d_vit</span> : int</code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
 <dt id="saev.activations.Metadata.data"><code class="name">var <span class="ident">data</span> : str</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="saev.activations.Metadata.layers"><code class="name">var <span class="ident">layers</span> : tuple[int, ...]</code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
@@ -613,10 +817,6 @@ class Metadata:
 <div class="desc"></div>
 </dd>
 <dt id="saev.activations.Metadata.n_imgs"><code class="name">var <span class="ident">n_imgs</span> : int</code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt id="saev.activations.Metadata.n_layers"><code class="name">var <span class="ident">n_layers</span> : int</code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
@@ -668,105 +868,6 @@ def hash(self) -&gt; str:
 <dl>
 <dt id="saev.activations.Metadata.dump"><code class="name flex">
 <span>def <span class="ident">dump</span></span>(<span>self, fpath)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-</dl>
-</dd>
-<dt id="saev.activations.OpenClip"><code class="flex name class">
-<span>class <span class="ident">OpenClip</span></span>
-<span>(</span><span>cfg: <a title="saev.config.Activations" href="config.html#saev.config.Activations">Activations</a>)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Base class for all neural network modules.</p>
-<p>Your models should also subclass this class.</p>
-<p>Modules can also contain other Modules, allowing to nest them in
-a tree structure. You can assign the submodules as regular attributes::</p>
-<pre><code>import torch.nn as nn
-import torch.nn.functional as F
-
-class Model(nn.Module):
-    def __init__(self) -&gt; None:
-        super().__init__()
-        self.conv1 = nn.Conv2d(1, 20, 5)
-        self.conv2 = nn.Conv2d(20, 20, 5)
-
-    def forward(self, x):
-        x = F.relu(self.conv1(x))
-        return F.relu(self.conv2(x))
-</code></pre>
-<p>Submodules assigned in this way will be registered, and will have their
-parameters converted too when you call :meth:<code>to</code>, etc.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>As per the example above, an <code>__init__()</code> call to the parent class
-must be made before assignment on the child.</p>
-</div>
-<p>:ivar training: Boolean represents whether this module is in training or
-evaluation mode.
-:vartype training: bool</p>
-<p>Initialize internal Module state, shared by both nn.Module and ScriptModule.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@jaxtyped(typechecker=beartype.beartype)
-class OpenClip(torch.nn.Module):
-    def __init__(self, cfg: config.Activations):
-        super().__init__()
-
-        assert cfg.model_org == &#34;open-clip&#34;
-
-        import open_clip
-
-        if cfg.model_ckpt.startswith(&#34;hf-hub:&#34;):
-            clip, self._img_transform = open_clip.create_model_from_pretrained(
-                cfg.model_ckpt, cache_dir=helpers.get_cache_dir()
-            )
-        else:
-            arch, ckpt = cfg.model_ckpt.split(&#34;/&#34;)
-            clip, self._img_transform = open_clip.create_model_from_pretrained(
-                arch, pretrained=ckpt, cache_dir=helpers.get_cache_dir()
-            )
-
-        model = clip.visual
-        model.proj = None
-        model.output_tokens = True  # type: ignore
-        self.model = model
-
-        self.recorder = VitRecorder(cfg).register(self.model.transformer.resblocks)
-
-    def make_img_transform(self):
-        return self._img_transform
-
-    def forward(self, batch: Float[Tensor, &#34;batch 3 width height&#34;]):
-        self.recorder.reset()
-        result = self.model(batch)
-        return result, self.recorder.activations</code></pre>
-</details>
-<h3>Ancestors</h3>
-<ul class="hlist">
-<li>torch.nn.modules.module.Module</li>
-</ul>
-<h3>Methods</h3>
-<dl>
-<dt id="saev.activations.OpenClip.forward"><code class="name flex">
-<span>def <span class="ident">forward</span></span>(<span>self, batch: jaxtyping.Float[Tensor, 'batch 3 width height']) ‑> Callable[..., Any]</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Define the computation performed at every call.</p>
-<p>Should be overridden by all subclasses.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>Although the recipe for forward pass needs to be defined within
-this function, one should call the :class:<code>Module</code> instance afterwards
-instead of this since the former takes care of running the
-registered hooks while the latter silently ignores them.</p>
-</div></div>
-</dd>
-<dt id="saev.activations.OpenClip.make_img_transform"><code class="name flex">
-<span>def <span class="ident">make_img_transform</span></span>(<span>self)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -950,6 +1051,79 @@ imgs (list): List of (image path, class_index) tuples</p></div>
 <li>typing.Generic</li>
 </ul>
 </dd>
+<dt id="saev.activations.ProbeDataset"><code class="flex name class">
+<span>class <span class="ident">ProbeDataset</span></span>
+<span>(</span><span>*, transform=None)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>An abstract class representing a :class:<code><a title="saev.activations.Dataset" href="#saev.activations.Dataset">Dataset</a></code>.</p>
+<p>All datasets that represent a map from keys to data samples should subclass
+it. All subclasses should overwrite :meth:<code>__getitem__</code>, supporting fetching a
+data sample for a given key. Subclasses could also optionally overwrite
+:meth:<code>__len__</code>, which is expected to return the size of the dataset by many
+:class:<code>~torch.utils.data.Sampler</code> implementations and the default options
+of :class:<code>~torch.utils.data.DataLoader</code>. Subclasses could also
+optionally implement :meth:<code>__getitems__</code>, for speedup batched samples
+loading. This method accepts list of indices of samples of batch and returns
+list of samples.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>:class:<code>~torch.utils.data.DataLoader</code> by default constructs an index
+sampler that yields integral indices.
+To make it work with a map-style
+dataset with non-integral indices/keys, a custom sampler must be provided.</p>
+</div></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class ProbeDataset(torch.utils.data.Dataset):
+    def __init__(self, *, transform=None):
+        self.logger = logging.getLogger(&#34;probe-dataset&#34;)
+        import datasets
+
+        name = &#34;samuelstevens/sae-probing&#34;
+
+        self.hf_datasets = {}
+        cfgs = datasets.get_dataset_config_names(name)
+        for cfg in sorted(cfgs):
+            if cfg == &#34;default&#34;:
+                self.logger.warning(
+                    &#34;%s has &#39;default&#39; config; you don&#39;t want this!&#34;, name
+                )
+                continue
+
+            self.hf_datasets[cfg] = datasets.load_dataset(name, cfg, split=&#34;train&#34;)
+
+        self.transform = transform
+
+    def __getitem__(self, i):
+        n = 0
+        for dataset in self.hf_datasets.values():
+            if i &gt;= n + len(dataset):
+                n += len(dataset)
+                continue
+
+            example = dataset[i - n]
+            example[&#34;index&#34;] = i
+            example[&#34;image&#34;] = example[&#34;image&#34;].convert(&#34;RGB&#34;)
+            if self.transform:
+                example[&#34;image&#34;] = self.transform(example[&#34;image&#34;])
+            example[&#34;split&#34;] = dataset.info.config_name
+
+            return example
+
+        raise IndexError(i)
+
+    def __len__(self) -&gt; int:
+        return sum(len(dataset) for dataset in self.hf_datasets.values())</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>torch.utils.data.dataset.Dataset</li>
+<li>typing.Generic</li>
+</ul>
+</dd>
 <dt id="saev.activations.ShardWriter"><code class="flex name class">
 <span>class <span class="ident">ShardWriter</span></span>
 <span>(</span><span>cfg: <a title="saev.config.Activations" href="config.html#saev.config.Activations">Activations</a>)</span>
@@ -978,13 +1152,16 @@ class ShardWriter:
 
         self.root = get_acts_dir(cfg)
 
+        n_patches_per_img = cfg.n_patches_per_img
+        if cfg.cls_token:
+            n_patches_per_img += 1
         self.n_imgs_per_shard = (
-            cfg.n_patches_per_shard // cfg.n_layers // (cfg.n_patches_per_img + 1)
+            cfg.n_patches_per_shard // len(cfg.layers) // n_patches_per_img
         )
         self.shape = (
             self.n_imgs_per_shard,
-            cfg.n_layers,
-            cfg.n_patches_per_img + 1,
+            len(cfg.layers),
+            n_patches_per_img,
             cfg.d_vit,
         )
 
@@ -1076,6 +1253,105 @@ class ShardWriter:
 </dd>
 <dt id="saev.activations.ShardWriter.next_shard"><code class="name flex">
 <span>def <span class="ident">next_shard</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+</dd>
+<dt id="saev.activations.Siglip"><code class="flex name class">
+<span>class <span class="ident">Siglip</span></span>
+<span>(</span><span>cfg: <a title="saev.config.Activations" href="config.html#saev.config.Activations">Activations</a>)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Base class for all neural network modules.</p>
+<p>Your models should also subclass this class.</p>
+<p>Modules can also contain other Modules, allowing to nest them in
+a tree structure. You can assign the submodules as regular attributes::</p>
+<pre><code>import torch.nn as nn
+import torch.nn.functional as F
+
+class Model(nn.Module):
+    def __init__(self) -&gt; None:
+        super().__init__()
+        self.conv1 = nn.Conv2d(1, 20, 5)
+        self.conv2 = nn.Conv2d(20, 20, 5)
+
+    def forward(self, x):
+        x = F.relu(self.conv1(x))
+        return F.relu(self.conv2(x))
+</code></pre>
+<p>Submodules assigned in this way will be registered, and will have their
+parameters converted too when you call :meth:<code>to</code>, etc.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>As per the example above, an <code>__init__()</code> call to the parent class
+must be made before assignment on the child.</p>
+</div>
+<p>:ivar training: Boolean represents whether this module is in training or
+evaluation mode.
+:vartype training: bool</p>
+<p>Initialize internal Module state, shared by both nn.Module and ScriptModule.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@jaxtyped(typechecker=beartype.beartype)
+class Siglip(torch.nn.Module):
+    def __init__(self, cfg: config.Activations):
+        super().__init__()
+        assert cfg.model_org == &#34;siglip&#34;
+
+        import open_clip
+
+        if cfg.model_ckpt.startswith(&#34;hf-hub:&#34;):
+            clip, self._img_transform = open_clip.create_model_from_pretrained(
+                cfg.model_ckpt, cache_dir=helpers.get_cache_dir()
+            )
+        else:
+            arch, ckpt = cfg.model_ckpt.split(&#34;/&#34;)
+            clip, self._img_transform = open_clip.create_model_from_pretrained(
+                arch, pretrained=ckpt, cache_dir=helpers.get_cache_dir()
+            )
+
+        model = clip.visual
+        model.proj = None
+        model.output_tokens = True  # type: ignore
+        self.model = model
+
+        assert isinstance(self.model, open_clip.timm_model.TimmModel)
+        self.recorder = VitRecorder(cfg).register(self.model.trunk.blocks)
+
+    def make_img_transform(self):
+        return self._img_transform
+
+    def forward(self, batch: Float[Tensor, &#34;batch 3 width height&#34;]):
+        self.recorder.reset()
+        result = self.model(batch)
+        return result, self.recorder.activations</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>torch.nn.modules.module.Module</li>
+</ul>
+<h3>Methods</h3>
+<dl>
+<dt id="saev.activations.Siglip.forward"><code class="name flex">
+<span>def <span class="ident">forward</span></span>(<span>self, batch: jaxtyping.Float[Tensor, 'batch 3 width height']) ‑> Callable[..., Any]</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Define the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the :class:<code>Module</code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div></div>
+</dd>
+<dt id="saev.activations.Siglip.make_img_transform"><code class="name flex">
+<span>def <span class="ident">make_img_transform</span></span>(<span>self)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -1235,9 +1511,9 @@ class VitRecorder(torch.nn.Module):
         self._i = 0
         self.logger = logging.getLogger(f&#34;recorder({cfg.model_org}:{cfg.model_ckpt})&#34;)
 
-    def register(self, modules):
-        for layer in helpers.tail(self.cfg.n_layers, modules):
-            layer.register_forward_hook(self.hook)
+    def register(self, modules: list[torch.nn.Module]):
+        for i in self.cfg.layers:
+            modules[i].register_forward_hook(self.hook)
         return self
 
     def hook(
@@ -1245,10 +1521,7 @@ class VitRecorder(torch.nn.Module):
     ) -&gt; None:
         if self._storage is None:
             batch, _, dim = output.shape
-            self._storage = torch.zeros(
-                (batch, self.cfg.n_layers, self.cfg.n_patches_per_img + 1, dim),
-                device=output.device,
-            )
+            self._storage = self._empty_storage(batch, dim, output.device)
 
         if self._storage[:, self._i, 0, :].shape != output[:, 0, :].shape:
             batch, _, dim = output.shape
@@ -1257,12 +1530,19 @@ class VitRecorder(torch.nn.Module):
             msg = &#34;Output shape does not match storage shape: (batch) %d != %d or (dim) %d != %d&#34;
             self.logger.warning(msg, old_batch, batch, old_dim, dim)
 
-            self._storage = torch.zeros(
-                (batch, self.cfg.n_layers, self.cfg.n_patches_per_img + 1, dim),
-                device=output.device,
-            )
+            self._storage = self._empty_storage(batch, dim, output.device)
+
         self._storage[:, self._i] = output[:, self.patches, :].detach()
         self._i += 1
+
+    def _empty_storage(self, batch: int, dim: int, device: torch.device):
+        n_patches_per_img = self.cfg.n_patches_per_img
+        if self.cfg.cls_token:
+            n_patches_per_img += 1
+
+        return torch.zeros(
+            (batch, len(self.cfg.layers), n_patches_per_img, dim), device=device
+        )
 
     def reset(self):
         self._i = 0
@@ -1310,7 +1590,7 @@ def activations(self) -&gt; Float[Tensor, &#34;batch n_layers all_patches dim&#3
 <div class="desc"></div>
 </dd>
 <dt id="saev.activations.VitRecorder.register"><code class="name flex">
-<span>def <span class="ident">register</span></span>(<span>self, modules)</span>
+<span>def <span class="ident">register</span></span>(<span>self, modules: list[torch.nn.modules.module.Module])</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -1345,6 +1625,7 @@ def activations(self) -&gt; Float[Tensor, &#34;batch n_layers all_patches dim&#3
 <li><code><a title="saev.activations.get_imagenet_dataloader" href="#saev.activations.get_imagenet_dataloader">get_imagenet_dataloader</a></code></li>
 <li><code><a title="saev.activations.get_inat21_dataloader" href="#saev.activations.get_inat21_dataloader">get_inat21_dataloader</a></code></li>
 <li><code><a title="saev.activations.get_laion_dataloader" href="#saev.activations.get_laion_dataloader">get_laion_dataloader</a></code></li>
+<li><code><a title="saev.activations.get_probe_dataloader" href="#saev.activations.get_probe_dataloader">get_probe_dataloader</a></code></li>
 <li><code><a title="saev.activations.get_tol_dataloader" href="#saev.activations.get_tol_dataloader">get_tol_dataloader</a></code></li>
 <li><code><a title="saev.activations.make_vit" href="#saev.activations.make_vit">make_vit</a></code></li>
 <li><code><a title="saev.activations.setup" href="#saev.activations.setup">setup</a></code></li>
@@ -1352,6 +1633,7 @@ def activations(self) -&gt; Float[Tensor, &#34;batch n_layers all_patches dim&#3
 <li><code><a title="saev.activations.setup_imagenet" href="#saev.activations.setup_imagenet">setup_imagenet</a></code></li>
 <li><code><a title="saev.activations.setup_inat21" href="#saev.activations.setup_inat21">setup_inat21</a></code></li>
 <li><code><a title="saev.activations.setup_laion" href="#saev.activations.setup_laion">setup_laion</a></code></li>
+<li><code><a title="saev.activations.setup_probe" href="#saev.activations.setup_probe">setup_probe</a></code></li>
 <li><code><a title="saev.activations.setup_tol" href="#saev.activations.setup_tol">setup_tol</a></code></li>
 <li><code><a title="saev.activations.worker_fn" href="#saev.activations.worker_fn">worker_fn</a></code></li>
 </ul>
@@ -1359,14 +1641,25 @@ def activations(self) -&gt; Float[Tensor, &#34;batch n_layers all_patches dim&#3
 <li><h3><a href="#header-classes">Classes</a></h3>
 <ul>
 <li>
+<h4><code><a title="saev.activations.Clip" href="#saev.activations.Clip">Clip</a></code></h4>
+<ul class="">
+<li><code><a title="saev.activations.Clip.forward" href="#saev.activations.Clip.forward">forward</a></code></li>
+<li><code><a title="saev.activations.Clip.make_img_transform" href="#saev.activations.Clip.make_img_transform">make_img_transform</a></code></li>
+</ul>
+</li>
+<li>
 <h4><code><a title="saev.activations.Dataset" href="#saev.activations.Dataset">Dataset</a></code></h4>
 <ul class="two-column">
 <li><code><a title="saev.activations.Dataset.Example" href="#saev.activations.Dataset.Example">Example</a></code></li>
+<li><code><a title="saev.activations.Dataset.act_mean" href="#saev.activations.Dataset.act_mean">act_mean</a></code></li>
 <li><code><a title="saev.activations.Dataset.cfg" href="#saev.activations.Dataset.cfg">cfg</a></code></li>
 <li><code><a title="saev.activations.Dataset.d_vit" href="#saev.activations.Dataset.d_vit">d_vit</a></code></li>
 <li><code><a title="saev.activations.Dataset.get_img_patches" href="#saev.activations.Dataset.get_img_patches">get_img_patches</a></code></li>
 <li><code><a title="saev.activations.Dataset.get_shard_patches" href="#saev.activations.Dataset.get_shard_patches">get_shard_patches</a></code></li>
+<li><code><a title="saev.activations.Dataset.layer_index" href="#saev.activations.Dataset.layer_index">layer_index</a></code></li>
 <li><code><a title="saev.activations.Dataset.metadata" href="#saev.activations.Dataset.metadata">metadata</a></code></li>
+<li><code><a title="saev.activations.Dataset.preprocess" href="#saev.activations.Dataset.preprocess">preprocess</a></code></li>
+<li><code><a title="saev.activations.Dataset.scalar" href="#saev.activations.Dataset.scalar">scalar</a></code></li>
 </ul>
 </li>
 <li>
@@ -1379,26 +1672,20 @@ def activations(self) -&gt; Float[Tensor, &#34;batch n_layers all_patches dim&#3
 <li>
 <h4><code><a title="saev.activations.Metadata" href="#saev.activations.Metadata">Metadata</a></code></h4>
 <ul class="two-column">
+<li><code><a title="saev.activations.Metadata.cls_token" href="#saev.activations.Metadata.cls_token">cls_token</a></code></li>
 <li><code><a title="saev.activations.Metadata.d_vit" href="#saev.activations.Metadata.d_vit">d_vit</a></code></li>
 <li><code><a title="saev.activations.Metadata.data" href="#saev.activations.Metadata.data">data</a></code></li>
 <li><code><a title="saev.activations.Metadata.dump" href="#saev.activations.Metadata.dump">dump</a></code></li>
 <li><code><a title="saev.activations.Metadata.from_cfg" href="#saev.activations.Metadata.from_cfg">from_cfg</a></code></li>
 <li><code><a title="saev.activations.Metadata.hash" href="#saev.activations.Metadata.hash">hash</a></code></li>
+<li><code><a title="saev.activations.Metadata.layers" href="#saev.activations.Metadata.layers">layers</a></code></li>
 <li><code><a title="saev.activations.Metadata.load" href="#saev.activations.Metadata.load">load</a></code></li>
 <li><code><a title="saev.activations.Metadata.model_ckpt" href="#saev.activations.Metadata.model_ckpt">model_ckpt</a></code></li>
 <li><code><a title="saev.activations.Metadata.model_org" href="#saev.activations.Metadata.model_org">model_org</a></code></li>
 <li><code><a title="saev.activations.Metadata.n_imgs" href="#saev.activations.Metadata.n_imgs">n_imgs</a></code></li>
-<li><code><a title="saev.activations.Metadata.n_layers" href="#saev.activations.Metadata.n_layers">n_layers</a></code></li>
 <li><code><a title="saev.activations.Metadata.n_patches_per_img" href="#saev.activations.Metadata.n_patches_per_img">n_patches_per_img</a></code></li>
 <li><code><a title="saev.activations.Metadata.n_patches_per_shard" href="#saev.activations.Metadata.n_patches_per_shard">n_patches_per_shard</a></code></li>
 <li><code><a title="saev.activations.Metadata.seed" href="#saev.activations.Metadata.seed">seed</a></code></li>
-</ul>
-</li>
-<li>
-<h4><code><a title="saev.activations.OpenClip" href="#saev.activations.OpenClip">OpenClip</a></code></h4>
-<ul class="">
-<li><code><a title="saev.activations.OpenClip.forward" href="#saev.activations.OpenClip.forward">forward</a></code></li>
-<li><code><a title="saev.activations.OpenClip.make_img_transform" href="#saev.activations.OpenClip.make_img_transform">make_img_transform</a></code></li>
 </ul>
 </li>
 <li>
@@ -1411,6 +1698,9 @@ def activations(self) -&gt; Float[Tensor, &#34;batch n_layers all_patches dim&#3
 <h4><code><a title="saev.activations.PreprocessedInat21" href="#saev.activations.PreprocessedInat21">PreprocessedInat21</a></code></h4>
 </li>
 <li>
+<h4><code><a title="saev.activations.ProbeDataset" href="#saev.activations.ProbeDataset">ProbeDataset</a></code></h4>
+</li>
+<li>
 <h4><code><a title="saev.activations.ShardWriter" href="#saev.activations.ShardWriter">ShardWriter</a></code></h4>
 <ul class="two-column">
 <li><code><a title="saev.activations.ShardWriter.acts" href="#saev.activations.ShardWriter.acts">acts</a></code></li>
@@ -1421,6 +1711,13 @@ def activations(self) -&gt; Float[Tensor, &#34;batch n_layers all_patches dim&#3
 <li><code><a title="saev.activations.ShardWriter.root" href="#saev.activations.ShardWriter.root">root</a></code></li>
 <li><code><a title="saev.activations.ShardWriter.shape" href="#saev.activations.ShardWriter.shape">shape</a></code></li>
 <li><code><a title="saev.activations.ShardWriter.shard" href="#saev.activations.ShardWriter.shard">shard</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="saev.activations.Siglip" href="#saev.activations.Siglip">Siglip</a></code></h4>
+<ul class="">
+<li><code><a title="saev.activations.Siglip.forward" href="#saev.activations.Siglip.forward">forward</a></code></li>
+<li><code><a title="saev.activations.Siglip.make_img_transform" href="#saev.activations.Siglip.make_img_transform">make_img_transform</a></code></li>
 </ul>
 </li>
 <li>

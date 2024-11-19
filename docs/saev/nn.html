@@ -47,6 +47,18 @@ hljs.highlightAll();
 <dd>
 <div class="desc"></div>
 </dd>
+<dt id="saev.nn.ref_mse"><code class="name flex">
+<span>def <span class="ident">ref_mse</span></span>(<span>x_hat: jaxtyping.Float[Tensor, '*d'], x: jaxtyping.Float[Tensor, '*d'], norm: bool = True) ‑> jaxtyping.Float[Tensor, '*d']</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="saev.nn.safe_mse"><code class="name flex">
+<span>def <span class="ident">safe_mse</span></span>(<span>x_hat: jaxtyping.Float[Tensor, '*batch d'], x: jaxtyping.Float[Tensor, '*batch d'], norm: bool = True) ‑> jaxtyping.Float[Tensor, '*batch d']</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
 </dl>
 </section>
 <section>
@@ -172,10 +184,10 @@ class SparseAutoencoder(torch.nn.Module):
             einops.einsum(f_x, self.W_dec, &#34;... d_sae, d_sae d_vit -&gt; ... d_vit&#34;)
             + self.b_dec
         )
+        # (sam): I am now realizing that we normalize by the L2 norm of x.
 
-        mse_loss = (
-            torch.pow((x_hat - x.float()), 2) / (x**2).sum(dim=-1, keepdim=True).sqrt()
-        )
+        # Some values of x and x_hat can be very large. We can calculate a safe MSE
+        mse_loss = safe_mse(x_hat, x)
 
         ghost_loss = torch.tensor(0.0, dtype=mse_loss.dtype, device=mse_loss.device)
         # gate on config and training so evals is not slowed down.
@@ -330,6 +342,8 @@ registered hooks while the latter silently ignores them.</p>
 <ul class="">
 <li><code><a title="saev.nn.dump" href="#saev.nn.dump">dump</a></code></li>
 <li><code><a title="saev.nn.load" href="#saev.nn.load">load</a></code></li>
+<li><code><a title="saev.nn.ref_mse" href="#saev.nn.ref_mse">ref_mse</a></code></li>
+<li><code><a title="saev.nn.safe_mse" href="#saev.nn.safe_mse">safe_mse</a></code></li>
 </ul>
 </li>
 <li><h3><a href="#header-classes">Classes</a></h3>

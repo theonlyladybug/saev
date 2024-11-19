@@ -138,22 +138,50 @@ class BrodenDataset:
 
 @beartype.beartype
 @dataclasses.dataclass(frozen=True)
+class ProbeDataset:
+    """Configuration for manual probing dataset."""
+
+    @property
+    def n_imgs(self) -> int:
+        """Number of images in the dataset. Calculated on the fly, but is non-trivial to calculate because it requires loading the dataset. If you need to reference this number very often, cache it in a local variable."""
+        import datasets
+
+        n = 0
+
+        name = "samuelstevens/sae-probing"
+        cfgs = datasets.get_dataset_config_names(name)
+        for cfg in sorted(cfgs):
+            if cfg == "default":
+                continue
+
+            dataset = datasets.load_dataset(name, cfg, split="train")
+            n += len(dataset)
+
+        return n
+
+
+DatasetConfig = (
+    ImagenetDataset
+    | TreeOfLifeDataset
+    | LaionDataset
+    | Inat21Dataset
+    | BrodenDataset
+    | ProbeDataset
+)
+
+
+@beartype.beartype
+@dataclasses.dataclass(frozen=True)
 class Activations:
     """
     Configuration for calculating and saving ViT activations.
     """
 
-    data: (
-        ImagenetDataset
-        | TreeOfLifeDataset
-        | LaionDataset
-        | Inat21Dataset
-        | BrodenDataset
-    ) = dataclasses.field(default_factory=ImagenetDataset)
+    data: DatasetConfig = dataclasses.field(default_factory=ImagenetDataset)
     """Which dataset to use."""
     dump_to: str = os.path.join(".", "shards")
     """Where to write shards."""
-    model_org: typing.Literal["open-clip", "timm", "dinov2"] = "open-clip"
+    model_org: typing.Literal["clip", "siglip", "timm", "dinov2"] = "clip"
     """Where to load models from."""
     model_ckpt: str = "ViT-L-14/openai"
     """Specific model checkpoint."""
@@ -163,10 +191,12 @@ class Activations:
     """Number of dataloader workers."""
     d_vit: int = 1024
     """Dimension of the ViT activations (depends on model)."""
-    n_layers: int = 6
+    layers: list[int] = dataclasses.field(default_factory=lambda: [-2])
     """How many of the last ViT layers to save."""
     n_patches_per_img: int = 256
     """Number of ViT patches per image (depends on model)."""
+    cls_token: bool = True
+    """Whether the model has a [CLS] token."""
     n_patches_per_shard: int = 2_400_000
     """Number of activations per shard; 2.4M is approximately 10GB for 1024-dimensional 4-byte activations."""
 
@@ -199,6 +229,10 @@ class DataLoad:
     """Which kinds of patches to use. 'cls' indicates just the [CLS] token (if any). 'patches' indicates it will return all patches. 'meanpool' returns the mean of all image patches."""
     layer: int | typing.Literal["all", "meanpool"] = -1
     """.. todo: document this field."""
+    clamp: float = 1e5
+    """Maximum value for activations; activations will be clamped to within [-clamp, clamp]`."""
+    n_random_samples: int = 2**19
+    """Number of random samples used to calculate dataset means at startup."""
 
 
 @beartype.beartype
@@ -210,13 +244,13 @@ class SparseAutoencoder:
     sparsity_coeff: float = 0.00008
     """How much to weight sparsity loss term."""
     n_reinit_samples: int = 1024 * 16 * 32
-    """Number of samples to use for SAE re-init."""
-    ghost_grads: bool = True
+    """Number of samples to use for SAE re-init. Anthropic proposes initializing b_dec to the geometric median of the dataset here: https://transformer-circuits.pub/2023/monosemantic-features/index.html#appendix-autoencoder-bias. We use the regular mean."""
+    ghost_grads: bool = False
     """Whether to use ghost grads."""
     remove_parallel_grads: bool = True
-    """Whether to remove gradients parallel to W_dec columns (which will be ignored because we force the columns to have unit norm)."""
+    """Whether to remove gradients parallel to W_dec columns (which will be ignored because we force the columns to have unit norm). See https://transformer-circuits.pub/2023/monosemantic-features/index.html#appendix-autoencoder-optimization for the original discussion from Anthropic."""
     normalize_w_dec: bool = True
-    """Whether to make sure W_dec has unit norm columns."""
+    """Whether to make sure W_dec has unit norm columns. See https://transformer-circuits.pub/2023/monosemantic-features/index.html#appendix-autoencoder for original citation."""
     seed: int = 0
     """Random seed."""
 
@@ -288,8 +322,8 @@ class Webapp:
     """Path to the sae.pt file."""
     data: DataLoad = dataclasses.field(default_factory=DataLoad)
     """Data configuration."""
-    images: ImagenetDataset | TreeOfLifeDataset | LaionDataset | Inat21Dataset = (
-        dataclasses.field(default_factory=ImagenetDataset)
+    images: ImagenetDataset | Inat21Dataset | ProbeDataset = dataclasses.field(
+        default_factory=ImagenetDataset
     )
     """Which images to use."""
     top_k: int = 16
@@ -308,6 +342,12 @@ class Webapp:
     """Which accelerator to use."""
     dump_to: str = os.path.join(".", "data")
     """Where to save data."""
+    log_freq_range: tuple[float, float] = (-6.0, -2.0)
+    """Log10 frequency range for which to save images."""
+    log_value_range: tuple[float, float] = (-1.0, 1.0)
+    """Log10 frequency range for which to save images."""
+    include_latents: list[int] = dataclasses.field(default_factory=list)
+    """Latents to always include, no matter what."""
 
     @property
     def root(self) -> str:
@@ -429,6 +469,25 @@ class Evaluate:
     """Slurm account string."""
     log_to: str = "./logs"
     """Where to log Slurm job stdout/stderr."""
+
+
+@beartype.beartype
+@dataclasses.dataclass(frozen=True)
+class Probe:
+    ckpt: str = os.path.join(".", "checkpoints", "abcdefg", "sae.pt")
+    """Path to the sae.pt file."""
+    data: DataLoad = dataclasses.field(default_factory=DataLoad)
+    """ViT activations for probing tasks."""
+    n_workers: int = 8
+    """Number of dataloader workers."""
+    sae_batch_size: int = 1024 * 16
+    """Batch size for SAE inference."""
+    device: str = "cuda"
+    """Which accelerator to use."""
+    images: ProbeDataset = dataclasses.field(default_factory=ProbeDataset)
+    """Where the raw images are."""
+    dump_to: str = os.path.join(".", "logs", "probes")
+    """Where to save images."""
 
 
 ##########
