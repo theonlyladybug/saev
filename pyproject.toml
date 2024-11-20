@@ -33,6 +33,8 @@ dev-dependencies = [
     "hypothesis-torch>=0.8.4",
     "pdoc3>=0.11.1",
     "pytest>=8.3.3",
+    "pytest-xdist>=3.6.1",
+    "pytest-cov>=6.0.0",
 ]
 
 [tool.pytest.ini_options]

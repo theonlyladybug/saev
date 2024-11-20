@@ -821,8 +821,16 @@ There are several changes
 * Removed b_dec re-init
 * Scaled mean activation norm to approximately sqrt(d_vit)
 * Subtracted approximate mean activation to center activations
-* Various code changes :(
+* Various code changes to the way the activations are recorded :(.
 
 So I will re-record ViT-B/16 activations, then re-add the b_dec re-init, ignore the scale_norm and scale_mean and *pray* that it works again.
 Then I will re-add the original changes, debugging what went wrong at each step.
 It might just be a learning rate thing.
+
+# 11/20/2024
+
+What exactly are my next steps?
+
+1. Reproduce original workflow with ViT-B/16. There's some bug introduced and I need to fix it. Add tests for it.
+2. Propose a trend in sparse autoencoders between CLIP and DINOv2 with at least 3 examples.
+3. Ensure that your probing methodology works.

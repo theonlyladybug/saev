@@ -2,7 +2,7 @@ docs: lint
     uv run pdoc3 --force --html --output-dir docs --config latex_math=True saev probing
 
 test: lint
-    uv run pytest saev probing
+    uv run pytest --cov saev -n auto saev probing
 
 lint: fmt
     fd -e py | xargs ruff check

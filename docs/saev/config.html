@@ -61,7 +61,7 @@ Might be expanded in the future to support pseudo-random sampling from distribut
 <dl>
 <dt id="saev.config.Activations"><code class="flex name class">
 <span>class <span class="ident">Activations</span></span>
-<span>(</span><span>data: <a title="saev.config.ImagenetDataset" href="#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.TreeOfLifeDataset" href="#saev.config.TreeOfLifeDataset">TreeOfLifeDataset</a> | <a title="saev.config.LaionDataset" href="#saev.config.LaionDataset">LaionDataset</a> | <a title="saev.config.Inat21Dataset" href="#saev.config.Inat21Dataset">Inat21Dataset</a> | <a title="saev.config.BrodenDataset" href="#saev.config.BrodenDataset">BrodenDataset</a> | <a title="saev.config.ProbeDataset" href="#saev.config.ProbeDataset">ProbeDataset</a> = &lt;factory&gt;, dump_to: str = './shards', model_org: Literal['clip', 'siglip', 'timm', 'dinov2'] = 'clip', model_ckpt: str = 'ViT-L-14/openai', vit_batch_size: int = 1024, n_workers: int = 8, d_vit: int = 1024, layers: list[int] = &lt;factory&gt;, n_patches_per_img: int = 256, cls_token: bool = True, n_patches_per_shard: int = 2400000, seed: int = 42, ssl: bool = True, device: str = 'cuda', slurm: bool = False, slurm_acct: str = 'PAS2136', log_to: str = './logs')</span>
+<span>(</span><span>data: <a title="saev.config.ImagenetDataset" href="#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.TreeOfLifeDataset" href="#saev.config.TreeOfLifeDataset">TreeOfLifeDataset</a> | <a title="saev.config.LaionDataset" href="#saev.config.LaionDataset">LaionDataset</a> | <a title="saev.config.ImageFolderDataset" href="#saev.config.ImageFolderDataset">ImageFolderDataset</a> | <a title="saev.config.BrodenDataset" href="#saev.config.BrodenDataset">BrodenDataset</a> = &lt;factory&gt;, dump_to: str = './shards', model_org: Literal['clip', 'siglip', 'timm', 'dinov2'] = 'clip', model_ckpt: str = 'ViT-L-14/openai', vit_batch_size: int = 1024, n_workers: int = 8, d_vit: int = 1024, layers: list[int] = &lt;factory&gt;, n_patches_per_img: int = 256, cls_token: bool = True, n_patches_per_shard: int = 2400000, seed: int = 42, ssl: bool = True, device: str = 'cuda', slurm: bool = False, slurm_acct: str = 'PAS2136', log_to: str = './logs')</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Configuration for calculating and saving ViT activations.</p></div>
@@ -124,7 +124,7 @@ class Activations:
 <dd>
 <div class="desc"><p>Dimension of the ViT activations (depends on model).</p></div>
 </dd>
-<dt id="saev.config.Activations.data"><code class="name">var <span class="ident">data</span> : <a title="saev.config.ImagenetDataset" href="#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.TreeOfLifeDataset" href="#saev.config.TreeOfLifeDataset">TreeOfLifeDataset</a> | <a title="saev.config.LaionDataset" href="#saev.config.LaionDataset">LaionDataset</a> | <a title="saev.config.Inat21Dataset" href="#saev.config.Inat21Dataset">Inat21Dataset</a> | <a title="saev.config.BrodenDataset" href="#saev.config.BrodenDataset">BrodenDataset</a> | <a title="saev.config.ProbeDataset" href="#saev.config.ProbeDataset">ProbeDataset</a></code></dt>
+<dt id="saev.config.Activations.data"><code class="name">var <span class="ident">data</span> : <a title="saev.config.ImagenetDataset" href="#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.TreeOfLifeDataset" href="#saev.config.TreeOfLifeDataset">TreeOfLifeDataset</a> | <a title="saev.config.LaionDataset" href="#saev.config.LaionDataset">LaionDataset</a> | <a title="saev.config.ImageFolderDataset" href="#saev.config.ImageFolderDataset">ImageFolderDataset</a> | <a title="saev.config.BrodenDataset" href="#saev.config.BrodenDataset">BrodenDataset</a></code></dt>
 <dd>
 <div class="desc"><p>Which dataset to use.</p></div>
 </dd>
@@ -333,7 +333,7 @@ class BrodenEvaluate:
 </dd>
 <dt id="saev.config.DataLoad"><code class="flex name class">
 <span>class <span class="ident">DataLoad</span></span>
-<span>(</span><span>shard_root: str = './shards', patches: Literal['cls', 'patches', 'meanpool'] = 'cls', layer: Union[int, Literal['all', 'meanpool']] = -1, clamp: float = 100000.0, n_random_samples: int = 524288)</span>
+<span>(</span><span>shard_root: str = './shards', patches: Literal['cls', 'patches', 'meanpool'] = 'cls', layer: Union[int, Literal['all', 'meanpool']] = -2, clamp: float = 100000.0, n_random_samples: int = 524288, scale_mean: bool = True, scale_norm: bool = True)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Configuration for loading activation data from disk.</p></div>
@@ -352,12 +352,16 @@ class DataLoad:
     &#34;&#34;&#34;Directory with .bin shards and a metadata.json file.&#34;&#34;&#34;
     patches: typing.Literal[&#34;cls&#34;, &#34;patches&#34;, &#34;meanpool&#34;] = &#34;cls&#34;
     &#34;&#34;&#34;Which kinds of patches to use. &#39;cls&#39; indicates just the [CLS] token (if any). &#39;patches&#39; indicates it will return all patches. &#39;meanpool&#39; returns the mean of all image patches.&#34;&#34;&#34;
-    layer: int | typing.Literal[&#34;all&#34;, &#34;meanpool&#34;] = -1
+    layer: int | typing.Literal[&#34;all&#34;, &#34;meanpool&#34;] = -2
     &#34;&#34;&#34;.. todo: document this field.&#34;&#34;&#34;
     clamp: float = 1e5
     &#34;&#34;&#34;Maximum value for activations; activations will be clamped to within [-clamp, clamp]`.&#34;&#34;&#34;
     n_random_samples: int = 2**19
-    &#34;&#34;&#34;Number of random samples used to calculate dataset means at startup.&#34;&#34;&#34;</code></pre>
+    &#34;&#34;&#34;Number of random samples used to calculate approximate dataset means at startup.&#34;&#34;&#34;
+    scale_mean: bool = True
+    &#34;&#34;&#34;Whether to subtract approximate dataset means from examples.&#34;&#34;&#34;
+    scale_norm: bool = True
+    &#34;&#34;&#34;Whether to scale average dataset norm to sqrt(d_vit).&#34;&#34;&#34;</code></pre>
 </details>
 <h3>Class variables</h3>
 <dl>
@@ -371,11 +375,19 @@ class DataLoad:
 </dd>
 <dt id="saev.config.DataLoad.n_random_samples"><code class="name">var <span class="ident">n_random_samples</span> : int</code></dt>
 <dd>
-<div class="desc"><p>Number of random samples used to calculate dataset means at startup.</p></div>
+<div class="desc"><p>Number of random samples used to calculate approximate dataset means at startup.</p></div>
 </dd>
 <dt id="saev.config.DataLoad.patches"><code class="name">var <span class="ident">patches</span> : Literal['cls', 'patches', 'meanpool']</code></dt>
 <dd>
 <div class="desc"><p>Which kinds of patches to use. 'cls' indicates just the [CLS] token (if any). 'patches' indicates it will return all patches. 'meanpool' returns the mean of all image patches.</p></div>
+</dd>
+<dt id="saev.config.DataLoad.scale_mean"><code class="name">var <span class="ident">scale_mean</span> : bool</code></dt>
+<dd>
+<div class="desc"><p>Whether to subtract approximate dataset means from examples.</p></div>
+</dd>
+<dt id="saev.config.DataLoad.scale_norm"><code class="name">var <span class="ident">scale_norm</span> : bool</code></dt>
+<dd>
+<div class="desc"><p>Whether to scale average dataset norm to sqrt(d_vit).</p></div>
 </dd>
 <dt id="saev.config.DataLoad.shard_root"><code class="name">var <span class="ident">shard_root</span> : str</code></dt>
 <dd>
@@ -501,6 +513,59 @@ class HistogramsEvaluate:
 </dd>
 </dl>
 </dd>
+<dt id="saev.config.ImageFolderDataset"><code class="flex name class">
+<span>class <span class="ident">ImageFolderDataset</span></span>
+<span>(</span><span>root: str = './data/split')</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Configuration for a generic image folder dataset.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@beartype.beartype
+@dataclasses.dataclass(frozen=True)
+class ImageFolderDataset:
+    &#34;&#34;&#34;Configuration for a generic image folder dataset.&#34;&#34;&#34;
+
+    root: str = os.path.join(&#34;.&#34;, &#34;data&#34;, &#34;split&#34;)
+    &#34;&#34;&#34;Where the class folders with images are stored.&#34;&#34;&#34;
+
+    @property
+    def n_imgs(self) -&gt; int:
+        &#34;&#34;&#34;Number of images in the dataset. Calculated on the fly, but is non-trivial to calculate because it requires walking the directory structure. If you need to reference this number very often, cache it in a local variable.&#34;&#34;&#34;
+        n = 0
+        for _, _, files in os.walk(self.root):
+            n += len(files)
+        return n</code></pre>
+</details>
+<h3>Class variables</h3>
+<dl>
+<dt id="saev.config.ImageFolderDataset.root"><code class="name">var <span class="ident">root</span> : str</code></dt>
+<dd>
+<div class="desc"><p>Where the class folders with images are stored.</p></div>
+</dd>
+</dl>
+<h3>Instance variables</h3>
+<dl>
+<dt id="saev.config.ImageFolderDataset.n_imgs"><code class="name">prop <span class="ident">n_imgs</span> : int</code></dt>
+<dd>
+<div class="desc"><p>Number of images in the dataset. Calculated on the fly, but is non-trivial to calculate because it requires walking the directory structure. If you need to reference this number very often, cache it in a local variable.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def n_imgs(self) -&gt; int:
+    &#34;&#34;&#34;Number of images in the dataset. Calculated on the fly, but is non-trivial to calculate because it requires walking the directory structure. If you need to reference this number very often, cache it in a local variable.&#34;&#34;&#34;
+    n = 0
+    for _, _, files in os.walk(self.root):
+        n += len(files)
+    return n</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
 <dt id="saev.config.ImagenetDataset"><code class="flex name class">
 <span>class <span class="ident">ImagenetDataset</span></span>
 <span>(</span><span>name: str = 'ILSVRC/imagenet-1k', split: str = 'train')</span>
@@ -566,10 +631,10 @@ def n_imgs(self) -&gt; int:
 </dd>
 <dt id="saev.config.ImagenetEvaluate"><code class="flex name class">
 <span>class <span class="ident">ImagenetEvaluate</span></span>
-<span>(</span><span>ckpt: str = './checkpoints/abcdefg', train_shard_root: str = './imagenet-1k-shards/train', val_shard_root: str = './imagenet-1k-shards/val', n_workers: int = 16, sgd_batch_size: int = 16384, n_steps: int = 12500, device: str = 'cuda', log_every: int = 5)</span>
+<span>(</span><span>ckpt: str = './checkpoints/abcdefg', train_shard_root: str = './imagenet-1k-shards/train', val_shard_root: str = './imagenet-1k-shards/val', n_workers: int = 32, sgd_batch_size: int = 16384, n_steps: int = 12500, device: str = 'cuda', log_every: int = 5)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>ImagenetEvaluate(ckpt: str = './checkpoints/abcdefg', train_shard_root: str = './imagenet-1k-shards/train', val_shard_root: str = './imagenet-1k-shards/val', n_workers: int = 16, sgd_batch_size: int = 16384, n_steps: int = 12500, device: str = 'cuda', log_every: int = 5)</p></div>
+<div class="desc"><p>ImagenetEvaluate(ckpt: str = './checkpoints/abcdefg', train_shard_root: str = './imagenet-1k-shards/train', val_shard_root: str = './imagenet-1k-shards/val', n_workers: int = 32, sgd_batch_size: int = 16384, n_steps: int = 12500, device: str = 'cuda', log_every: int = 5)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -585,7 +650,7 @@ class ImagenetEvaluate:
     &#34;&#34;&#34;Train shards root directory.&#34;&#34;&#34;
     val_shard_root: str = os.path.join(&#34;.&#34;, &#34;imagenet-1k-shards&#34;, &#34;val&#34;)
     &#34;&#34;&#34;Validation shards root directory.&#34;&#34;&#34;
-    n_workers: int = 16
+    n_workers: int = 32
     &#34;&#34;&#34;Number of dataloader workers.&#34;&#34;&#34;
     # Optimization
     sgd_batch_size: int = 1024 * 16
@@ -632,65 +697,6 @@ class ImagenetEvaluate:
 <dt id="saev.config.ImagenetEvaluate.val_shard_root"><code class="name">var <span class="ident">val_shard_root</span> : str</code></dt>
 <dd>
 <div class="desc"><p>Validation shards root directory.</p></div>
-</dd>
-</dl>
-</dd>
-<dt id="saev.config.Inat21Dataset"><code class="flex name class">
-<span>class <span class="ident">Inat21Dataset</span></span>
-<span>(</span><span>root: str = './inat21', split: str = 'train')</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Configuration for iNat2021 dataset.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@beartype.beartype
-@dataclasses.dataclass(frozen=True)
-class Inat21Dataset:
-    &#34;&#34;&#34;Configuration for iNat2021 dataset.&#34;&#34;&#34;
-
-    root: str = &#34;./inat21&#34;
-    &#34;&#34;&#34;Where the images are stored.&#34;&#34;&#34;
-    split: str = &#34;train&#34;
-    &#34;&#34;&#34;Dataset split. Can either be &#39;train&#39;, &#39;val&#39; or &#39;train_mini&#39;.&#34;&#34;&#34;
-
-    @property
-    def n_imgs(self) -&gt; int:
-        &#34;&#34;&#34;Number of images in the dataset. Calculated on the fly, but is non-trivial to calculate because it requires walking the directory structure. If you need to reference this number very often, cache it in a local variable.&#34;&#34;&#34;
-        n = 0
-        for _, _, files in os.walk(os.path.join(self.root, self.split)):
-            n += len(files)
-        return n</code></pre>
-</details>
-<h3>Class variables</h3>
-<dl>
-<dt id="saev.config.Inat21Dataset.root"><code class="name">var <span class="ident">root</span> : str</code></dt>
-<dd>
-<div class="desc"><p>Where the images are stored.</p></div>
-</dd>
-<dt id="saev.config.Inat21Dataset.split"><code class="name">var <span class="ident">split</span> : str</code></dt>
-<dd>
-<div class="desc"><p>Dataset split. Can either be 'train', 'val' or 'train_mini'.</p></div>
-</dd>
-</dl>
-<h3>Instance variables</h3>
-<dl>
-<dt id="saev.config.Inat21Dataset.n_imgs"><code class="name">prop <span class="ident">n_imgs</span> : int</code></dt>
-<dd>
-<div class="desc"><p>Number of images in the dataset. Calculated on the fly, but is non-trivial to calculate because it requires walking the directory structure. If you need to reference this number very often, cache it in a local variable.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@property
-def n_imgs(self) -&gt; int:
-    &#34;&#34;&#34;Number of images in the dataset. Calculated on the fly, but is non-trivial to calculate because it requires walking the directory structure. If you need to reference this number very often, cache it in a local variable.&#34;&#34;&#34;
-    n = 0
-    for _, _, files in os.walk(os.path.join(self.root, self.split)):
-        n += len(files)
-    return n</code></pre>
-</details>
 </dd>
 </dl>
 </dd>
@@ -763,128 +769,6 @@ def tar_dir(self) -&gt; str:
 def url_list_filepath(self) -&gt; str:
     &#34;&#34;&#34;Path to file with list of URLs.&#34;&#34;&#34;
     return os.path.join(self.cache_dir, &#34;urls.jsonl&#34;)</code></pre>
-</details>
-</dd>
-</dl>
-</dd>
-<dt id="saev.config.Probe"><code class="flex name class">
-<span>class <span class="ident">Probe</span></span>
-<span>(</span><span>ckpt: str = './checkpoints/abcdefg/sae.pt', data: <a title="saev.config.DataLoad" href="#saev.config.DataLoad">DataLoad</a> = &lt;factory&gt;, n_workers: int = 8, sae_batch_size: int = 16384, device: str = 'cuda', images: <a title="saev.config.ProbeDataset" href="#saev.config.ProbeDataset">ProbeDataset</a> = &lt;factory&gt;, dump_to: str = './logs/probes')</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Probe(ckpt: str = './checkpoints/abcdefg/sae.pt', data: saev.config.DataLoad = <factory>, n_workers: int = 8, sae_batch_size: int = 16384, device: str = 'cuda', images: saev.config.ProbeDataset = <factory>, dump_to: str = './logs/probes')</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@beartype.beartype
-@dataclasses.dataclass(frozen=True)
-class Probe:
-    ckpt: str = os.path.join(&#34;.&#34;, &#34;checkpoints&#34;, &#34;abcdefg&#34;, &#34;sae.pt&#34;)
-    &#34;&#34;&#34;Path to the sae.pt file.&#34;&#34;&#34;
-    data: DataLoad = dataclasses.field(default_factory=DataLoad)
-    &#34;&#34;&#34;ViT activations for probing tasks.&#34;&#34;&#34;
-    n_workers: int = 8
-    &#34;&#34;&#34;Number of dataloader workers.&#34;&#34;&#34;
-    sae_batch_size: int = 1024 * 16
-    &#34;&#34;&#34;Batch size for SAE inference.&#34;&#34;&#34;
-    device: str = &#34;cuda&#34;
-    &#34;&#34;&#34;Which accelerator to use.&#34;&#34;&#34;
-    images: ProbeDataset = dataclasses.field(default_factory=ProbeDataset)
-    &#34;&#34;&#34;Where the raw images are.&#34;&#34;&#34;
-    dump_to: str = os.path.join(&#34;.&#34;, &#34;logs&#34;, &#34;probes&#34;)
-    &#34;&#34;&#34;Where to save images.&#34;&#34;&#34;</code></pre>
-</details>
-<h3>Class variables</h3>
-<dl>
-<dt id="saev.config.Probe.ckpt"><code class="name">var <span class="ident">ckpt</span> : str</code></dt>
-<dd>
-<div class="desc"><p>Path to the sae.pt file.</p></div>
-</dd>
-<dt id="saev.config.Probe.data"><code class="name">var <span class="ident">data</span> : <a title="saev.config.DataLoad" href="#saev.config.DataLoad">DataLoad</a></code></dt>
-<dd>
-<div class="desc"><p>ViT activations for probing tasks.</p></div>
-</dd>
-<dt id="saev.config.Probe.device"><code class="name">var <span class="ident">device</span> : str</code></dt>
-<dd>
-<div class="desc"><p>Which accelerator to use.</p></div>
-</dd>
-<dt id="saev.config.Probe.dump_to"><code class="name">var <span class="ident">dump_to</span> : str</code></dt>
-<dd>
-<div class="desc"><p>Where to save images.</p></div>
-</dd>
-<dt id="saev.config.Probe.images"><code class="name">var <span class="ident">images</span> : <a title="saev.config.ProbeDataset" href="#saev.config.ProbeDataset">ProbeDataset</a></code></dt>
-<dd>
-<div class="desc"><p>Where the raw images are.</p></div>
-</dd>
-<dt id="saev.config.Probe.n_workers"><code class="name">var <span class="ident">n_workers</span> : int</code></dt>
-<dd>
-<div class="desc"><p>Number of dataloader workers.</p></div>
-</dd>
-<dt id="saev.config.Probe.sae_batch_size"><code class="name">var <span class="ident">sae_batch_size</span> : int</code></dt>
-<dd>
-<div class="desc"><p>Batch size for SAE inference.</p></div>
-</dd>
-</dl>
-</dd>
-<dt id="saev.config.ProbeDataset"><code class="flex name class">
-<span>class <span class="ident">ProbeDataset</span></span>
-</code></dt>
-<dd>
-<div class="desc"><p>Configuration for manual probing dataset.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@beartype.beartype
-@dataclasses.dataclass(frozen=True)
-class ProbeDataset:
-    &#34;&#34;&#34;Configuration for manual probing dataset.&#34;&#34;&#34;
-
-    @property
-    def n_imgs(self) -&gt; int:
-        &#34;&#34;&#34;Number of images in the dataset. Calculated on the fly, but is non-trivial to calculate because it requires loading the dataset. If you need to reference this number very often, cache it in a local variable.&#34;&#34;&#34;
-        import datasets
-
-        n = 0
-
-        name = &#34;samuelstevens/sae-probing&#34;
-        cfgs = datasets.get_dataset_config_names(name)
-        for cfg in sorted(cfgs):
-            if cfg == &#34;default&#34;:
-                continue
-
-            dataset = datasets.load_dataset(name, cfg, split=&#34;train&#34;)
-            n += len(dataset)
-
-        return n</code></pre>
-</details>
-<h3>Instance variables</h3>
-<dl>
-<dt id="saev.config.ProbeDataset.n_imgs"><code class="name">prop <span class="ident">n_imgs</span> : int</code></dt>
-<dd>
-<div class="desc"><p>Number of images in the dataset. Calculated on the fly, but is non-trivial to calculate because it requires loading the dataset. If you need to reference this number very often, cache it in a local variable.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@property
-def n_imgs(self) -&gt; int:
-    &#34;&#34;&#34;Number of images in the dataset. Calculated on the fly, but is non-trivial to calculate because it requires loading the dataset. If you need to reference this number very often, cache it in a local variable.&#34;&#34;&#34;
-    import datasets
-
-    n = 0
-
-    name = &#34;samuelstevens/sae-probing&#34;
-    cfgs = datasets.get_dataset_config_names(name)
-    for cfg in sorted(cfgs):
-        if cfg == &#34;default&#34;:
-            continue
-
-        dataset = datasets.load_dataset(name, cfg, split=&#34;train&#34;)
-        n += len(dataset)
-
-    return n</code></pre>
 </details>
 </dd>
 </dl>
@@ -1221,7 +1105,7 @@ def n_imgs(self) -&gt; int:
 </dd>
 <dt id="saev.config.Webapp"><code class="flex name class">
 <span>class <span class="ident">Webapp</span></span>
-<span>(</span><span>ckpt: str = './checkpoints/sae.pt', data: <a title="saev.config.DataLoad" href="#saev.config.DataLoad">DataLoad</a> = &lt;factory&gt;, images: <a title="saev.config.ImagenetDataset" href="#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.Inat21Dataset" href="#saev.config.Inat21Dataset">Inat21Dataset</a> | <a title="saev.config.ProbeDataset" href="#saev.config.ProbeDataset">ProbeDataset</a> = &lt;factory&gt;, top_k: int = 16, n_workers: int = 16, topk_batch_size: int = 16384, sae_batch_size: int = 16384, epsilon: float = 1e-09, sort_by: Literal['cls', 'img', 'patch'] = 'cls', device: str = 'cuda', dump_to: str = './data', log_freq_range: tuple[float, float] = (-6.0, -2.0), log_value_range: tuple[float, float] = (-1.0, 1.0), include_latents: list[int] = &lt;factory&gt;)</span>
+<span>(</span><span>ckpt: str = './checkpoints/sae.pt', data: <a title="saev.config.DataLoad" href="#saev.config.DataLoad">DataLoad</a> = &lt;factory&gt;, images: <a title="saev.config.ImagenetDataset" href="#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.ImageFolderDataset" href="#saev.config.ImageFolderDataset">ImageFolderDataset</a> = &lt;factory&gt;, top_k: int = 16, n_workers: int = 16, topk_batch_size: int = 16384, sae_batch_size: int = 16384, epsilon: float = 1e-09, sort_by: Literal['cls', 'img', 'patch'] = 'cls', device: str = 'cuda', dump_to: str = './data', log_freq_range: tuple[float, float] = (-6.0, -2.0), log_value_range: tuple[float, float] = (-1.0, 1.0), include_latents: list[int] = &lt;factory&gt;)</span>
 </code></dt>
 <dd>
 <div class="desc"><div class="admonition todo">
@@ -1241,7 +1125,7 @@ class Webapp:
     &#34;&#34;&#34;Path to the sae.pt file.&#34;&#34;&#34;
     data: DataLoad = dataclasses.field(default_factory=DataLoad)
     &#34;&#34;&#34;Data configuration.&#34;&#34;&#34;
-    images: ImagenetDataset | Inat21Dataset | ProbeDataset = dataclasses.field(
+    images: ImagenetDataset | ImageFolderDataset = dataclasses.field(
         default_factory=ImagenetDataset
     )
     &#34;&#34;&#34;Which images to use.&#34;&#34;&#34;
@@ -1314,7 +1198,7 @@ class Webapp:
 <dd>
 <div class="desc"><p>Value to add to avoid log(0).</p></div>
 </dd>
-<dt id="saev.config.Webapp.images"><code class="name">var <span class="ident">images</span> : <a title="saev.config.ImagenetDataset" href="#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.Inat21Dataset" href="#saev.config.Inat21Dataset">Inat21Dataset</a> | <a title="saev.config.ProbeDataset" href="#saev.config.ProbeDataset">ProbeDataset</a></code></dt>
+<dt id="saev.config.Webapp.images"><code class="name">var <span class="ident">images</span> : <a title="saev.config.ImagenetDataset" href="#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.ImageFolderDataset" href="#saev.config.ImageFolderDataset">ImageFolderDataset</a></code></dt>
 <dd>
 <div class="desc"><p>Which images to use.</p></div>
 </dd>
@@ -1499,11 +1383,13 @@ def top_values_fpath(self) -&gt; str:
 </li>
 <li>
 <h4><code><a title="saev.config.DataLoad" href="#saev.config.DataLoad">DataLoad</a></code></h4>
-<ul class="">
+<ul class="two-column">
 <li><code><a title="saev.config.DataLoad.clamp" href="#saev.config.DataLoad.clamp">clamp</a></code></li>
 <li><code><a title="saev.config.DataLoad.layer" href="#saev.config.DataLoad.layer">layer</a></code></li>
 <li><code><a title="saev.config.DataLoad.n_random_samples" href="#saev.config.DataLoad.n_random_samples">n_random_samples</a></code></li>
 <li><code><a title="saev.config.DataLoad.patches" href="#saev.config.DataLoad.patches">patches</a></code></li>
+<li><code><a title="saev.config.DataLoad.scale_mean" href="#saev.config.DataLoad.scale_mean">scale_mean</a></code></li>
+<li><code><a title="saev.config.DataLoad.scale_norm" href="#saev.config.DataLoad.scale_norm">scale_norm</a></code></li>
 <li><code><a title="saev.config.DataLoad.shard_root" href="#saev.config.DataLoad.shard_root">shard_root</a></code></li>
 </ul>
 </li>
@@ -1531,6 +1417,13 @@ def top_values_fpath(self) -&gt; str:
 </ul>
 </li>
 <li>
+<h4><code><a title="saev.config.ImageFolderDataset" href="#saev.config.ImageFolderDataset">ImageFolderDataset</a></code></h4>
+<ul class="">
+<li><code><a title="saev.config.ImageFolderDataset.n_imgs" href="#saev.config.ImageFolderDataset.n_imgs">n_imgs</a></code></li>
+<li><code><a title="saev.config.ImageFolderDataset.root" href="#saev.config.ImageFolderDataset.root">root</a></code></li>
+</ul>
+</li>
+<li>
 <h4><code><a title="saev.config.ImagenetDataset" href="#saev.config.ImagenetDataset">ImagenetDataset</a></code></h4>
 <ul class="">
 <li><code><a title="saev.config.ImagenetDataset.n_imgs" href="#saev.config.ImagenetDataset.n_imgs">n_imgs</a></code></li>
@@ -1552,14 +1445,6 @@ def top_values_fpath(self) -&gt; str:
 </ul>
 </li>
 <li>
-<h4><code><a title="saev.config.Inat21Dataset" href="#saev.config.Inat21Dataset">Inat21Dataset</a></code></h4>
-<ul class="">
-<li><code><a title="saev.config.Inat21Dataset.n_imgs" href="#saev.config.Inat21Dataset.n_imgs">n_imgs</a></code></li>
-<li><code><a title="saev.config.Inat21Dataset.root" href="#saev.config.Inat21Dataset.root">root</a></code></li>
-<li><code><a title="saev.config.Inat21Dataset.split" href="#saev.config.Inat21Dataset.split">split</a></code></li>
-</ul>
-</li>
-<li>
 <h4><code><a title="saev.config.LaionDataset" href="#saev.config.LaionDataset">LaionDataset</a></code></h4>
 <ul class="">
 <li><code><a title="saev.config.LaionDataset.cache_dir" href="#saev.config.LaionDataset.cache_dir">cache_dir</a></code></li>
@@ -1567,24 +1452,6 @@ def top_values_fpath(self) -&gt; str:
 <li><code><a title="saev.config.LaionDataset.name" href="#saev.config.LaionDataset.name">name</a></code></li>
 <li><code><a title="saev.config.LaionDataset.tar_dir" href="#saev.config.LaionDataset.tar_dir">tar_dir</a></code></li>
 <li><code><a title="saev.config.LaionDataset.url_list_filepath" href="#saev.config.LaionDataset.url_list_filepath">url_list_filepath</a></code></li>
-</ul>
-</li>
-<li>
-<h4><code><a title="saev.config.Probe" href="#saev.config.Probe">Probe</a></code></h4>
-<ul class="two-column">
-<li><code><a title="saev.config.Probe.ckpt" href="#saev.config.Probe.ckpt">ckpt</a></code></li>
-<li><code><a title="saev.config.Probe.data" href="#saev.config.Probe.data">data</a></code></li>
-<li><code><a title="saev.config.Probe.device" href="#saev.config.Probe.device">device</a></code></li>
-<li><code><a title="saev.config.Probe.dump_to" href="#saev.config.Probe.dump_to">dump_to</a></code></li>
-<li><code><a title="saev.config.Probe.images" href="#saev.config.Probe.images">images</a></code></li>
-<li><code><a title="saev.config.Probe.n_workers" href="#saev.config.Probe.n_workers">n_workers</a></code></li>
-<li><code><a title="saev.config.Probe.sae_batch_size" href="#saev.config.Probe.sae_batch_size">sae_batch_size</a></code></li>
-</ul>
-</li>
-<li>
-<h4><code><a title="saev.config.ProbeDataset" href="#saev.config.ProbeDataset">ProbeDataset</a></code></h4>
-<ul class="">
-<li><code><a title="saev.config.ProbeDataset.n_imgs" href="#saev.config.ProbeDataset.n_imgs">n_imgs</a></code></li>
 </ul>
 </li>
 <li>
