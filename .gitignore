@@ -5,4 +5,4 @@ wandb/
 artifacts/
 checkpoints/
 logs/
-web/
+.hypothesis/

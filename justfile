@@ -1,11 +1,11 @@
 docs: lint
-    uv run pdoc3 --force --html --output-dir docs --config latex_math=True saev
+    uv run pdoc3 --force --html --output-dir docs --config latex_math=True saev probing
 
 test: lint
-    uv run pytest saev
+    uv run pytest saev probing
 
 lint: fmt
-    ruff check saev/ main.py webapp.py
+    fd -e py | xargs ruff check
 
 fmt:
     fd -e py | xargs isort

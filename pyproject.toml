@@ -5,15 +5,17 @@ description = "Sparse autoencoders for vision transformers in PyTorch"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "altair>=5.4.1",
     "beartype>=0.19.0",
     "datasets>=3.0.1",
     "einops>=0.8.0",
-    "img2dataset",
     "jaxtyping>=0.2.34",
+    "jupyterlab>=4.3.0",
     "marimo>=0.9.10",
     "matplotlib>=3.9.2",
     "open-clip-torch>=2.28.0",
     "pillow>=11.0.0",
+    "polars>=1.12.0",
     "submitit>=1.5.2",
     "torch>=2.5.0",
     "tqdm>=4.66.5",
@@ -27,12 +29,11 @@ ignore = ["F722"]
 
 [tool.uv]
 dev-dependencies = [
+    "hypothesis>=6.119.0",
+    "hypothesis-torch>=0.8.4",
     "pdoc3>=0.11.1",
     "pytest>=8.3.3",
 ]
-
-[tool.uv.sources]
-img2dataset = { path = "../img2dataset", editable = true }
 
 [tool.pytest.ini_options]
 markers = [

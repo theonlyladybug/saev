@@ -72,8 +72,6 @@ class SparseAutoencoder(torch.nn.Module):
             einops.einsum(f_x, self.W_dec, "... d_sae, d_sae d_vit -> ... d_vit")
             + self.b_dec
         )
-        # (sam): I am now realizing that we normalize by the L2 norm of x.
-
         # Some values of x and x_hat can be very large. We can calculate a safe MSE
         mse_loss = safe_mse(x_hat, x)
 
@@ -117,28 +115,6 @@ class SparseAutoencoder(torch.nn.Module):
         return x_hat, f_x, Loss(mse_loss, sparsity_loss, ghost_loss, l0, l1)
 
     @torch.no_grad()
-    def init_b_dec(self, vit_acts: Float[Tensor, "n d_vit"]):
-        if self.cfg.n_reinit_samples <= 0:
-            self.logger.info("Skipping init_b_dec.")
-            return
-
-        previous_b_dec = self.b_dec.clone().cpu()
-        vit_acts = vit_acts[: self.cfg.n_reinit_samples]
-        assert len(vit_acts) == self.cfg.n_reinit_samples
-
-        mean = vit_acts.mean(axis=0)
-        previous_distances = torch.norm(vit_acts - previous_b_dec, dim=-1)
-        distances = torch.norm(vit_acts - mean, dim=-1)
-
-        self.logger.info(
-            "Prev dist: %.3f; new dist: %.3f",
-            previous_distances.median(axis=0).values.mean().item(),
-            distances.median(axis=0).values.mean().item(),
-        )
-
-        self.b_dec.data = mean.to(self.b_dec.dtype).to(self.b_dec.device)
-
-    @torch.no_grad()
     def normalize_w_dec(self):
         # Make sure the W_dec is still unit-norm
         if self.cfg.normalize_w_dec:
@@ -179,13 +155,14 @@ def ref_mse(
 
 @jaxtyped(typechecker=beartype.beartype)
 def safe_mse(
-    x_hat: Float[Tensor, "*batch d"], x: Float[Tensor, "*batch d"], norm: bool = True
+    x_hat: Float[Tensor, "*batch d"], x: Float[Tensor, "*batch d"], norm: bool = False
 ) -> Float[Tensor, "*batch d"]:
     upper = x.abs().max()
     x = x / upper
     x_hat = x_hat / upper
 
     mse = (x_hat - x) ** 2
+    # (sam): I am now realizing that we normalize by the L2 norm of x.
     if norm:
         mse /= torch.linalg.norm(x, axis=-1, keepdim=True) + 1e-12
         return mse * upper

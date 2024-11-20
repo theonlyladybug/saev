@@ -707,21 +707,122 @@ What patterns am I seeing now?
 
 
 
-
-I'm writing a submission to CVPR. The premise is that we apply sparse autoencoders to vision models to interpret their internal representations.
-
-My current outline is
-
-1. Introduction: we want to interpret foundation vision models and see examples of the concepts being represented. SAEs are the best way to do this. We apply SAEs to DINOv2 and CLIP vision models and find some neat stuff.
-2. Related work.
-3. How we train the SAEs (technical details, easy to write)
-4. Findings
-    1. CLIP learns abstract semantic relationships, DINOv2 doesn't.
-    2. DINOv2 identifies morphological traits in animals much more often than CLIP.
-    3. Training an SAE on one datset transfers to a new dataset.
-5. Conclusion & Future Work
-
 # 11/14/2024
 
 Anthropic discusses ways to search for particular features [here](https://transformer-circuits.pub/2024/scaling-monosemanticity/index.html#searching).
 In general, it seems using combinations of positive/negative examples and filtering by "fire/no fire" is good, rather than the LDA-based classifier I have now.
+
+# 11/18/2024
+
+### Influential Topics and Papers in Model Debugging  
+
+Here’s a breakdown of key topics and landmark papers to guide your search:  
+
+---
+
+### 1. **Interpretability and Conceptual Debugging**  
+   - **Papers**:  
+     - *“Distill and Detect: Mapping Knowledge Representations for Neural Networks”* by Hinton et al. Introduced distillation, with implications for debugging via knowledge transfer.  
+     - *“Network Dissection: Quantifying Interpretability of Deep Visual Representations”* by Bau et al. (2017). Introduced a method for attributing neurons to human-understandable concepts.  
+     - *“Testing with Concept Activation Vectors (TCAV)”* by Kim et al. (2018). Uses concept vectors for debugging biases and assessing representation relevance.  
+
+   - **Search Terms**:  
+     - "Concept-based interpretability"  
+     - "Neuron-level interpretability"  
+     - "Network dissection techniques"  
+
+---
+
+### 2. **Feature Attribution**  
+   - **Papers**:  
+     - *“Integrated Gradients”* by Sundararajan et al. (2017). A widely-used method for explaining model predictions via input gradients.  
+     - *“SHAP: A Unified Approach to Interpreting Model Predictions”* by Lundberg and Lee (2017). Provides local explanations for individual predictions.  
+     - *“Grad-CAM”* by Selvaraju et al. (2017). Explains model decisions by visualizing class-specific activation maps.  
+
+   - **Search Terms**:  
+     - "Feature attribution methods"  
+     - "Saliency maps"  
+     - "Explainability in deep learning"  
+
+---
+
+### 3. **Debugging via Counterfactuals**  
+   - **Papers**:  
+     - *“Counterfactual Explanations without Opening the Black Box”* by Wachter et al. (2017). Explores generating counterfactual examples for model debugging.  
+     - *“Robustness Disparities by Design?”* by D’Amour et al. (2020). Discusses biases exposed via adversarial counterfactuals.  
+
+   - **Search Terms**:  
+     - "Counterfactual model debugging"  
+     - "Robustness and adversarial testing"  
+
+---
+
+### 4. **Bias and Fairness Debugging**  
+   - **Papers**:  
+     - *“A Framework for Understanding Unintended Consequences of Machine Learning”* by Suresh and Guttag (2019). Highlights sources of bias and debugging strategies.  
+     - *“The Mythos of Model Interpretability”* by Lipton (2016). Discusses the trade-offs and pitfalls in debugging interpretability.  
+
+   - **Search Terms**:  
+     - "Bias debugging in ML models"  
+     - "Fairness-aware machine learning"  
+
+---
+
+### 5. **Debugging Neural Representations**  
+   - **Papers**:  
+     - *“Probing Neural Representations”* by Conneau et al. (2018). Uses diagnostic classifiers to analyze internal representations.  
+     - *“Representation Erasure”* by Elazar and Goldberg (2018). Tests the influence of specific features by removing them and observing performance.  
+
+   - **Search Terms**:  
+     - "Probing neural representations"  
+     - "Feature erasure methods"  
+
+---
+
+### 6. **Model Behavior and Failure Analysis**  
+   - **Papers**:  
+     - *“A Taxonomy of Machine Learning Failures”* by Barredo Arrieta et al. (2020). Categorizes failure modes and discusses debugging strategies.  
+     - *“Debugging Deep Models with Logical Constraints”* by Narayanan et al. (2018). Formal methods for pinpointing and fixing logic violations in neural network outputs.  
+
+   - **Search Terms**:  
+     - "Failure modes in ML"  
+     - "Behavioral analysis of neural models"  
+
+---
+
+### 7. **Transfer Learning and Representation Debugging**  
+   - **Papers**:  
+     - *“Do Better ImageNet Models Transfer Better?”* by Kornblith et al. (2019). Studies how representation quality affects transfer learning.  
+     - *“Representation Learning with Contrastive Predictive Coding”* by Oord et al. (2018). Debugging representation learning via contrastive methods.  
+
+   - **Search Terms**:  
+     - "Transfer learning debugging"  
+     - "Contrastive representation learning"  
+
+---
+
+### Practical Suggestions  
+Use combinations of terms like *“debugging deep models,”* *“interpretability techniques,”* and *“bias evaluation in neural networks”* to drill down further. Sites like [Papers with Code](https://paperswithcode.com/) and ArXiv categories (e.g., cs.LG, cs.CV) can quickly lead you to relevant papers.  
+
+Would you like to focus on any particular subdomain or technique?
+
+
+https://huggingface.co/docs/transformers/main/en/tasks/semantic_segmentation
+https://github.com/facebookresearch/dinov2/issues/25
+
+
+# 11/19/2024
+
+For some reason when I trained on ViT-L/14 activations nothing worked.
+So we need to debug that.
+There are several changes
+
+* ViT-B/16 -> ViT-L/14
+* Removed b_dec re-init
+* Scaled mean activation norm to approximately sqrt(d_vit)
+* Subtracted approximate mean activation to center activations
+* Various code changes :(
+
+So I will re-record ViT-B/16 activations, then re-add the b_dec re-init, ignore the scale_norm and scale_mean and *pray* that it works again.
+Then I will re-add the original changes, debugging what went wrong at each step.
+It might just be a learning rate thing.

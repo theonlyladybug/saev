@@ -104,19 +104,17 @@ class LaionDataset:
 
 @beartype.beartype
 @dataclasses.dataclass(frozen=True)
-class Inat21Dataset:
-    """Configuration for iNat2021 dataset."""
+class ImageFolderDataset:
+    """Configuration for a generic image folder dataset."""
 
-    root: str = "./inat21"
-    """Where the images are stored."""
-    split: str = "train"
-    """Dataset split. Can either be 'train', 'val' or 'train_mini'."""
+    root: str = os.path.join(".", "data", "split")
+    """Where the class folders with images are stored."""
 
     @property
     def n_imgs(self) -> int:
         """Number of images in the dataset. Calculated on the fly, but is non-trivial to calculate because it requires walking the directory structure. If you need to reference this number very often, cache it in a local variable."""
         n = 0
-        for _, _, files in os.walk(os.path.join(self.root, self.split)):
+        for _, _, files in os.walk(self.root):
             n += len(files)
         return n
 
@@ -136,37 +134,12 @@ class BrodenDataset:
             return sum(1 for _ in fd)
 
 
-@beartype.beartype
-@dataclasses.dataclass(frozen=True)
-class ProbeDataset:
-    """Configuration for manual probing dataset."""
-
-    @property
-    def n_imgs(self) -> int:
-        """Number of images in the dataset. Calculated on the fly, but is non-trivial to calculate because it requires loading the dataset. If you need to reference this number very often, cache it in a local variable."""
-        import datasets
-
-        n = 0
-
-        name = "samuelstevens/sae-probing"
-        cfgs = datasets.get_dataset_config_names(name)
-        for cfg in sorted(cfgs):
-            if cfg == "default":
-                continue
-
-            dataset = datasets.load_dataset(name, cfg, split="train")
-            n += len(dataset)
-
-        return n
-
-
 DatasetConfig = (
     ImagenetDataset
     | TreeOfLifeDataset
     | LaionDataset
-    | Inat21Dataset
+    | ImageFolderDataset
     | BrodenDataset
-    | ProbeDataset
 )
 
 
@@ -227,12 +200,16 @@ class DataLoad:
     """Directory with .bin shards and a metadata.json file."""
     patches: typing.Literal["cls", "patches", "meanpool"] = "cls"
     """Which kinds of patches to use. 'cls' indicates just the [CLS] token (if any). 'patches' indicates it will return all patches. 'meanpool' returns the mean of all image patches."""
-    layer: int | typing.Literal["all", "meanpool"] = -1
+    layer: int | typing.Literal["all", "meanpool"] = -2
     """.. todo: document this field."""
     clamp: float = 1e5
     """Maximum value for activations; activations will be clamped to within [-clamp, clamp]`."""
     n_random_samples: int = 2**19
-    """Number of random samples used to calculate dataset means at startup."""
+    """Number of random samples used to calculate approximate dataset means at startup."""
+    scale_mean: bool = True
+    """Whether to subtract approximate dataset means from examples."""
+    scale_norm: bool = True
+    """Whether to scale average dataset norm to sqrt(d_vit)."""
 
 
 @beartype.beartype
@@ -243,8 +220,6 @@ class SparseAutoencoder:
     """Expansion factor for SAE."""
     sparsity_coeff: float = 0.00008
     """How much to weight sparsity loss term."""
-    n_reinit_samples: int = 1024 * 16 * 32
-    """Number of samples to use for SAE re-init. Anthropic proposes initializing b_dec to the geometric median of the dataset here: https://transformer-circuits.pub/2023/monosemantic-features/index.html#appendix-autoencoder-bias. We use the regular mean."""
     ghost_grads: bool = False
     """Whether to use ghost grads."""
     remove_parallel_grads: bool = True
@@ -322,7 +297,7 @@ class Webapp:
     """Path to the sae.pt file."""
     data: DataLoad = dataclasses.field(default_factory=DataLoad)
     """Data configuration."""
-    images: ImagenetDataset | Inat21Dataset | ProbeDataset = dataclasses.field(
+    images: ImagenetDataset | ImageFolderDataset = dataclasses.field(
         default_factory=ImagenetDataset
     )
     """Which images to use."""
@@ -385,7 +360,7 @@ class ImagenetEvaluate:
     """Train shards root directory."""
     val_shard_root: str = os.path.join(".", "imagenet-1k-shards", "val")
     """Validation shards root directory."""
-    n_workers: int = 16
+    n_workers: int = 32
     """Number of dataloader workers."""
     # Optimization
     sgd_batch_size: int = 1024 * 16
@@ -469,25 +444,6 @@ class Evaluate:
     """Slurm account string."""
     log_to: str = "./logs"
     """Where to log Slurm job stdout/stderr."""
-
-
-@beartype.beartype
-@dataclasses.dataclass(frozen=True)
-class Probe:
-    ckpt: str = os.path.join(".", "checkpoints", "abcdefg", "sae.pt")
-    """Path to the sae.pt file."""
-    data: DataLoad = dataclasses.field(default_factory=DataLoad)
-    """ViT activations for probing tasks."""
-    n_workers: int = 8
-    """Number of dataloader workers."""
-    sae_batch_size: int = 1024 * 16
-    """Batch size for SAE inference."""
-    device: str = "cuda"
-    """Which accelerator to use."""
-    images: ProbeDataset = dataclasses.field(default_factory=ProbeDataset)
-    """Where the raw images are."""
-    dump_to: str = os.path.join(".", "logs", "probes")
-    """Where to save images."""
 
 
 ##########

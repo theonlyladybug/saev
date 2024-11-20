@@ -3,26 +3,26 @@ I'm writing a submission to ICML. The premise is that we apply sparse autoencode
 My current outline is
 
 1. Introduction
-	1. We want to interpret foundation vision models 
-	2. We want to see examples of the concepts being represented. 
-	3. SAEs are the best way to do this. 
-	4. We apply SAEs to DINOv2 and CLIP vision models and find some neat stuff.
+	1.1. Vision foundation models are crucial for modern computer vision but require interpretability for high-stakes scenarios.
+	1.2. Foundation models learn rich internal representations, supported by theoretical results (information bottleneck, nuisance variables) and empirical evidence from interpretability methods.
+	1.3. Understanding learned concepts is challenging due to limitations of current methods (individual neurons vs distributed representations) and superposition of features.
+	1.4. An ideal interpretability method should: (a) work on foundation models, (b) explain concepts being represented, and (c) be computationally efficient.
+	1.5. Current methods (saliency maps, ProtoPNet) fail to meet these requirements due to various limitations.
+	1.6. Sparse autoencoders (SAEs) satisfy all requirements for an ideal interpretability method.
+	1.7. We analyze CLIP and DINOv2 using SAEs, revealing how different training objectives lead to systematic differences in learned representations.
 2. Related work.
 3. How we train the SAEs (technical details, easy to write)
+	3.1. We train ReLU autoencoders, minimizing both MSE reconstruction and L1 sparsity of the intermediate activations, parameterized by lambda.
+	3.2. We train on 100M patch-level activations from the second to last layer of a model M on a dataset D, typically DINOv2 on ImageNet-1K.
 4. Findings
-    1. CLIP learns abstract semantic relationships, DINOv2 doesn't.
-    2. DINOv2 identifies morphological traits in animals much more often than CLIP.
-    3. Training an SAE on one datset transfers to a new dataset.
+	4.1. Different pre-training supervision methods learn different features: we compare vision-language models like CLIP and SigLIP to vision-only models like DINOv2 and V-JEPA. Language-vision models learn abstract semantic relationships, vision-only don't.
+	4.2. (unknown section title) If we know the learned features of vision models, and the features we expect to be relevant for a new downstream task, we can predict which vision models will do better on a downstream task.
+	4.3. (unknown title) SAE-recovered features can effectively steer classifications on downstream tasks.
 5. Conclusion & Future Work
 
 ---
 
-I also like the following setup for the paper:
-
-
-Vision foundation models (like DINOv2 and CLIP) are widely used as feature extractors across diverse tasks. However, **their success hinges on their internal representations capturing the right concepts for downstream decision-making.**
-
-With respect to writing, we want to frame everything as Goal->Problem->Solution. In general, I want you to be skeptical and challenging of arguments that are not supported by evidence.
+With respect to writing, we want to frame everything as Goal->Problem->Solution. In general, I want you to be extremely skeptical and challenge any arguments that are not supported by evidence.
 
 Some questions that come up that are not in the outline yet:
 

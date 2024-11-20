@@ -126,8 +126,8 @@ def evaluate(cfg: typing.Annotated[saev.EvaluateConfig, tyro.conf.arg(name="")])
 
     jobs = []
     # jobs.append(executor.submit(run_histograms))
-    jobs.append(executor.submit(run_broden))
-    # jobs.append(executor.submit(run_imagenet1k))
+    # jobs.append(executor.submit(run_broden))
+    jobs.append(executor.submit(run_imagenet1k))
     for job in jobs:
         job.result()
 

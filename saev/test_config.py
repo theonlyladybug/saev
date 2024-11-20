@@ -54,3 +54,21 @@ def test_expand_nested_and_unnested_backwards():
     actual = list(config.expand(cfg))
 
     assert expected == actual
+
+
+def test_expand_multiple():
+    cfg = {"a": [1, 2, 3], "b": {"c": [4, 5, 6]}}
+    expected = [
+        {"a": 1, "b": {"c": 4}},
+        {"a": 1, "b": {"c": 5}},
+        {"a": 1, "b": {"c": 6}},
+        {"a": 2, "b": {"c": 4}},
+        {"a": 2, "b": {"c": 5}},
+        {"a": 2, "b": {"c": 6}},
+        {"a": 3, "b": {"c": 4}},
+        {"a": 3, "b": {"c": 5}},
+        {"a": 3, "b": {"c": 6}},
+    ]
+    actual = list(config.expand(cfg))
+
+    assert expected == actual

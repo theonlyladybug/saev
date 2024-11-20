@@ -259,12 +259,16 @@ class Dataset(torch.utils.data.Dataset):
     """
 
     class Example(typing.NamedTuple):
+        """Individual example."""
+
         vit_acts: Float[Tensor, " d_vit"]
         img_i: Int[Tensor, ""]
         patch_i: Int[Tensor, ""]
 
     cfg: config.DataLoad
+    """Configuration; set via CLI args."""
     metadata: "Metadata"
+    """Activations metadata; automatically loaded from disk."""
     layer_index: int
     """Layer index into the shards if we are choosing a specific layer."""
     scalar: float
@@ -287,40 +291,47 @@ class Dataset(torch.utils.data.Dataset):
             assert self.cfg.layer in self.metadata.layers, err_msg
             self.layer_index = self.metadata.layers.index(self.cfg.layer)
 
-        # Premptively set this value so that preprocess() doesn't freak out.
+        # Premptively set these values so that preprocess() doesn't freak out.
         self.scalar = 1.0
+        self.act_mean = torch.zeros(self.d_vit)
 
-        # Load a random subset of samples to calculate the mean activation and mean L2 norm.
-        perm = np.random.default_rng(seed=42).permutation(len(self))
-        perm = perm[: cfg.n_random_samples]
+        # If neither of these are true, we can skip this work.
+        if self.cfg.scale_mean or self.cfg.scale_norm:
+            # Load a random subset of samples to calculate the mean activation and mean L2 norm.
+            perm = np.random.default_rng(seed=42).permutation(len(self))
+            perm = perm[: cfg.n_random_samples]
 
-        samples, _, _ = zip(*[
-            self[p.item()]
-            for p in helpers.progress(perm, every=25_000, desc="examples to calc means")
-        ])
-        samples = torch.stack(samples)
-        if samples.abs().max() > 1e3:
-            raise ValueError(
-                "You found an abnormally large activation {example.abs().max().item():.5f} that will mess up your L2 mean."
-            )
+            samples, _, _ = zip(*[
+                self[p.item()]
+                for p in helpers.progress(
+                    perm, every=25_000, desc="examples to calc means"
+                )
+            ])
+            samples = torch.stack(samples)
+            if samples.abs().max() > 1e3:
+                raise ValueError(
+                    "You found an abnormally large activation {example.abs().max().item():.5f} that will mess up your L2 mean."
+                )
 
-        # Activation mean
-        self.act_mean = samples.mean(axis=0)
-        if (self.act_mean > 1e3).any():
-            raise ValueError(
-                "You found an abnormally large activation that is messing up your activation mean."
-            )
+            # Activation mean
+            if self.cfg.scale_mean:
+                self.act_mean = samples.mean(axis=0)
+                if (self.act_mean > 1e3).any():
+                    raise ValueError(
+                        "You found an abnormally large activation that is messing up your activation mean."
+                    )
 
-        # Scalar
-        l2_mean = torch.linalg.norm(samples - self.act_mean, axis=1).mean()
-        if l2_mean > 1e3:
-            raise ValueError(
-                "You found an abnormally large activation that is messing up your L2 mean."
-            )
+            # Norm
+            if self.cfg.scale_norm:
+                l2_mean = torch.linalg.norm(samples - self.act_mean, axis=1).mean()
+                if l2_mean > 1e3:
+                    raise ValueError(
+                        "You found an abnormally large activation that is messing up your L2 mean."
+                    )
 
-        self.scalar = l2_mean / math.sqrt(self.d_vit)
+                self.scalar = l2_mean / math.sqrt(self.d_vit)
 
-    def preprocess(self, act: Float[np.ndarray, " d_vit"]) -> Float[Tensor, " d_vit"]:
+    def transform(self, act: Float[np.ndarray, " d_vit"]) -> Float[Tensor, " d_vit"]:
         """
         Apply a scalar normalization so the mean squared L2 norm is same as d_vit. This is from 'Scaling Monosemanticity':
 
@@ -345,7 +356,7 @@ class Dataset(torch.utils.data.Dataset):
                 # Select layer's cls token.
                 act = img_act[self.layer_index, 0, :]
                 return self.Example(
-                    self.preprocess(act), torch.tensor(i), torch.tensor(-1)
+                    self.transform(act), torch.tensor(i), torch.tensor(-1)
                 )
             case ("cls", "meanpool"):
                 img_act = self.get_img_patches(i)
@@ -354,7 +365,7 @@ class Dataset(torch.utils.data.Dataset):
                 # Meanpool over the layers
                 act = cls_act.mean(axis=0)
                 return self.Example(
-                    self.preprocess(act), torch.tensor(i), torch.tensor(-1)
+                    self.transform(act), torch.tensor(i), torch.tensor(-1)
                 )
             case ("meanpool", int()):
                 img_act = self.get_img_patches(i)
@@ -363,7 +374,7 @@ class Dataset(torch.utils.data.Dataset):
                 # Meanpool over the patches
                 act = layer_act.mean(axis=0)
                 return self.Example(
-                    self.preprocess(act), torch.tensor(i), torch.tensor(-1)
+                    self.transform(act), torch.tensor(i), torch.tensor(-1)
                 )
             case ("meanpool", "meanpool"):
                 img_act = self.get_img_patches(i)
@@ -372,7 +383,7 @@ class Dataset(torch.utils.data.Dataset):
                 # Meanpool over the layers and patches
                 act = act.mean(axis=(0, 1))
                 return self.Example(
-                    self.preprocess(act), torch.tensor(i), torch.tensor(-1)
+                    self.transform(act), torch.tensor(i), torch.tensor(-1)
                 )
             case ("patches", int()):
                 n_imgs_per_shard = (
@@ -404,7 +415,7 @@ class Dataset(torch.utils.data.Dataset):
                     pos % self.metadata.n_patches_per_img,
                 ]
                 return self.Example(
-                    self.preprocess(act),
+                    self.transform(act),
                     # What image is this?
                     torch.tensor(i // self.metadata.n_patches_per_img),
                     torch.tensor(i % self.metadata.n_patches_per_img),
@@ -488,12 +499,10 @@ def setup(cfg: config.Activations):
         setup_tol(cfg)
     elif isinstance(cfg.data, config.LaionDataset):
         setup_laion(cfg)
-    elif isinstance(cfg.data, config.Inat21Dataset):
-        setup_inat21(cfg)
+    elif isinstance(cfg.data, config.ImageFolderDataset):
+        setup_imagefolder(cfg)
     elif isinstance(cfg.data, config.BrodenDataset):
         setup_broden(cfg)
-    elif isinstance(cfg.data, config.ProbeDataset):
-        setup_probe(cfg)
     else:
         typing.assert_never(cfg.data)
 
@@ -611,53 +620,6 @@ def setup_laion(cfg: config.Activations):
 
 
 @beartype.beartype
-def setup_inat21(cfg: config.Activations):
-    assert isinstance(cfg.data, config.Inat21Dataset)
-
-    logger = logging.getLogger("inat21-setup")
-
-    import tarfile
-
-    import requests
-
-    split_urls = {
-        "val": "https://ml-inat-competition-datasets.s3.amazonaws.com/2021/val.tar.gz",
-        "train": "https://ml-inat-competition-datasets.s3.amazonaws.com/2021/train.tar.gz",
-        "train_mini": "https://ml-inat-competition-datasets.s3.amazonaws.com/2021/train_mini.tar.gz",
-    }
-
-    os.makedirs(cfg.data.root, exist_ok=True)
-    chunk_size = 16 * 1024  # 16kb
-
-    if not os.path.isdir(os.path.join(cfg.data.root, cfg.data.split)):
-        tar_path = os.path.join(cfg.data.root, f"{cfg.data.split}.tar.gz")
-
-        if not os.path.isfile(tar_path):
-            # Download.
-            r = requests.get(split_urls[cfg.data.split], stream=True)
-            r.raise_for_status()
-
-            n_bytes = int(r.headers["content-length"])
-
-            with open(tar_path, "wb") as fd:
-                for chunk in helpers.progress(
-                    r.iter_content(chunk_size=chunk_size),
-                    total=n_bytes // chunk_size + 1,
-                    desc="Downloading",
-                    every=1000,
-                ):
-                    fd.write(chunk)
-
-            logger.info("Downloaded '%s' images to '%s'.", cfg.data.split, tar_path)
-
-        # Extract.
-        with tarfile.open(tar_path, "r") as tar:
-            for member in helpers.progress(tar, desc="Extracting", every=1000):
-                tar.extract(member, path=cfg.data.root, filter="data")
-        logger.info("Extract '%s' images.", cfg.data.split)
-
-
-@beartype.beartype
 def setup_broden(cfg: config.Activations):
     assert isinstance(cfg.data, config.BrodenDataset)
 
@@ -670,8 +632,9 @@ def setup_broden(cfg: config.Activations):
 
 
 @beartype.beartype
-def setup_probe(cfg: config.Activations):
-    assert isinstance(cfg.data, config.ProbeDataset)
+def setup_imagefolder(cfg: config.Activations):
+    assert isinstance(cfg.data, config.ImageFolderDataset)
+    breakpoint()
 
 
 @beartype.beartype
@@ -692,12 +655,10 @@ def get_dataloader(cfg: config.Activations, preprocess):
         dataloader = get_tol_dataloader(cfg, preprocess)
     elif isinstance(cfg.data, config.LaionDataset):
         dataloader = get_laion_dataloader(cfg, preprocess)
-    elif isinstance(cfg.data, config.Inat21Dataset):
-        dataloader = get_inat21_dataloader(cfg, preprocess)
+    elif isinstance(cfg.data, config.ImageFolderDataset):
+        dataloader = get_imagefolder_dataloader(cfg, preprocess)
     elif isinstance(cfg.data, config.BrodenDataset):
         dataloader = get_broden_dataloader(cfg, preprocess)
-    elif isinstance(cfg.data, config.ProbeDataset):
-        dataloader = get_probe_dataloader(cfg, preprocess)
     else:
         typing.assert_never(cfg.data)
 
@@ -808,15 +769,16 @@ def get_imagenet_dataloader(
     return dataloader
 
 
-class PreprocessedInat21(torchvision.datasets.ImageFolder):
+class TransformedImageFolder(torchvision.datasets.ImageFolder):
     def __getitem__(self, index: int) -> dict[str, object]:
         """
         Args:
             index: Index
 
         Returns:
-            dict with keys 'image', 'index' and 'label'.
+            dict with keys 'image', 'index', 'target' and 'label'.
         """
+        breakpoint()
         path, target = self.samples[index]
         sample = self.loader(path)
         if self.transform is not None:
@@ -824,15 +786,15 @@ class PreprocessedInat21(torchvision.datasets.ImageFolder):
         if self.target_transform is not None:
             target = self.target_transform(target)
 
-        return {"image": sample, "label": target, "index": index}
+        return {"image": sample, "target": target, "index": index}
 
 
 @beartype.beartype
-def get_inat21_dataloader(
+def get_imagefolder_dataloader(
     cfg: config.Activations, preprocess
 ) -> torch.utils.data.DataLoader:
     """
-    Get a dataloader for iNat21.
+    Get a dataloader for an ImageFolder.
 
     Args:
         cfg: Config.
@@ -841,11 +803,10 @@ def get_inat21_dataloader(
     Returns:
         A PyTorch Dataloader that yields dictionaries with `'image'` keys containing image batches, `'index'` keys containing original dataset indices and `'label'` keys containing label batches.
     """
-    assert isinstance(cfg.data, config.Inat21Dataset)
+    assert isinstance(cfg.data, config.ImageFolderDataset)
 
-    dataset = PreprocessedInat21(
-        os.path.join(cfg.data.root, cfg.data.split), preprocess
-    )
+    dataset = TransformedImageFolder(cfg.data.root, preprocess)
+    breakpoint()
     dataloader = torch.utils.data.DataLoader(
         dataset,
         batch_size=cfg.vit_batch_size,
@@ -903,67 +864,6 @@ def get_broden_dataloader(
     dataset = PreprocessedBroden(cfg.data, preprocess)
     dataloader = torch.utils.data.DataLoader(
         dataset,
-        batch_size=cfg.vit_batch_size,
-        drop_last=False,
-        num_workers=cfg.n_workers,
-        persistent_workers=cfg.n_workers > 0,
-        shuffle=False,
-        pin_memory=True,
-    )
-
-    return dataloader
-
-
-class ProbeDataset(torch.utils.data.Dataset):
-    def __init__(self, *, transform=None):
-        self.logger = logging.getLogger("probe-dataset")
-        import datasets
-
-        name = "samuelstevens/sae-probing"
-
-        self.hf_datasets = {}
-        cfgs = datasets.get_dataset_config_names(name)
-        for cfg in sorted(cfgs):
-            if cfg == "default":
-                self.logger.warning(
-                    "%s has 'default' config; you don't want this!", name
-                )
-                continue
-
-            self.hf_datasets[cfg] = datasets.load_dataset(name, cfg, split="train")
-
-        self.transform = transform
-
-    def __getitem__(self, i):
-        n = 0
-        for dataset in self.hf_datasets.values():
-            if i >= n + len(dataset):
-                n += len(dataset)
-                continue
-
-            example = dataset[i - n]
-            example["index"] = i
-            example["image"] = example["image"].convert("RGB")
-            if self.transform:
-                example["image"] = self.transform(example["image"])
-            example["split"] = dataset.info.config_name
-
-            return example
-
-        raise IndexError(i)
-
-    def __len__(self) -> int:
-        return sum(len(dataset) for dataset in self.hf_datasets.values())
-
-
-@beartype.beartype
-def get_probe_dataloader(
-    cfg: config.Activations, preprocess
-) -> torch.utils.data.DataLoader:
-    assert isinstance(cfg.data, config.ProbeDataset)
-
-    dataloader = torch.utils.data.DataLoader(
-        ProbeDataset(transform=preprocess),
         batch_size=cfg.vit_batch_size,
         drop_last=False,
         num_workers=cfg.n_workers,
