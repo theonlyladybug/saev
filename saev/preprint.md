@@ -34,6 +34,8 @@ uv run main.py activations \
   data:imagenet-dataset
 ```
 
+# Train SAEs
+
 Then train patch-level SAEs on the activations.
 
 `$HASH` is the hash for a particular set of activations. For example,  my DINOv2 ImageNet-1K activations are in `$ACTIVATION_DIR/44a593b1a6fbcf56811fdd076aa4173cff331ef3921453d3f5b40f3eb386cff7`
@@ -47,4 +49,8 @@ uv run main.py sweep \
   --data.patches patches \
   --data.layer -2
 ```
+
+# Store Top-K Images
+
+
 

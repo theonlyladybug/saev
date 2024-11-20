@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
 <meta name="generator" content="pdoc3 0.11.1">
 <title>probing API documentation</title>
-<meta name="description" content="">
+<meta name="description" content="Package for probing for individual features in trained sparse autoencoders …">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/sanitize.min.css" integrity="sha512-y1dtMcuvtTMJc1yPgEqF0ZjQbhnc/bFhyvIyVNb9Zk5mIGtqVaAB1Ttl28su8AvFMOY0EwRbAe+HCLqj6W7/KA==" crossorigin>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/typography.min.css" integrity="sha512-Y1DYSb995BAfxobCkKepB1BqJJTPrOp3zPL74AWFugHHmmdcvO+C48WLrUOlhGMc0QG7AE3f7gmvvcrmX2fDoA==" crossorigin>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css" crossorigin>
@@ -27,6 +27,19 @@ hljs.highlightAll();
 <h1 class="title">Package <code>probing</code></h1>
 </header>
 <section id="section-intro">
+<p>Package for probing for individual features in trained sparse autoencoders.</p>
+<p>How can we find examples of interesting features in different checkpoints? How can we predict hypothetical trends in the way different models learn different features?</p>
+<p>In this work, we assume that manual effort is necessary. This package contains methods for trying to make it as easy as possible to identify interesting SAEs and predict trends between models.</p>
+<h1 id="an-observational-study-of-vision-model-interpretability">An Observational Study of Vision Model Interpretability</h1>
+<p>We have multiple ways to compare trained SAEs.</p>
+<ol>
+<li>Heuristic measures, like number of dead features, number of dense features, mean L0 norm, etc.</li>
+<li>Qualitative plots of feature frequency, mean activation value, L0-MSE tradeoff curves, etc.</li>
+<li>Manual inspection of the top K images for each feature.</li>
+</ol>
+<p>After proposing trends, we can construct individual probing datasets (see below).</p>
+<p><img alt="experimental-design" src="docs/assets/experiment1.png"></p>
+<p><code><a title="probing.notebooks.l0_mse_tradeoff" href="notebooks/l0_mse_tradeoff.html">probing.notebooks.l0_mse_tradeoff</a></code> is a notebook to explore the L0-MSE tradeoff as well as feature frequency and mean activation value distributions.</p>
 </section>
 <section>
 <h2 class="section-title" id="header-submodules">Sub-modules</h2>
@@ -34,6 +47,10 @@ hljs.highlightAll();
 <dt><code class="name"><a title="probing.config" href="config.html">probing.config</a></code></dt>
 <dd>
 <div class="desc"></div>
+</dd>
+<dt><code class="name"><a title="probing.dump_topk" href="dump_topk.html">probing.dump_topk</a></code></dt>
+<dd>
+<div class="desc"><p>There is some important notation used only in this file to dramatically shorten variable names …</p></div>
 </dd>
 <dt><code class="name"><a title="probing.logbook" href="logbook.html">probing.logbook</a></code></dt>
 <dd>
@@ -59,12 +76,15 @@ It is not clean, variables are very poorly …</p></div>
 </article>
 <nav id="sidebar">
 <div class="toc">
-<ul></ul>
+<ul>
+<li><a href="#an-observational-study-of-vision-model-interpretability">An Observational Study of Vision Model Interpretability</a></li>
+</ul>
 </div>
 <ul id="index">
 <li><h3><a href="#header-submodules">Sub-modules</a></h3>
 <ul>
 <li><code><a title="probing.config" href="config.html">probing.config</a></code></li>
+<li><code><a title="probing.dump_topk" href="dump_topk.html">probing.dump_topk</a></code></li>
 <li><code><a title="probing.logbook" href="logbook.html">probing.logbook</a></code></li>
 <li><code><a title="probing.notebooks" href="notebooks/index.html">probing.notebooks</a></code></li>
 <li><code><a title="probing.probing" href="probing.html">probing.probing</a></code></li>

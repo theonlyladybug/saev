@@ -1,13 +1,17 @@
-lr = [1e-4, 3e-4, 1e-3]
+tag = "reproduction-v1.0"
+
+lr = [3e-4, 4e-4]
 
 n_lr_warmup = 500
-n_sparsity_warmup = 500
-
-tag = "baseline-v4.1"
+n_sparsity_warmup = [0, 500]
 
 [sae]
-sparsity_coeff = [4e-5, 8e-5, 1.6e-4]
+sparsity_coeff = 8e-5
 ghost_grads = false
 normalize_w_dec = true
 remove_parallel_grads = true
 exp_factor = 16
+
+[data]
+scale_mean = false
+scale_norm = false

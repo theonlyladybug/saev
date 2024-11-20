@@ -115,6 +115,24 @@ class SparseAutoencoder(torch.nn.Module):
         return x_hat, f_x, Loss(mse_loss, sparsity_loss, ghost_loss, l0, l1)
 
     @torch.no_grad()
+    def init_b_dec(self, vit_acts: Float[Tensor, "n d_vit"]):
+        if self.cfg.n_reinit_samples <= 0:
+            self.logger.info("Skipping init_b_dec.")
+            return
+        previous_b_dec = self.b_dec.clone().cpu()
+        vit_acts = vit_acts[: self.cfg.n_reinit_samples]
+        assert len(vit_acts) == self.cfg.n_reinit_samples
+        mean = vit_acts.mean(axis=0)
+        previous_distances = torch.norm(vit_acts - previous_b_dec, dim=-1)
+        distances = torch.norm(vit_acts - mean, dim=-1)
+        self.logger.info(
+            "Prev dist: %.3f; new dist: %.3f",
+            previous_distances.median(axis=0).values.mean().item(),
+            distances.median(axis=0).values.mean().item(),
+        )
+        self.b_dec.data = mean.to(self.b_dec.dtype).to(self.b_dec.device)
+
+    @torch.no_grad()
     def normalize_w_dec(self):
         # Make sure the W_dec is still unit-norm
         if self.cfg.normalize_w_dec:

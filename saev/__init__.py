@@ -7,6 +7,5 @@ The main entrypoint to the package is in [main.py](https://github.com/samuelstev
 from .config import Activations as ActivationsConfig
 from .config import Evaluate as EvaluateConfig
 from .config import Train as TrainConfig
-from .config import Webapp as WebappConfig
 
-__all__ = ["ActivationsConfig", "EvaluateConfig", "TrainConfig", "WebappConfig"]
+__all__ = ["ActivationsConfig", "EvaluateConfig", "TrainConfig"]

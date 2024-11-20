@@ -834,3 +834,4 @@ What exactly are my next steps?
 1. Reproduce original workflow with ViT-B/16. There's some bug introduced and I need to fix it. Add tests for it.
 2. Propose a trend in sparse autoencoders between CLIP and DINOv2 with at least 3 examples.
 3. Ensure that your probing methodology works.
+

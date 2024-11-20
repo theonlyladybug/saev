@@ -10,6 +10,7 @@ import os.path
 
 import beartype
 import einops
+import numpy as np
 import torch
 from jaxtyping import Float
 from torch import Tensor
@@ -56,6 +57,23 @@ def check_cfgs(cfgs: list[config.Train]):
     if bad_keys:
         msg = ", ".join(f"'{key}': {values}" for key, values in bad_keys.items())
         raise ValueError(f"Cannot parallelize training over: {msg}")
+
+
+@torch.no_grad()
+def init_b_dec_batched(saes: torch.nn.ModuleList, dataset: activations.Dataset):
+    n_samples = max(sae.cfg.n_reinit_samples for sae in saes)
+    if not n_samples:
+        return
+    # Pick random samples using first SAE's seed.
+    perm = np.random.default_rng(seed=saes[0].cfg.seed).permutation(len(dataset))
+    perm = perm[:n_samples]
+    examples, _, _ = zip(*[
+        dataset[p.item()]
+        for p in helpers.progress(perm, every=25_000, desc="examples to re-init b_dec")
+    ])
+    vit_acts = torch.stack(examples)
+    for sae in saes:
+        sae.init_b_dec(vit_acts[: sae.cfg.n_reinit_samples])
 
 
 @beartype.beartype
@@ -172,7 +190,6 @@ def train(
     Explicitly declare the optimizer, schedulers, dataloader, etc outside of `main` so that all the variables are dropped from scope and can be garbage collected.
     """
     check_cfgs(cfgs)
-    breakpoint()
 
     err_msg = "ghost grads are disabled in current codebase."
     assert all(not c.sae.ghost_grads for c in cfgs), err_msg

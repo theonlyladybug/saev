@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
 <meta name="generator" content="pdoc3 0.11.1">
 <title>saev.webapp API documentation</title>
-<meta name="description" content="There is some important notation used only in this file to dramatically shorten variable names …">
+<meta name="description" content="">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/sanitize.min.css" integrity="sha512-y1dtMcuvtTMJc1yPgEqF0ZjQbhnc/bFhyvIyVNb9Zk5mIGtqVaAB1Ttl28su8AvFMOY0EwRbAe+HCLqj6W7/KA==" crossorigin>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/typography.min.css" integrity="sha512-Y1DYSb995BAfxobCkKepB1BqJJTPrOp3zPL74AWFugHHmmdcvO+C48WLrUOlhGMc0QG7AE3f7gmvvcrmX2fDoA==" crossorigin>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css" crossorigin>
@@ -27,165 +27,14 @@ hljs.highlightAll();
 <h1 class="title">Module <code>saev.webapp</code></h1>
 </header>
 <section id="section-intro">
-<p>There is some important notation used only in this file to dramatically shorten variable names.</p>
-<p>Variables suffixed with <code>_im</code> refer to entire images, and variables suffixed with <code>_p</code> refer to patches.</p>
 </section>
 <section>
 </section>
 <section>
 </section>
 <section>
-<h2 class="section-title" id="header-functions">Functions</h2>
-<dl>
-<dt id="saev.webapp.batched_idx"><code class="name flex">
-<span>def <span class="ident">batched_idx</span></span>(<span>total_size: int, batch_size: int) ‑> collections.abc.Iterator[tuple[int, int]]</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Iterate over (start, end) indices for total_size examples, where end - start is at most batch_size.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>total_size</code></strong></dt>
-<dd>total number of examples</dd>
-<dt><strong><code>batch_size</code></strong></dt>
-<dd>maximum distance between the generated indices.</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<p>A generator of (int, int) tuples that can slice up a list or a tensor.</p></div>
-</dd>
-<dt id="saev.webapp.dump_topk"><code class="name flex">
-<span>def <span class="ident">dump_topk</span></span>(<span>cfg: <a title="saev.config.Webapp" href="config.html#saev.config.Webapp">Webapp</a>)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>For each SAE latent, we want to know which images have the most total "activation".
-That is, we keep track of each patch</p></div>
-</dd>
-<dt id="saev.webapp.gather_batched"><code class="name flex">
-<span>def <span class="ident">gather_batched</span></span>(<span>value: jaxtyping.Float[Tensor, 'batch n dim'], i: jaxtyping.Int[Tensor, 'batch k']) ‑> jaxtyping.Float[Tensor, 'batch k dim']</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt id="saev.webapp.get_new_topk"><code class="name flex">
-<span>def <span class="ident">get_new_topk</span></span>(<span>val1: jaxtyping.Float[Tensor, 'd_sae k'], i1: jaxtyping.Int[Tensor, 'd_sae k'], val2: jaxtyping.Float[Tensor, 'd_sae k'], i2: jaxtyping.Int[Tensor, 'd_sae k'], k: int) ‑> tuple[jaxtyping.Float[Tensor, 'd_sae k'], jaxtyping.Int[Tensor, 'd_sae k']]</span>
-</code></dt>
-<dd>
-<div class="desc"><div class="admonition todo">
-<p class="admonition-title">TODO</p>
-<p>document this function.</p>
-</div></div>
-</dd>
-<dt id="saev.webapp.get_sae_acts"><code class="name flex">
-<span>def <span class="ident">get_sae_acts</span></span>(<span>vit_acts: jaxtyping.Float[Tensor, 'n d_vit'], sae: <a title="saev.nn.SparseAutoencoder" href="nn.html#saev.nn.SparseAutoencoder">SparseAutoencoder</a>, cfg: <a title="saev.config.Webapp" href="config.html#saev.config.Webapp">Webapp</a>) ‑> jaxtyping.Float[Tensor, 'n d_sae']</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Get SAE hidden layer activations for a batch of ViT activations.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>vit_acts</code></strong></dt>
-<dd>Batch of ViT activations</dd>
-<dt><strong><code>sae</code></strong></dt>
-<dd>Sparse autoencder.</dd>
-<dt><strong><code>cfg</code></strong></dt>
-<dd>Experimental config.</dd>
-</dl></div>
-</dd>
-<dt id="saev.webapp.get_topk_cls"><code class="name flex">
-<span>def <span class="ident">get_topk_cls</span></span>(<span>cfg: <a title="saev.config.Webapp" href="config.html#saev.config.Webapp">Webapp</a>) ‑> tuple[jaxtyping.Float[Tensor, 'd_sae k 0'], jaxtyping.Int[Tensor, 'd_sae k'], jaxtyping.Float[Tensor, 'd_sae'], jaxtyping.Float[Tensor, 'd_sae']]</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt id="saev.webapp.get_topk_img"><code class="name flex">
-<span>def <span class="ident">get_topk_img</span></span>(<span>cfg: <a title="saev.config.Webapp" href="config.html#saev.config.Webapp">Webapp</a>) ‑> tuple[jaxtyping.Float[Tensor, 'd_sae k n_patches_per_img'], jaxtyping.Int[Tensor, 'd_sae k'], jaxtyping.Float[Tensor, 'd_sae'], jaxtyping.Float[Tensor, 'd_sae']]</span>
-</code></dt>
-<dd>
-<div class="desc"><div class="admonition todo">
-<p class="admonition-title">TODO</p>
-<p>Document this.</p>
-</div></div>
-</dd>
-<dt id="saev.webapp.get_topk_patch"><code class="name flex">
-<span>def <span class="ident">get_topk_patch</span></span>(<span>cfg: <a title="saev.config.Webapp" href="config.html#saev.config.Webapp">Webapp</a>) ‑> tuple[jaxtyping.Float[Tensor, 'd_sae k n_patches_per_img'], jaxtyping.Int[Tensor, 'd_sae k'], jaxtyping.Float[Tensor, 'd_sae'], jaxtyping.Float[Tensor, 'd_sae']]</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Gets the top k images for each latent in the SAE.
-The top k images are for latent i are sorted by</p>
-<pre><code>max over all patches: f_x(patch)[i]
-</code></pre>
-<p>Thus, we could end up with duplicate images in the top k, if an image has more than one patch that maximally activates an SAE latent.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>cfg</code></strong></dt>
-<dd>Config.</dd>
-</dl>
-<p>Returns:</p></div>
-</dd>
-<dt id="saev.webapp.main"><code class="name flex">
-<span>def <span class="ident">main</span></span>(<span>cfg: <a title="saev.config.Webapp" href="config.html#saev.config.Webapp">Webapp</a>)</span>
-</code></dt>
-<dd>
-<div class="desc"><div class="admonition todo">
-<p class="admonition-title">TODO</p>
-<p>document this function.</p>
-</div>
-<p>Dump top-k images to a directory.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>cfg</code></strong></dt>
-<dd>Configuration object.</dd>
-</dl></div>
-</dd>
-<dt id="saev.webapp.make_img"><code class="name flex">
-<span>def <span class="ident">make_img</span></span>(<span>elem: <a title="saev.webapp.GridElement" href="#saev.webapp.GridElement">GridElement</a>, *, upper: float | None = None) ‑> PIL.Image.Image</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt id="saev.webapp.safe_load"><code class="name flex">
-<span>def <span class="ident">safe_load</span></span>(<span>path: str) ‑> object</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-</dl>
 </section>
 <section>
-<h2 class="section-title" id="header-classes">Classes</h2>
-<dl>
-<dt id="saev.webapp.GridElement"><code class="flex name class">
-<span>class <span class="ident">GridElement</span></span>
-<span>(</span><span>img: PIL.Image.Image, label: str, patches: jaxtyping.Float[Tensor, 'n_patches'])</span>
-</code></dt>
-<dd>
-<div class="desc"><p>GridElement(img: PIL.Image.Image, label: str, patches: jaxtyping.Float[Tensor, 'n_patches'])</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@jaxtyped(typechecker=beartype.beartype)
-@dataclasses.dataclass
-class GridElement:
-    img: Image.Image
-    label: str
-    patches: Float[Tensor, &#34; n_patches&#34;]</code></pre>
-</details>
-<h3>Class variables</h3>
-<dl>
-<dt id="saev.webapp.GridElement.img"><code class="name">var <span class="ident">img</span> : PIL.Image.Image</code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt id="saev.webapp.GridElement.label"><code class="name">var <span class="ident">label</span> : str</code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt id="saev.webapp.GridElement.patches"><code class="name">var <span class="ident">patches</span> : jaxtyping.Float[Tensor, 'n_patches']</code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-</dl>
-</dd>
-</dl>
 </section>
 </article>
 <nav id="sidebar">
@@ -196,33 +45,6 @@ class GridElement:
 <li><h3>Super-module</h3>
 <ul>
 <li><code><a title="saev" href="index.html">saev</a></code></li>
-</ul>
-</li>
-<li><h3><a href="#header-functions">Functions</a></h3>
-<ul class="two-column">
-<li><code><a title="saev.webapp.batched_idx" href="#saev.webapp.batched_idx">batched_idx</a></code></li>
-<li><code><a title="saev.webapp.dump_topk" href="#saev.webapp.dump_topk">dump_topk</a></code></li>
-<li><code><a title="saev.webapp.gather_batched" href="#saev.webapp.gather_batched">gather_batched</a></code></li>
-<li><code><a title="saev.webapp.get_new_topk" href="#saev.webapp.get_new_topk">get_new_topk</a></code></li>
-<li><code><a title="saev.webapp.get_sae_acts" href="#saev.webapp.get_sae_acts">get_sae_acts</a></code></li>
-<li><code><a title="saev.webapp.get_topk_cls" href="#saev.webapp.get_topk_cls">get_topk_cls</a></code></li>
-<li><code><a title="saev.webapp.get_topk_img" href="#saev.webapp.get_topk_img">get_topk_img</a></code></li>
-<li><code><a title="saev.webapp.get_topk_patch" href="#saev.webapp.get_topk_patch">get_topk_patch</a></code></li>
-<li><code><a title="saev.webapp.main" href="#saev.webapp.main">main</a></code></li>
-<li><code><a title="saev.webapp.make_img" href="#saev.webapp.make_img">make_img</a></code></li>
-<li><code><a title="saev.webapp.safe_load" href="#saev.webapp.safe_load">safe_load</a></code></li>
-</ul>
-</li>
-<li><h3><a href="#header-classes">Classes</a></h3>
-<ul>
-<li>
-<h4><code><a title="saev.webapp.GridElement" href="#saev.webapp.GridElement">GridElement</a></code></h4>
-<ul class="">
-<li><code><a title="saev.webapp.GridElement.img" href="#saev.webapp.GridElement.img">img</a></code></li>
-<li><code><a title="saev.webapp.GridElement.label" href="#saev.webapp.GridElement.label">label</a></code></li>
-<li><code><a title="saev.webapp.GridElement.patches" href="#saev.webapp.GridElement.patches">patches</a></code></li>
-</ul>
-</li>
 </ul>
 </li>
 </ul>

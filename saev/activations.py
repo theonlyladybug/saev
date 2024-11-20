@@ -638,6 +638,24 @@ def setup_imagefolder(cfg: config.Activations):
 
 
 @beartype.beartype
+def get_dataset(cfg: config.DatasetConfig, *, transform):
+    """
+    Gets the dataset for the current experiment; delegates construction to dataset-specific functions.
+
+    Args:
+        cfg: Experiment config.
+        transform: Image transform to be applied to each image.
+
+    Returns:
+        A dataset that has dictionaries with `'image'`, `'index'`, `'target'`, and `'label'` keys containing examples.
+    """
+    if isinstance(cfg, config.ImagenetDataset):
+        return TransformedImagenet(cfg, transform)
+    else:
+        typing.assert_never(cfg.data)
+
+
+@beartype.beartype
 def get_dataloader(cfg: config.Activations, preprocess):
     """
     Gets the dataloader for the current experiment; delegates dataloader construction to dataset-specific functions.
@@ -649,19 +667,45 @@ def get_dataloader(cfg: config.Activations, preprocess):
     Returns:
         A PyTorch Dataloader that yields dictionaries with `'image'` keys containing image batches.
     """
-    if isinstance(cfg.data, config.ImagenetDataset):
-        dataloader = get_imagenet_dataloader(cfg, preprocess)
+    if isinstance(cfg.data, (config.ImagenetDataset, config.ImageFolderDataset)):
+        dataloader = get_default_dataloader(cfg, preprocess)
     elif isinstance(cfg.data, config.TreeOfLifeDataset):
         dataloader = get_tol_dataloader(cfg, preprocess)
     elif isinstance(cfg.data, config.LaionDataset):
         dataloader = get_laion_dataloader(cfg, preprocess)
-    elif isinstance(cfg.data, config.ImageFolderDataset):
-        dataloader = get_imagefolder_dataloader(cfg, preprocess)
     elif isinstance(cfg.data, config.BrodenDataset):
         dataloader = get_broden_dataloader(cfg, preprocess)
     else:
         typing.assert_never(cfg.data)
 
+    return dataloader
+
+
+@beartype.beartype
+def get_default_dataloader(
+    cfg: config.Activations, transform
+) -> torch.utils.data.DataLoader:
+    """
+    Get a dataloader for a default map-style dataset.
+
+    Args:
+        cfg: Config.
+        preprocess: Image transform to be applied to each image.
+
+    Returns:
+        A PyTorch Dataloader that yields dictionaries with `'image'` keys containing image batches, `'index'` keys containing original dataset indices and `'label'` keys containing label batches.
+    """
+    dataset = get_dataset(cfg, transform)
+
+    dataloader = torch.utils.data.DataLoader(
+        dataset=dataset,
+        batch_size=cfg.vit_batch_size,
+        drop_last=False,
+        num_workers=cfg.n_workers,
+        persistent_workers=cfg.n_workers > 0,
+        shuffle=False,
+        pin_memory=False,
+    )
     return dataloader
 
 
@@ -719,54 +763,31 @@ def get_tol_dataloader(
     return dataloader
 
 
-class PreprocessedImageNet(torch.utils.data.Dataset):
-    def __init__(self, cfg: config.Activations, preprocess):
+class TransformedImagenet(torch.utils.data.Dataset):
+    def __init__(self, cfg: config.ImagenetDataset, transform):
         import datasets
 
-        assert isinstance(cfg.data, config.ImagenetDataset)
-
         self.hf_dataset = datasets.load_dataset(
-            cfg.data.name, split=cfg.data.split, trust_remote_code=True
+            cfg.name, split=cfg.split, trust_remote_code=True
         )
 
-        self.preprocess = preprocess
+        self.transform = transform
+        self.labels = self.hf_dataset.info.features["label"].names
 
     def __getitem__(self, i):
         example = self.hf_dataset[i]
         example["index"] = i
-        example["image"] = self.preprocess(example["image"].convert("RGB"))
+
+        example["image"] = example["image"].convert("RGB")
+        if self.transform:
+            example["image"] = self.transform(example["image"])
+        example["target"] = example.pop("label")
+        example["label"] = self.labels[example["target"]]
+
         return example
 
     def __len__(self) -> int:
         return len(self.hf_dataset)
-
-
-@beartype.beartype
-def get_imagenet_dataloader(
-    cfg: config.Activations, preprocess
-) -> torch.utils.data.DataLoader:
-    """
-    Get a dataloader for Imagenet loaded from Huggingface.
-
-    Args:
-        cfg: Config.
-        preprocess: Image transform to be applied to each image.
-
-    Returns:
-        A PyTorch Dataloader that yields dictionaries with `'image'` keys containing image batches, `'index'` keys containing original dataset indices and `'label'` keys containing label batches.
-    """
-    assert isinstance(cfg.data, config.ImagenetDataset)
-
-    dataloader = torch.utils.data.DataLoader(
-        dataset=PreprocessedImageNet(cfg, preprocess),
-        batch_size=cfg.vit_batch_size,
-        drop_last=False,
-        num_workers=cfg.n_workers,
-        persistent_workers=cfg.n_workers > 0,
-        shuffle=False,
-        pin_memory=False,
-    )
-    return dataloader
 
 
 class TransformedImageFolder(torchvision.datasets.ImageFolder):
@@ -787,37 +808,6 @@ class TransformedImageFolder(torchvision.datasets.ImageFolder):
             target = self.target_transform(target)
 
         return {"image": sample, "target": target, "index": index}
-
-
-@beartype.beartype
-def get_imagefolder_dataloader(
-    cfg: config.Activations, preprocess
-) -> torch.utils.data.DataLoader:
-    """
-    Get a dataloader for an ImageFolder.
-
-    Args:
-        cfg: Config.
-        preprocess: Image transform to be applied to each image.
-
-    Returns:
-        A PyTorch Dataloader that yields dictionaries with `'image'` keys containing image batches, `'index'` keys containing original dataset indices and `'label'` keys containing label batches.
-    """
-    assert isinstance(cfg.data, config.ImageFolderDataset)
-
-    dataset = TransformedImageFolder(cfg.data.root, preprocess)
-    breakpoint()
-    dataloader = torch.utils.data.DataLoader(
-        dataset,
-        batch_size=cfg.vit_batch_size,
-        drop_last=False,
-        num_workers=cfg.n_workers,
-        persistent_workers=cfg.n_workers > 0,
-        shuffle=False,
-        pin_memory=True,
-    )
-
-    return dataloader
 
 
 @beartype.beartype
