@@ -19,24 +19,51 @@ def __():
 
 
 @app.cell
-def __():
-    webapp_dir = "/local/scratch/stevens.994/cache/saev/webapp/h52suuax/sort_by_patch"
-    return (webapp_dir,)
+def __(mo, os):
+    def make_ckpt_dropdown():
+        try:
+            choices = os.listdir(
+                "/research/nfs_su_809/workspace/stevens.994/saev/webapp"
+            )
+
+        except FileNotFoundError:
+            choices = []
+
+        return mo.ui.dropdown(choices, label="Checkpoint:")
+
+    ckpt_dropdown = make_ckpt_dropdown()
+    return ckpt_dropdown, make_ckpt_dropdown
 
 
 @app.cell
-def __(os, webapp_dir):
+def __(ckpt_dropdown, mo):
+    mo.hstack([ckpt_dropdown], justify="start")
+    return
+
+
+@app.cell
+def __(ckpt_dropdown, mo):
+    mo.stop(
+        ckpt_dropdown.value is None,
+        mo.md(
+            "Run `uv run main.py webapp --help` to fill out at least one checkpoint."
+        ),
+    )
+
+    webapp_dir = f"/research/nfs_su_809/workspace/stevens.994/saev/webapp/{ckpt_dropdown.value}/sort_by_patch"
+
+    get_neuron_i, set_neuron_i = mo.state(0)
+    return get_neuron_i, set_neuron_i, webapp_dir
+
+
+@app.cell
+def __(mo, os, webapp_dir):
     neuron_indices = [
         int(name) for name in os.listdir(f"{webapp_dir}/neurons") if name.isdigit()
     ]
     neuron_indices = sorted(neuron_indices)
+    mo.md(f"Found {len(neuron_indices)} saved neurons.")
     return (neuron_indices,)
-
-
-@app.cell
-def __(mo):
-    get_neuron_i, set_neuron_i = mo.state(0)
-    return get_neuron_i, set_neuron_i
 
 
 @app.cell
@@ -54,41 +81,116 @@ def __(mo, neuron_indices, set_neuron_i):
 
 
 @app.cell
-def __(mo, pickle, webapp_dir):
-    def get_metadata(neuron: int):
-        with open(f"{webapp_dir}/neurons/{neuron}/metadata.pkl", "rb") as fd:
-            return pickle.load(fd)
-
-    def format_metadata(metadata: dict[str, float | int]):
-        return mo.table([metadata])
-
-    return format_metadata, get_metadata
-
-
-@app.cell
-def __(mo, next_button, prev_button):
-    mo.hstack([prev_button, next_button])
-    return
+def __(get_neuron_i, mo, neuron_indices, set_neuron_i):
+    neuron_slider = mo.ui.slider(
+        0,
+        len(neuron_indices),
+        value=get_neuron_i(),
+        on_change=lambda i: set_neuron_i(i),
+        full_width=True,
+    )
+    return (neuron_slider,)
 
 
 @app.cell
-def __(get_neuron_i, mo, neuron_indices):
+def __(
+    get_neuron_i,
+    mo,
+    neuron_indices,
+    neuron_slider,
+    next_button,
+    prev_button,
+):
+    label = f"Neuron {neuron_indices[get_neuron_i()]} ({get_neuron_i()}/{len(neuron_indices)}; {get_neuron_i() / len(neuron_indices) * 100:.2f}%)"
+
     mo.md(f"""
-    Neuron {neuron_indices[get_neuron_i()]} ({get_neuron_i()}/{len(neuron_indices)}; {get_neuron_i() / len(neuron_indices) * 100:.2f}%)
+    {mo.hstack([prev_button, next_button, label], justify="start")}
+    {neuron_slider}
     """)
+    return (label,)
+
+
+@app.cell
+def __():
+    # mo.image(f"{webapp_dir}/neurons/{neuron_indices[get_neuron_i()]}/top_images.png")
     return
 
 
 @app.cell
-def __(get_metadata, get_neuron_i, mo, neuron_indices):
-    mo.ui.table([get_metadata(neuron_indices[get_neuron_i()])], selection=None)
-    return
+def __(mo, webapp_dir):
+    def show_img(n: int, i: int):
+        label = "No label found."
+        try:
+            label = open(f"{webapp_dir}/neurons/{n}/{i}.txt").read().strip()
+        except FileNotFoundError:
+            return mo.md(f"*Missing image {i + 1}*")
+
+        return mo.vstack([mo.image(f"{webapp_dir}/neurons/{n}/{i}.png"), mo.md(label)])
+
+    return (show_img,)
 
 
 @app.cell
-def __(get_neuron_i, mo, neuron_indices, webapp_dir):
-    mo.image(f"{webapp_dir}/neurons/{neuron_indices[get_neuron_i()]}/top_images.png")
-    return
+def __(get_neuron_i, mo, neuron_indices, show_img):
+    n = neuron_indices[get_neuron_i()]
+
+    mo.vstack([
+        mo.hstack(
+            [
+                show_img(n, 0),
+                show_img(n, 1),
+                show_img(n, 2),
+                show_img(n, 3),
+                show_img(n, 4),
+            ],
+            widths="equal",
+        ),
+        mo.hstack(
+            [
+                show_img(n, 5),
+                show_img(n, 6),
+                show_img(n, 7),
+                show_img(n, 8),
+                show_img(n, 9),
+            ],
+            widths="equal",
+        ),
+        mo.hstack(
+            [
+                show_img(n, 10),
+                show_img(n, 11),
+                show_img(n, 12),
+                show_img(n, 13),
+                show_img(n, 14),
+            ],
+            widths="equal",
+        ),
+        mo.hstack(
+            [
+                show_img(n, 15),
+                show_img(n, 16),
+                show_img(n, 17),
+                show_img(n, 18),
+                show_img(n, 19),
+            ],
+            widths="equal",
+        ),
+        mo.hstack(
+            [
+                show_img(n, 20),
+                show_img(n, 21),
+                show_img(n, 22),
+                show_img(n, 23),
+                show_img(n, 24),
+            ],
+            widths="equal",
+        ),
+        # mo.hstack(
+        #     [show_img(n, 12), show_img(n, 13), show_img(n, 14), show_img(n, 15)],
+        #     widths="equal",
+        # ),
+    ])
+    return (n,)
 
 
 @app.cell
@@ -102,19 +204,27 @@ def __(os, torch, webapp_dir):
 
 
 @app.cell
-def __(np, plt, sparsity):
+def __(mo, np, plt, sparsity):
     def plot_hist(counts):
         fig, ax = plt.subplots()
         ax.hist(np.log10(counts.numpy() + 1e-9), bins=100)
         return fig
 
-    plot_hist(sparsity)
+    mo.md(f"""
+    Sparsity Log10
+
+    {mo.as_html(plot_hist(sparsity))}
+    """)
     return (plot_hist,)
 
 
 @app.cell
-def __(plot_hist, values):
-    plot_hist(values)
+def __(mo, plot_hist, values):
+    mo.md(f"""
+    Mean Value Log10
+
+    {mo.as_html(plot_hist(values))}
+    """)
     return
 
 
@@ -194,11 +304,6 @@ def __(mo):
 def __(mo):
     value_slider = mo.ui.range_slider(start=-3, stop=1, step=0.01, value=[-0.75, 1.0])
     return (value_slider,)
-
-
-@app.cell
-def __():
-    return
 
 
 if __name__ == "__main__":

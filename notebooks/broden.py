@@ -17,10 +17,13 @@ def __():
     import typing
 
     import beartype
+    import einops
     import marimo as mo
     import numpy as np
+    import torch
     from jaxtyping import Float, Shaped, jaxtyped
     from PIL import Image, ImageDraw
+
     return (
         Float,
         Image,
@@ -30,65 +33,85 @@ def __():
         collections,
         csv,
         dataclasses,
+        einops,
         jaxtyped,
         math,
         mo,
         np,
         os,
+        torch,
         typing,
     )
 
 
 @app.cell
 def __():
-    root = "/research/nfs_su_809/workspace/stevens.994/datasets/broden"
-    return (root,)
+    import sys
+
+    if ".." not in sys.path:
+        sys.path.append("..")
+    return (sys,)
 
 
 @app.cell
-def __(np):
-    colors = np.array(
-        [
-            [0, 0, 0],
-            [255, 255, 255],
-            [255, 0, 0],
-            [0, 255, 0],
-            [0, 0, 255],
-            [127, 0, 0],
-            [0, 127, 0],
-            [0, 0, 127],
-            [63, 0, 0],
-            [0, 63, 0],
-            [0, 0, 63],
-            [191, 0, 0],
-            [0, 191, 0],
-            [0, 0, 191],
-            [63, 191, 0],
-            [191, 0, 63],
-            [0, 63, 191],
-            [191, 63, 0],
-            [63, 0, 191],
-            [0, 191, 63],
-            [191, 0, 0],
-            [0, 191, 0],
-            [0, 0, 191],
-            [255, 255, 0],
-            [255, 0, 255],
-            [0, 255, 255],
-            [255, 127, 0],
-            [255, 0, 127],
-            [0, 255, 127],
-            [127, 255, 0],
-            [127, 0, 255],
-            [0, 127, 255],
-            [127, 127, 0],
-            [127, 0, 127],
-            [0, 127, 127],
-            [127, 127, 127],
-        ]
+def __():
+    from saev.saev import nn
+    from saev.saev.broden import (
+        Material,
+        PixelDataset,
+        Record,
+        get_patches,
+        make_patch_lookup,
     )
-    colors.shape
-    return (colors,)
+    from saev.saev.config import BrodenEvaluate, DataLoad
+
+    return (
+        BrodenEvaluate,
+        DataLoad,
+        Material,
+        PixelDataset,
+        Record,
+        get_patches,
+        make_patch_lookup,
+        nn,
+    )
+
+
+@app.cell
+def __():
+    from saev.saev import imaging
+
+    return (imaging,)
+
+
+@app.cell
+def __(BrodenEvaluate, DataLoad):
+    cfg = BrodenEvaluate(
+        ckpt="checkpoints/xb9bph3r/sae.pt",
+        patch_size=(14, 14),
+        root="/research/nfs_su_809/workspace/stevens.994/datasets/broden",
+        data=DataLoad(
+            shard_root="/local/scratch/stevens.994/cache/saev/484e6a98e98421b3f18c7647d62f8aab152ee4fa4d7752cd4ae3f0b8a7fa9091/",
+            patches="patches",
+            layer=-2,
+        ),
+        n_workers=8,
+        batch_size=1024,
+        sample_range=(200, 1000),
+        dump_to="./logs/broden",
+        device="cuda",
+        log_every=10,
+        seed=42,
+        debug=True,
+    )
+    return (cfg,)
+
+
+@app.cell
+def __(cfg, nn):
+    sae = nn.load(cfg.ckpt)
+    sae.eval()
+    return (sae,)
 
 
 @app.cell
@@ -104,188 +127,10 @@ def __(mo):
 
 
 @app.cell
-def __(beartype, csv, dataclasses, os, root):
-    @beartype.beartype
-    @dataclasses.dataclass(frozen=True)
-    class Material:
-        code: int
-        number: int
-        name: str
-        frequency: int
-
-        @classmethod
-        def from_row_dict(cls, row: dict[str, str]) -> "Material":
-            return cls(
-                int(row["code"]), int(row["number"]), row["name"], int(row["frequency"])
-            )
-
-
-    def load_materials() -> list[Material]:
-        with open(os.path.join(root, "c_material.csv")) as fd:
-            materials = [Material.from_row_dict(row) for row in csv.DictReader(fd)]
-        return materials
-
-
-    materials = load_materials()
-    material_lookup = {material.code: material for material in materials}
-    materials[:2]
-    return Material, load_materials, material_lookup, materials
-
-
-@app.cell
-def __(Image, beartype, dataclasses, np, os, root, typing):
-    @beartype.beartype
-    @dataclasses.dataclass(frozen=True)
-    class Record:
-        image: str
-        is_train: bool
-        height: int
-        width: int
-        segment_height: int
-        segment_width: int
-        colors: list[str] = dataclasses.field(default_factory=list)
-        objects: list[str] = dataclasses.field(default_factory=list)
-        parts: list[str] = dataclasses.field(default_factory=list)
-        materials: list[str] = dataclasses.field(default_factory=list)
-        textures: list[int] = dataclasses.field(default_factory=list)
-
-        @classmethod
-        def from_row_dict(cls, row: dict[str, str]) -> "Record":
-            if row["texture"]:
-                textures = [int(i) for i in row["texture"].split(";")]
-            else:
-                textures = []
-
-            return cls(
-                row["image"],
-                row["split"] == "train",
-                int(row["ih"]),
-                int(row["iw"]),
-                int(row["sh"]),
-                int(row["sw"]),
-                row["color"].split(";") if row["color"] else [],
-                row["object"].split(";") if row["object"] else [],
-                row["part"].split(";") if row["part"] else [],
-                row["material"].split(";") if row["material"] else [],
-                [int(i) for i in row["texture"].split(";")] if row["texture"] else [],
-            )
-
-        @property
-        def dataset(self) -> str:
-            dataset, *rest = self.image.split("/")
-            return dataset
-
-        def to_image(self, field: str, lookup: dict[int, typing.Any]):
-            assert field in ("colors", "objects", "parts", "materials")
-
-            fnames = getattr(self, field)
-
-            dst = Image.new(
-                "RGB",
-                (self.segment_width * (len(fnames) + 1), self.segment_height),
-                (255, 255, 255),
-            )
-            dst.paste(
-                Image.open(os.path.join(root, "images", self.image)).resize(
-                    (
-                        self.segment_width,
-                        self.segment_height,
-                    )
-                ),
-                (0, 0),
-            )
-
-            for i, fname in enumerate(fnames):
-                fpath = os.path.join(root, "images", fname)
-                raw = np.asarray(Image.open(fpath)).copy().astype(np.uint32)
-
-                if (raw == 0).all():
-                    continue
-
-                for j, color in enumerate(colors):
-                    if j not in lookup:
-                        continue
-                    raw[(raw[:, :, 0] + raw[:, :, 1] * 256) == lookup[j].number] = color
-
-                dst.paste(
-                    Image.fromarray(raw.astype(np.uint8)),
-                    ((i + 1) * self.segment_width, 0),
-                )
-
-            return dst
-    return (Record,)
-
-
-@app.cell
-def __(Record, csv, os, root):
-    with open(os.path.join(root, "index.csv")) as fd:
-        records = [Record.from_row_dict(row) for row in csv.DictReader(fd)]
-
-    # np.random.default_rng(seed=42).shuffle(records)
-    records[:5]
-    return fd, records
-
-
-@app.cell
-def __(material_lookup, records):
-    [
-        (record.to_image("materials", material_lookup), record.image)
-        for record in records[:100]
-        if record.materials
-    ]
-    return
-
-
-@app.cell
 def __(mo):
-    mo.md(r"""Given the segmentation masks at 112x112, I want to know which patches in a 224x224 image (no center crop because images are already 224x224) are more than 50% filled with a given material (eventually not just material, but any "category").""")
-    return
-
-
-@app.cell
-def __():
-    import einops
-    return (einops,)
-
-
-@app.cell
-def __(Image, einops, np, os, records, root):
-    im = np.array(Image.open(os.path.join(root, "images", records[0].image)))
-    einops.rearrange(im, "(w pw) (h ph) c -> (w h) (c pw ph)", pw=16, ph=16)
-    return (im,)
-
-
-@app.cell
-def __(np):
-    w, h = 224, 224
-    pw, ph = 14, 14
-
-    xv, yv = np.meshgrid(np.arange(w), np.arange(h))
-    return h, ph, pw, w, xv, yv
-
-
-@app.cell
-def __(pw, xv):
-    xv // pw
-    return
-
-
-@app.cell
-def __(ph, yv):
-    yv // ph
-    return
-
-
-@app.cell
-def __(h, ph, pw, xv, yv):
-    patch_lookup = (xv // pw) + (yv // ph) * (h // ph)
-    patch_lookup
-    return (patch_lookup,)
-
-
-@app.cell
-def __(patch_lookup):
-    patch_lookup.shape
+    mo.md(
+        r"""Given the segmentation masks at 112x112, I want to know which patches in a 224x224 image (no center crop because images are already 224x224) are more than 50% filled with a given material (eventually not just material, but any "category")."""
+    )
     return
 
 
@@ -303,90 +148,6 @@ def __(mo):
 
 
 @app.cell
-def __(Shaped, np):
-    def double(x: Shaped[np.ndarray, "w h"]) -> Shaped[np.ndarray, "w*2 h*2"]:
-        w, h = x.shape
-        return np.repeat(np.repeat(x, np.full((w,), 2), axis=0), np.full((h,), 2), axis=1)
-    return (double,)
-
-
-@app.cell
-def __(Image, Record, double, np, os, patch_lookup, ph, pw, records, root):
-    def get_patches(record: Record, material_number: int) -> list[int]:
-        raw = np.array(
-            Image.open(os.path.join(root, "images", record.materials[0]))
-        ).astype(np.uint32)
-        nums = raw[:, :, 1] * 256 + raw[:, :, 0]
-        nums = double(nums)
-
-        x, y = np.where(nums == material_number)
-        patches, counts = np.unique(patch_lookup[x, y], return_counts=True)
-        return patches[counts > (pw * ph / 2)]
-
-
-    get_patches(records[0], 202)
-    return (get_patches,)
-
-
-@app.cell
-def __(
-    Float,
-    Image,
-    ImageDraw,
-    beartype,
-    get_patches,
-    jaxtyped,
-    math,
-    np,
-    os,
-    records,
-    root,
-):
-    @jaxtyped(typechecker=beartype.beartype)
-    def add_highlights(
-        img: Image.Image,
-        patches: Float[np.ndarray, " n_patches"],
-        *,
-        upper: float | None = None,
-    ) -> Image.Image:
-        iw_np, ih_np = int(math.sqrt(len(patches))), int(math.sqrt(len(patches)))
-        iw_px, ih_px = img.size
-        pw_px, ph_px = iw_px // iw_np, ih_px // ih_np
-        assert iw_np * ih_np == len(patches)
-
-        # Create a transparent red overlay
-        overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
-        draw = ImageDraw.Draw(overlay)
-
-        # Using semi-transparent red (255, 0, 0, alpha)
-        for p, val in enumerate(patches):
-            assert upper is not None
-            alpha = int(val / upper * 128)
-            x_np, y_np = p % iw_np, p // ih_np
-            draw.rectangle(
-                [
-                    (x_np * pw_px, y_np * ph_px),
-                    (x_np * pw_px + pw_px, y_np * ph_px + ph_px),
-                ],
-                fill=(255, 0, 0, alpha),
-            )
-
-        # Composite the original image and the overlay
-        return Image.alpha_composite(img, overlay)
-
-
-    patches = np.zeros((256,), dtype=float)
-    patches[get_patches(records[28794], 69)] = 1.0
-
-    add_highlights(
-        Image.open(os.path.join(root, "images", records[28794].image)).convert("RGBA"),
-        patches,
-        upper=1.0,
-    )
-    return add_highlights, patches
-
-
-@app.cell
 def __(mo):
     mo.md(
         r"""
@@ -398,39 +159,99 @@ def __(mo):
 
 
 @app.cell
-def __(records):
-    records[29864]
-    return
+def __():
+    i = 965
+    return (i,)
 
 
 @app.cell
-def __(Image, add_highlights, np, os, records, root):
-    my_patches = np.zeros(256)
-    my_patches[18] = 1
-
-    add_highlights(
-        Image.open(os.path.join(root, "images", records[28794].image)).convert("RGBA"),
-        my_patches,
-        upper=1.0,
-    )
-    return (my_patches,)
+def __(Record, cfg, csv, os):
+    with open(os.path.join(cfg.root, "index.csv")) as fd:
+        records = [Record.from_row_dict(row) for row in csv.DictReader(fd)]
+    return fd, records
 
 
 @app.cell
-def __(mo):
-    mo.md(
-        r"""
-        So given the validation images, pick the top 16 patches that the best latent activates the most for, then get those images.
+def __(Material, PixelDataset, cfg, csv, os):
+    def load_materials() -> frozenset[Material]:
+        with open(os.path.join(cfg.root, "c_material.csv")) as fd:
+            materials = [Material.from_row_dict(row) for row in csv.DictReader(fd)]
+        return frozenset(materials)
 
-        Then get all the true patches and highlight them in blue.
+    materials = load_materials()
 
-        Then get all the SAE scores and highlight them in red (varying intensity) (on a different image)
-
-        Then save the pair of those images under "true_positives" or something.
-
-        Then repeat this for true_negatives, false_positives, false_negatives.
-        """
+    material = Material(
+        code=6, number=49, name="tile", frequency=3409, category="material"
     )
+    others = materials - {material}
+
+    dataset = PixelDataset(cfg, material, others, is_train=False)
+    return dataset, load_materials, material, materials, others
+
+
+@app.cell
+def __(dataset):
+    latent = 7178
+
+    dataset.category
+    return (latent,)
+
+
+@app.cell
+def __(cfg, dataset, make_patch_lookup, np):
+    n_patches = dataset.vit_acts.metadata.n_patches_per_img
+    all_patches = np.arange(n_patches)
+
+    patch_lookup = make_patch_lookup(patch_size_px=cfg.patch_size)
+    patch_lookup
+    return all_patches, n_patches, patch_lookup
+
+
+@app.cell
+def __(dataset, i):
+    i_im = dataset[i]["i_im"].item()
+    i_im
+    return (i_im,)
+
+
+@app.cell
+def __(all_patches, i_im, n_patches):
+    vit_i = i_im * n_patches + all_patches
+    vit_i
+    return (vit_i,)
+
+
+@app.cell
+def __(Image, cfg, i_im, os, records):
+    orig_img = Image.open(os.path.join(cfg.root, "images", records[i_im].image))
+    orig_img
+    return (orig_img,)
+
+
+@app.cell
+def __(
+    cfg,
+    dataset,
+    get_patches,
+    i_im,
+    imaging,
+    n_patches,
+    np,
+    orig_img,
+    patch_lookup,
+    records,
+):
+    true_patches = np.zeros(n_patches)
+    for pixel_file in getattr(records[i_im], dataset.category.category + "s"):
+        true_i_p = get_patches(cfg, pixel_file, dataset.category.number, patch_lookup)
+        true_patches[true_i_p] = 1
+    true_img = imaging.add_highlights(orig_img, true_patches, upper=1.0)
+    true_img
+    return pixel_file, true_i_p, true_img, true_patches
+
+
+@app.cell
+def __():
     return
 
 

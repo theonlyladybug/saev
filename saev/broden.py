@@ -15,7 +15,7 @@ from jaxtyping import Float, Int, Shaped, jaxtyped
 from PIL import Image
 from torch import Tensor
 
-from . import activations, config, helpers, nn
+from . import activations, config, helpers, imaging, nn
 
 logger = logging.getLogger("broden")
 
@@ -97,6 +97,24 @@ class Texture(Category):
 @dataclasses.dataclass(frozen=True)
 class Material(Category):
     category: str = "material"
+
+
+@beartype.beartype
+@dataclasses.dataclass(frozen=True)
+class Color(Category):
+    category: str = "color"
+
+
+@beartype.beartype
+@dataclasses.dataclass(frozen=True)
+class Object(Category):
+    category: str = "object"
+
+
+@beartype.beartype
+@dataclasses.dataclass(frozen=True)
+class Part(Category):
+    category: str = "part"
 
 
 @beartype.beartype
@@ -283,10 +301,6 @@ def evaluate_textures(cfg: config.BrodenEvaluate) -> Report:
     sae = nn.load(cfg.ckpt).to(cfg.device)
     sae.eval()
 
-    ckpt_name = os.path.basename(os.path.dirname(cfg.ckpt))
-    chart_dir = os.path.join(cfg.dump_to, ckpt_name, "textures")
-    os.makedirs(chart_dir, exist_ok=True)
-
     successes, failures, splits = [], [], {}
     for texture, train_dataset, val_dataset in helpers.progress(
         get_texture_datasets(cfg), every=1
@@ -317,7 +331,9 @@ def evaluate_textures(cfg: config.BrodenEvaluate) -> Report:
         # Plot and save histogram.
         fig, ax = plot(val_scores, latent=train_latent)
         ax.set_title(f"{texture.name.capitalize()} Validation Scores")
-        fig_fpath = os.path.join(chart_dir, f"{texture.name}-val-hist.png")
+        fig_fpath = os.path.join(
+            get_chart_dir(cfg, texture), f"{texture.name}-val-hist.png"
+        )
         fig.savefig(fig_fpath)
         logger.info("Saved histogram to '%s'.", fig_fpath)
 
@@ -356,6 +372,31 @@ def make_patch_lookup(
     return patch_lookup
 
 
+@jaxtyped(typechecker=beartype.beartype)
+def get_patches(
+    cfg: config.BrodenEvaluate,
+    pixel_file: str,
+    number: int,
+    patch_lookup: Int[np.ndarray, "w_px h_px"],
+    *,
+    threshold: float = 0.5,
+) -> Int[np.ndarray, " n"]:
+    """
+    Gets a list of patches that contain more than `threshold` fraction pixels containing the category with number `number`.
+    """
+    img = Image.open(os.path.join(cfg.root, "images", pixel_file))
+    raw = np.array(img).astype(np.uint32)
+    # 256 is hardcoded as a constant in the broden dataset because image files use 8 bits per color channel.
+    nums = raw[:, :, 1] * 256 + raw[:, :, 0]
+    nums = double(nums)
+
+    x, y = np.where(nums == number)
+    patches, counts = np.unique(patch_lookup[x, y], return_counts=True)
+
+    n_pixels = cfg.patch_size[0] * cfg.patch_size[1] * threshold
+    return patches[counts > n_pixels]
+
+
 @beartype.beartype
 class PixelDataset(torch.utils.data.Dataset, typing.Generic[T]):
     """
@@ -379,7 +420,6 @@ class PixelDataset(torch.utils.data.Dataset, typing.Generic[T]):
 
         self.cfg = cfg
         self.category = category
-        self.patch_lookup = make_patch_lookup(patch_size_px=cfg.patch_size)
 
         self.vit_acts = activations.Dataset(cfg.data)
 
@@ -403,11 +443,15 @@ class PixelDataset(torch.utils.data.Dataset, typing.Generic[T]):
             cfg.sample_range[1], int(category.frequency * split_frac)
         )
 
+        patch_lookup = make_patch_lookup(patch_size_px=cfg.patch_size)
+
         pos_samples, neg_samples = [], []
         for i_im, record in records:
             for pixel_file in getattr(record, category.category + "s"):
                 # Positive patches
-                patches = self.get_patches(pixel_file, category.number)
+                patches = get_patches(
+                    self.cfg, pixel_file, category.number, patch_lookup
+                )
                 if patches.size:
                     pos_samples.append(
                         i_im * self.vit_acts.metadata.n_patches_per_img + patches
@@ -415,7 +459,9 @@ class PixelDataset(torch.utils.data.Dataset, typing.Generic[T]):
 
                 # Negative patches
                 for other in others:
-                    patches = self.get_patches(pixel_file, other.number)
+                    patches = get_patches(
+                        self.cfg, pixel_file, other.number, patch_lookup
+                    )
                     if patches.size:
                         neg_samples.append(
                             i_im * self.vit_acts.metadata.n_patches_per_img + patches
@@ -452,35 +498,17 @@ class PixelDataset(torch.utils.data.Dataset, typing.Generic[T]):
         vit_act, i_im, i_p = self.vit_acts[act_i]
         return {
             "activation": vit_act,
-            "label": torch.tensor(label),
             "i_im": i_im,
             "i_p": i_p,
+            "label": torch.tensor(label),
             "index": torch.tensor(i),
         }
 
     def __len__(self) -> int:
         return len(self.labels)
 
-    def get_patches(
-        self, pixel_file: str, number: int, *, threshold: float = 0.5
-    ) -> Int[np.ndarray, " n"]:
-        """
-        Gets a list of patches that contain more than `threshold` fraction pixels containing the category with number `number`.
-        """
-        img = Image.open(os.path.join(self.cfg.root, "images", pixel_file))
-        raw = np.array(img).astype(np.uint32)
-        # 256 is hardcoded as a constant in the broden dataset because image files use 8 bits per color channel.
-        nums = raw[:, :, 1] * 256 + raw[:, :, 0]
-        nums = double(nums)
 
-        x, y = np.where(nums == number)
-        patches, counts = np.unique(self.patch_lookup[x, y], return_counts=True)
-
-        n_pixels = self.cfg.patch_size[0] * self.cfg.patch_size[1] * threshold
-        return patches[counts > n_pixels]
-
-
-@beartype.beartype
+@jaxtyped(typechecker=beartype.beartype)
 @torch.inference_mode()
 def get_sae_acts(
     cfg: config.BrodenEvaluate,
@@ -505,6 +533,24 @@ def get_sae_acts(
 
 
 @beartype.beartype
+def get_chart_dir(cfg: config.BrodenEvaluate, category: T) -> str:
+    ckpt_name = os.path.basename(os.path.dirname(cfg.ckpt))
+    chart_dir = os.path.join(cfg.dump_to, ckpt_name, category.category + "s", "charts")
+    os.makedirs(chart_dir, exist_ok=True)
+    return chart_dir
+
+
+@beartype.beartype
+def get_im_dir(cfg: config.BrodenEvaluate, category: T) -> str:
+    ckpt_name = os.path.basename(os.path.dirname(cfg.ckpt))
+    im_dir = os.path.join(
+        cfg.dump_to, ckpt_name, category.category + "s", "images", category.name
+    )
+    os.makedirs(im_dir, exist_ok=True)
+    return im_dir
+
+
+@beartype.beartype
 @torch.inference_mode()
 def evaluate_category(
     cfg: config.BrodenEvaluate, category: T, others: frozenset[T]
@@ -515,10 +561,6 @@ def evaluate_category(
 
     sae = nn.load(cfg.ckpt).to(cfg.device)
     sae.eval()
-
-    ckpt_name = os.path.basename(os.path.dirname(cfg.ckpt))
-    chart_dir = os.path.join(cfg.dump_to, ckpt_name, category.category + "s")
-    os.makedirs(chart_dir, exist_ok=True)
 
     train_dataset = PixelDataset(cfg, category, others, is_train=True)
     val_dataset = PixelDataset(cfg, category, others, is_train=False)
@@ -535,7 +577,9 @@ def evaluate_category(
     # Plot and save histogram.
     fig, ax = plot(val_scores, latent=train_latent)
     ax.set_title(f"{category.name.capitalize()} Validation Scores")
-    fig_fpath = os.path.join(chart_dir, f"{category.name}-val-hist.png")
+    fig_fpath = os.path.join(
+        get_chart_dir(cfg, category), f"{category.name}-val-hist.png"
+    )
     fig.savefig(fig_fpath)
     logger.info("Saved histogram to '%s'.", fig_fpath)
 
@@ -553,15 +597,82 @@ def evaluate_category(
     # 2. Negative images that do not activate train_latent (true negative)
     # 3. Positive images that do not activate train_latent (false negatives)
     # 4. Negative images that do activation train_latent (false positives)
-    breakpoint()
+    true_pos_im_i = (
+        val_acts[:, train_latent][val_labels == 1].argsort(descending=True).tolist()
+    )
+    dump_k_comparisons(cfg, val_dataset, sae, true_pos_im_i, train_latent)
 
     return (category.name, score)
 
 
 @beartype.beartype
-def evaluate_materials(cfg: config.BrodenEvaluate) -> Report:
-    with open(os.path.join(cfg.root, "c_material.csv")) as fd:
-        materials = frozenset(Material.from_row_dict(row) for row in csv.DictReader(fd))
+@torch.inference_mode()
+def dump_k_comparisons(
+    cfg: config.BrodenEvaluate,
+    dataset: PixelDataset,
+    sae: nn.SparseAutoencoder,
+    samples: list[int],
+    latent: int,
+):
+    n_patches = dataset.vit_acts.metadata.n_patches_per_img
+    all_patches = np.arange(n_patches)
+
+    patch_lookup = make_patch_lookup(patch_size_px=cfg.patch_size)
+
+    with open(os.path.join(cfg.root, "index.csv")) as fd:
+        records = [Record.from_row_dict(row) for row in csv.DictReader(fd)]
+
+    seen_i_im = set()
+
+    for i in samples:
+        i_im = dataset[i]["i_im"].item()
+        if i_im in seen_i_im:
+            logger.debug("Already dumped image %d; skipping.", i_im)
+            continue
+
+        vit_i = i_im * n_patches + all_patches
+        vit_acts = torch.stack([dataset.vit_acts[v_i.item()].vit_acts for v_i in vit_i])
+        _, sae_acts, *_ = sae(vit_acts.to(cfg.device))
+        # logger.info("Saved example image to '%s'.", im_fpath)
+
+        dst = Image.new("RGB", (224 * 3, 224), (255, 255, 255))
+
+        # Original image
+        orig_img = Image.open(os.path.join(cfg.root, "images", records[i_im].image))
+        dst.paste(orig_img, (0, 0))
+
+        # True image
+        true_patches = np.zeros(n_patches)
+        for pixel_file in getattr(records[i_im], dataset.category.category + "s"):
+            true_i_p = get_patches(
+                cfg, pixel_file, dataset.category.number, patch_lookup
+            )
+            true_patches[true_i_p] = 1
+        true_img = imaging.add_highlights(orig_img, true_patches, upper=1.0)
+        dst.paste(true_img, (224, 0))
+
+        # Predicted image
+        pred_patches = sae_acts[:, latent].cpu().numpy()
+        pred_img = imaging.add_highlights(
+            orig_img, pred_patches, upper=pred_patches.max().item()
+        )
+        dst.paste(pred_img, (448, 0))
+
+        im_fpath = os.path.join(get_im_dir(cfg, dataset.category), f"{i_im}.png")
+        dst.save(im_fpath)
+        logger.info("Saved example image to '%s'.", im_fpath)
+
+        seen_i_im.add(i_im)
+        if len(seen_i_im) >= cfg.k:
+            return
+
+
+@beartype.beartype
+def evaluate_group(cfg: config.BrodenEvaluate, group_cls: type[T]) -> Report:
+    with open(os.path.join(cfg.root, f"c_{group_cls.category}.csv")) as fd:
+        categories = frozenset(
+            group_cls.from_row_dict(row) for row in csv.DictReader(fd)
+        )
 
     splits: dict[str, float] = {}
 
@@ -573,32 +684,33 @@ def evaluate_materials(cfg: config.BrodenEvaluate) -> Report:
 
     with pool_cls(**pool_kwargs) as pool:
         futures = []
-        for material in materials:
-            n_val_samples = int(material.frequency * 0.3)
+        for category in categories:
+            n_val_samples = int(category.frequency * 0.3)
             if n_val_samples < cfg.sample_range[0]:
                 logger.info(
-                    "Skipping material '%s' because it only has %d validation samples (less than mininimum %d).",
-                    material.name,
+                    "Skipping %s '%s' because it only has %d validation samples (less than mininimum %d).",
+                    group_cls.category,
+                    category.name,
                     n_val_samples,
                     cfg.sample_range[0],
                 )
                 continue
 
-            others = materials - {material}
+            others = categories - {category}
             assert isinstance(others, frozenset)
-            futures.append(pool.submit(evaluate_category, cfg, material, others))
+            futures.append(pool.submit(evaluate_category, cfg, category, others))
 
         for future in concurrent.futures.as_completed(futures):
-            material_name, score = future.result()
-            splits[material_name] = score
+            name, score = future.result()
+            splits[name] = score
 
-    return Report("materials", np.mean(list(splits.values())).item(), splits)
+    return Report(group_cls.category, np.mean(list(splits.values())).item(), splits)
 
 
 @beartype.beartype
 @torch.inference_mode()
 def evaluate(cfg: config.BrodenEvaluate):
     reports = []
-    for task_fn in (evaluate_materials,):
-        reports.append(task_fn(cfg))
+    for group_cls in (Material, Part, Object, Color):
+        reports.append(evaluate_group(cfg, group_cls))
     breakpoint()

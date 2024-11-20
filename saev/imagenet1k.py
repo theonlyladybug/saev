@@ -141,19 +141,17 @@ class Dataset(torch.utils.data.Dataset):
 
     @jaxtyped(typechecker=beartype.beartype)
     def __getitem__(
-        self, i: Int[np.ndarray, "*batch"] | int
-    ) -> tuple[
-        Float[Tensor, "*batch n_layers all_patches d_vit"], Int[Tensor, "*batch"]
-    ]:
+        self, i: int
+    ) -> tuple[Float[Tensor, "n_layers all_patches d_vit"], Int[Tensor, "*batch"]]:
         n_imgs_per_shard = (
             self.metadata.n_patches_per_shard
-            // self.metadata.n_layers
+            // len(self.metadata.layers)
             // (self.metadata.n_patches_per_img + 1)
         )
 
         shape = (
             n_imgs_per_shard,
-            self.metadata.n_layers,
+            len(self.metadata.layers),
             self.metadata.n_patches_per_img + 1,
             self.metadata.d_vit,
         )
@@ -195,7 +193,9 @@ def make_dataloader(
         datasets.load_dataset("ILSVRC/imagenet-1k", split=split)["label"]
     )
 
-    dataset = Dataset(shard_root, labels)
+    dataload_cfg = config.DataLoad(shard_root, patches="meanpool", layer=-2)
+    acts = activations.Dataset(dataload_cfg)
+    dataset = torch.utils.data.StackDataset(acts, labels)
 
     dataloader = torch.utils.data.DataLoader(
         dataset,
@@ -204,7 +204,7 @@ def make_dataloader(
         shuffle=is_train,
     )
 
-    return dataloader, dataset.d_vit
+    return dataloader, acts.d_vit
 
 
 ############
@@ -238,13 +238,14 @@ def evaluate(cfg: config.ImagenetEvaluate) -> float:
     optimizer = torch.optim.SGD(param_groups, momentum=0.9, weight_decay=0, fused=True)
 
     # 1. Fit classifier to original model activations.
-    for global_step, (acts, labels) in enumerate(
+    for global_step, ((vit_acts, i_img, i_p), labels) in enumerate(
         helpers.progress(train_dataloader, every=cfg.log_every)
     ):
-        acts = acts.to(cfg.device, non_blocking=True)
+        vit_acts = vit_acts.to(cfg.device, non_blocking=True)
         labels = labels.to(cfg.device, non_blocking=True)
+        breakpoint()
 
-        outputs = classifiers(acts)
+        outputs = classifiers(vit_acts)
 
         losses = {k: F.cross_entropy(v, labels) for k, v in outputs.items()}
         loss = sum(losses.values())
