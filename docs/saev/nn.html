@@ -54,7 +54,7 @@ hljs.highlightAll();
 <div class="desc"></div>
 </dd>
 <dt id="saev.nn.safe_mse"><code class="name flex">
-<span>def <span class="ident">safe_mse</span></span>(<span>x_hat: jaxtyping.Float[Tensor, '*batch d'], x: jaxtyping.Float[Tensor, '*batch d'], norm: bool = True) ‑> jaxtyping.Float[Tensor, '*batch d']</span>
+<span>def <span class="ident">safe_mse</span></span>(<span>x_hat: jaxtyping.Float[Tensor, '*batch d'], x: jaxtyping.Float[Tensor, '*batch d'], norm: bool = False) ‑> jaxtyping.Float[Tensor, '*batch d']</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -184,8 +184,6 @@ class SparseAutoencoder(torch.nn.Module):
             einops.einsum(f_x, self.W_dec, &#34;... d_sae, d_sae d_vit -&gt; ... d_vit&#34;)
             + self.b_dec
         )
-        # (sam): I am now realizing that we normalize by the L2 norm of x.
-
         # Some values of x and x_hat can be very large. We can calculate a safe MSE
         mse_loss = safe_mse(x_hat, x)
 
@@ -233,21 +231,17 @@ class SparseAutoencoder(torch.nn.Module):
         if self.cfg.n_reinit_samples &lt;= 0:
             self.logger.info(&#34;Skipping init_b_dec.&#34;)
             return
-
         previous_b_dec = self.b_dec.clone().cpu()
         vit_acts = vit_acts[: self.cfg.n_reinit_samples]
         assert len(vit_acts) == self.cfg.n_reinit_samples
-
         mean = vit_acts.mean(axis=0)
         previous_distances = torch.norm(vit_acts - previous_b_dec, dim=-1)
         distances = torch.norm(vit_acts - mean, dim=-1)
-
         self.logger.info(
             &#34;Prev dist: %.3f; new dist: %.3f&#34;,
             previous_distances.median(axis=0).values.mean().item(),
             distances.median(axis=0).values.mean().item(),
         )
-
         self.b_dec.data = mean.to(self.b_dec.dtype).to(self.b_dec.device)
 
     @torch.no_grad()
