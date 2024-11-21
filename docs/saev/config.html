@@ -61,7 +61,7 @@ Might be expanded in the future to support pseudo-random sampling from distribut
 <dl>
 <dt id="saev.config.Activations"><code class="flex name class">
 <span>class <span class="ident">Activations</span></span>
-<span>(</span><span>data: <a title="saev.config.ImagenetDataset" href="#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.TreeOfLifeDataset" href="#saev.config.TreeOfLifeDataset">TreeOfLifeDataset</a> | <a title="saev.config.LaionDataset" href="#saev.config.LaionDataset">LaionDataset</a> | <a title="saev.config.ImageFolderDataset" href="#saev.config.ImageFolderDataset">ImageFolderDataset</a> | <a title="saev.config.BrodenDataset" href="#saev.config.BrodenDataset">BrodenDataset</a> = &lt;factory&gt;, dump_to: str = './shards', model_org: Literal['clip', 'siglip', 'timm', 'dinov2'] = 'clip', model_ckpt: str = 'ViT-L-14/openai', vit_batch_size: int = 1024, n_workers: int = 8, d_vit: int = 1024, layers: list[int] = &lt;factory&gt;, n_patches_per_img: int = 256, cls_token: bool = True, n_patches_per_shard: int = 2400000, seed: int = 42, ssl: bool = True, device: str = 'cuda', slurm: bool = False, slurm_acct: str = 'PAS2136', log_to: str = './logs')</span>
+<span>(</span><span>data: <a title="saev.config.ImagenetDataset" href="#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.TreeOfLifeDataset" href="#saev.config.TreeOfLifeDataset">TreeOfLifeDataset</a> | <a title="saev.config.LaionDataset" href="#saev.config.LaionDataset">LaionDataset</a> | <a title="saev.config.ImageFolderDataset" href="#saev.config.ImageFolderDataset">ImageFolderDataset</a> = &lt;factory&gt;, dump_to: str = './shards', model_org: Literal['clip', 'siglip', 'timm', 'dinov2'] = 'clip', model_ckpt: str = 'ViT-L-14/openai', vit_batch_size: int = 1024, n_workers: int = 8, d_vit: int = 1024, layers: list[int] = &lt;factory&gt;, n_patches_per_img: int = 256, cls_token: bool = True, n_patches_per_shard: int = 2400000, seed: int = 42, ssl: bool = True, device: str = 'cuda', slurm: bool = False, slurm_acct: str = 'PAS2136', log_to: str = './logs')</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Configuration for calculating and saving ViT activations.</p></div>
@@ -124,7 +124,7 @@ class Activations:
 <dd>
 <div class="desc"><p>Dimension of the ViT activations (depends on model).</p></div>
 </dd>
-<dt id="saev.config.Activations.data"><code class="name">var <span class="ident">data</span> : <a title="saev.config.ImagenetDataset" href="#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.TreeOfLifeDataset" href="#saev.config.TreeOfLifeDataset">TreeOfLifeDataset</a> | <a title="saev.config.LaionDataset" href="#saev.config.LaionDataset">LaionDataset</a> | <a title="saev.config.ImageFolderDataset" href="#saev.config.ImageFolderDataset">ImageFolderDataset</a> | <a title="saev.config.BrodenDataset" href="#saev.config.BrodenDataset">BrodenDataset</a></code></dt>
+<dt id="saev.config.Activations.data"><code class="name">var <span class="ident">data</span> : <a title="saev.config.ImagenetDataset" href="#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.TreeOfLifeDataset" href="#saev.config.TreeOfLifeDataset">TreeOfLifeDataset</a> | <a title="saev.config.LaionDataset" href="#saev.config.LaionDataset">LaionDataset</a> | <a title="saev.config.ImageFolderDataset" href="#saev.config.ImageFolderDataset">ImageFolderDataset</a></code></dt>
 <dd>
 <div class="desc"><p>Which dataset to use.</p></div>
 </dd>
@@ -183,151 +183,6 @@ class Activations:
 <dt id="saev.config.Activations.vit_batch_size"><code class="name">var <span class="ident">vit_batch_size</span> : int</code></dt>
 <dd>
 <div class="desc"><p>Batch size for ViT inference.</p></div>
-</dd>
-</dl>
-</dd>
-<dt id="saev.config.BrodenDataset"><code class="flex name class">
-<span>class <span class="ident">BrodenDataset</span></span>
-<span>(</span><span>root: str = './broden')</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Configuration for Broden dataset.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@beartype.beartype
-@dataclasses.dataclass(frozen=True)
-class BrodenDataset:
-    &#34;&#34;&#34;Configuration for Broden dataset.&#34;&#34;&#34;
-
-    root: str = os.path.join(&#34;.&#34;, &#34;broden&#34;)
-    &#34;&#34;&#34;Where the Broden dataset is stored.&#34;&#34;&#34;
-
-    @property
-    def n_imgs(self) -&gt; int:
-        &#34;&#34;&#34;Number of images in the dataset. Calculated on the fly, but is non-trivial to calculate because it requires reading a file. If you need to reference this number very often, cache it in a local variable.&#34;&#34;&#34;
-        with open(os.path.join(self.root, &#34;index.csv&#34;)) as fd:
-            return sum(1 for _ in fd)</code></pre>
-</details>
-<h3>Class variables</h3>
-<dl>
-<dt id="saev.config.BrodenDataset.root"><code class="name">var <span class="ident">root</span> : str</code></dt>
-<dd>
-<div class="desc"><p>Where the Broden dataset is stored.</p></div>
-</dd>
-</dl>
-<h3>Instance variables</h3>
-<dl>
-<dt id="saev.config.BrodenDataset.n_imgs"><code class="name">prop <span class="ident">n_imgs</span> : int</code></dt>
-<dd>
-<div class="desc"><p>Number of images in the dataset. Calculated on the fly, but is non-trivial to calculate because it requires reading a file. If you need to reference this number very often, cache it in a local variable.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@property
-def n_imgs(self) -&gt; int:
-    &#34;&#34;&#34;Number of images in the dataset. Calculated on the fly, but is non-trivial to calculate because it requires reading a file. If you need to reference this number very often, cache it in a local variable.&#34;&#34;&#34;
-    with open(os.path.join(self.root, &#34;index.csv&#34;)) as fd:
-        return sum(1 for _ in fd)</code></pre>
-</details>
-</dd>
-</dl>
-</dd>
-<dt id="saev.config.BrodenEvaluate"><code class="flex name class">
-<span>class <span class="ident">BrodenEvaluate</span></span>
-<span>(</span><span>ckpt: str = './checkpoints/abcdefg/sae.pt', patch_size: tuple[int, int] = (16, 16), root: str = './broden', data: <a title="saev.config.DataLoad" href="#saev.config.DataLoad">DataLoad</a> = &lt;factory&gt;, n_workers: int = 8, batch_size: int = 1024, sample_range: tuple[int, int] = (200, 1000), dump_to: str = './logs/broden', device: str = 'cuda', log_every: int = 10, seed: int = 42, debug: bool = False, k: int = 16)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>BrodenEvaluate(ckpt: str = './checkpoints/abcdefg/sae.pt', patch_size: tuple[int, int] = (16, 16), root: str = './broden', data: saev.config.DataLoad = <factory>, n_workers: int = 8, batch_size: int = 1024, sample_range: tuple[int, int] = (200, 1000), dump_to: str = './logs/broden', device: str = 'cuda', log_every: int = 10, seed: int = 42, debug: bool = False, k: int = 16)</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@beartype.beartype
-@dataclasses.dataclass(frozen=True)
-class BrodenEvaluate:
-    ckpt: str = os.path.join(&#34;.&#34;, &#34;checkpoints&#34;, &#34;abcdefg&#34;, &#34;sae.pt&#34;)
-    &#34;&#34;&#34;Path to the sae.pt file.&#34;&#34;&#34;
-    patch_size: tuple[int, int] = (16, 16)
-    &#34;&#34;&#34;Original patch size in pixels.&#34;&#34;&#34;
-    root: str = &#34;./broden&#34;
-    &#34;&#34;&#34;Root of the Broden dataset.&#34;&#34;&#34;
-    data: DataLoad = dataclasses.field(default_factory=DataLoad)
-    &#34;&#34;&#34;ViT activations for Broden.&#34;&#34;&#34;
-    n_workers: int = 8
-    &#34;&#34;&#34;Number of dataloader workers.&#34;&#34;&#34;
-    batch_size: int = 1024
-    &#34;&#34;&#34;ViT and SAE inference batch size.&#34;&#34;&#34;
-    sample_range: tuple[int, int] = (200, 1_000)
-    &#34;&#34;&#34;Range of samples per label. Will skip samples with fewer samples and will truncate classes with more samples.&#34;&#34;&#34;
-    dump_to: str = os.path.join(&#34;.&#34;, &#34;logs&#34;, &#34;broden&#34;)
-    &#34;&#34;&#34;Where to save charts.&#34;&#34;&#34;
-    device: str = &#34;cuda&#34;
-    &#34;&#34;&#34;Which accelerator to use.&#34;&#34;&#34;
-    log_every: int = 10
-    &#34;&#34;&#34;How often to log progress.&#34;&#34;&#34;
-    seed: int = 42
-    &#34;&#34;&#34;Random seed.&#34;&#34;&#34;
-    debug: bool = False
-    &#34;&#34;&#34;Debugging?&#34;&#34;&#34;
-    k: int = 16
-    &#34;&#34;&#34;How man images at most to save.&#34;&#34;&#34;</code></pre>
-</details>
-<h3>Class variables</h3>
-<dl>
-<dt id="saev.config.BrodenEvaluate.batch_size"><code class="name">var <span class="ident">batch_size</span> : int</code></dt>
-<dd>
-<div class="desc"><p>ViT and SAE inference batch size.</p></div>
-</dd>
-<dt id="saev.config.BrodenEvaluate.ckpt"><code class="name">var <span class="ident">ckpt</span> : str</code></dt>
-<dd>
-<div class="desc"><p>Path to the sae.pt file.</p></div>
-</dd>
-<dt id="saev.config.BrodenEvaluate.data"><code class="name">var <span class="ident">data</span> : <a title="saev.config.DataLoad" href="#saev.config.DataLoad">DataLoad</a></code></dt>
-<dd>
-<div class="desc"><p>ViT activations for Broden.</p></div>
-</dd>
-<dt id="saev.config.BrodenEvaluate.debug"><code class="name">var <span class="ident">debug</span> : bool</code></dt>
-<dd>
-<div class="desc"><p>Debugging?</p></div>
-</dd>
-<dt id="saev.config.BrodenEvaluate.device"><code class="name">var <span class="ident">device</span> : str</code></dt>
-<dd>
-<div class="desc"><p>Which accelerator to use.</p></div>
-</dd>
-<dt id="saev.config.BrodenEvaluate.dump_to"><code class="name">var <span class="ident">dump_to</span> : str</code></dt>
-<dd>
-<div class="desc"><p>Where to save charts.</p></div>
-</dd>
-<dt id="saev.config.BrodenEvaluate.k"><code class="name">var <span class="ident">k</span> : int</code></dt>
-<dd>
-<div class="desc"><p>How man images at most to save.</p></div>
-</dd>
-<dt id="saev.config.BrodenEvaluate.log_every"><code class="name">var <span class="ident">log_every</span> : int</code></dt>
-<dd>
-<div class="desc"><p>How often to log progress.</p></div>
-</dd>
-<dt id="saev.config.BrodenEvaluate.n_workers"><code class="name">var <span class="ident">n_workers</span> : int</code></dt>
-<dd>
-<div class="desc"><p>Number of dataloader workers.</p></div>
-</dd>
-<dt id="saev.config.BrodenEvaluate.patch_size"><code class="name">var <span class="ident">patch_size</span> : tuple[int, int]</code></dt>
-<dd>
-<div class="desc"><p>Original patch size in pixels.</p></div>
-</dd>
-<dt id="saev.config.BrodenEvaluate.root"><code class="name">var <span class="ident">root</span> : str</code></dt>
-<dd>
-<div class="desc"><p>Root of the Broden dataset.</p></div>
-</dd>
-<dt id="saev.config.BrodenEvaluate.sample_range"><code class="name">var <span class="ident">sample_range</span> : tuple[int, int]</code></dt>
-<dd>
-<div class="desc"><p>Range of samples per label. Will skip samples with fewer samples and will truncate classes with more samples.</p></div>
-</dd>
-<dt id="saev.config.BrodenEvaluate.seed"><code class="name">var <span class="ident">seed</span> : int</code></dt>
-<dd>
-<div class="desc"><p>Random seed.</p></div>
 </dd>
 </dl>
 </dd>
@@ -392,124 +247,6 @@ class DataLoad:
 <dt id="saev.config.DataLoad.shard_root"><code class="name">var <span class="ident">shard_root</span> : str</code></dt>
 <dd>
 <div class="desc"><p>Directory with .bin shards and a metadata.json file.</p></div>
-</dd>
-</dl>
-</dd>
-<dt id="saev.config.Evaluate"><code class="flex name class">
-<span>class <span class="ident">Evaluate</span></span>
-<span>(</span><span>histograms: <a title="saev.config.HistogramsEvaluate" href="#saev.config.HistogramsEvaluate">HistogramsEvaluate</a> = &lt;factory&gt;, broden: <a title="saev.config.BrodenEvaluate" href="#saev.config.BrodenEvaluate">BrodenEvaluate</a> = &lt;factory&gt;, imagenet: <a title="saev.config.ImagenetEvaluate" href="#saev.config.ImagenetEvaluate">ImagenetEvaluate</a> = &lt;factory&gt;, slurm: bool = False, slurm_acct: str = 'PAS2136', log_to: str = './logs')</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Evaluate(histograms: saev.config.HistogramsEvaluate = <factory>, broden: saev.config.BrodenEvaluate = <factory>, imagenet: saev.config.ImagenetEvaluate = <factory>, slurm: bool = False, slurm_acct: str = 'PAS2136', log_to: str = './logs')</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@beartype.beartype
-@dataclasses.dataclass(frozen=True)
-class Evaluate:
-    histograms: HistogramsEvaluate = dataclasses.field(
-        default_factory=HistogramsEvaluate
-    )
-    &#34;&#34;&#34;Histogram config.&#34;&#34;&#34;
-    broden: BrodenEvaluate = dataclasses.field(default_factory=BrodenEvaluate)
-    &#34;&#34;&#34;Broden feature probing config.&#34;&#34;&#34;
-
-    imagenet: ImagenetEvaluate = dataclasses.field(default_factory=ImagenetEvaluate)
-    &#34;&#34;&#34;ImageNet-1K config.&#34;&#34;&#34;
-
-    slurm: bool = False
-    &#34;&#34;&#34;Whether to use `submitit` to run jobs on a Slurm cluster.&#34;&#34;&#34;
-    slurm_acct: str = &#34;PAS2136&#34;
-    &#34;&#34;&#34;Slurm account string.&#34;&#34;&#34;
-    log_to: str = &#34;./logs&#34;
-    &#34;&#34;&#34;Where to log Slurm job stdout/stderr.&#34;&#34;&#34;</code></pre>
-</details>
-<h3>Class variables</h3>
-<dl>
-<dt id="saev.config.Evaluate.broden"><code class="name">var <span class="ident">broden</span> : <a title="saev.config.BrodenEvaluate" href="#saev.config.BrodenEvaluate">BrodenEvaluate</a></code></dt>
-<dd>
-<div class="desc"><p>Broden feature probing config.</p></div>
-</dd>
-<dt id="saev.config.Evaluate.histograms"><code class="name">var <span class="ident">histograms</span> : <a title="saev.config.HistogramsEvaluate" href="#saev.config.HistogramsEvaluate">HistogramsEvaluate</a></code></dt>
-<dd>
-<div class="desc"><p>Histogram config.</p></div>
-</dd>
-<dt id="saev.config.Evaluate.imagenet"><code class="name">var <span class="ident">imagenet</span> : <a title="saev.config.ImagenetEvaluate" href="#saev.config.ImagenetEvaluate">ImagenetEvaluate</a></code></dt>
-<dd>
-<div class="desc"><p>ImageNet-1K config.</p></div>
-</dd>
-<dt id="saev.config.Evaluate.log_to"><code class="name">var <span class="ident">log_to</span> : str</code></dt>
-<dd>
-<div class="desc"><p>Where to log Slurm job stdout/stderr.</p></div>
-</dd>
-<dt id="saev.config.Evaluate.slurm"><code class="name">var <span class="ident">slurm</span> : bool</code></dt>
-<dd>
-<div class="desc"><p>Whether to use <code>submitit</code> to run jobs on a Slurm cluster.</p></div>
-</dd>
-<dt id="saev.config.Evaluate.slurm_acct"><code class="name">var <span class="ident">slurm_acct</span> : str</code></dt>
-<dd>
-<div class="desc"><p>Slurm account string.</p></div>
-</dd>
-</dl>
-</dd>
-<dt id="saev.config.HistogramsEvaluate"><code class="flex name class">
-<span>class <span class="ident">HistogramsEvaluate</span></span>
-<span>(</span><span>ckpt: str = './checkpoints/abcdefg/sae.pt', data: <a title="saev.config.DataLoad" href="#saev.config.DataLoad">DataLoad</a> = &lt;factory&gt;, n_workers: int = 8, sae_batch_size: int = 8192, device: str = 'cuda', log_every: int = 10, log_to: str = './logs')</span>
-</code></dt>
-<dd>
-<div class="desc"><p>HistogramsEvaluate(ckpt: str = './checkpoints/abcdefg/sae.pt', data: saev.config.DataLoad = <factory>, n_workers: int = 8, sae_batch_size: int = 8192, device: str = 'cuda', log_every: int = 10, log_to: str = './logs')</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@beartype.beartype
-@dataclasses.dataclass(frozen=True)
-class HistogramsEvaluate:
-    ckpt: str = os.path.join(&#34;.&#34;, &#34;checkpoints&#34;, &#34;abcdefg&#34;, &#34;sae.pt&#34;)
-    &#34;&#34;&#34;Path to the sae.pt file.&#34;&#34;&#34;
-    data: DataLoad = dataclasses.field(default_factory=DataLoad)
-    &#34;&#34;&#34;Data configuration.&#34;&#34;&#34;
-    n_workers: int = 8
-    &#34;&#34;&#34;Number of dataloader workers.&#34;&#34;&#34;
-    sae_batch_size: int = 1024 * 8
-    &#34;&#34;&#34;SAE inference batch size.&#34;&#34;&#34;
-    device: str = &#34;cuda&#34;
-    &#34;&#34;&#34;Which accelerator to use.&#34;&#34;&#34;
-    log_every: int = 10
-    &#34;&#34;&#34;How often to log progress.&#34;&#34;&#34;
-    log_to: str = os.path.join(&#34;.&#34;, &#34;logs&#34;)
-    &#34;&#34;&#34;Where to write charts to.&#34;&#34;&#34;</code></pre>
-</details>
-<h3>Class variables</h3>
-<dl>
-<dt id="saev.config.HistogramsEvaluate.ckpt"><code class="name">var <span class="ident">ckpt</span> : str</code></dt>
-<dd>
-<div class="desc"><p>Path to the sae.pt file.</p></div>
-</dd>
-<dt id="saev.config.HistogramsEvaluate.data"><code class="name">var <span class="ident">data</span> : <a title="saev.config.DataLoad" href="#saev.config.DataLoad">DataLoad</a></code></dt>
-<dd>
-<div class="desc"><p>Data configuration.</p></div>
-</dd>
-<dt id="saev.config.HistogramsEvaluate.device"><code class="name">var <span class="ident">device</span> : str</code></dt>
-<dd>
-<div class="desc"><p>Which accelerator to use.</p></div>
-</dd>
-<dt id="saev.config.HistogramsEvaluate.log_every"><code class="name">var <span class="ident">log_every</span> : int</code></dt>
-<dd>
-<div class="desc"><p>How often to log progress.</p></div>
-</dd>
-<dt id="saev.config.HistogramsEvaluate.log_to"><code class="name">var <span class="ident">log_to</span> : str</code></dt>
-<dd>
-<div class="desc"><p>Where to write charts to.</p></div>
-</dd>
-<dt id="saev.config.HistogramsEvaluate.n_workers"><code class="name">var <span class="ident">n_workers</span> : int</code></dt>
-<dd>
-<div class="desc"><p>Number of dataloader workers.</p></div>
-</dd>
-<dt id="saev.config.HistogramsEvaluate.sae_batch_size"><code class="name">var <span class="ident">sae_batch_size</span> : int</code></dt>
-<dd>
-<div class="desc"><p>SAE inference batch size.</p></div>
 </dd>
 </dl>
 </dd>
@@ -626,77 +363,6 @@ def n_imgs(self) -&gt; int:
     )
     return len(dataset)</code></pre>
 </details>
-</dd>
-</dl>
-</dd>
-<dt id="saev.config.ImagenetEvaluate"><code class="flex name class">
-<span>class <span class="ident">ImagenetEvaluate</span></span>
-<span>(</span><span>ckpt: str = './checkpoints/abcdefg', train_shard_root: str = './imagenet-1k-shards/train', val_shard_root: str = './imagenet-1k-shards/val', n_workers: int = 32, sgd_batch_size: int = 16384, n_steps: int = 12500, device: str = 'cuda', log_every: int = 5)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>ImagenetEvaluate(ckpt: str = './checkpoints/abcdefg', train_shard_root: str = './imagenet-1k-shards/train', val_shard_root: str = './imagenet-1k-shards/val', n_workers: int = 32, sgd_batch_size: int = 16384, n_steps: int = 12500, device: str = 'cuda', log_every: int = 5)</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@beartype.beartype
-@dataclasses.dataclass(frozen=True)
-class ImagenetEvaluate:
-    # Model
-    ckpt: str = os.path.join(&#34;.&#34;, &#34;checkpoints&#34;, &#34;abcdefg&#34;)
-    &#34;&#34;&#34;Path to the sae.pt file.&#34;&#34;&#34;
-    # Data
-    train_shard_root: str = os.path.join(&#34;.&#34;, &#34;imagenet-1k-shards&#34;, &#34;train&#34;)
-    &#34;&#34;&#34;Train shards root directory.&#34;&#34;&#34;
-    val_shard_root: str = os.path.join(&#34;.&#34;, &#34;imagenet-1k-shards&#34;, &#34;val&#34;)
-    &#34;&#34;&#34;Validation shards root directory.&#34;&#34;&#34;
-    n_workers: int = 32
-    &#34;&#34;&#34;Number of dataloader workers.&#34;&#34;&#34;
-    # Optimization
-    sgd_batch_size: int = 1024 * 16
-    &#34;&#34;&#34;Batch size for linear classifier.&#34;&#34;&#34;
-    n_steps: int = 12500
-    &#34;&#34;&#34;Number of SGD steps.&#34;&#34;&#34;
-    # Hardware
-    device: str = &#34;cuda&#34;
-    &#34;&#34;&#34;Which accelerator to use.&#34;&#34;&#34;
-    # Misc
-    log_every: int = 5
-    &#34;&#34;&#34;How often to log progress.&#34;&#34;&#34;</code></pre>
-</details>
-<h3>Class variables</h3>
-<dl>
-<dt id="saev.config.ImagenetEvaluate.ckpt"><code class="name">var <span class="ident">ckpt</span> : str</code></dt>
-<dd>
-<div class="desc"><p>Path to the sae.pt file.</p></div>
-</dd>
-<dt id="saev.config.ImagenetEvaluate.device"><code class="name">var <span class="ident">device</span> : str</code></dt>
-<dd>
-<div class="desc"><p>Which accelerator to use.</p></div>
-</dd>
-<dt id="saev.config.ImagenetEvaluate.log_every"><code class="name">var <span class="ident">log_every</span> : int</code></dt>
-<dd>
-<div class="desc"><p>How often to log progress.</p></div>
-</dd>
-<dt id="saev.config.ImagenetEvaluate.n_steps"><code class="name">var <span class="ident">n_steps</span> : int</code></dt>
-<dd>
-<div class="desc"><p>Number of SGD steps.</p></div>
-</dd>
-<dt id="saev.config.ImagenetEvaluate.n_workers"><code class="name">var <span class="ident">n_workers</span> : int</code></dt>
-<dd>
-<div class="desc"><p>Number of dataloader workers.</p></div>
-</dd>
-<dt id="saev.config.ImagenetEvaluate.sgd_batch_size"><code class="name">var <span class="ident">sgd_batch_size</span> : int</code></dt>
-<dd>
-<div class="desc"><p>Batch size for linear classifier.</p></div>
-</dd>
-<dt id="saev.config.ImagenetEvaluate.train_shard_root"><code class="name">var <span class="ident">train_shard_root</span> : str</code></dt>
-<dd>
-<div class="desc"><p>Train shards root directory.</p></div>
-</dd>
-<dt id="saev.config.ImagenetEvaluate.val_shard_root"><code class="name">var <span class="ident">val_shard_root</span> : str</code></dt>
-<dd>
-<div class="desc"><p>Validation shards root directory.</p></div>
 </dd>
 </dl>
 </dd>
@@ -1103,6 +769,21 @@ def n_imgs(self) -&gt; int:
 </dd>
 </dl>
 </dd>
+<dt id="saev.config.Visuals"><code class="flex name class">
+<span>class <span class="ident">Visuals</span></span>
+</code></dt>
+<dd>
+<div class="desc"><p>Visuals()</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@beartype.beartype
+@dataclasses.dataclass(frozen=True)
+class Visuals:
+    pass</code></pre>
+</details>
+</dd>
 </dl>
 </section>
 </article>
@@ -1149,31 +830,6 @@ def n_imgs(self) -&gt; int:
 </ul>
 </li>
 <li>
-<h4><code><a title="saev.config.BrodenDataset" href="#saev.config.BrodenDataset">BrodenDataset</a></code></h4>
-<ul class="">
-<li><code><a title="saev.config.BrodenDataset.n_imgs" href="#saev.config.BrodenDataset.n_imgs">n_imgs</a></code></li>
-<li><code><a title="saev.config.BrodenDataset.root" href="#saev.config.BrodenDataset.root">root</a></code></li>
-</ul>
-</li>
-<li>
-<h4><code><a title="saev.config.BrodenEvaluate" href="#saev.config.BrodenEvaluate">BrodenEvaluate</a></code></h4>
-<ul class="two-column">
-<li><code><a title="saev.config.BrodenEvaluate.batch_size" href="#saev.config.BrodenEvaluate.batch_size">batch_size</a></code></li>
-<li><code><a title="saev.config.BrodenEvaluate.ckpt" href="#saev.config.BrodenEvaluate.ckpt">ckpt</a></code></li>
-<li><code><a title="saev.config.BrodenEvaluate.data" href="#saev.config.BrodenEvaluate.data">data</a></code></li>
-<li><code><a title="saev.config.BrodenEvaluate.debug" href="#saev.config.BrodenEvaluate.debug">debug</a></code></li>
-<li><code><a title="saev.config.BrodenEvaluate.device" href="#saev.config.BrodenEvaluate.device">device</a></code></li>
-<li><code><a title="saev.config.BrodenEvaluate.dump_to" href="#saev.config.BrodenEvaluate.dump_to">dump_to</a></code></li>
-<li><code><a title="saev.config.BrodenEvaluate.k" href="#saev.config.BrodenEvaluate.k">k</a></code></li>
-<li><code><a title="saev.config.BrodenEvaluate.log_every" href="#saev.config.BrodenEvaluate.log_every">log_every</a></code></li>
-<li><code><a title="saev.config.BrodenEvaluate.n_workers" href="#saev.config.BrodenEvaluate.n_workers">n_workers</a></code></li>
-<li><code><a title="saev.config.BrodenEvaluate.patch_size" href="#saev.config.BrodenEvaluate.patch_size">patch_size</a></code></li>
-<li><code><a title="saev.config.BrodenEvaluate.root" href="#saev.config.BrodenEvaluate.root">root</a></code></li>
-<li><code><a title="saev.config.BrodenEvaluate.sample_range" href="#saev.config.BrodenEvaluate.sample_range">sample_range</a></code></li>
-<li><code><a title="saev.config.BrodenEvaluate.seed" href="#saev.config.BrodenEvaluate.seed">seed</a></code></li>
-</ul>
-</li>
-<li>
 <h4><code><a title="saev.config.DataLoad" href="#saev.config.DataLoad">DataLoad</a></code></h4>
 <ul class="two-column">
 <li><code><a title="saev.config.DataLoad.clamp" href="#saev.config.DataLoad.clamp">clamp</a></code></li>
@@ -1183,29 +839,6 @@ def n_imgs(self) -&gt; int:
 <li><code><a title="saev.config.DataLoad.scale_mean" href="#saev.config.DataLoad.scale_mean">scale_mean</a></code></li>
 <li><code><a title="saev.config.DataLoad.scale_norm" href="#saev.config.DataLoad.scale_norm">scale_norm</a></code></li>
 <li><code><a title="saev.config.DataLoad.shard_root" href="#saev.config.DataLoad.shard_root">shard_root</a></code></li>
-</ul>
-</li>
-<li>
-<h4><code><a title="saev.config.Evaluate" href="#saev.config.Evaluate">Evaluate</a></code></h4>
-<ul class="two-column">
-<li><code><a title="saev.config.Evaluate.broden" href="#saev.config.Evaluate.broden">broden</a></code></li>
-<li><code><a title="saev.config.Evaluate.histograms" href="#saev.config.Evaluate.histograms">histograms</a></code></li>
-<li><code><a title="saev.config.Evaluate.imagenet" href="#saev.config.Evaluate.imagenet">imagenet</a></code></li>
-<li><code><a title="saev.config.Evaluate.log_to" href="#saev.config.Evaluate.log_to">log_to</a></code></li>
-<li><code><a title="saev.config.Evaluate.slurm" href="#saev.config.Evaluate.slurm">slurm</a></code></li>
-<li><code><a title="saev.config.Evaluate.slurm_acct" href="#saev.config.Evaluate.slurm_acct">slurm_acct</a></code></li>
-</ul>
-</li>
-<li>
-<h4><code><a title="saev.config.HistogramsEvaluate" href="#saev.config.HistogramsEvaluate">HistogramsEvaluate</a></code></h4>
-<ul class="two-column">
-<li><code><a title="saev.config.HistogramsEvaluate.ckpt" href="#saev.config.HistogramsEvaluate.ckpt">ckpt</a></code></li>
-<li><code><a title="saev.config.HistogramsEvaluate.data" href="#saev.config.HistogramsEvaluate.data">data</a></code></li>
-<li><code><a title="saev.config.HistogramsEvaluate.device" href="#saev.config.HistogramsEvaluate.device">device</a></code></li>
-<li><code><a title="saev.config.HistogramsEvaluate.log_every" href="#saev.config.HistogramsEvaluate.log_every">log_every</a></code></li>
-<li><code><a title="saev.config.HistogramsEvaluate.log_to" href="#saev.config.HistogramsEvaluate.log_to">log_to</a></code></li>
-<li><code><a title="saev.config.HistogramsEvaluate.n_workers" href="#saev.config.HistogramsEvaluate.n_workers">n_workers</a></code></li>
-<li><code><a title="saev.config.HistogramsEvaluate.sae_batch_size" href="#saev.config.HistogramsEvaluate.sae_batch_size">sae_batch_size</a></code></li>
 </ul>
 </li>
 <li>
@@ -1221,19 +854,6 @@ def n_imgs(self) -&gt; int:
 <li><code><a title="saev.config.ImagenetDataset.n_imgs" href="#saev.config.ImagenetDataset.n_imgs">n_imgs</a></code></li>
 <li><code><a title="saev.config.ImagenetDataset.name" href="#saev.config.ImagenetDataset.name">name</a></code></li>
 <li><code><a title="saev.config.ImagenetDataset.split" href="#saev.config.ImagenetDataset.split">split</a></code></li>
-</ul>
-</li>
-<li>
-<h4><code><a title="saev.config.ImagenetEvaluate" href="#saev.config.ImagenetEvaluate">ImagenetEvaluate</a></code></h4>
-<ul class="two-column">
-<li><code><a title="saev.config.ImagenetEvaluate.ckpt" href="#saev.config.ImagenetEvaluate.ckpt">ckpt</a></code></li>
-<li><code><a title="saev.config.ImagenetEvaluate.device" href="#saev.config.ImagenetEvaluate.device">device</a></code></li>
-<li><code><a title="saev.config.ImagenetEvaluate.log_every" href="#saev.config.ImagenetEvaluate.log_every">log_every</a></code></li>
-<li><code><a title="saev.config.ImagenetEvaluate.n_steps" href="#saev.config.ImagenetEvaluate.n_steps">n_steps</a></code></li>
-<li><code><a title="saev.config.ImagenetEvaluate.n_workers" href="#saev.config.ImagenetEvaluate.n_workers">n_workers</a></code></li>
-<li><code><a title="saev.config.ImagenetEvaluate.sgd_batch_size" href="#saev.config.ImagenetEvaluate.sgd_batch_size">sgd_batch_size</a></code></li>
-<li><code><a title="saev.config.ImagenetEvaluate.train_shard_root" href="#saev.config.ImagenetEvaluate.train_shard_root">train_shard_root</a></code></li>
-<li><code><a title="saev.config.ImagenetEvaluate.val_shard_root" href="#saev.config.ImagenetEvaluate.val_shard_root">val_shard_root</a></code></li>
 </ul>
 </li>
 <li>
@@ -1293,6 +913,9 @@ def n_imgs(self) -&gt; int:
 <li><code><a title="saev.config.TreeOfLifeDataset.metadata" href="#saev.config.TreeOfLifeDataset.metadata">metadata</a></code></li>
 <li><code><a title="saev.config.TreeOfLifeDataset.n_imgs" href="#saev.config.TreeOfLifeDataset.n_imgs">n_imgs</a></code></li>
 </ul>
+</li>
+<li>
+<h4><code><a title="saev.config.Visuals" href="#saev.config.Visuals">Visuals</a></code></h4>
 </li>
 </ul>
 </li>

@@ -24,7 +24,6 @@ import torch
 import torchvision.datasets
 import wids
 from jaxtyping import Float, Int, jaxtyped
-from PIL import Image
 from torch import Tensor
 
 from . import config, helpers
@@ -501,8 +500,6 @@ def setup(cfg: config.Activations):
         setup_laion(cfg)
     elif isinstance(cfg.data, config.ImageFolderDataset):
         setup_imagefolder(cfg)
-    elif isinstance(cfg.data, config.BrodenDataset):
-        setup_broden(cfg)
     else:
         typing.assert_never(cfg.data)
 
@@ -620,18 +617,6 @@ def setup_laion(cfg: config.Activations):
 
 
 @beartype.beartype
-def setup_broden(cfg: config.Activations):
-    assert isinstance(cfg.data, config.BrodenDataset)
-
-    # logger = logging.getLogger("broden-setup")
-    # url = "http://netdissect.csail.mit.edu/data/broden1_224.zip"
-    if os.path.isfile(os.path.join(cfg.data.root, "index.csv")):
-        return
-    os.makedirs(cfg.data.root, exist_ok=True)
-    breakpoint()
-
-
-@beartype.beartype
 def setup_imagefolder(cfg: config.Activations):
     assert isinstance(cfg.data, config.ImageFolderDataset)
     breakpoint()
@@ -673,8 +658,6 @@ def get_dataloader(cfg: config.Activations, preprocess):
         dataloader = get_tol_dataloader(cfg, preprocess)
     elif isinstance(cfg.data, config.LaionDataset):
         dataloader = get_laion_dataloader(cfg, preprocess)
-    elif isinstance(cfg.data, config.BrodenDataset):
-        dataloader = get_broden_dataloader(cfg, preprocess)
     else:
         typing.assert_never(cfg.data)
 
@@ -808,61 +791,6 @@ class TransformedImageFolder(torchvision.datasets.ImageFolder):
             target = self.target_transform(target)
 
         return {"image": sample, "target": target, "index": index}
-
-
-@beartype.beartype
-class PreprocessedBroden(torch.utils.data.Dataset):
-    def __init__(self, cfg: config.BrodenDataset, transform):
-        import csv
-
-        self.cfg = cfg
-        self.transform = transform
-
-        self.samples = []
-
-        with open(os.path.join(cfg.root, "index.csv")) as fd:
-            for row in csv.DictReader(fd):
-                self.samples.append(row["image"])
-
-    def __getitem__(self, i):
-        fpath = os.path.join(self.cfg.root, "images", self.samples[i])
-        with open(fpath, "rb") as fd:
-            img = Image.open(fd).convert("RGB")
-        img = self.transform(img)
-        return {"image": img, "index": i}
-
-    def __len__(self) -> int:
-        return len(self.samples)
-
-
-@beartype.beartype
-def get_broden_dataloader(
-    cfg: config.Activations, preprocess
-) -> torch.utils.data.DataLoader:
-    """
-    Get a dataloader for Broden dataset.
-
-    Args:
-        cfg: Config.
-        preprocess: Image transform to be applied to each image.
-
-    Returns:
-        A PyTorch Dataloader that yields dictionaries with `'image'` keys containing image batches and `'index'` keys containing original dataset indices.
-    """
-    assert isinstance(cfg.data, config.BrodenDataset)
-
-    dataset = PreprocessedBroden(cfg.data, preprocess)
-    dataloader = torch.utils.data.DataLoader(
-        dataset,
-        batch_size=cfg.vit_batch_size,
-        drop_last=False,
-        num_workers=cfg.n_workers,
-        persistent_workers=cfg.n_workers > 0,
-        shuffle=False,
-        pin_memory=True,
-    )
-
-    return dataloader
 
 
 @beartype.beartype

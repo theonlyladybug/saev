@@ -1,8 +1,8 @@
 docs: lint
-    uv run pdoc3 --force --html --output-dir docs --config latex_math=True saev probing
+    uv run pdoc3 --force --html --output-dir docs --config latex_math=True saev probing faithfulness
 
 test: lint
-    uv run pytest --cov saev probing -n auto saev probing
+    uv run pytest --cov saev probing -n auto saev probing faithfulness
 
 lint: fmt
     fd -e py | xargs ruff check

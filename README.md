@@ -14,53 +14,24 @@ Read [logbook.md](logbook.md) for a detailed log of my thought process.
 See [related-work.md](related-work.md) for a list of works training SAEs on vision models.
 Please open an issue or a PR if there is missing work.
 
+## Installation
+
+Installation is supported with [uv](https://docs.astral.sh/uv/).
+saev will likely work with pure pip, conda, etc. but I will not formally support it.
+
+To install, clone this repository (maybe fork it first if you want).
+
+In the project root directory, run `uv run python -m saev --help`.
+The first invocation should create a virtual environment and show a help message.
+
 ## Using `saev`
 
-This section is a placeholder right now.
-The [docs](https://samuelstevens.me/saev/) should be better (maybe in the future).
+See the [docs](https://samuelstevens.me/saev/) for an overview.
 
-I use [uv](https://docs.astral.sh/uv/) for everything now.
 
-Generate the activations using a ViT-B/32 pre-trained with the CLIP objective:
+## Roadmap
 
-```sh
-uv run main.py activations \
-  --n-workers 12 \
-  --vit-batch-size 512 \
-  --d-vit 768 \
-  --n-layers 3 \
-  --n-patches-per-img 49 \
-  --model-ckpt ViT-B-32/openai \
-  --dump-to /local/scratch/stevens.994/cache/saev \
-  data:imagenet-dataset \
-  --data.split train
-
-```
-
-Sweep LR for 10M patches on the second-to-last layer of the [CLS] token.
-
-```sh
-uv run main.py sweep \
-  --sweep configs/baseline.toml \
-  --n-patches 10_000_000 \
-  --data.shard-root /local/scratch/stevens.994/cache/saev/4dc22752a94c350ea6045599290cfbc31e3ee96b213d485318e434362b3bbdda \
-  --data.patches cls \
-  --data.layer -2 
-```
-
-Generate webapp images:
-
-```sh
-uv run main.py webapp \
-  --ckpt ./checkpoints/cr6sl257/sae.pt \
-  --data.shard-root /local/scratch/stevens.994/cache/saev/4dc22752a94c350ea6045599290cfbc31e3ee96b213d485318e434362b3bbdda \
-  --dump-to /local/scratch/stevens.994/cache/saev/webapp/cr6sl257
-```
-
-Then run the webapp with:
-
-```sh
-uv run marimo edit webapp.py
-```
-
-And make sure `webapp_dir` is `"/local/scratch/stevens.994/cache/saev/webapp/cr6sl257"`.
+1. Train models with data scaling (norm, mean) turned on.
+2. Train models on ViT-L/14 datasets.
+3. Semantic segmentation baseline with linear probe.
+4. ADE20K experiment to demonstrate faithfulness.

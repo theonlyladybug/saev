@@ -28,7 +28,7 @@ hljs.highlightAll();
 </header>
 <section id="section-intro">
 <p>saev is a Python package for training sparse autoencoders (SAEs) on vision transformers (ViTs) in PyTorch.</p>
-<p>The main entrypoint to the package is in <a href="https://github.com/samuelstevens/saev/blob/main/main.py">main.py</a>; use <code>python main.py --help</code> to see the options and documentation for the script.</p>
+<p>The main entrypoint to the package is in <code>__main__</code>; use <code>python -m saev --help</code> to see the options and documentation for the script.</p>
 </section>
 <section>
 <h2 class="section-title" id="header-submodules">Sub-modules</h2>
@@ -36,10 +36,6 @@ hljs.highlightAll();
 <dt><code class="name"><a title="saev.activations" href="activations.html">saev.activations</a></code></dt>
 <dd>
 <div class="desc"><p>To save lots of activations, we want to do things in parallel, with lots of slurm jobs, and save multiple files, rather than just one …</p></div>
-</dd>
-<dt><code class="name"><a title="saev.broden" href="broden.html">saev.broden</a></code></dt>
-<dd>
-<div class="desc"></div>
 </dd>
 <dt><code class="name"><a title="saev.config" href="config.html">saev.config</a></code></dt>
 <dd>
@@ -56,10 +52,6 @@ hljs.highlightAll();
 <dt><code class="name"><a title="saev.helpers" href="helpers.html">saev.helpers</a></code></dt>
 <dd>
 <div class="desc"></div>
-</dd>
-<dt><code class="name"><a title="saev.imagenet1k" href="imagenet1k.html">saev.imagenet1k</a></code></dt>
-<dd>
-<div class="desc"><p>Runs linear probing on ImageNet-1K using the original model activations as well as the SAE reconstructions and calculates the change as a percentage.</p></div>
 </dd>
 <dt><code class="name"><a title="saev.imaging" href="imaging.html">saev.imaging</a></code></dt>
 <dd>
@@ -105,345 +97,6 @@ These tests are quite slow</p></div>
 <section>
 </section>
 <section>
-<h2 class="section-title" id="header-classes">Classes</h2>
-<dl>
-<dt id="saev.Activations"><code class="flex name class">
-<span>class <span class="ident">ActivationsConfig</span></span>
-<span>(</span><span>data: <a title="saev.config.ImagenetDataset" href="config.html#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.TreeOfLifeDataset" href="config.html#saev.config.TreeOfLifeDataset">TreeOfLifeDataset</a> | <a title="saev.config.LaionDataset" href="config.html#saev.config.LaionDataset">LaionDataset</a> | <a title="saev.config.ImageFolderDataset" href="config.html#saev.config.ImageFolderDataset">ImageFolderDataset</a> | <a title="saev.config.BrodenDataset" href="config.html#saev.config.BrodenDataset">BrodenDataset</a> = &lt;factory&gt;, dump_to: str = './shards', model_org: Literal['clip', 'siglip', 'timm', 'dinov2'] = 'clip', model_ckpt: str = 'ViT-L-14/openai', vit_batch_size: int = 1024, n_workers: int = 8, d_vit: int = 1024, layers: list[int] = &lt;factory&gt;, n_patches_per_img: int = 256, cls_token: bool = True, n_patches_per_shard: int = 2400000, seed: int = 42, ssl: bool = True, device: str = 'cuda', slurm: bool = False, slurm_acct: str = 'PAS2136', log_to: str = './logs')</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Configuration for calculating and saving ViT activations.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@beartype.beartype
-@dataclasses.dataclass(frozen=True)
-class Activations:
-    &#34;&#34;&#34;
-    Configuration for calculating and saving ViT activations.
-    &#34;&#34;&#34;
-
-    data: DatasetConfig = dataclasses.field(default_factory=ImagenetDataset)
-    &#34;&#34;&#34;Which dataset to use.&#34;&#34;&#34;
-    dump_to: str = os.path.join(&#34;.&#34;, &#34;shards&#34;)
-    &#34;&#34;&#34;Where to write shards.&#34;&#34;&#34;
-    model_org: typing.Literal[&#34;clip&#34;, &#34;siglip&#34;, &#34;timm&#34;, &#34;dinov2&#34;] = &#34;clip&#34;
-    &#34;&#34;&#34;Where to load models from.&#34;&#34;&#34;
-    model_ckpt: str = &#34;ViT-L-14/openai&#34;
-    &#34;&#34;&#34;Specific model checkpoint.&#34;&#34;&#34;
-    vit_batch_size: int = 1024
-    &#34;&#34;&#34;Batch size for ViT inference.&#34;&#34;&#34;
-    n_workers: int = 8
-    &#34;&#34;&#34;Number of dataloader workers.&#34;&#34;&#34;
-    d_vit: int = 1024
-    &#34;&#34;&#34;Dimension of the ViT activations (depends on model).&#34;&#34;&#34;
-    layers: list[int] = dataclasses.field(default_factory=lambda: [-2])
-    &#34;&#34;&#34;How many of the last ViT layers to save.&#34;&#34;&#34;
-    n_patches_per_img: int = 256
-    &#34;&#34;&#34;Number of ViT patches per image (depends on model).&#34;&#34;&#34;
-    cls_token: bool = True
-    &#34;&#34;&#34;Whether the model has a [CLS] token.&#34;&#34;&#34;
-    n_patches_per_shard: int = 2_400_000
-    &#34;&#34;&#34;Number of activations per shard; 2.4M is approximately 10GB for 1024-dimensional 4-byte activations.&#34;&#34;&#34;
-
-    seed: int = 42
-    &#34;&#34;&#34;Random seed.&#34;&#34;&#34;
-    ssl: bool = True
-    &#34;&#34;&#34;Whether to use SSL.&#34;&#34;&#34;
-
-    # Hardware
-    device: str = &#34;cuda&#34;
-    &#34;&#34;&#34;Which device to use.&#34;&#34;&#34;
-    slurm: bool = False
-    &#34;&#34;&#34;Whether to use `submitit` to run jobs on a Slurm cluster.&#34;&#34;&#34;
-    slurm_acct: str = &#34;PAS2136&#34;
-    &#34;&#34;&#34;Slurm account string.&#34;&#34;&#34;
-    log_to: str = &#34;./logs&#34;
-    &#34;&#34;&#34;Where to log Slurm job stdout/stderr.&#34;&#34;&#34;</code></pre>
-</details>
-<h3>Class variables</h3>
-<dl>
-<dt id="saev.Activations.cls_token"><code class="name">var <span class="ident">cls_token</span> : bool</code></dt>
-<dd>
-<div class="desc"><p>Whether the model has a [CLS] token.</p></div>
-</dd>
-<dt id="saev.Activations.d_vit"><code class="name">var <span class="ident">d_vit</span> : int</code></dt>
-<dd>
-<div class="desc"><p>Dimension of the ViT activations (depends on model).</p></div>
-</dd>
-<dt id="saev.Activations.data"><code class="name">var <span class="ident">data</span> : <a title="saev.config.ImagenetDataset" href="config.html#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.TreeOfLifeDataset" href="config.html#saev.config.TreeOfLifeDataset">TreeOfLifeDataset</a> | <a title="saev.config.LaionDataset" href="config.html#saev.config.LaionDataset">LaionDataset</a> | <a title="saev.config.ImageFolderDataset" href="config.html#saev.config.ImageFolderDataset">ImageFolderDataset</a> | <a title="saev.config.BrodenDataset" href="config.html#saev.config.BrodenDataset">BrodenDataset</a></code></dt>
-<dd>
-<div class="desc"><p>Which dataset to use.</p></div>
-</dd>
-<dt id="saev.Activations.device"><code class="name">var <span class="ident">device</span> : str</code></dt>
-<dd>
-<div class="desc"><p>Which device to use.</p></div>
-</dd>
-<dt id="saev.Activations.dump_to"><code class="name">var <span class="ident">dump_to</span> : str</code></dt>
-<dd>
-<div class="desc"><p>Where to write shards.</p></div>
-</dd>
-<dt id="saev.Activations.layers"><code class="name">var <span class="ident">layers</span> : list[int]</code></dt>
-<dd>
-<div class="desc"><p>How many of the last ViT layers to save.</p></div>
-</dd>
-<dt id="saev.Activations.log_to"><code class="name">var <span class="ident">log_to</span> : str</code></dt>
-<dd>
-<div class="desc"><p>Where to log Slurm job stdout/stderr.</p></div>
-</dd>
-<dt id="saev.Activations.model_ckpt"><code class="name">var <span class="ident">model_ckpt</span> : str</code></dt>
-<dd>
-<div class="desc"><p>Specific model checkpoint.</p></div>
-</dd>
-<dt id="saev.Activations.model_org"><code class="name">var <span class="ident">model_org</span> : Literal['clip', 'siglip', 'timm', 'dinov2']</code></dt>
-<dd>
-<div class="desc"><p>Where to load models from.</p></div>
-</dd>
-<dt id="saev.Activations.n_patches_per_img"><code class="name">var <span class="ident">n_patches_per_img</span> : int</code></dt>
-<dd>
-<div class="desc"><p>Number of ViT patches per image (depends on model).</p></div>
-</dd>
-<dt id="saev.Activations.n_patches_per_shard"><code class="name">var <span class="ident">n_patches_per_shard</span> : int</code></dt>
-<dd>
-<div class="desc"><p>Number of activations per shard; 2.4M is approximately 10GB for 1024-dimensional 4-byte activations.</p></div>
-</dd>
-<dt id="saev.Activations.n_workers"><code class="name">var <span class="ident">n_workers</span> : int</code></dt>
-<dd>
-<div class="desc"><p>Number of dataloader workers.</p></div>
-</dd>
-<dt id="saev.Activations.seed"><code class="name">var <span class="ident">seed</span> : int</code></dt>
-<dd>
-<div class="desc"><p>Random seed.</p></div>
-</dd>
-<dt id="saev.Activations.slurm"><code class="name">var <span class="ident">slurm</span> : bool</code></dt>
-<dd>
-<div class="desc"><p>Whether to use <code>submitit</code> to run jobs on a Slurm cluster.</p></div>
-</dd>
-<dt id="saev.Activations.slurm_acct"><code class="name">var <span class="ident">slurm_acct</span> : str</code></dt>
-<dd>
-<div class="desc"><p>Slurm account string.</p></div>
-</dd>
-<dt id="saev.Activations.ssl"><code class="name">var <span class="ident">ssl</span> : bool</code></dt>
-<dd>
-<div class="desc"><p>Whether to use SSL.</p></div>
-</dd>
-<dt id="saev.Activations.vit_batch_size"><code class="name">var <span class="ident">vit_batch_size</span> : int</code></dt>
-<dd>
-<div class="desc"><p>Batch size for ViT inference.</p></div>
-</dd>
-</dl>
-</dd>
-<dt id="saev.Evaluate"><code class="flex name class">
-<span>class <span class="ident">EvaluateConfig</span></span>
-<span>(</span><span>histograms: <a title="saev.config.HistogramsEvaluate" href="config.html#saev.config.HistogramsEvaluate">HistogramsEvaluate</a> = &lt;factory&gt;, broden: <a title="saev.config.BrodenEvaluate" href="config.html#saev.config.BrodenEvaluate">BrodenEvaluate</a> = &lt;factory&gt;, imagenet: <a title="saev.config.ImagenetEvaluate" href="config.html#saev.config.ImagenetEvaluate">ImagenetEvaluate</a> = &lt;factory&gt;, slurm: bool = False, slurm_acct: str = 'PAS2136', log_to: str = './logs')</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Evaluate(histograms: saev.config.HistogramsEvaluate = <factory>, broden: saev.config.BrodenEvaluate = <factory>, imagenet: saev.config.ImagenetEvaluate = <factory>, slurm: bool = False, slurm_acct: str = 'PAS2136', log_to: str = './logs')</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@beartype.beartype
-@dataclasses.dataclass(frozen=True)
-class Evaluate:
-    histograms: HistogramsEvaluate = dataclasses.field(
-        default_factory=HistogramsEvaluate
-    )
-    &#34;&#34;&#34;Histogram config.&#34;&#34;&#34;
-    broden: BrodenEvaluate = dataclasses.field(default_factory=BrodenEvaluate)
-    &#34;&#34;&#34;Broden feature probing config.&#34;&#34;&#34;
-
-    imagenet: ImagenetEvaluate = dataclasses.field(default_factory=ImagenetEvaluate)
-    &#34;&#34;&#34;ImageNet-1K config.&#34;&#34;&#34;
-
-    slurm: bool = False
-    &#34;&#34;&#34;Whether to use `submitit` to run jobs on a Slurm cluster.&#34;&#34;&#34;
-    slurm_acct: str = &#34;PAS2136&#34;
-    &#34;&#34;&#34;Slurm account string.&#34;&#34;&#34;
-    log_to: str = &#34;./logs&#34;
-    &#34;&#34;&#34;Where to log Slurm job stdout/stderr.&#34;&#34;&#34;</code></pre>
-</details>
-<h3>Class variables</h3>
-<dl>
-<dt id="saev.Evaluate.broden"><code class="name">var <span class="ident">broden</span> : <a title="saev.config.BrodenEvaluate" href="config.html#saev.config.BrodenEvaluate">BrodenEvaluate</a></code></dt>
-<dd>
-<div class="desc"><p>Broden feature probing config.</p></div>
-</dd>
-<dt id="saev.Evaluate.histograms"><code class="name">var <span class="ident">histograms</span> : <a title="saev.config.HistogramsEvaluate" href="config.html#saev.config.HistogramsEvaluate">HistogramsEvaluate</a></code></dt>
-<dd>
-<div class="desc"><p>Histogram config.</p></div>
-</dd>
-<dt id="saev.Evaluate.imagenet"><code class="name">var <span class="ident">imagenet</span> : <a title="saev.config.ImagenetEvaluate" href="config.html#saev.config.ImagenetEvaluate">ImagenetEvaluate</a></code></dt>
-<dd>
-<div class="desc"><p>ImageNet-1K config.</p></div>
-</dd>
-<dt id="saev.Evaluate.log_to"><code class="name">var <span class="ident">log_to</span> : str</code></dt>
-<dd>
-<div class="desc"><p>Where to log Slurm job stdout/stderr.</p></div>
-</dd>
-<dt id="saev.Evaluate.slurm"><code class="name">var <span class="ident">slurm</span> : bool</code></dt>
-<dd>
-<div class="desc"><p>Whether to use <code>submitit</code> to run jobs on a Slurm cluster.</p></div>
-</dd>
-<dt id="saev.Evaluate.slurm_acct"><code class="name">var <span class="ident">slurm_acct</span> : str</code></dt>
-<dd>
-<div class="desc"><p>Slurm account string.</p></div>
-</dd>
-</dl>
-</dd>
-<dt id="saev.Train"><code class="flex name class">
-<span>class <span class="ident">TrainConfig</span></span>
-<span>(</span><span>data: <a title="saev.config.DataLoad" href="config.html#saev.config.DataLoad">DataLoad</a> = &lt;factory&gt;, n_workers: int = 32, n_patches: int = 100000000, sae: <a title="saev.config.SparseAutoencoder" href="config.html#saev.config.SparseAutoencoder">SparseAutoencoder</a> = &lt;factory&gt;, n_sparsity_warmup: int = 0, lr: float = 0.0004, n_lr_warmup: int = 500, sae_batch_size: int = 16384, feature_sampling_window: int = 64, dead_feature_window: int = 64, dead_feature_threshold: float = 1e-06, track: bool = True, wandb_project: str = 'saev', tag: str = '', log_every: int = 25, ckpt_path: str = './checkpoints', device: Literal['cuda', 'cpu'] = 'cuda', seed: int = 42, slurm: bool = False, slurm_acct: str = 'PAS2136', log_to: str = './logs')</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Configuration for training a sparse autoencoder on a vision transformer.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@beartype.beartype
-@dataclasses.dataclass(frozen=True)
-class Train:
-    &#34;&#34;&#34;
-    Configuration for training a sparse autoencoder on a vision transformer.
-    &#34;&#34;&#34;
-
-    data: DataLoad = dataclasses.field(default_factory=DataLoad)
-    &#34;&#34;&#34;Data configuration&#34;&#34;&#34;
-    n_workers: int = 32
-    &#34;&#34;&#34;Number of dataloader workers.&#34;&#34;&#34;
-    n_patches: int = 100_000_000
-    &#34;&#34;&#34;Number of SAE training examples.&#34;&#34;&#34;
-    sae: SparseAutoencoder = dataclasses.field(default_factory=SparseAutoencoder)
-    &#34;&#34;&#34;SAE configuration.&#34;&#34;&#34;
-    n_sparsity_warmup: int = 0
-    &#34;&#34;&#34;Number of sparsity coefficient warmup steps.&#34;&#34;&#34;
-    lr: float = 0.0004
-    &#34;&#34;&#34;Learning rate.&#34;&#34;&#34;
-    n_lr_warmup: int = 500
-    &#34;&#34;&#34;Number of learning rate warmup steps.&#34;&#34;&#34;
-    sae_batch_size: int = 1024 * 16
-    &#34;&#34;&#34;Batch size for SAE training.&#34;&#34;&#34;
-
-    feature_sampling_window: int = 64
-
-    dead_feature_window: int = 64
-
-    dead_feature_threshold: float = 1e-6
-
-    # Logging
-    track: bool = True
-    &#34;&#34;&#34;Whether to track with WandB.&#34;&#34;&#34;
-    wandb_project: str = &#34;saev&#34;
-    &#34;&#34;&#34;WandB project name.&#34;&#34;&#34;
-    tag: str = &#34;&#34;
-    &#34;&#34;&#34;Tag to add to WandB run.&#34;&#34;&#34;
-    log_every: int = 25
-    &#34;&#34;&#34;How often to log to WandB.&#34;&#34;&#34;
-    ckpt_path: str = os.path.join(&#34;.&#34;, &#34;checkpoints&#34;)
-    &#34;&#34;&#34;Where to save checkpoints.&#34;&#34;&#34;
-
-    device: typing.Literal[&#34;cuda&#34;, &#34;cpu&#34;] = &#34;cuda&#34;
-    &#34;&#34;&#34;Hardware device.&#34;&#34;&#34;
-    seed: int = 42
-    &#34;&#34;&#34;Random seed.&#34;&#34;&#34;
-    slurm: bool = False
-    &#34;&#34;&#34;Whether to use `submitit` to run jobs on a Slurm cluster.&#34;&#34;&#34;
-    slurm_acct: str = &#34;PAS2136&#34;
-    &#34;&#34;&#34;Slurm account string.&#34;&#34;&#34;
-    log_to: str = os.path.join(&#34;.&#34;, &#34;logs&#34;)
-    &#34;&#34;&#34;Where to log Slurm job stdout/stderr.&#34;&#34;&#34;</code></pre>
-</details>
-<h3>Class variables</h3>
-<dl>
-<dt id="saev.Train.ckpt_path"><code class="name">var <span class="ident">ckpt_path</span> : str</code></dt>
-<dd>
-<div class="desc"><p>Where to save checkpoints.</p></div>
-</dd>
-<dt id="saev.Train.data"><code class="name">var <span class="ident">data</span> : <a title="saev.config.DataLoad" href="config.html#saev.config.DataLoad">DataLoad</a></code></dt>
-<dd>
-<div class="desc"><p>Data configuration</p></div>
-</dd>
-<dt id="saev.Train.dead_feature_threshold"><code class="name">var <span class="ident">dead_feature_threshold</span> : float</code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt id="saev.Train.dead_feature_window"><code class="name">var <span class="ident">dead_feature_window</span> : int</code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt id="saev.Train.device"><code class="name">var <span class="ident">device</span> : Literal['cuda', 'cpu']</code></dt>
-<dd>
-<div class="desc"><p>Hardware device.</p></div>
-</dd>
-<dt id="saev.Train.feature_sampling_window"><code class="name">var <span class="ident">feature_sampling_window</span> : int</code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt id="saev.Train.log_every"><code class="name">var <span class="ident">log_every</span> : int</code></dt>
-<dd>
-<div class="desc"><p>How often to log to WandB.</p></div>
-</dd>
-<dt id="saev.Train.log_to"><code class="name">var <span class="ident">log_to</span> : str</code></dt>
-<dd>
-<div class="desc"><p>Where to log Slurm job stdout/stderr.</p></div>
-</dd>
-<dt id="saev.Train.lr"><code class="name">var <span class="ident">lr</span> : float</code></dt>
-<dd>
-<div class="desc"><p>Learning rate.</p></div>
-</dd>
-<dt id="saev.Train.n_lr_warmup"><code class="name">var <span class="ident">n_lr_warmup</span> : int</code></dt>
-<dd>
-<div class="desc"><p>Number of learning rate warmup steps.</p></div>
-</dd>
-<dt id="saev.Train.n_patches"><code class="name">var <span class="ident">n_patches</span> : int</code></dt>
-<dd>
-<div class="desc"><p>Number of SAE training examples.</p></div>
-</dd>
-<dt id="saev.Train.n_sparsity_warmup"><code class="name">var <span class="ident">n_sparsity_warmup</span> : int</code></dt>
-<dd>
-<div class="desc"><p>Number of sparsity coefficient warmup steps.</p></div>
-</dd>
-<dt id="saev.Train.n_workers"><code class="name">var <span class="ident">n_workers</span> : int</code></dt>
-<dd>
-<div class="desc"><p>Number of dataloader workers.</p></div>
-</dd>
-<dt id="saev.Train.sae"><code class="name">var <span class="ident">sae</span> : <a title="saev.config.SparseAutoencoder" href="config.html#saev.config.SparseAutoencoder">SparseAutoencoder</a></code></dt>
-<dd>
-<div class="desc"><p>SAE configuration.</p></div>
-</dd>
-<dt id="saev.Train.sae_batch_size"><code class="name">var <span class="ident">sae_batch_size</span> : int</code></dt>
-<dd>
-<div class="desc"><p>Batch size for SAE training.</p></div>
-</dd>
-<dt id="saev.Train.seed"><code class="name">var <span class="ident">seed</span> : int</code></dt>
-<dd>
-<div class="desc"><p>Random seed.</p></div>
-</dd>
-<dt id="saev.Train.slurm"><code class="name">var <span class="ident">slurm</span> : bool</code></dt>
-<dd>
-<div class="desc"><p>Whether to use <code>submitit</code> to run jobs on a Slurm cluster.</p></div>
-</dd>
-<dt id="saev.Train.slurm_acct"><code class="name">var <span class="ident">slurm_acct</span> : str</code></dt>
-<dd>
-<div class="desc"><p>Slurm account string.</p></div>
-</dd>
-<dt id="saev.Train.tag"><code class="name">var <span class="ident">tag</span> : str</code></dt>
-<dd>
-<div class="desc"><p>Tag to add to WandB run.</p></div>
-</dd>
-<dt id="saev.Train.track"><code class="name">var <span class="ident">track</span> : bool</code></dt>
-<dd>
-<div class="desc"><p>Whether to track with WandB.</p></div>
-</dd>
-<dt id="saev.Train.wandb_project"><code class="name">var <span class="ident">wandb_project</span> : str</code></dt>
-<dd>
-<div class="desc"><p>WandB project name.</p></div>
-</dd>
-</dl>
-</dd>
-</dl>
 </section>
 </article>
 <nav id="sidebar">
@@ -454,12 +107,10 @@ class Train:
 <li><h3><a href="#header-submodules">Sub-modules</a></h3>
 <ul>
 <li><code><a title="saev.activations" href="activations.html">saev.activations</a></code></li>
-<li><code><a title="saev.broden" href="broden.html">saev.broden</a></code></li>
 <li><code><a title="saev.config" href="config.html">saev.config</a></code></li>
 <li><code><a title="saev.cub2011" href="cub2011.html">saev.cub2011</a></code></li>
 <li><code><a title="saev.deepfashion" href="deepfashion.html">saev.deepfashion</a></code></li>
 <li><code><a title="saev.helpers" href="helpers.html">saev.helpers</a></code></li>
-<li><code><a title="saev.imagenet1k" href="imagenet1k.html">saev.imagenet1k</a></code></li>
 <li><code><a title="saev.imaging" href="imaging.html">saev.imaging</a></code></li>
 <li><code><a title="saev.nn" href="nn.html">saev.nn</a></code></li>
 <li><code><a title="saev.test_activations" href="test_activations.html">saev.test_activations</a></code></li>
@@ -469,69 +120,6 @@ class Train:
 <li><code><a title="saev.training" href="training.html">saev.training</a></code></li>
 <li><code><a title="saev.web" href="web/index.html">saev.web</a></code></li>
 <li><code><a title="saev.webapp" href="webapp.html">saev.webapp</a></code></li>
-</ul>
-</li>
-<li><h3><a href="#header-classes">Classes</a></h3>
-<ul>
-<li>
-<h4><code><a title="saev.Activations" href="#saev.Activations">Activations</a></code></h4>
-<ul class="two-column">
-<li><code><a title="saev.Activations.cls_token" href="#saev.Activations.cls_token">cls_token</a></code></li>
-<li><code><a title="saev.Activations.d_vit" href="#saev.Activations.d_vit">d_vit</a></code></li>
-<li><code><a title="saev.Activations.data" href="#saev.Activations.data">data</a></code></li>
-<li><code><a title="saev.Activations.device" href="#saev.Activations.device">device</a></code></li>
-<li><code><a title="saev.Activations.dump_to" href="#saev.Activations.dump_to">dump_to</a></code></li>
-<li><code><a title="saev.Activations.layers" href="#saev.Activations.layers">layers</a></code></li>
-<li><code><a title="saev.Activations.log_to" href="#saev.Activations.log_to">log_to</a></code></li>
-<li><code><a title="saev.Activations.model_ckpt" href="#saev.Activations.model_ckpt">model_ckpt</a></code></li>
-<li><code><a title="saev.Activations.model_org" href="#saev.Activations.model_org">model_org</a></code></li>
-<li><code><a title="saev.Activations.n_patches_per_img" href="#saev.Activations.n_patches_per_img">n_patches_per_img</a></code></li>
-<li><code><a title="saev.Activations.n_patches_per_shard" href="#saev.Activations.n_patches_per_shard">n_patches_per_shard</a></code></li>
-<li><code><a title="saev.Activations.n_workers" href="#saev.Activations.n_workers">n_workers</a></code></li>
-<li><code><a title="saev.Activations.seed" href="#saev.Activations.seed">seed</a></code></li>
-<li><code><a title="saev.Activations.slurm" href="#saev.Activations.slurm">slurm</a></code></li>
-<li><code><a title="saev.Activations.slurm_acct" href="#saev.Activations.slurm_acct">slurm_acct</a></code></li>
-<li><code><a title="saev.Activations.ssl" href="#saev.Activations.ssl">ssl</a></code></li>
-<li><code><a title="saev.Activations.vit_batch_size" href="#saev.Activations.vit_batch_size">vit_batch_size</a></code></li>
-</ul>
-</li>
-<li>
-<h4><code><a title="saev.Evaluate" href="#saev.Evaluate">Evaluate</a></code></h4>
-<ul class="two-column">
-<li><code><a title="saev.Evaluate.broden" href="#saev.Evaluate.broden">broden</a></code></li>
-<li><code><a title="saev.Evaluate.histograms" href="#saev.Evaluate.histograms">histograms</a></code></li>
-<li><code><a title="saev.Evaluate.imagenet" href="#saev.Evaluate.imagenet">imagenet</a></code></li>
-<li><code><a title="saev.Evaluate.log_to" href="#saev.Evaluate.log_to">log_to</a></code></li>
-<li><code><a title="saev.Evaluate.slurm" href="#saev.Evaluate.slurm">slurm</a></code></li>
-<li><code><a title="saev.Evaluate.slurm_acct" href="#saev.Evaluate.slurm_acct">slurm_acct</a></code></li>
-</ul>
-</li>
-<li>
-<h4><code><a title="saev.Train" href="#saev.Train">Train</a></code></h4>
-<ul class="">
-<li><code><a title="saev.Train.ckpt_path" href="#saev.Train.ckpt_path">ckpt_path</a></code></li>
-<li><code><a title="saev.Train.data" href="#saev.Train.data">data</a></code></li>
-<li><code><a title="saev.Train.dead_feature_threshold" href="#saev.Train.dead_feature_threshold">dead_feature_threshold</a></code></li>
-<li><code><a title="saev.Train.dead_feature_window" href="#saev.Train.dead_feature_window">dead_feature_window</a></code></li>
-<li><code><a title="saev.Train.device" href="#saev.Train.device">device</a></code></li>
-<li><code><a title="saev.Train.feature_sampling_window" href="#saev.Train.feature_sampling_window">feature_sampling_window</a></code></li>
-<li><code><a title="saev.Train.log_every" href="#saev.Train.log_every">log_every</a></code></li>
-<li><code><a title="saev.Train.log_to" href="#saev.Train.log_to">log_to</a></code></li>
-<li><code><a title="saev.Train.lr" href="#saev.Train.lr">lr</a></code></li>
-<li><code><a title="saev.Train.n_lr_warmup" href="#saev.Train.n_lr_warmup">n_lr_warmup</a></code></li>
-<li><code><a title="saev.Train.n_patches" href="#saev.Train.n_patches">n_patches</a></code></li>
-<li><code><a title="saev.Train.n_sparsity_warmup" href="#saev.Train.n_sparsity_warmup">n_sparsity_warmup</a></code></li>
-<li><code><a title="saev.Train.n_workers" href="#saev.Train.n_workers">n_workers</a></code></li>
-<li><code><a title="saev.Train.sae" href="#saev.Train.sae">sae</a></code></li>
-<li><code><a title="saev.Train.sae_batch_size" href="#saev.Train.sae_batch_size">sae_batch_size</a></code></li>
-<li><code><a title="saev.Train.seed" href="#saev.Train.seed">seed</a></code></li>
-<li><code><a title="saev.Train.slurm" href="#saev.Train.slurm">slurm</a></code></li>
-<li><code><a title="saev.Train.slurm_acct" href="#saev.Train.slurm_acct">slurm_acct</a></code></li>
-<li><code><a title="saev.Train.tag" href="#saev.Train.tag">tag</a></code></li>
-<li><code><a title="saev.Train.track" href="#saev.Train.track">track</a></code></li>
-<li><code><a title="saev.Train.wandb_project" href="#saev.Train.wandb_project">wandb_project</a></code></li>
-</ul>
-</li>
 </ul>
 </li>
 </ul>

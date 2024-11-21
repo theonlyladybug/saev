@@ -327,9 +327,7 @@ class EvalMetrics:
 
 @beartype.beartype
 @torch.no_grad()
-def evaluate(
-    cfgs: list[config.Train | config.HistogramsEvaluate], saes: torch.nn.ModuleList
-) -> list[EvalMetrics]:
+def evaluate(cfgs: list[config.Train], saes: torch.nn.ModuleList) -> list[EvalMetrics]:
     """
     Evaluates SAE quality by counting the number of dead features and the number of dense features.
     Also makes histogram plots to help human qualitative comparison.

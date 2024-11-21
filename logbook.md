@@ -835,3 +835,9 @@ What exactly are my next steps?
 2. Propose a trend in sparse autoencoders between CLIP and DINOv2 with at least 3 examples.
 3. Ensure that your probing methodology works.
 
+
+# 11/21/2024
+
+Scaling Monosemanticity suggests that features should be both specific (high precision) and they influence behavior (causally faithful).
+
+They suggest that measuring sensitivity (how reliably a feature activates for text that matches our proposed concept; recall) is hard.
