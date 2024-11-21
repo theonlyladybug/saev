@@ -43,67 +43,6 @@ class ImagenetDataset:
 
 @beartype.beartype
 @dataclasses.dataclass(frozen=True)
-class TreeOfLifeDataset:
-    """
-    Configuration for the TreeOfLife-10M webdataset.
-
-    Webdatasets are designed for random sampling of the entire dataset so that over multiple epochs, every sample is seen, on average, the same number of times. However, for training sparse autoencoders, we need to calculate ViT activations exactly once for each example in the dataset. Webdatasets support this through the [`wids`](https://github.com/webdataset/webdataset?tab=readme-ov-file#the-wids-library-for-indexed-webdatasets) library.
-
-    Here is a short discussion of the steps required to use saev with webdatasets.
-
-    First, you will need to use `widsindex` (installed with the webdataset library) to create an metadata file used by wids. You can see an example file [here](https://storage.googleapis.com/webdataset/fake-imagenet/imagenet-train.json). To generate my own metadata file, I ran this command:
-
-    ```sh
-    uv run widsindex create --name treeoflife-10m --output treeoflife-10m.json '/fs/ess/PAS2136/open_clip/data/evobio10m-v3.3/224x224/train/shard-{000000..000159}.tar'
-    ```
-
-    It took a long time (more than an hour, less than 3 hours) and generated a `treeoflife-10m.json` file.
-    """
-
-    metadata: str = "treeoflife-10m.json"
-    """"""
-    label_key: str = ".taxonomic_name.txt"
-    """Which key to use as the label."""
-
-    @property
-    def n_imgs(self) -> int:
-        """Return number of images in the dataset by reading the metadata file and summing the `nsamples` fields."""
-        import json
-
-        import numpy as np
-
-        with open(self.metadata) as fd:
-            metadata = json.load(fd)
-
-        return (
-            np.array([shard["nsamples"] for shard in metadata["shardlist"]])
-            .sum()
-            .item()
-        )
-
-
-@beartype.beartype
-@dataclasses.dataclass(frozen=True)
-class LaionDataset:
-    name: str = "laion/relaion2B-multi-research-safe"
-    """Name of dataset on HuggingFace."""
-    cache_dir: str = "/fs/scratch/PAS2136/samuelstevens/cache/laion"
-    """Where to save the webdataset files that are downloaded."""
-    n_imgs: int = 10_000_000
-    """Number of images in this dataset (fixed at 10M)."""
-
-    @property
-    def url_list_filepath(self) -> str:
-        """Path to file with list of URLs."""
-        return os.path.join(self.cache_dir, "urls.jsonl")
-
-    @property
-    def tar_dir(self) -> str:
-        return os.path.join(self.cache_dir, "shards")
-
-
-@beartype.beartype
-@dataclasses.dataclass(frozen=True)
 class ImageFolderDataset:
     """Configuration for a generic image folder dataset."""
 
@@ -119,7 +58,7 @@ class ImageFolderDataset:
         return n
 
 
-DatasetConfig = ImagenetDataset | TreeOfLifeDataset | LaionDataset | ImageFolderDataset
+DatasetConfig = ImagenetDataset | ImageFolderDataset
 
 
 @beartype.beartype
@@ -177,7 +116,7 @@ class DataLoad:
 
     shard_root: str = os.path.join(".", "shards")
     """Directory with .bin shards and a metadata.json file."""
-    patches: typing.Literal["cls", "patches", "meanpool"] = "cls"
+    patches: typing.Literal["cls", "patches", "meanpool"] = "patches"
     """Which kinds of patches to use. 'cls' indicates just the [CLS] token (if any). 'patches' indicates it will return all patches. 'meanpool' returns the mean of all image patches."""
     layer: int | typing.Literal["all", "meanpool"] = -2
     """.. todo: document this field."""
@@ -195,9 +134,9 @@ class DataLoad:
 @dataclasses.dataclass(frozen=True)
 class SparseAutoencoder:
     d_vit: int = 1024
-    exp_factor: int = 64
+    exp_factor: int = 16
     """Expansion factor for SAE."""
-    sparsity_coeff: float = 0.00008
+    sparsity_coeff: float = 4e-4
     """How much to weight sparsity loss term."""
     n_reinit_samples: int = 1024 * 16 * 32
     """Number of samples to use for SAE re-init. Anthropic proposes initializing b_dec to the geometric median of the dataset here: https://transformer-circuits.pub/2023/monosemantic-features/index.html#appendix-autoencoder-bias. We use the regular mean."""
@@ -238,12 +177,6 @@ class Train:
     """Number of learning rate warmup steps."""
     sae_batch_size: int = 1024 * 16
     """Batch size for SAE training."""
-
-    feature_sampling_window: int = 64
-
-    dead_feature_window: int = 64
-
-    dead_feature_threshold: float = 1e-6
 
     # Logging
     track: bool = True

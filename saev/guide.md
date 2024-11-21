@@ -48,4 +48,46 @@ It will write 2.4M patches per shard, and save shards to a new directory `/local
 This script will also save a `metadata.json` file that will record the relevant metadata for these activations, which will be read by future steps.
 The activations will be in `.bin` files, numbered starting from 000000.
 
+To add your own models, see the guide to extending in `saev.activations`.
+
+## Train SAEs on Activations
+
+To train an SAE, we need to specify:
+
+1. Which activations to use as input.
+2. SAE architectural stuff.
+3. Optimization-related stuff.
+
+`The `saev.training` module handles this.
+
+Run `uv run python -m saev train --help` to see all the configuration.
+
+Continuing on from our example before, you might want to run something like:
+
+```sh
+uv run python -m saev train \
+  --data.shard-root /local/scratch/$USER/cache/saev/ac89246f1934b45e2f0487298aebe36ad998b6bd252d880c0c9ec5de78d793c8 \
+  --data.layer -2 \
+  --data.patches patches \
+  --data.no-scale-mean \
+  --data.no-scale-norm \
+  --sae.d-vit 768 \
+  --lr 5e-4
+```
+
+`--data.*` flags describe which activations to use.
+
+`--data.shard-root` should point to a directory with `*.bin` files and the `metadata.json` file.
+`--data.layer` specifies the layer, and `--data.patches` says that want to train on individual patch activations, rather than the [CLS] token activation.
+`--data.no-scale-mean` and `--data.no-scale-norm` mean not to scale the activation mean or L2 norm.
+Anthropic's and OpenAI's papers suggest normalizing these factors, but `saev` still has a bug with this, so I suggest not scaling these factors.
+
+`--sae.*` flags are about the SAE itself.
+
+`--sae.d-vit` is the only one you need to change; the dimension of our ViT was 768 for a ViT-B, rather than the default of 1024 for a ViT-L.
+
+Finally, choose a slightly larger learning rate than the default with `--lr 5e-4`.
+
+This will train one (1) sparse autoencoder on the data.
+
 

@@ -1,3 +1,7 @@
+"""
+Neural network architectures for sparse autoencoders.
+"""
+
 import io
 import json
 import logging
@@ -75,42 +79,12 @@ class SparseAutoencoder(torch.nn.Module):
         # Some values of x and x_hat can be very large. We can calculate a safe MSE
         mse_loss = safe_mse(x_hat, x)
 
-        ghost_loss = torch.tensor(0.0, dtype=mse_loss.dtype, device=mse_loss.device)
-        # gate on config and training so evals is not slowed down.
-        if (
-            self.cfg.ghost_grads
-            and self.training
-            and dead_neuron_mask is not None
-            and dead_neuron_mask.sum() > 0
-        ):
-            assert dead_neuron_mask is not None
-
-            # ghost protocol
-
-            # 1.
-            residual = x - x_hat
-            l2_norm_residual = torch.norm(residual, dim=-1)
-
-            # 2.
-            feature_acts_dead_neurons_only = torch.exp(h_pre[:, dead_neuron_mask])
-            ghost_out = feature_acts_dead_neurons_only @ self.W_dec[dead_neuron_mask, :]
-            l2_norm_ghost_out = torch.norm(ghost_out, dim=-1)
-            norm_scaling_factor = l2_norm_residual / (1e-6 + l2_norm_ghost_out * 2)
-            ghost_out *= norm_scaling_factor[:, None].detach()
-
-            # 3.
-            ghost_loss = (
-                torch.pow((ghost_out - residual.detach().float()), 2)
-                / (residual.detach() ** 2).sum(dim=-1, keepdim=True).sqrt()
-            )
-            mse_rescaling_factor = (mse_loss / (ghost_loss + 1e-6)).detach()
-            ghost_loss *= mse_rescaling_factor
-
-        ghost_loss = ghost_loss.mean()
         mse_loss = mse_loss.mean()
         l0 = (f_x > 0).float().sum(axis=1).mean(axis=0)
         l1 = f_x.sum(axis=1).mean(axis=0)
         sparsity_loss = self.cfg.sparsity_coeff * l1
+        # Ghost loss is included for backwards compatibility.
+        ghost_loss = torch.zero_like(mse_loss)
 
         return x_hat, f_x, Loss(mse_loss, sparsity_loss, ghost_loss, l0, l1)
 
@@ -190,6 +164,13 @@ def safe_mse(
 
 @beartype.beartype
 def dump(fpath: str, sae: SparseAutoencoder):
+    """
+    Save an SAE checkpoint to disk along with configuration, using the [trick from equinox](https://docs.kidger.site/equinox/examples/serialisation).
+
+    Arguments:
+        fpath: filepath to save checkpoint to.
+        sae: sparse autoencoder checkpoint to save.
+    """
     kwargs = vars(sae.cfg)
 
     os.makedirs(os.path.dirname(fpath), exist_ok=True)
@@ -201,6 +182,9 @@ def dump(fpath: str, sae: SparseAutoencoder):
 
 @beartype.beartype
 def load(fpath: str, *, device: str = "cpu") -> SparseAutoencoder:
+    """
+    Loads a sparse autoencoder from disk.
+    """
     with open(fpath, "rb") as fd:
         kwargs = json.loads(fd.readline().decode())
         buffer = io.BytesIO(fd.read())

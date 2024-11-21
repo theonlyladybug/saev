@@ -1,0 +1,1489 @@
+Module saev
+===========
+saev is a Python package for training sparse autoencoders (SAEs) on vision transformers (ViTs) in PyTorch.
+
+The main entrypoint to the package is in `__main__`; use `python -m saev --help` to see the options and documentation for the script.
+
+# Guide to Training SAEs on Vision Models
+
+1. Record ViT activations and save them to disk.
+2. Train SAEs on the activations.
+3. Visualize the learned features from the trained SAEs.
+4. (your job) Propose trends and patterns in the visualized features.
+5. (your job, supported by code) Construct datasets to test your hypothesized trends.
+6. Confirm/reject hypotheses using `probing` package.
+
+`saev` helps with steps 1, 2 and 3.
+
+.. note:: `saev` assumes you are running on NVIDIA GPUs. On a multi-GPU system, prefix your commands with `CUDA_VISIBLE_DEVICES=X` to run on GPU X.
+
+## Record ViT Activations to Disk
+
+To save activations to disk, we need to specify:
+
+1. Which model we would like to use
+2. Which layers we would like to save.
+3. Where on disk and how we would like to save activations.
+4. Which images we want to save activations for.
+
+The `saev.activations` module does all of this for us.
+
+Run `uv run python -m saev activations --help` to see all the configuration.
+
+In practice, you might run:
+
+```sh
+uv run python -m saev activations \
+  --model-group clip \
+  --model-ckpt ViT-B-32/openai \
+  --d-vit 768 \
+  --n-patches-per-img 49 \
+  --layers -2 \
+  --dump-to /local/scratch/$USER/cache/saev \
+  --n-patches-per-shard 2_4000_000 \
+  data:imagenet-dataset
+```
+
+This will save activations for the CLIP-pretrained model ViT-B/32, which has a residual stream dimension of 768, and has 49 patches per image (224 / 32 = 7; 7 x 7 = 49).
+It will save the second-to-last layer (`--layer -2`).
+It will write 2.4M patches per shard, and save shards to a new directory `/local/scratch$USER/cache/saev`.
+
+.. note:: A note on storage space: A ViT-B/16 will save 1.2M images x 197 patches/layer/image x 1 layer = ~240M activations, each of which take up 768 floats x 4 bytes/float = 3072 bytes, for a **total of 723GB** for the entire dataset. As you scale to larger models (ViT-L has 1024 dimensions, 14x14 patches are 224 patches/layer/image), recorded activations will grow even larger.
+
+This script will also save a `metadata.json` file that will record the relevant metadata for these activations, which will be read by future steps.
+The activations will be in `.bin` files, numbered starting from 000000.
+
+To add your own models, see the guide to extending in `saev.activations`.
+
+## Train SAEs on Activations
+
+To train an SAE, we need to specify:
+
+1. Which activations to use as input.
+2. SAE architectural stuff.
+3. Optimization-related stuff.
+
+`The `saev.training` module handles this.
+
+Run `uv run python -m saev train --help` to see all the configuration.
+
+Continuing on from our example before, you might want to run something like:
+
+```sh
+uv run python -m saev train \
+  --data.shard-root /local/scratch/$USER/cache/saev/ac89246f1934b45e2f0487298aebe36ad998b6bd252d880c0c9ec5de78d793c8 \
+  --data.layer -2 \
+  --data.patches patches \
+  --data.no-scale-mean \
+  --data.no-scale-norm \
+  --sae.d-vit 768 \
+  --lr 5e-4
+```
+
+`--data.*` flags describe which activations to use.
+
+`--data.shard-root` should point to a directory with `*.bin` files and the `metadata.json` file.
+`--data.layer` specifies the layer, and `--data.patches` says that want to train on individual patch activations, rather than the [CLS] token activation.
+`--data.no-scale-mean` and `--data.no-scale-norm` mean not to scale the activation mean or L2 norm.
+Anthropic's and OpenAI's papers suggest normalizing these factors, but `saev` still has a bug with this, so I suggest not scaling these factors.
+
+`--sae.*` flags are about the SAE itself.
+
+`--sae.d-vit` is the only one you need to change; the dimension of our ViT was 768 for a ViT-B, rather than the default of 1024 for a ViT-L.
+
+Finally, choose a slightly larger learning rate than the default with `--lr 5e-4`.
+
+This will train one (1) sparse autoencoder on the data.
+
+Sub-modules
+-----------
+* saev.activations
+* saev.config
+* saev.helpers
+* saev.imaging
+* saev.nn
+* saev.test_activations
+* saev.test_config
+* saev.test_nn
+* saev.test_webapp
+* saev.training
+* saev.web
+* saev.webapp
+
+Module saev.activations
+=======================
+To save lots of activations, we want to do things in parallel, with lots of slurm jobs, and save multiple files, rather than just one.
+
+This module handles that additional complexity.
+
+Conceptually, activations are either thought of as
+
+1. A single [n_imgs x n_layers x (n_patches + 1), d_vit] tensor. This is a *dataset*
+2. Multiple [n_imgs_per_shard, n_layers, (n_patches + 1), d_vit] tensors. This is a set of sharded activations.
+
+Functions
+---------
+
+`dump(cfg: saev.config.Activations)`
+:   Args:
+        cfg: Config for activations.
+
+`get_acts_dir(cfg: saev.config.Activations) ‑> str`
+:   Return the activations filepath based on the relevant values of a config.
+    Also saves a metadata.json file to that directory for human reference.
+    
+    Args:
+        cfg: Config for experiment.
+    
+    Returns:
+        Directory to where activations should be dumped/loaded from.
+
+`get_dataloader(cfg: saev.config.Activations, preprocess)`
+:   Gets the dataloader for the current experiment; delegates dataloader construction to dataset-specific functions.
+    
+    Args:
+        cfg: Experiment config.
+        preprocess: Image transform to be applied to each image.
+    
+    Returns:
+        A PyTorch Dataloader that yields dictionaries with `'image'` keys containing image batches.
+
+`get_dataset(cfg: saev.config.ImagenetDataset | saev.config.ImageFolderDataset, *, transform)`
+:   Gets the dataset for the current experiment; delegates construction to dataset-specific functions.
+    
+    Args:
+        cfg: Experiment config.
+        transform: Image transform to be applied to each image.
+    
+    Returns:
+        A dataset that has dictionaries with `'image'`, `'index'`, `'target'`, and `'label'` keys containing examples.
+
+`get_default_dataloader(cfg: saev.config.Activations, transform) ‑> torch.utils.data.dataloader.DataLoader`
+:   Get a dataloader for a default map-style dataset.
+    
+    Args:
+        cfg: Config.
+        preprocess: Image transform to be applied to each image.
+    
+    Returns:
+        A PyTorch Dataloader that yields dictionaries with `'image'` keys containing image batches, `'index'` keys containing original dataset indices and `'label'` keys containing label batches.
+
+`get_laion_dataloader(cfg: saev.config.Activations, preprocess) ‑> torch.utils.data.dataloader.DataLoader`
+:   Get a dataloader for a subset of the LAION datasets.
+    
+    This requires several steps:
+    
+    1. Download list of image URLs
+    2. Use img2dataset to download these images to webdataset format.
+    3. Create a dataloader from these webdataset tar files.
+    
+    So that we don't have to redo any of these steps, we check on the existence of various files to check if this stuff is done already.
+
+`get_tol_dataloader(cfg: saev.config.Activations, preprocess) ‑> torch.utils.data.dataloader.DataLoader`
+:   Get a dataloader for the TreeOfLife-10M dataset.
+    
+    Currently does not include a true index or label in the loaded examples.
+    
+    Args:
+        cfg: Config for loading activations.
+        preprocess: Image transform to be applied to each image.
+    
+    Returns:
+        A PyTorch Dataloader that yields dictionaries with `'image'` keys containing image batches.
+
+`make_vit(cfg: saev.config.Activations)`
+:   
+
+`setup(cfg: saev.config.Activations)`
+:   Run dataset-specific setup. These setup functions can assume they are the only job running, but they should be idempotent; they should be safe (and ideally cheap) to run multiple times in a row.
+
+`setup_imagefolder(cfg: saev.config.Activations)`
+:   
+
+`setup_imagenet(cfg: saev.config.Activations)`
+:   
+
+`setup_laion(cfg: saev.config.Activations)`
+:   Do setup for LAION dataloader.
+
+`setup_tol(cfg: saev.config.Activations)`
+:   
+
+`worker_fn(cfg: saev.config.Activations)`
+:   Args:
+        cfg: Config for activations.
+
+Classes
+-------
+
+`Clip(cfg: saev.config.Activations)`
+:   Base class for all neural network modules.
+    
+    Your models should also subclass this class.
+    
+    Modules can also contain other Modules, allowing to nest them in
+    a tree structure. You can assign the submodules as regular attributes::
+    
+        import torch.nn as nn
+        import torch.nn.functional as F
+    
+        class Model(nn.Module):
+            def __init__(self) -> None:
+                super().__init__()
+                self.conv1 = nn.Conv2d(1, 20, 5)
+                self.conv2 = nn.Conv2d(20, 20, 5)
+    
+            def forward(self, x):
+                x = F.relu(self.conv1(x))
+                return F.relu(self.conv2(x))
+    
+    Submodules assigned in this way will be registered, and will have their
+    parameters converted too when you call :meth:`to`, etc.
+    
+    .. note::
+        As per the example above, an ``__init__()`` call to the parent class
+        must be made before assignment on the child.
+    
+    :ivar training: Boolean represents whether this module is in training or
+                    evaluation mode.
+    :vartype training: bool
+    
+    Initialize internal Module state, shared by both nn.Module and ScriptModule.
+
+    ### Ancestors (in MRO)
+
+    * torch.nn.modules.module.Module
+
+    ### Methods
+
+    `forward(self, batch: jaxtyping.Float[Tensor, 'batch 3 width height']) ‑> Callable[..., Any]`
+    :   Define the computation performed at every call.
+        
+        Should be overridden by all subclasses.
+        
+        .. note::
+            Although the recipe for forward pass needs to be defined within
+            this function, one should call the :class:`Module` instance afterwards
+            instead of this since the former takes care of running the
+            registered hooks while the latter silently ignores them.
+
+    `make_img_transform(self)`
+    :
+
+`Dataset(cfg: saev.config.DataLoad)`
+:   Dataset of activations from disk.
+
+    ### Ancestors (in MRO)
+
+    * torch.utils.data.dataset.Dataset
+    * typing.Generic
+
+    ### Class variables
+
+    `Example`
+    :   Individual example.
+
+    `act_mean: jaxtyping.Float[Tensor, 'd_vit']`
+    :   Mean activation.
+
+    `cfg: saev.config.DataLoad`
+    :   Configuration; set via CLI args.
+
+    `layer_index: int`
+    :   Layer index into the shards if we are choosing a specific layer.
+
+    `metadata: saev.activations.Metadata`
+    :   Activations metadata; automatically loaded from disk.
+
+    `scalar: float`
+    :   Normalizing scalar such that ||x / scalar ||_2 ~= sqrt(d_vit).
+
+    ### Instance variables
+
+    `d_vit: int`
+    :   Dimension of the underlying vision transformer's embedding space.
+
+    ### Methods
+
+    `get_img_patches(self, i: int) ‑> jaxtyping.Float[ndarray, 'n_layers all_patches d_vit']`
+    :
+
+    `get_shard_patches(self)`
+    :
+
+    `transform(self, act: jaxtyping.Float[ndarray, 'd_vit']) ‑> jaxtyping.Float[Tensor, 'd_vit']`
+    :   Apply a scalar normalization so the mean squared L2 norm is same as d_vit. This is from 'Scaling Monosemanticity':
+        
+        > As a preprocessing step we apply a scalar normalization to the model activations so their average squared L2 norm is the residual stream dimension
+        
+        So we divide by self.scalar which is the datasets (approximate) L2 mean before normalization divided by sqrt(d_vit).
+
+`DinoV2(cfg: saev.config.Activations)`
+:   Base class for all neural network modules.
+    
+    Your models should also subclass this class.
+    
+    Modules can also contain other Modules, allowing to nest them in
+    a tree structure. You can assign the submodules as regular attributes::
+    
+        import torch.nn as nn
+        import torch.nn.functional as F
+    
+        class Model(nn.Module):
+            def __init__(self) -> None:
+                super().__init__()
+                self.conv1 = nn.Conv2d(1, 20, 5)
+                self.conv2 = nn.Conv2d(20, 20, 5)
+    
+            def forward(self, x):
+                x = F.relu(self.conv1(x))
+                return F.relu(self.conv2(x))
+    
+    Submodules assigned in this way will be registered, and will have their
+    parameters converted too when you call :meth:`to`, etc.
+    
+    .. note::
+        As per the example above, an ``__init__()`` call to the parent class
+        must be made before assignment on the child.
+    
+    :ivar training: Boolean represents whether this module is in training or
+                    evaluation mode.
+    :vartype training: bool
+    
+    Initialize internal Module state, shared by both nn.Module and ScriptModule.
+
+    ### Ancestors (in MRO)
+
+    * torch.nn.modules.module.Module
+
+    ### Methods
+
+    `forward(self, batch: jaxtyping.Float[Tensor, 'batch 3 width height']) ‑> Callable[..., Any]`
+    :   Define the computation performed at every call.
+        
+        Should be overridden by all subclasses.
+        
+        .. note::
+            Although the recipe for forward pass needs to be defined within
+            this function, one should call the :class:`Module` instance afterwards
+            instead of this since the former takes care of running the
+            registered hooks while the latter silently ignores them.
+
+    `make_img_transform(self)`
+    :
+
+`Metadata(model_org: str, model_ckpt: str, layers: tuple[int, ...], n_patches_per_img: int, cls_token: bool, d_vit: int, seed: int, n_imgs: int, n_patches_per_shard: int, data: str)`
+:   Metadata(model_org: str, model_ckpt: str, layers: tuple[int, ...], n_patches_per_img: int, cls_token: bool, d_vit: int, seed: int, n_imgs: int, n_patches_per_shard: int, data: str)
+
+    ### Class variables
+
+    `cls_token: bool`
+    :
+
+    `d_vit: int`
+    :
+
+    `data: str`
+    :
+
+    `layers: tuple[int, ...]`
+    :
+
+    `model_ckpt: str`
+    :
+
+    `model_org: str`
+    :
+
+    `n_imgs: int`
+    :
+
+    `n_patches_per_img: int`
+    :
+
+    `n_patches_per_shard: int`
+    :
+
+    `seed: int`
+    :
+
+    ### Static methods
+
+    `from_cfg(cls, cfg: saev.config.Activations) ‑> saev.activations.Metadata`
+    :
+
+    `load(cls, fpath) ‑> saev.activations.Metadata`
+    :
+
+    ### Instance variables
+
+    `hash: str`
+    :
+
+    ### Methods
+
+    `dump(self, fpath)`
+    :
+
+`ShardWriter(cfg: saev.config.Activations)`
+:   ShardWriter is a stateful object that handles sharded activation writing to disk.
+
+    ### Class variables
+
+    `acts: jaxtyping.Float[ndarray, 'n_imgs_per_shard n_layers all_patches d_vit'] | None`
+    :
+
+    `acts_path: str`
+    :
+
+    `filled: int`
+    :
+
+    `root: str`
+    :
+
+    `shape: tuple[int, int, int, int]`
+    :
+
+    `shard: int`
+    :
+
+    ### Methods
+
+    `flush(self) ‑> None`
+    :
+
+    `next_shard(self) ‑> None`
+    :
+
+`Siglip(cfg: saev.config.Activations)`
+:   Base class for all neural network modules.
+    
+    Your models should also subclass this class.
+    
+    Modules can also contain other Modules, allowing to nest them in
+    a tree structure. You can assign the submodules as regular attributes::
+    
+        import torch.nn as nn
+        import torch.nn.functional as F
+    
+        class Model(nn.Module):
+            def __init__(self) -> None:
+                super().__init__()
+                self.conv1 = nn.Conv2d(1, 20, 5)
+                self.conv2 = nn.Conv2d(20, 20, 5)
+    
+            def forward(self, x):
+                x = F.relu(self.conv1(x))
+                return F.relu(self.conv2(x))
+    
+    Submodules assigned in this way will be registered, and will have their
+    parameters converted too when you call :meth:`to`, etc.
+    
+    .. note::
+        As per the example above, an ``__init__()`` call to the parent class
+        must be made before assignment on the child.
+    
+    :ivar training: Boolean represents whether this module is in training or
+                    evaluation mode.
+    :vartype training: bool
+    
+    Initialize internal Module state, shared by both nn.Module and ScriptModule.
+
+    ### Ancestors (in MRO)
+
+    * torch.nn.modules.module.Module
+
+    ### Methods
+
+    `forward(self, batch: jaxtyping.Float[Tensor, 'batch 3 width height']) ‑> Callable[..., Any]`
+    :   Define the computation performed at every call.
+        
+        Should be overridden by all subclasses.
+        
+        .. note::
+            Although the recipe for forward pass needs to be defined within
+            this function, one should call the :class:`Module` instance afterwards
+            instead of this since the former takes care of running the
+            registered hooks while the latter silently ignores them.
+
+    `make_img_transform(self)`
+    :
+
+`TimmVit(cfg: saev.config.Activations)`
+:   Base class for all neural network modules.
+    
+    Your models should also subclass this class.
+    
+    Modules can also contain other Modules, allowing to nest them in
+    a tree structure. You can assign the submodules as regular attributes::
+    
+        import torch.nn as nn
+        import torch.nn.functional as F
+    
+        class Model(nn.Module):
+            def __init__(self) -> None:
+                super().__init__()
+                self.conv1 = nn.Conv2d(1, 20, 5)
+                self.conv2 = nn.Conv2d(20, 20, 5)
+    
+            def forward(self, x):
+                x = F.relu(self.conv1(x))
+                return F.relu(self.conv2(x))
+    
+    Submodules assigned in this way will be registered, and will have their
+    parameters converted too when you call :meth:`to`, etc.
+    
+    .. note::
+        As per the example above, an ``__init__()`` call to the parent class
+        must be made before assignment on the child.
+    
+    :ivar training: Boolean represents whether this module is in training or
+                    evaluation mode.
+    :vartype training: bool
+    
+    Initialize internal Module state, shared by both nn.Module and ScriptModule.
+
+    ### Ancestors (in MRO)
+
+    * torch.nn.modules.module.Module
+
+    ### Methods
+
+    `forward(self, batch: jaxtyping.Float[Tensor, 'batch 3 width height']) ‑> Callable[..., Any]`
+    :   Define the computation performed at every call.
+        
+        Should be overridden by all subclasses.
+        
+        .. note::
+            Although the recipe for forward pass needs to be defined within
+            this function, one should call the :class:`Module` instance afterwards
+            instead of this since the former takes care of running the
+            registered hooks while the latter silently ignores them.
+
+    `make_img_transform(self)`
+    :
+
+`TransformedImageFolder(root: Union[str, pathlib.Path], transform: Optional[Callable] = None, target_transform: Optional[Callable] = None, loader: Callable[[str], Any] = <function default_loader>, is_valid_file: Optional[Callable[[str], bool]] = None, allow_empty: bool = False)`
+:   A generic data loader where the images are arranged in this way by default: ::
+    
+        root/dog/xxx.png
+        root/dog/xxy.png
+        root/dog/[...]/xxz.png
+    
+        root/cat/123.png
+        root/cat/nsdf3.png
+        root/cat/[...]/asd932_.png
+    
+    This class inherits from :class:`~torchvision.datasets.DatasetFolder` so
+    the same methods can be overridden to customize the dataset.
+    
+    Args:
+        root (str or ``pathlib.Path``): Root directory path.
+        transform (callable, optional): A function/transform that takes in a PIL image
+            and returns a transformed version. E.g, ``transforms.RandomCrop``
+        target_transform (callable, optional): A function/transform that takes in the
+            target and transforms it.
+        loader (callable, optional): A function to load an image given its path.
+        is_valid_file (callable, optional): A function that takes path of an Image file
+            and check if the file is a valid file (used to check of corrupt files)
+        allow_empty(bool, optional): If True, empty folders are considered to be valid classes.
+            An error is raised on empty folders if False (default).
+    
+     Attributes:
+        classes (list): List of the class names sorted alphabetically.
+        class_to_idx (dict): Dict with items (class_name, class_index).
+        imgs (list): List of (image path, class_index) tuples
+
+    ### Ancestors (in MRO)
+
+    * torchvision.datasets.folder.ImageFolder
+    * torchvision.datasets.folder.DatasetFolder
+    * torchvision.datasets.vision.VisionDataset
+    * torch.utils.data.dataset.Dataset
+    * typing.Generic
+
+`TransformedImagenet(cfg: saev.config.ImagenetDataset, transform)`
+:   An abstract class representing a :class:`Dataset`.
+    
+    All datasets that represent a map from keys to data samples should subclass
+    it. All subclasses should overwrite :meth:`__getitem__`, supporting fetching a
+    data sample for a given key. Subclasses could also optionally overwrite
+    :meth:`__len__`, which is expected to return the size of the dataset by many
+    :class:`~torch.utils.data.Sampler` implementations and the default options
+    of :class:`~torch.utils.data.DataLoader`. Subclasses could also
+    optionally implement :meth:`__getitems__`, for speedup batched samples
+    loading. This method accepts list of indices of samples of batch and returns
+    list of samples.
+    
+    .. note::
+      :class:`~torch.utils.data.DataLoader` by default constructs an index
+      sampler that yields integral indices.  To make it work with a map-style
+      dataset with non-integral indices/keys, a custom sampler must be provided.
+
+    ### Ancestors (in MRO)
+
+    * torch.utils.data.dataset.Dataset
+    * typing.Generic
+
+`VitRecorder(cfg: saev.config.Activations, patches: slice = slice(None, None, None))`
+:   Base class for all neural network modules.
+    
+    Your models should also subclass this class.
+    
+    Modules can also contain other Modules, allowing to nest them in
+    a tree structure. You can assign the submodules as regular attributes::
+    
+        import torch.nn as nn
+        import torch.nn.functional as F
+    
+        class Model(nn.Module):
+            def __init__(self) -> None:
+                super().__init__()
+                self.conv1 = nn.Conv2d(1, 20, 5)
+                self.conv2 = nn.Conv2d(20, 20, 5)
+    
+            def forward(self, x):
+                x = F.relu(self.conv1(x))
+                return F.relu(self.conv2(x))
+    
+    Submodules assigned in this way will be registered, and will have their
+    parameters converted too when you call :meth:`to`, etc.
+    
+    .. note::
+        As per the example above, an ``__init__()`` call to the parent class
+        must be made before assignment on the child.
+    
+    :ivar training: Boolean represents whether this module is in training or
+                    evaluation mode.
+    :vartype training: bool
+    
+    Initialize internal Module state, shared by both nn.Module and ScriptModule.
+
+    ### Ancestors (in MRO)
+
+    * torch.nn.modules.module.Module
+
+    ### Class variables
+
+    `cfg: saev.config.Activations`
+    :
+
+    ### Instance variables
+
+    `activations: jaxtyping.Float[Tensor, 'batch n_layers all_patches dim']`
+    :
+
+    ### Methods
+
+    `hook(self, module, args: tuple, output: jaxtyping.Float[Tensor, 'batch n_layers dim']) ‑> None`
+    :
+
+    `register(self, modules: list[torch.nn.modules.module.Module])`
+    :
+
+    `reset(self)`
+    :
+
+Module saev.config
+==================
+All configs for all saev jobs.
+
+## Import Times
+
+This module should be very fast to import so that `python main.py --help` is fast.
+This means that the top-level imports should not include big packages like numpy, torch, etc.
+For example, `TreeOfLife.n_imgs` imports numpy when it's needed, rather than importing it at the top level.
+
+Also contains code for expanding configs with lists into lists of configs (grid search).
+Might be expanded in the future to support pseudo-random sampling from distributions to support random hyperparameter search, as in [this file](https://github.com/samuelstevens/sax/blob/main/sax/sweep.py).
+
+Functions
+---------
+
+`expand(config: dict[str, object]) ‑> collections.abc.Iterator[dict[str, object]]`
+:   Expands dicts with (nested) lists into a list of (nested) dicts.
+
+`grid(cfg: saev.config.Train, sweep_dct: dict[str, object]) ‑> tuple[list[saev.config.Train], list[str]]`
+:   
+
+Classes
+-------
+
+`Activations(data: saev.config.ImagenetDataset | saev.config.ImageFolderDataset = <factory>, dump_to: str = './shards', model_org: Literal['clip', 'siglip', 'timm', 'dinov2'] = 'clip', model_ckpt: str = 'ViT-L-14/openai', vit_batch_size: int = 1024, n_workers: int = 8, d_vit: int = 1024, layers: list[int] = <factory>, n_patches_per_img: int = 256, cls_token: bool = True, n_patches_per_shard: int = 2400000, seed: int = 42, ssl: bool = True, device: str = 'cuda', slurm: bool = False, slurm_acct: str = 'PAS2136', log_to: str = './logs')`
+:   Configuration for calculating and saving ViT activations.
+
+    ### Class variables
+
+    `cls_token: bool`
+    :   Whether the model has a [CLS] token.
+
+    `d_vit: int`
+    :   Dimension of the ViT activations (depends on model).
+
+    `data: saev.config.ImagenetDataset | saev.config.ImageFolderDataset`
+    :   Which dataset to use.
+
+    `device: str`
+    :   Which device to use.
+
+    `dump_to: str`
+    :   Where to write shards.
+
+    `layers: list[int]`
+    :   Which layers to save. By default, the second-to-last layer.
+
+    `log_to: str`
+    :   Where to log Slurm job stdout/stderr.
+
+    `model_ckpt: str`
+    :   Specific model checkpoint.
+
+    `model_org: Literal['clip', 'siglip', 'timm', 'dinov2']`
+    :   Where to load models from.
+
+    `n_patches_per_img: int`
+    :   Number of ViT patches per image (depends on model).
+
+    `n_patches_per_shard: int`
+    :   Number of activations per shard; 2.4M is approximately 10GB for 1024-dimensional 4-byte activations.
+
+    `n_workers: int`
+    :   Number of dataloader workers.
+
+    `seed: int`
+    :   Random seed.
+
+    `slurm: bool`
+    :   Whether to use `submitit` to run jobs on a Slurm cluster.
+
+    `slurm_acct: str`
+    :   Slurm account string.
+
+    `ssl: bool`
+    :   Whether to use SSL.
+
+    `vit_batch_size: int`
+    :   Batch size for ViT inference.
+
+`DataLoad(shard_root: str = './shards', patches: Literal['cls', 'patches', 'meanpool'] = 'patches', layer: Union[int, Literal['all', 'meanpool']] = -2, clamp: float = 100000.0, n_random_samples: int = 524288, scale_mean: bool = True, scale_norm: bool = True)`
+:   Configuration for loading activation data from disk.
+
+    ### Class variables
+
+    `clamp: float`
+    :   Maximum value for activations; activations will be clamped to within [-clamp, clamp]`.
+
+    `layer: Union[int, Literal['all', 'meanpool']]`
+    :   .. todo: document this field.
+
+    `n_random_samples: int`
+    :   Number of random samples used to calculate approximate dataset means at startup.
+
+    `patches: Literal['cls', 'patches', 'meanpool']`
+    :   Which kinds of patches to use. 'cls' indicates just the [CLS] token (if any). 'patches' indicates it will return all patches. 'meanpool' returns the mean of all image patches.
+
+    `scale_mean: bool`
+    :   Whether to subtract approximate dataset means from examples.
+
+    `scale_norm: bool`
+    :   Whether to scale average dataset norm to sqrt(d_vit).
+
+    `shard_root: str`
+    :   Directory with .bin shards and a metadata.json file.
+
+`ImageFolderDataset(root: str = './data/split')`
+:   Configuration for a generic image folder dataset.
+
+    ### Class variables
+
+    `root: str`
+    :   Where the class folders with images are stored.
+
+    ### Instance variables
+
+    `n_imgs: int`
+    :   Number of images in the dataset. Calculated on the fly, but is non-trivial to calculate because it requires walking the directory structure. If you need to reference this number very often, cache it in a local variable.
+
+`ImagenetDataset(name: str = 'ILSVRC/imagenet-1k', split: str = 'train')`
+:   Configuration for HuggingFace Imagenet.
+
+    ### Class variables
+
+    `name: str`
+    :   Dataset name on HuggingFace. Don't need to change this..
+
+    `split: str`
+    :   Dataset split. For the default ImageNet-1K dataset, can either be 'train', 'validation' or 'test'.
+
+    ### Instance variables
+
+    `n_imgs: int`
+    :   Number of images in the dataset. Calculated on the fly, but is non-trivial to calculate because it requires loading the dataset. If you need to reference this number very often, cache it in a local variable.
+
+`SparseAutoencoder(d_vit: int = 1024, exp_factor: int = 16, sparsity_coeff: float = 0.0004, n_reinit_samples: int = 524288, ghost_grads: bool = False, remove_parallel_grads: bool = True, normalize_w_dec: bool = True, seed: int = 0)`
+:   SparseAutoencoder(d_vit: int = 1024, exp_factor: int = 16, sparsity_coeff: float = 0.0004, n_reinit_samples: int = 524288, ghost_grads: bool = False, remove_parallel_grads: bool = True, normalize_w_dec: bool = True, seed: int = 0)
+
+    ### Class variables
+
+    `d_vit: int`
+    :
+
+    `exp_factor: int`
+    :   Expansion factor for SAE.
+
+    `ghost_grads: bool`
+    :   Whether to use ghost grads.
+
+    `n_reinit_samples: int`
+    :   Number of samples to use for SAE re-init. Anthropic proposes initializing b_dec to the geometric median of the dataset here: https://transformer-circuits.pub/2023/monosemantic-features/index.html#appendix-autoencoder-bias. We use the regular mean.
+
+    `normalize_w_dec: bool`
+    :   Whether to make sure W_dec has unit norm columns. See https://transformer-circuits.pub/2023/monosemantic-features/index.html#appendix-autoencoder for original citation.
+
+    `remove_parallel_grads: bool`
+    :   Whether to remove gradients parallel to W_dec columns (which will be ignored because we force the columns to have unit norm). See https://transformer-circuits.pub/2023/monosemantic-features/index.html#appendix-autoencoder-optimization for the original discussion from Anthropic.
+
+    `seed: int`
+    :   Random seed.
+
+    `sparsity_coeff: float`
+    :   How much to weight sparsity loss term.
+
+    ### Instance variables
+
+    `d_sae: int`
+    :
+
+`Train(data: saev.config.DataLoad = <factory>, n_workers: int = 32, n_patches: int = 100000000, sae: saev.config.SparseAutoencoder = <factory>, n_sparsity_warmup: int = 0, lr: float = 0.0004, n_lr_warmup: int = 500, sae_batch_size: int = 16384, track: bool = True, wandb_project: str = 'saev', tag: str = '', log_every: int = 25, ckpt_path: str = './checkpoints', device: Literal['cuda', 'cpu'] = 'cuda', seed: int = 42, slurm: bool = False, slurm_acct: str = 'PAS2136', log_to: str = './logs')`
+:   Configuration for training a sparse autoencoder on a vision transformer.
+
+    ### Class variables
+
+    `ckpt_path: str`
+    :   Where to save checkpoints.
+
+    `data: saev.config.DataLoad`
+    :   Data configuration
+
+    `device: Literal['cuda', 'cpu']`
+    :   Hardware device.
+
+    `log_every: int`
+    :   How often to log to WandB.
+
+    `log_to: str`
+    :   Where to log Slurm job stdout/stderr.
+
+    `lr: float`
+    :   Learning rate.
+
+    `n_lr_warmup: int`
+    :   Number of learning rate warmup steps.
+
+    `n_patches: int`
+    :   Number of SAE training examples.
+
+    `n_sparsity_warmup: int`
+    :   Number of sparsity coefficient warmup steps.
+
+    `n_workers: int`
+    :   Number of dataloader workers.
+
+    `sae: saev.config.SparseAutoencoder`
+    :   SAE configuration.
+
+    `sae_batch_size: int`
+    :   Batch size for SAE training.
+
+    `seed: int`
+    :   Random seed.
+
+    `slurm: bool`
+    :   Whether to use `submitit` to run jobs on a Slurm cluster.
+
+    `slurm_acct: str`
+    :   Slurm account string.
+
+    `tag: str`
+    :   Tag to add to WandB run.
+
+    `track: bool`
+    :   Whether to track with WandB.
+
+    `wandb_project: str`
+    :   WandB project name.
+
+`Visuals()`
+:   Visuals()
+
+Module saev.helpers
+===================
+Useful helpers for `saev`.
+
+Functions
+---------
+
+`get_cache_dir() ‑> str`
+:   Get cache directory from environment variables, defaulting to the current working directory (.)
+    
+    Returns:
+        A path to a cache directory (might not exist yet).
+
+Classes
+-------
+
+`progress(it, *, every: int = 10, desc: str = 'progress', total: int = 0)`
+:   Wraps an iterable with a logger like tqdm but doesn't use any control codes to manipulate a progress bar, which doesn't work well when your output is redirected to a file. Instead, simple logging statements are used, but it includes quality-of-life features like iteration speed and predicted time to finish.
+    
+    Args:
+        it: Iterable to wrap.
+        every: How many iterations between logging progress.
+        desc: What to name the logger.
+        total: If non-zero, how long the iterable is.
+
+Module saev.imaging
+===================
+
+Functions
+---------
+
+`add_highlights(img: PIL.Image.Image, patches: jaxtyping.Float[ndarray, 'n_patches'], *, upper: float | None = None) ‑> PIL.Image.Image`
+:
+
+Module saev.nn
+==============
+Neural network architectures for sparse autoencoders.
+
+Functions
+---------
+
+`dump(fpath: str, sae: saev.nn.SparseAutoencoder)`
+:   Save an SAE checkpoint to disk along with configuration, using the [trick from equinox](https://docs.kidger.site/equinox/examples/serialisation).
+    
+    Arguments:
+        fpath: filepath to save checkpoint to.
+        sae: sparse autoencoder checkpoint to save.
+
+`load(fpath: str, *, device: str = 'cpu') ‑> saev.nn.SparseAutoencoder`
+:   Loads a sparse autoencoder from disk.
+
+`ref_mse(x_hat: jaxtyping.Float[Tensor, '*d'], x: jaxtyping.Float[Tensor, '*d'], norm: bool = True) ‑> jaxtyping.Float[Tensor, '*d']`
+:   
+
+`safe_mse(x_hat: jaxtyping.Float[Tensor, '*batch d'], x: jaxtyping.Float[Tensor, '*batch d'], norm: bool = False) ‑> jaxtyping.Float[Tensor, '*batch d']`
+:   
+
+Classes
+-------
+
+`Loss(mse: jaxtyping.Float[Tensor, ''], sparsity: jaxtyping.Float[Tensor, ''], ghost_grad: jaxtyping.Float[Tensor, ''], l0: jaxtyping.Float[Tensor, ''], l1: jaxtyping.Float[Tensor, ''])`
+:   Loss(mse, sparsity, ghost_grad, l0, l1)
+
+    ### Ancestors (in MRO)
+
+    * builtins.tuple
+
+    ### Instance variables
+
+    `ghost_grad: jaxtyping.Float[Tensor, '']`
+    :   Ghost gradient loss, if any.
+
+    `l0: jaxtyping.Float[Tensor, '']`
+    :   L0 magnitude of hidden activations.
+
+    `l1: jaxtyping.Float[Tensor, '']`
+    :   L1 magnitude of hidden activations.
+
+    `loss: jaxtyping.Float[Tensor, '']`
+    :   Total loss.
+
+    `mse: jaxtyping.Float[Tensor, '']`
+    :   Reconstruction loss (mean squared error).
+
+    `sparsity: jaxtyping.Float[Tensor, '']`
+    :   Sparsity loss, typically lambda * L1.
+
+`SparseAutoencoder(cfg: saev.config.SparseAutoencoder)`
+:   Sparse auto-encoder (SAE) using L1 sparsity penalty.
+    
+    Initialize internal Module state, shared by both nn.Module and ScriptModule.
+
+    ### Ancestors (in MRO)
+
+    * torch.nn.modules.module.Module
+
+    ### Class variables
+
+    `cfg: saev.config.SparseAutoencoder`
+    :
+
+    ### Methods
+
+    `forward(self, x: jaxtyping.Float[Tensor, 'batch d_model'], dead_neuron_mask: None = None) ‑> tuple[jaxtyping.Float[Tensor, 'batch d_model'], jaxtyping.Float[Tensor, 'batch d_sae'], saev.nn.Loss]`
+    :   Define the computation performed at every call.
+        
+        Should be overridden by all subclasses.
+        
+        .. note::
+            Although the recipe for forward pass needs to be defined within
+            this function, one should call the :class:`Module` instance afterwards
+            instead of this since the former takes care of running the
+            registered hooks while the latter silently ignores them.
+
+    `init_b_dec(self, vit_acts: jaxtyping.Float[Tensor, 'n d_vit'])`
+    :
+
+    `normalize_w_dec(self)`
+    :
+
+    `remove_parallel_grads(self)`
+    :   Update grads so that they remove the parallel component
+            (d_sae, d_vit) shape
+
+Module saev.test_activations
+============================
+Test that the cached activations are actually correct.
+These tests are quite slow
+
+Functions
+---------
+
+`test_dataloader_batches()`
+:   
+
+`test_shard_writer_and_dataset_e2e()`
+:
+
+Module saev.test_config
+=======================
+
+Functions
+---------
+
+`test_expand()`
+:   
+
+`test_expand_multiple()`
+:   
+
+`test_expand_nested()`
+:   
+
+`test_expand_nested_and_unnested()`
+:   
+
+`test_expand_nested_and_unnested_backwards()`
+:   
+
+`test_expand_two_fields()`
+:
+
+Module saev.test_nn
+===================
+Uses [hypothesis]() and [hypothesis-torch](https://hypothesis-torch.readthedocs.io/en/stable/compatability/) to generate test cases to compare our normalized MSE implementation to a reference MSE implementation.
+
+Functions
+---------
+
+`test_safe_mse_hypothesis() ‑> None`
+:   
+
+`test_safe_mse_large_x()`
+:   
+
+`test_safe_mse_nonzero()`
+:   
+
+`test_safe_mse_same()`
+:   
+
+`test_safe_mse_zero_x_hat()`
+:
+
+Module saev.test_webapp
+=======================
+
+Functions
+---------
+
+`test_gather_batched_small()`
+:
+
+Module saev.training
+====================
+Trains many SAEs in parallel to amortize the cost of loading a single batch of data over many SAE training runs.
+
+Functions
+---------
+
+`check_cfgs(cfgs: list[saev.config.Train])`
+:   
+
+`evaluate(cfgs: list[saev.config.Train], saes: torch.nn.modules.container.ModuleList) ‑> list[saev.training.EvalMetrics]`
+:   Evaluates SAE quality by counting the number of dead features and the number of dense features.
+    Also makes histogram plots to help human qualitative comparison.
+    
+    .. todo:: Develop automatic methods to use histogram and feature frequencies to evaluate quality with a single number.
+
+`init_b_dec_batched(saes: torch.nn.modules.container.ModuleList, dataset: saev.activations.Dataset)`
+:   
+
+`main(cfgs: list[saev.config.Train]) ‑> list[str]`
+:   
+
+`make_saes(cfgs: list[saev.config.SparseAutoencoder], dataset: saev.activations.Dataset) ‑> tuple[torch.nn.modules.container.ModuleList, list[dict[str, object]]]`
+:   
+
+`train(cfgs: list[saev.config.Train]) ‑> tuple[torch.nn.modules.container.ModuleList, saev.training.ParallelWandbRun, int]`
+:   Explicitly declare the optimizer, schedulers, dataloader, etc outside of `main` so that all the variables are dropped from scope and can be garbage collected.
+
+Classes
+-------
+
+`BatchLimiter(dataloader: torch.utils.data.dataloader.DataLoader, n_samples: int)`
+:   Limits the number of batches to only return `n_samples` total samples.
+
+`EvalMetrics(l0: float, l1: float, mse: float, n_dead: int, n_almost_dead: int, n_dense: int, freqs: jaxtyping.Float[Tensor, 'd_sae'], mean_values: jaxtyping.Float[Tensor, 'd_sae'], almost_dead_threshold: float, dense_threshold: float)`
+:   Results of evaluating a trained SAE on a datset.
+
+    ### Class variables
+
+    `almost_dead_threshold: float`
+    :   Threshold for an "almost dead" neuron.
+
+    `dense_threshold: float`
+    :   Threshold for a dense neuron.
+
+    `freqs: jaxtyping.Float[Tensor, 'd_sae']`
+    :   How often each feature fired.
+
+    `l0: float`
+    :   Mean L0 across all examples.
+
+    `l1: float`
+    :   Mean L1 across all examples.
+
+    `mean_values: jaxtyping.Float[Tensor, 'd_sae']`
+    :   The mean value for each feature when it did fire.
+
+    `mse: float`
+    :   Mean MSE across all examples.
+
+    `n_almost_dead: int`
+    :   Number of neurons that fired on fewer than `almost_dead_threshold` of examples.
+
+    `n_dead: int`
+    :   Number of neurons that never fired on any example.
+
+    `n_dense: int`
+    :   Number of neurons that fired on more than `dense_threshold` of examples.
+
+    ### Methods
+
+    `for_wandb(self) ‑> dict[str, int | float]`
+    :
+
+`ParallelWandbRun(project: str, cfgs: list[saev.config.Train], mode: str, tags: list[str])`
+:   Inspired by https://community.wandb.ai/t/is-it-possible-to-log-to-multiple-runs-simultaneously/4387/3.
+
+    ### Methods
+
+    `finish(self) ‑> list[str]`
+    :
+
+    `log(self, metrics: list[dict[str, object]], *, step: int)`
+    :
+
+`Scheduler()`
+:   
+
+    ### Descendants
+
+    * saev.training.Warmup
+
+    ### Methods
+
+    `step(self) ‑> float`
+    :
+
+`Warmup(init: float, final: float, n_steps: int)`
+:   Linearly increases from `init` to `final` over `n_warmup_steps` steps.
+
+    ### Ancestors (in MRO)
+
+    * saev.training.Scheduler
+
+    ### Methods
+
+    `step(self) ‑> float`
+    :
+
+Namespace saev.web
+==================
+
+Sub-modules
+-----------
+* saev.web.probing
+
+Module saev.web.probing
+=======================
+
+Module saev.webapp
+==================
+
+Module probing
+==============
+Package for probing for individual features in trained sparse autoencoders.
+
+How can we find examples of interesting features in different checkpoints? How can we predict hypothetical trends in the way different models learn different features?
+
+In this work, we assume that manual effort is necessary. This package contains methods for trying to make it as easy as possible to identify interesting SAEs and predict trends between models.
+
+# An Observational Study of Vision Model Interpretability
+
+We have multiple ways to compare trained SAEs.
+
+1. Heuristic measures, like number of dead features, number of dense features, mean L0 norm, etc.
+2. Qualitative plots of feature frequency, mean activation value, L0-MSE tradeoff curves, etc.
+3. Manual inspection of the top K images for each feature.
+
+After proposing trends, we can construct individual probing datasets (see below).
+
+![experimental-design](docs/assets/experiment1.png)
+
+`probing.notebooks.l0_mse_tradeoff` is a notebook to explore the L0-MSE tradeoff as well as feature frequency and mean activation value distributions.
+
+Sub-modules
+-----------
+* probing.config
+* probing.dump_topk
+* probing.logbook
+* probing.notebooks
+
+Module probing.config
+=====================
+
+Classes
+-------
+
+`Probe(ckpt: str = './checkpoints/abcdefg/sae.pt', data: saev.config.DataLoad = <factory>, n_workers: int = 8, sae_batch_size: int = 16384, device: str = 'cuda', images: saev.config.ImageFolderDataset = <factory>, dump_to: str = './logs/probes')`
+:   Probe(ckpt: str = './checkpoints/abcdefg/sae.pt', data: saev.config.DataLoad = <factory>, n_workers: int = 8, sae_batch_size: int = 16384, device: str = 'cuda', images: saev.config.ImageFolderDataset = <factory>, dump_to: str = './logs/probes')
+
+    ### Class variables
+
+    `ckpt: str`
+    :   Path to the sae.pt file.
+
+    `data: saev.config.DataLoad`
+    :   ViT activations for probing tasks.
+
+    `device: str`
+    :   Which accelerator to use.
+
+    `dump_to: str`
+    :   Where to save images.
+
+    `images: saev.config.ImageFolderDataset`
+    :   Where the raw images are.
+
+    `n_workers: int`
+    :   Number of dataloader workers.
+
+    `sae_batch_size: int`
+    :   Batch size for SAE inference.
+
+`Topk(ckpt: str = './checkpoints/sae.pt', data: saev.config.DataLoad = <factory>, images: saev.config.ImagenetDataset | saev.config.ImageFolderDataset = <factory>, top_k: int = 16, n_workers: int = 16, topk_batch_size: int = 16384, sae_batch_size: int = 16384, epsilon: float = 1e-09, sort_by: Literal['cls', 'img', 'patch'] = 'cls', device: str = 'cuda', dump_to: str = './data', log_freq_range: tuple[float, float] = (-6.0, -2.0), log_value_range: tuple[float, float] = (-1.0, 1.0), include_latents: list[int] = <factory>)`
+:   .. todo:: document.
+
+    ### Class variables
+
+    `ckpt: str`
+    :   Path to the sae.pt file.
+
+    `data: saev.config.DataLoad`
+    :   Data configuration.
+
+    `device: str`
+    :   Which accelerator to use.
+
+    `dump_to: str`
+    :   Where to save data.
+
+    `epsilon: float`
+    :   Value to add to avoid log(0).
+
+    `images: saev.config.ImagenetDataset | saev.config.ImageFolderDataset`
+    :   Which images to use.
+
+    `include_latents: list[int]`
+    :   Latents to always include, no matter what.
+
+    `log_freq_range: tuple[float, float]`
+    :   Log10 frequency range for which to save images.
+
+    `log_value_range: tuple[float, float]`
+    :   Log10 frequency range for which to save images.
+
+    `n_workers: int`
+    :   Number of dataloader workers.
+
+    `sae_batch_size: int`
+    :   Batch size for SAE inference.
+
+    `sort_by: Literal['cls', 'img', 'patch']`
+    :   How to find the top k images. 'cls' picks images where the SAE latents of the ViT's [CLS] token are maximized without any patch highligting. 'img' picks images that maximize the sum of an SAE latent over all patches in the image, highlighting the patches. 'patch' pickes images that maximize an SAE latent over all patches (not summed), highlighting the patches and only showing unique images.
+
+    `top_k: int`
+    :   How many images per SAE feature to store.
+
+    `topk_batch_size: int`
+    :   Number of examples to apply top-k op to.
+
+    ### Instance variables
+
+    `mean_values_fpath: str`
+    :
+
+    `root: str`
+    :
+
+    `sparsity_fpath: str`
+    :
+
+    `top_img_i_fpath: str`
+    :
+
+    `top_patch_i_fpath: str`
+    :
+
+    `top_values_fpath: str`
+    :
+
+Module probing.dump_topk
+========================
+There is some important notation used only in this file to dramatically shorten variable names.
+
+Variables suffixed with `_im` refer to entire images, and variables suffixed with `_p` refer to patches.
+
+Functions
+---------
+
+`batched_idx(total_size: int, batch_size: int) ‑> collections.abc.Iterator[tuple[int, int]]`
+:   Iterate over (start, end) indices for total_size examples, where end - start is at most batch_size.
+    
+    Args:
+        total_size: total number of examples
+        batch_size: maximum distance between the generated indices.
+    
+    Returns:
+        A generator of (int, int) tuples that can slice up a list or a tensor.
+
+`dump_activations(cfg: probing.config.Topk)`
+:   For each SAE latent, we want to know which images have the most total "activation".
+    That is, we keep track of each patch
+
+`gather_batched(value: jaxtyping.Float[Tensor, 'batch n dim'], i: jaxtyping.Int[Tensor, 'batch k']) ‑> jaxtyping.Float[Tensor, 'batch k dim']`
+:   
+
+`get_new_topk(val1: jaxtyping.Float[Tensor, 'd_sae k'], i1: jaxtyping.Int[Tensor, 'd_sae k'], val2: jaxtyping.Float[Tensor, 'd_sae k'], i2: jaxtyping.Int[Tensor, 'd_sae k'], k: int) ‑> tuple[jaxtyping.Float[Tensor, 'd_sae k'], jaxtyping.Int[Tensor, 'd_sae k']]`
+:   .. todo:: document this function.
+
+`get_sae_acts(vit_acts: jaxtyping.Float[Tensor, 'n d_vit'], sae: saev.nn.SparseAutoencoder, cfg: probing.config.Topk) ‑> jaxtyping.Float[Tensor, 'n d_sae']`
+:   Get SAE hidden layer activations for a batch of ViT activations.
+    
+    Args:
+        vit_acts: Batch of ViT activations
+        sae: Sparse autoencder.
+        cfg: Experimental config.
+
+`get_topk_cls(cfg: probing.config.Topk) ‑> tuple[jaxtyping.Float[Tensor, 'd_sae k 0'], jaxtyping.Int[Tensor, 'd_sae k'], jaxtyping.Float[Tensor, 'd_sae'], jaxtyping.Float[Tensor, 'd_sae']]`
+:   
+
+`get_topk_img(cfg: probing.config.Topk) ‑> tuple[jaxtyping.Float[Tensor, 'd_sae k n_patches_per_img'], jaxtyping.Int[Tensor, 'd_sae k'], jaxtyping.Float[Tensor, 'd_sae'], jaxtyping.Float[Tensor, 'd_sae']]`
+:   .. todo:: Document this.
+
+`get_topk_patch(cfg: probing.config.Topk) ‑> tuple[jaxtyping.Float[Tensor, 'd_sae k n_patches_per_img'], jaxtyping.Int[Tensor, 'd_sae k'], jaxtyping.Float[Tensor, 'd_sae'], jaxtyping.Float[Tensor, 'd_sae']]`
+:   Gets the top k images for each latent in the SAE.
+    The top k images are for latent i are sorted by
+    
+        max over all patches: f_x(patch)[i]
+    
+    Thus, we could end up with duplicate images in the top k, if an image has more than one patch that maximally activates an SAE latent.
+    
+    Args:
+        cfg: Config.
+    
+    Returns:
+
+`main(cfg: probing.config.Topk)`
+:   .. todo:: document this function.
+    
+    Dump top-k images to a directory.
+    
+    Args:
+        cfg: Configuration object.
+
+`make_img(elem: probing.dump_topk.GridElement, *, upper: float | None = None) ‑> PIL.Image.Image`
+:   
+
+`safe_load(path: str) ‑> object`
+:   
+
+Classes
+-------
+
+`GridElement(img: PIL.Image.Image, label: str, patches: jaxtyping.Float[Tensor, 'n_patches'])`
+:   GridElement(img: PIL.Image.Image, label: str, patches: jaxtyping.Float[Tensor, 'n_patches'])
+
+    ### Class variables
+
+    `img: PIL.Image.Image`
+    :
+
+    `label: str`
+    :
+
+    `patches: jaxtyping.Float[Tensor, 'n_patches']`
+    :
+
+Module probing.logbook
+======================
+
+Namespace probing.notebooks
+===========================
+
+Sub-modules
+-----------
+* probing.notebooks.l0_mse_tradeoff
+
+Module probing.notebooks.l0_mse_tradeoff
+========================================
+
+Module faithfulness
+===================
+
+Sub-modules
+-----------
+* faithfulness.config
+* faithfulness.training
+
+Module faithfulness.config
+==========================
+
+Classes
+-------
+
+`Train()`
+:   Train()
+
+Module faithfulness.training
+============================
+Fits a linear classifier on ViT activations to predict semantic segmentation masks for ADE20K or MS COCO.
+
+Functions
+---------
+
+`main(cfg: faithfulness.config.Train)`
+:   Arguments:
+        cfg: Training config.
