@@ -84,7 +84,7 @@ class SparseAutoencoder(torch.nn.Module):
         l1 = f_x.sum(axis=1).mean(axis=0)
         sparsity_loss = self.cfg.sparsity_coeff * l1
         # Ghost loss is included for backwards compatibility.
-        ghost_loss = torch.zero_like(mse_loss)
+        ghost_loss = torch.zeros_like(mse_loss)
 
         return x_hat, f_x, Loss(mse_loss, sparsity_loss, ghost_loss, l0, l1)
 

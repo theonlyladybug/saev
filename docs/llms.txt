@@ -94,6 +94,46 @@ Anthropic's and OpenAI's papers suggest normalizing these factors, but `saev` st
 Finally, choose a slightly larger learning rate than the default with `--lr 5e-4`.
 
 This will train one (1) sparse autoencoder on the data.
+See the section on sweeps to learn how to train multiple SAEs in parallel using only a single GPU.
+
+## Visualize the Learned Features
+
+Now that you've trained an SAE, you probably want to look at its learned features.
+One way to visualize an individual learned feature \(f\) is by picking out images that maximize the activation of feature \(f\).
+Since we train SAEs on patch-level activations, we try to find the top *patches* for each feature \(f\). 
+Then, we pick out the images those patches correspond to and create a heatmap based on SAE activation values.
+
+.. note:: More advanced forms of visualization are possible (and valuable!), but should not be included in `saev` unless they can be applied to every SAE/dataset combination. If you have specific visualizations, please add them to `contrib/` or another location.
+
+`saev.visuals` records these maximally activating images for us.
+You can see all the options with `uv run python -m saev visuals --help`.
+
+So you might run:
+
+```sh
+uv run python -m saev visuals \
+  --ckpt checkpoints/abcdefg/sae.pt \
+  --dump-to /nfs/$USER/saev/webapp/abcdefg \
+  --data.shard-root /local/scratch/$USER/cache/saev/ac89246f1934b45e2f0487298aebe36ad998b6bd252d880c0c9ec5de78d793c8 \
+  --data.layer -2 \
+  --data.patches patches \
+  --data.no-scale-mean \
+  --data.no-scale-norm \
+  images:imagenet-dataset
+```
+
+This will record the top 128 patches, and then save the unique images among those top 128 patches for each feature in the trained SAE.
+It will cache these best activations to disk, then start saving images to visualize later on.
+
+`saev.webapp` is a small web application based on [marimo](https://marimo.io/) to interactively look at these images.
+
+## Sweeps
+
+.. todo:: Explain how to run grid sweeps.
+
+## Training Metrics and Visualizations
+
+.. todo:: Explain how to use the `l0_mse_tradeoff.py` notebook..
 
 Sub-modules
 -----------
@@ -107,6 +147,7 @@ Sub-modules
 * saev.test_nn
 * saev.test_webapp
 * saev.training
+* saev.visuals
 * saev.web
 * saev.webapp
 
@@ -914,8 +955,72 @@ Classes
     `wandb_project: str`
     :   WandB project name.
 
-`Visuals()`
-:   Visuals()
+`Visuals(ckpt: str = './checkpoints/sae.pt', data: saev.config.DataLoad = <factory>, images: saev.config.ImagenetDataset | saev.config.ImageFolderDataset = <factory>, top_k: int = 128, n_workers: int = 16, topk_batch_size: int = 16384, sae_batch_size: int = 16384, epsilon: float = 1e-09, sort_by: Literal['cls', 'img', 'patch'] = 'patch', device: str = 'cuda', dump_to: str = './data', log_freq_range: tuple[float, float] = (-6.0, -2.0), log_value_range: tuple[float, float] = (-1.0, 1.0), include_latents: list[int] = <factory>)`
+:   Configuration for generating visuals from trained SAEs.
+
+    ### Class variables
+
+    `ckpt: str`
+    :   Path to the sae.pt file.
+
+    `data: saev.config.DataLoad`
+    :   Data configuration.
+
+    `device: str`
+    :   Which accelerator to use.
+
+    `dump_to: str`
+    :   Where to save data.
+
+    `epsilon: float`
+    :   Value to add to avoid log(0).
+
+    `images: saev.config.ImagenetDataset | saev.config.ImageFolderDataset`
+    :   Which images to use.
+
+    `include_latents: list[int]`
+    :   Latents to always include, no matter what.
+
+    `log_freq_range: tuple[float, float]`
+    :   Log10 frequency range for which to save images.
+
+    `log_value_range: tuple[float, float]`
+    :   Log10 frequency range for which to save images.
+
+    `n_workers: int`
+    :   Number of dataloader workers.
+
+    `sae_batch_size: int`
+    :   Batch size for SAE inference.
+
+    `sort_by: Literal['cls', 'img', 'patch']`
+    :   How to find the top k images. 'cls' picks images where the SAE latents of the ViT's [CLS] token are maximized without any patch highligting. 'img' picks images that maximize the sum of an SAE latent over all patches in the image, highlighting the patches. 'patch' pickes images that maximize an SAE latent over all patches (not summed), highlighting the patches and only showing unique images.
+
+    `top_k: int`
+    :   How many images per SAE feature to store.
+
+    `topk_batch_size: int`
+    :   Number of examples to apply top-k op to.
+
+    ### Instance variables
+
+    `mean_values_fpath: str`
+    :
+
+    `root: str`
+    :
+
+    `sparsity_fpath: str`
+    :
+
+    `top_img_i_fpath: str`
+    :
+
+    `top_patch_i_fpath: str`
+    :
+
+    `top_values_fpath: str`
+    :
 
 Module saev.helpers
 ===================
@@ -1217,6 +1322,93 @@ Classes
     ### Methods
 
     `step(self) ‑> float`
+    :
+
+Module saev.visuals
+===================
+There is some important notation used only in this file to dramatically shorten variable names.
+
+Variables suffixed with `_im` refer to entire images, and variables suffixed with `_p` refer to patches.
+
+Functions
+---------
+
+`batched_idx(total_size: int, batch_size: int) ‑> collections.abc.Iterator[tuple[int, int]]`
+:   Iterate over (start, end) indices for total_size examples, where end - start is at most batch_size.
+    
+    Args:
+        total_size: total number of examples
+        batch_size: maximum distance between the generated indices.
+    
+    Returns:
+        A generator of (int, int) tuples that can slice up a list or a tensor.
+
+`dump_activations(cfg: saev.config.Visuals)`
+:   For each SAE latent, we want to know which images have the most total "activation".
+    That is, we keep track of each patch
+
+`gather_batched(value: jaxtyping.Float[Tensor, 'batch n dim'], i: jaxtyping.Int[Tensor, 'batch k']) ‑> jaxtyping.Float[Tensor, 'batch k dim']`
+:   
+
+`get_new_topk(val1: jaxtyping.Float[Tensor, 'd_sae k'], i1: jaxtyping.Int[Tensor, 'd_sae k'], val2: jaxtyping.Float[Tensor, 'd_sae k'], i2: jaxtyping.Int[Tensor, 'd_sae k'], k: int) ‑> tuple[jaxtyping.Float[Tensor, 'd_sae k'], jaxtyping.Int[Tensor, 'd_sae k']]`
+:   .. todo:: document this function.
+
+`get_sae_acts(vit_acts: jaxtyping.Float[Tensor, 'n d_vit'], sae: saev.nn.SparseAutoencoder, cfg: saev.config.Visuals) ‑> jaxtyping.Float[Tensor, 'n d_sae']`
+:   Get SAE hidden layer activations for a batch of ViT activations.
+    
+    Args:
+        vit_acts: Batch of ViT activations
+        sae: Sparse autoencder.
+        cfg: Experimental config.
+
+`get_topk_cls(cfg: saev.config.Visuals) ‑> tuple[jaxtyping.Float[Tensor, 'd_sae k 0'], jaxtyping.Int[Tensor, 'd_sae k'], jaxtyping.Float[Tensor, 'd_sae'], jaxtyping.Float[Tensor, 'd_sae']]`
+:   
+
+`get_topk_img(cfg: saev.config.Visuals) ‑> tuple[jaxtyping.Float[Tensor, 'd_sae k n_patches_per_img'], jaxtyping.Int[Tensor, 'd_sae k'], jaxtyping.Float[Tensor, 'd_sae'], jaxtyping.Float[Tensor, 'd_sae']]`
+:   .. todo:: Document this.
+
+`get_topk_patch(cfg: saev.config.Visuals) ‑> tuple[jaxtyping.Float[Tensor, 'd_sae k n_patches_per_img'], jaxtyping.Int[Tensor, 'd_sae k'], jaxtyping.Float[Tensor, 'd_sae'], jaxtyping.Float[Tensor, 'd_sae']]`
+:   Gets the top k images for each latent in the SAE.
+    The top k images are for latent i are sorted by
+    
+        max over all patches: f_x(patch)[i]
+    
+    Thus, we could end up with duplicate images in the top k, if an image has more than one patch that maximally activates an SAE latent.
+    
+    Args:
+        cfg: Config.
+    
+    Returns:
+
+`main(cfg: saev.config.Visuals)`
+:   .. todo:: document this function.
+    
+    Dump top-k images to a directory.
+    
+    Args:
+        cfg: Configuration object.
+
+`make_img(elem: saev.visuals.GridElement, *, upper: float | None = None) ‑> PIL.Image.Image`
+:   
+
+`safe_load(path: str) ‑> object`
+:   
+
+Classes
+-------
+
+`GridElement(img: PIL.Image.Image, label: str, patches: jaxtyping.Float[Tensor, 'n_patches'])`
+:   GridElement(img: PIL.Image.Image, label: str, patches: jaxtyping.Float[Tensor, 'n_patches'])
+
+    ### Class variables
+
+    `img: PIL.Image.Image`
+    :
+
+    `label: str`
+    :
+
+    `patches: jaxtyping.Float[Tensor, 'n_patches']`
     :
 
 Namespace saev.web

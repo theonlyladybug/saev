@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
 <meta name="generator" content="pdoc3 0.11.1">
 <title>saev.helpers API documentation</title>
-<meta name="description" content="">
+<meta name="description" content="Useful helpers for `saev`.">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/sanitize.min.css" integrity="sha512-y1dtMcuvtTMJc1yPgEqF0ZjQbhnc/bFhyvIyVNb9Zk5mIGtqVaAB1Ttl28su8AvFMOY0EwRbAe+HCLqj6W7/KA==" crossorigin>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/typography.min.css" integrity="sha512-Y1DYSb995BAfxobCkKepB1BqJJTPrOp3zPL74AWFugHHmmdcvO+C48WLrUOlhGMc0QG7AE3f7gmvvcrmX2fDoA==" crossorigin>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css" crossorigin>
@@ -27,6 +27,7 @@ hljs.highlightAll();
 <h1 class="title">Module <code>saev.helpers</code></h1>
 </header>
 <section id="section-intro">
+<p>Useful helpers for <code><a title="saev" href="index.html">saev</a></code>.</p>
 </section>
 <section>
 </section>
@@ -42,21 +43,6 @@ hljs.highlightAll();
 <div class="desc"><p>Get cache directory from environment variables, defaulting to the current working directory (.)</p>
 <h2 id="returns">Returns</h2>
 <p>A path to a cache directory (might not exist yet).</p></div>
-</dd>
-<dt id="saev.helpers.tail"><code class="name flex">
-<span>def <span class="ident">tail</span></span>(<span>n: int, iterable: collections.abc.Iterable[~T]) ‑> collections.abc.Iterator[~T]</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Return an iterator over the last n items.
-From <a href="https://docs.python.org/3/library/itertools.html#itertools-recipes">https://docs.python.org/3/library/itertools.html#itertools-recipes</a></p>
-<p>tail(3, 'ABCDEFG') → E F G</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>n</code></strong></dt>
-<dd>number of items</dd>
-<dt><strong><code>iterable</code></strong></dt>
-<dd>iterable to take the tail of.</dd>
-</dl></div>
 </dd>
 </dl>
 </section>
@@ -154,7 +140,6 @@ class progress:
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="">
 <li><code><a title="saev.helpers.get_cache_dir" href="#saev.helpers.get_cache_dir">get_cache_dir</a></code></li>
-<li><code><a title="saev.helpers.tail" href="#saev.helpers.tail">tail</a></code></li>
 </ul>
 </li>
 <li><h3><a href="#header-classes">Classes</a></h3>

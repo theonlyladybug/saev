@@ -89,5 +89,46 @@ Anthropic's and OpenAI's papers suggest normalizing these factors, but `saev` st
 Finally, choose a slightly larger learning rate than the default with `--lr 5e-4`.
 
 This will train one (1) sparse autoencoder on the data.
+See the section on sweeps to learn how to train multiple SAEs in parallel using only a single GPU.
+
+## Visualize the Learned Features
+
+Now that you've trained an SAE, you probably want to look at its learned features.
+One way to visualize an individual learned feature \(f\) is by picking out images that maximize the activation of feature \(f\).
+Since we train SAEs on patch-level activations, we try to find the top *patches* for each feature \(f\).
+Then, we pick out the images those patches correspond to and create a heatmap based on SAE activation values.
+
+.. note:: More advanced forms of visualization are possible (and valuable!), but should not be included in `saev` unless they can be applied to every SAE/dataset combination. If you have specific visualizations, please add them to `contrib/` or another location.
+
+`saev.visuals` records these maximally activating images for us.
+You can see all the options with `uv run python -m saev visuals --help`.
+
+So you might run:
+
+```sh
+uv run python -m saev visuals \
+  --ckpt checkpoints/abcdefg/sae.pt \
+  --dump-to /nfs/$USER/saev/webapp/abcdefg \
+  --data.shard-root /local/scratch/$USER/cache/saev/ac89246f1934b45e2f0487298aebe36ad998b6bd252d880c0c9ec5de78d793c8 \
+  --data.layer -2 \
+  --data.patches patches \
+  --data.no-scale-mean \
+  --data.no-scale-norm \
+  images:imagenet-dataset
+```
+
+This will record the top 128 patches, and then save the unique images among those top 128 patches for each feature in the trained SAE.
+It will cache these best activations to disk, then start saving images to visualize later on.
+
+`saev.webapp` is a small web application based on [marimo](https://marimo.io/) to interactively look at these images.
+
+You can run it with `uv run marimo edit saev/webapp.py`.
 
 
+## Sweeps
+
+.. todo:: Explain how to run grid sweeps.
+
+## Training Metrics and Visualizations
+
+.. todo:: Explain how to use the `l0_mse_tradeoff.py` notebook..

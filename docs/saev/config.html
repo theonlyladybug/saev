@@ -61,7 +61,7 @@ Might be expanded in the future to support pseudo-random sampling from distribut
 <dl>
 <dt id="saev.config.Activations"><code class="flex name class">
 <span>class <span class="ident">Activations</span></span>
-<span>(</span><span>data: <a title="saev.config.ImagenetDataset" href="#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.TreeOfLifeDataset" href="#saev.config.TreeOfLifeDataset">TreeOfLifeDataset</a> | <a title="saev.config.LaionDataset" href="#saev.config.LaionDataset">LaionDataset</a> | <a title="saev.config.ImageFolderDataset" href="#saev.config.ImageFolderDataset">ImageFolderDataset</a> = &lt;factory&gt;, dump_to: str = './shards', model_org: Literal['clip', 'siglip', 'timm', 'dinov2'] = 'clip', model_ckpt: str = 'ViT-L-14/openai', vit_batch_size: int = 1024, n_workers: int = 8, d_vit: int = 1024, layers: list[int] = &lt;factory&gt;, n_patches_per_img: int = 256, cls_token: bool = True, n_patches_per_shard: int = 2400000, seed: int = 42, ssl: bool = True, device: str = 'cuda', slurm: bool = False, slurm_acct: str = 'PAS2136', log_to: str = './logs')</span>
+<span>(</span><span>data: <a title="saev.config.ImagenetDataset" href="#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.ImageFolderDataset" href="#saev.config.ImageFolderDataset">ImageFolderDataset</a> = &lt;factory&gt;, dump_to: str = './shards', model_org: Literal['clip', 'siglip', 'timm', 'dinov2'] = 'clip', model_ckpt: str = 'ViT-L-14/openai', vit_batch_size: int = 1024, n_workers: int = 8, d_vit: int = 1024, layers: list[int] = &lt;factory&gt;, n_patches_per_img: int = 256, cls_token: bool = True, n_patches_per_shard: int = 2400000, seed: int = 42, ssl: bool = True, device: str = 'cuda', slurm: bool = False, slurm_acct: str = 'PAS2136', log_to: str = './logs')</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Configuration for calculating and saving ViT activations.</p></div>
@@ -124,7 +124,7 @@ class Activations:
 <dd>
 <div class="desc"><p>Dimension of the ViT activations (depends on model).</p></div>
 </dd>
-<dt id="saev.config.Activations.data"><code class="name">var <span class="ident">data</span> : <a title="saev.config.ImagenetDataset" href="#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.TreeOfLifeDataset" href="#saev.config.TreeOfLifeDataset">TreeOfLifeDataset</a> | <a title="saev.config.LaionDataset" href="#saev.config.LaionDataset">LaionDataset</a> | <a title="saev.config.ImageFolderDataset" href="#saev.config.ImageFolderDataset">ImageFolderDataset</a></code></dt>
+<dt id="saev.config.Activations.data"><code class="name">var <span class="ident">data</span> : <a title="saev.config.ImagenetDataset" href="#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.ImageFolderDataset" href="#saev.config.ImageFolderDataset">ImageFolderDataset</a></code></dt>
 <dd>
 <div class="desc"><p>Which dataset to use.</p></div>
 </dd>
@@ -188,7 +188,7 @@ class Activations:
 </dd>
 <dt id="saev.config.DataLoad"><code class="flex name class">
 <span>class <span class="ident">DataLoad</span></span>
-<span>(</span><span>shard_root: str = './shards', patches: Literal['cls', 'patches', 'meanpool'] = 'cls', layer: Union[int, Literal['all', 'meanpool']] = -2, clamp: float = 100000.0, n_random_samples: int = 524288, scale_mean: bool = True, scale_norm: bool = True)</span>
+<span>(</span><span>shard_root: str = './shards', patches: Literal['cls', 'patches', 'meanpool'] = 'patches', layer: Union[int, Literal['all', 'meanpool']] = -2, clamp: float = 100000.0, n_random_samples: int = 524288, scale_mean: bool = True, scale_norm: bool = True)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Configuration for loading activation data from disk.</p></div>
@@ -205,7 +205,7 @@ class DataLoad:
 
     shard_root: str = os.path.join(&#34;.&#34;, &#34;shards&#34;)
     &#34;&#34;&#34;Directory with .bin shards and a metadata.json file.&#34;&#34;&#34;
-    patches: typing.Literal[&#34;cls&#34;, &#34;patches&#34;, &#34;meanpool&#34;] = &#34;cls&#34;
+    patches: typing.Literal[&#34;cls&#34;, &#34;patches&#34;, &#34;meanpool&#34;] = &#34;patches&#34;
     &#34;&#34;&#34;Which kinds of patches to use. &#39;cls&#39; indicates just the [CLS] token (if any). &#39;patches&#39; indicates it will return all patches. &#39;meanpool&#39; returns the mean of all image patches.&#34;&#34;&#34;
     layer: int | typing.Literal[&#34;all&#34;, &#34;meanpool&#34;] = -2
     &#34;&#34;&#34;.. todo: document this field.&#34;&#34;&#34;
@@ -366,85 +366,12 @@ def n_imgs(self) -&gt; int:
 </dd>
 </dl>
 </dd>
-<dt id="saev.config.LaionDataset"><code class="flex name class">
-<span>class <span class="ident">LaionDataset</span></span>
-<span>(</span><span>name: str = 'laion/relaion2B-multi-research-safe', cache_dir: str = '/fs/scratch/PAS2136/samuelstevens/cache/laion', n_imgs: int = 10000000)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>LaionDataset(name: str = 'laion/relaion2B-multi-research-safe', cache_dir: str = '/fs/scratch/PAS2136/samuelstevens/cache/laion', n_imgs: int = 10000000)</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@beartype.beartype
-@dataclasses.dataclass(frozen=True)
-class LaionDataset:
-    name: str = &#34;laion/relaion2B-multi-research-safe&#34;
-    &#34;&#34;&#34;Name of dataset on HuggingFace.&#34;&#34;&#34;
-    cache_dir: str = &#34;/fs/scratch/PAS2136/samuelstevens/cache/laion&#34;
-    &#34;&#34;&#34;Where to save the webdataset files that are downloaded.&#34;&#34;&#34;
-    n_imgs: int = 10_000_000
-    &#34;&#34;&#34;Number of images in this dataset (fixed at 10M).&#34;&#34;&#34;
-
-    @property
-    def url_list_filepath(self) -&gt; str:
-        &#34;&#34;&#34;Path to file with list of URLs.&#34;&#34;&#34;
-        return os.path.join(self.cache_dir, &#34;urls.jsonl&#34;)
-
-    @property
-    def tar_dir(self) -&gt; str:
-        return os.path.join(self.cache_dir, &#34;shards&#34;)</code></pre>
-</details>
-<h3>Class variables</h3>
-<dl>
-<dt id="saev.config.LaionDataset.cache_dir"><code class="name">var <span class="ident">cache_dir</span> : str</code></dt>
-<dd>
-<div class="desc"><p>Where to save the webdataset files that are downloaded.</p></div>
-</dd>
-<dt id="saev.config.LaionDataset.n_imgs"><code class="name">var <span class="ident">n_imgs</span> : int</code></dt>
-<dd>
-<div class="desc"><p>Number of images in this dataset (fixed at 10M).</p></div>
-</dd>
-<dt id="saev.config.LaionDataset.name"><code class="name">var <span class="ident">name</span> : str</code></dt>
-<dd>
-<div class="desc"><p>Name of dataset on HuggingFace.</p></div>
-</dd>
-</dl>
-<h3>Instance variables</h3>
-<dl>
-<dt id="saev.config.LaionDataset.tar_dir"><code class="name">prop <span class="ident">tar_dir</span> : str</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@property
-def tar_dir(self) -&gt; str:
-    return os.path.join(self.cache_dir, &#34;shards&#34;)</code></pre>
-</details>
-</dd>
-<dt id="saev.config.LaionDataset.url_list_filepath"><code class="name">prop <span class="ident">url_list_filepath</span> : str</code></dt>
-<dd>
-<div class="desc"><p>Path to file with list of URLs.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@property
-def url_list_filepath(self) -&gt; str:
-    &#34;&#34;&#34;Path to file with list of URLs.&#34;&#34;&#34;
-    return os.path.join(self.cache_dir, &#34;urls.jsonl&#34;)</code></pre>
-</details>
-</dd>
-</dl>
-</dd>
 <dt id="saev.config.SparseAutoencoder"><code class="flex name class">
 <span>class <span class="ident">SparseAutoencoder</span></span>
-<span>(</span><span>d_vit: int = 1024, exp_factor: int = 64, sparsity_coeff: float = 8e-05, n_reinit_samples: int = 524288, ghost_grads: bool = False, remove_parallel_grads: bool = True, normalize_w_dec: bool = True, seed: int = 0)</span>
+<span>(</span><span>d_vit: int = 1024, exp_factor: int = 16, sparsity_coeff: float = 0.0004, n_reinit_samples: int = 524288, ghost_grads: bool = False, remove_parallel_grads: bool = True, normalize_w_dec: bool = True, seed: int = 0)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>SparseAutoencoder(d_vit: int = 1024, exp_factor: int = 64, sparsity_coeff: float = 8e-05, n_reinit_samples: int = 524288, ghost_grads: bool = False, remove_parallel_grads: bool = True, normalize_w_dec: bool = True, seed: int = 0)</p></div>
+<div class="desc"><p>SparseAutoencoder(d_vit: int = 1024, exp_factor: int = 16, sparsity_coeff: float = 0.0004, n_reinit_samples: int = 524288, ghost_grads: bool = False, remove_parallel_grads: bool = True, normalize_w_dec: bool = True, seed: int = 0)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -453,9 +380,9 @@ def url_list_filepath(self) -&gt; str:
 @dataclasses.dataclass(frozen=True)
 class SparseAutoencoder:
     d_vit: int = 1024
-    exp_factor: int = 64
+    exp_factor: int = 16
     &#34;&#34;&#34;Expansion factor for SAE.&#34;&#34;&#34;
-    sparsity_coeff: float = 0.00008
+    sparsity_coeff: float = 4e-4
     &#34;&#34;&#34;How much to weight sparsity loss term.&#34;&#34;&#34;
     n_reinit_samples: int = 1024 * 16 * 32
     &#34;&#34;&#34;Number of samples to use for SAE re-init. Anthropic proposes initializing b_dec to the geometric median of the dataset here: https://transformer-circuits.pub/2023/monosemantic-features/index.html#appendix-autoencoder-bias. We use the regular mean.&#34;&#34;&#34;
@@ -525,7 +452,7 @@ def d_sae(self) -&gt; int:
 </dd>
 <dt id="saev.config.Train"><code class="flex name class">
 <span>class <span class="ident">Train</span></span>
-<span>(</span><span>data: <a title="saev.config.DataLoad" href="#saev.config.DataLoad">DataLoad</a> = &lt;factory&gt;, n_workers: int = 32, n_patches: int = 100000000, sae: <a title="saev.config.SparseAutoencoder" href="#saev.config.SparseAutoencoder">SparseAutoencoder</a> = &lt;factory&gt;, n_sparsity_warmup: int = 0, lr: float = 0.0004, n_lr_warmup: int = 500, sae_batch_size: int = 16384, feature_sampling_window: int = 64, dead_feature_window: int = 64, dead_feature_threshold: float = 1e-06, track: bool = True, wandb_project: str = 'saev', tag: str = '', log_every: int = 25, ckpt_path: str = './checkpoints', device: Literal['cuda', 'cpu'] = 'cuda', seed: int = 42, slurm: bool = False, slurm_acct: str = 'PAS2136', log_to: str = './logs')</span>
+<span>(</span><span>data: <a title="saev.config.DataLoad" href="#saev.config.DataLoad">DataLoad</a> = &lt;factory&gt;, n_workers: int = 32, n_patches: int = 100000000, sae: <a title="saev.config.SparseAutoencoder" href="#saev.config.SparseAutoencoder">SparseAutoencoder</a> = &lt;factory&gt;, n_sparsity_warmup: int = 0, lr: float = 0.0004, n_lr_warmup: int = 500, sae_batch_size: int = 16384, track: bool = True, wandb_project: str = 'saev', tag: str = '', log_every: int = 25, ckpt_path: str = './checkpoints', device: Literal['cuda', 'cpu'] = 'cuda', seed: int = 42, slurm: bool = False, slurm_acct: str = 'PAS2136', log_to: str = './logs')</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Configuration for training a sparse autoencoder on a vision transformer.</p></div>
@@ -556,12 +483,6 @@ class Train:
     &#34;&#34;&#34;Number of learning rate warmup steps.&#34;&#34;&#34;
     sae_batch_size: int = 1024 * 16
     &#34;&#34;&#34;Batch size for SAE training.&#34;&#34;&#34;
-
-    feature_sampling_window: int = 64
-
-    dead_feature_window: int = 64
-
-    dead_feature_threshold: float = 1e-6
 
     # Logging
     track: bool = True
@@ -596,21 +517,9 @@ class Train:
 <dd>
 <div class="desc"><p>Data configuration</p></div>
 </dd>
-<dt id="saev.config.Train.dead_feature_threshold"><code class="name">var <span class="ident">dead_feature_threshold</span> : float</code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt id="saev.config.Train.dead_feature_window"><code class="name">var <span class="ident">dead_feature_window</span> : int</code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
 <dt id="saev.config.Train.device"><code class="name">var <span class="ident">device</span> : Literal['cuda', 'cpu']</code></dt>
 <dd>
 <div class="desc"><p>Hardware device.</p></div>
-</dd>
-<dt id="saev.config.Train.feature_sampling_window"><code class="name">var <span class="ident">feature_sampling_window</span> : int</code></dt>
-<dd>
-<div class="desc"></div>
 </dd>
 <dt id="saev.config.Train.log_every"><code class="name">var <span class="ident">log_every</span> : int</code></dt>
 <dd>
@@ -674,106 +583,12 @@ class Train:
 </dd>
 </dl>
 </dd>
-<dt id="saev.config.TreeOfLifeDataset"><code class="flex name class">
-<span>class <span class="ident">TreeOfLifeDataset</span></span>
-<span>(</span><span>metadata: str = 'treeoflife-10m.json', label_key: str = '.taxonomic_name.txt')</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Configuration for the TreeOfLife-10M webdataset.</p>
-<p>Webdatasets are designed for random sampling of the entire dataset so that over multiple epochs, every sample is seen, on average, the same number of times. However, for training sparse autoencoders, we need to calculate ViT activations exactly once for each example in the dataset. Webdatasets support this through the <a href="https://github.com/webdataset/webdataset?tab=readme-ov-file#the-wids-library-for-indexed-webdatasets"><code>wids</code></a> library.</p>
-<p>Here is a short discussion of the steps required to use saev with webdatasets.</p>
-<p>First, you will need to use <code>widsindex</code> (installed with the webdataset library) to create an metadata file used by wids. You can see an example file <a href="https://storage.googleapis.com/webdataset/fake-imagenet/imagenet-train.json">here</a>. To generate my own metadata file, I ran this command:</p>
-<pre><code class="language-sh">uv run widsindex create --name treeoflife-10m --output treeoflife-10m.json '/fs/ess/PAS2136/open_clip/data/evobio10m-v3.3/224x224/train/shard-{000000..000159}.tar'
-</code></pre>
-<p>It took a long time (more than an hour, less than 3 hours) and generated a <code>treeoflife-10m.json</code> file.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@beartype.beartype
-@dataclasses.dataclass(frozen=True)
-class TreeOfLifeDataset:
-    &#34;&#34;&#34;
-    Configuration for the TreeOfLife-10M webdataset.
-
-    Webdatasets are designed for random sampling of the entire dataset so that over multiple epochs, every sample is seen, on average, the same number of times. However, for training sparse autoencoders, we need to calculate ViT activations exactly once for each example in the dataset. Webdatasets support this through the [`wids`](https://github.com/webdataset/webdataset?tab=readme-ov-file#the-wids-library-for-indexed-webdatasets) library.
-
-    Here is a short discussion of the steps required to use saev with webdatasets.
-
-    First, you will need to use `widsindex` (installed with the webdataset library) to create an metadata file used by wids. You can see an example file [here](https://storage.googleapis.com/webdataset/fake-imagenet/imagenet-train.json). To generate my own metadata file, I ran this command:
-
-    ```sh
-    uv run widsindex create --name treeoflife-10m --output treeoflife-10m.json &#39;/fs/ess/PAS2136/open_clip/data/evobio10m-v3.3/224x224/train/shard-{000000..000159}.tar&#39;
-    ```
-
-    It took a long time (more than an hour, less than 3 hours) and generated a `treeoflife-10m.json` file.
-    &#34;&#34;&#34;
-
-    metadata: str = &#34;treeoflife-10m.json&#34;
-    &#34;&#34;&#34;&#34;&#34;&#34;
-    label_key: str = &#34;.taxonomic_name.txt&#34;
-    &#34;&#34;&#34;Which key to use as the label.&#34;&#34;&#34;
-
-    @property
-    def n_imgs(self) -&gt; int:
-        &#34;&#34;&#34;Return number of images in the dataset by reading the metadata file and summing the `nsamples` fields.&#34;&#34;&#34;
-        import json
-
-        import numpy as np
-
-        with open(self.metadata) as fd:
-            metadata = json.load(fd)
-
-        return (
-            np.array([shard[&#34;nsamples&#34;] for shard in metadata[&#34;shardlist&#34;]])
-            .sum()
-            .item()
-        )</code></pre>
-</details>
-<h3>Class variables</h3>
-<dl>
-<dt id="saev.config.TreeOfLifeDataset.label_key"><code class="name">var <span class="ident">label_key</span> : str</code></dt>
-<dd>
-<div class="desc"><p>Which key to use as the label.</p></div>
-</dd>
-<dt id="saev.config.TreeOfLifeDataset.metadata"><code class="name">var <span class="ident">metadata</span> : str</code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-</dl>
-<h3>Instance variables</h3>
-<dl>
-<dt id="saev.config.TreeOfLifeDataset.n_imgs"><code class="name">prop <span class="ident">n_imgs</span> : int</code></dt>
-<dd>
-<div class="desc"><p>Return number of images in the dataset by reading the metadata file and summing the <code>nsamples</code> fields.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@property
-def n_imgs(self) -&gt; int:
-    &#34;&#34;&#34;Return number of images in the dataset by reading the metadata file and summing the `nsamples` fields.&#34;&#34;&#34;
-    import json
-
-    import numpy as np
-
-    with open(self.metadata) as fd:
-        metadata = json.load(fd)
-
-    return (
-        np.array([shard[&#34;nsamples&#34;] for shard in metadata[&#34;shardlist&#34;]])
-        .sum()
-        .item()
-    )</code></pre>
-</details>
-</dd>
-</dl>
-</dd>
 <dt id="saev.config.Visuals"><code class="flex name class">
 <span>class <span class="ident">Visuals</span></span>
+<span>(</span><span>ckpt: str = './checkpoints/sae.pt', data: <a title="saev.config.DataLoad" href="#saev.config.DataLoad">DataLoad</a> = &lt;factory&gt;, images: <a title="saev.config.ImagenetDataset" href="#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.ImageFolderDataset" href="#saev.config.ImageFolderDataset">ImageFolderDataset</a> = &lt;factory&gt;, top_k: int = 128, n_workers: int = 16, topk_batch_size: int = 16384, sae_batch_size: int = 16384, epsilon: float = 1e-09, sort_by: Literal['cls', 'img', 'patch'] = 'patch', device: str = 'cuda', dump_to: str = './data', log_freq_range: tuple[float, float] = (-6.0, -2.0), log_value_range: tuple[float, float] = (-1.0, 1.0), include_latents: list[int] = &lt;factory&gt;)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Visuals()</p></div>
+<div class="desc"><p>Configuration for generating visuals from trained SAEs.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -781,8 +596,195 @@ def n_imgs(self) -&gt; int:
 <pre><code class="python">@beartype.beartype
 @dataclasses.dataclass(frozen=True)
 class Visuals:
-    pass</code></pre>
+    &#34;&#34;&#34;Configuration for generating visuals from trained SAEs.&#34;&#34;&#34;
+
+    ckpt: str = os.path.join(&#34;.&#34;, &#34;checkpoints&#34;, &#34;sae.pt&#34;)
+    &#34;&#34;&#34;Path to the sae.pt file.&#34;&#34;&#34;
+    data: DataLoad = dataclasses.field(default_factory=DataLoad)
+    &#34;&#34;&#34;Data configuration.&#34;&#34;&#34;
+    images: DatasetConfig = dataclasses.field(default_factory=ImagenetDataset)
+    &#34;&#34;&#34;Which images to use.&#34;&#34;&#34;
+    top_k: int = 128
+    &#34;&#34;&#34;How many images per SAE feature to store.&#34;&#34;&#34;
+    n_workers: int = 16
+    &#34;&#34;&#34;Number of dataloader workers.&#34;&#34;&#34;
+    topk_batch_size: int = 1024 * 16
+    &#34;&#34;&#34;Number of examples to apply top-k op to.&#34;&#34;&#34;
+    sae_batch_size: int = 1024 * 16
+    &#34;&#34;&#34;Batch size for SAE inference.&#34;&#34;&#34;
+    epsilon: float = 1e-9
+    &#34;&#34;&#34;Value to add to avoid log(0).&#34;&#34;&#34;
+    sort_by: typing.Literal[&#34;cls&#34;, &#34;img&#34;, &#34;patch&#34;] = &#34;patch&#34;
+    &#34;&#34;&#34;How to find the top k images. &#39;cls&#39; picks images where the SAE latents of the ViT&#39;s [CLS] token are maximized without any patch highligting. &#39;img&#39; picks images that maximize the sum of an SAE latent over all patches in the image, highlighting the patches. &#39;patch&#39; pickes images that maximize an SAE latent over all patches (not summed), highlighting the patches and only showing unique images.&#34;&#34;&#34;
+    device: str = &#34;cuda&#34;
+    &#34;&#34;&#34;Which accelerator to use.&#34;&#34;&#34;
+    dump_to: str = os.path.join(&#34;.&#34;, &#34;data&#34;)
+    &#34;&#34;&#34;Where to save data.&#34;&#34;&#34;
+    log_freq_range: tuple[float, float] = (-6.0, -2.0)
+    &#34;&#34;&#34;Log10 frequency range for which to save images.&#34;&#34;&#34;
+    log_value_range: tuple[float, float] = (-1.0, 1.0)
+    &#34;&#34;&#34;Log10 frequency range for which to save images.&#34;&#34;&#34;
+    include_latents: list[int] = dataclasses.field(default_factory=list)
+    &#34;&#34;&#34;Latents to always include, no matter what.&#34;&#34;&#34;
+
+    @property
+    def root(self) -&gt; str:
+        return os.path.join(self.dump_to, f&#34;sort_by_{self.sort_by}&#34;)
+
+    @property
+    def top_values_fpath(self) -&gt; str:
+        return os.path.join(self.root, &#34;top_values.pt&#34;)
+
+    @property
+    def top_img_i_fpath(self) -&gt; str:
+        return os.path.join(self.root, &#34;top_img_i.pt&#34;)
+
+    @property
+    def top_patch_i_fpath(self) -&gt; str:
+        return os.path.join(self.root, &#34;top_patch_i.pt&#34;)
+
+    @property
+    def mean_values_fpath(self) -&gt; str:
+        return os.path.join(self.root, &#34;mean_values.pt&#34;)
+
+    @property
+    def sparsity_fpath(self) -&gt; str:
+        return os.path.join(self.root, &#34;sparsity.pt&#34;)</code></pre>
 </details>
+<h3>Class variables</h3>
+<dl>
+<dt id="saev.config.Visuals.ckpt"><code class="name">var <span class="ident">ckpt</span> : str</code></dt>
+<dd>
+<div class="desc"><p>Path to the sae.pt file.</p></div>
+</dd>
+<dt id="saev.config.Visuals.data"><code class="name">var <span class="ident">data</span> : <a title="saev.config.DataLoad" href="#saev.config.DataLoad">DataLoad</a></code></dt>
+<dd>
+<div class="desc"><p>Data configuration.</p></div>
+</dd>
+<dt id="saev.config.Visuals.device"><code class="name">var <span class="ident">device</span> : str</code></dt>
+<dd>
+<div class="desc"><p>Which accelerator to use.</p></div>
+</dd>
+<dt id="saev.config.Visuals.dump_to"><code class="name">var <span class="ident">dump_to</span> : str</code></dt>
+<dd>
+<div class="desc"><p>Where to save data.</p></div>
+</dd>
+<dt id="saev.config.Visuals.epsilon"><code class="name">var <span class="ident">epsilon</span> : float</code></dt>
+<dd>
+<div class="desc"><p>Value to add to avoid log(0).</p></div>
+</dd>
+<dt id="saev.config.Visuals.images"><code class="name">var <span class="ident">images</span> : <a title="saev.config.ImagenetDataset" href="#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.ImageFolderDataset" href="#saev.config.ImageFolderDataset">ImageFolderDataset</a></code></dt>
+<dd>
+<div class="desc"><p>Which images to use.</p></div>
+</dd>
+<dt id="saev.config.Visuals.include_latents"><code class="name">var <span class="ident">include_latents</span> : list[int]</code></dt>
+<dd>
+<div class="desc"><p>Latents to always include, no matter what.</p></div>
+</dd>
+<dt id="saev.config.Visuals.log_freq_range"><code class="name">var <span class="ident">log_freq_range</span> : tuple[float, float]</code></dt>
+<dd>
+<div class="desc"><p>Log10 frequency range for which to save images.</p></div>
+</dd>
+<dt id="saev.config.Visuals.log_value_range"><code class="name">var <span class="ident">log_value_range</span> : tuple[float, float]</code></dt>
+<dd>
+<div class="desc"><p>Log10 frequency range for which to save images.</p></div>
+</dd>
+<dt id="saev.config.Visuals.n_workers"><code class="name">var <span class="ident">n_workers</span> : int</code></dt>
+<dd>
+<div class="desc"><p>Number of dataloader workers.</p></div>
+</dd>
+<dt id="saev.config.Visuals.sae_batch_size"><code class="name">var <span class="ident">sae_batch_size</span> : int</code></dt>
+<dd>
+<div class="desc"><p>Batch size for SAE inference.</p></div>
+</dd>
+<dt id="saev.config.Visuals.sort_by"><code class="name">var <span class="ident">sort_by</span> : Literal['cls', 'img', 'patch']</code></dt>
+<dd>
+<div class="desc"><p>How to find the top k images. 'cls' picks images where the SAE latents of the ViT's [CLS] token are maximized without any patch highligting. 'img' picks images that maximize the sum of an SAE latent over all patches in the image, highlighting the patches. 'patch' pickes images that maximize an SAE latent over all patches (not summed), highlighting the patches and only showing unique images.</p></div>
+</dd>
+<dt id="saev.config.Visuals.top_k"><code class="name">var <span class="ident">top_k</span> : int</code></dt>
+<dd>
+<div class="desc"><p>How many images per SAE feature to store.</p></div>
+</dd>
+<dt id="saev.config.Visuals.topk_batch_size"><code class="name">var <span class="ident">topk_batch_size</span> : int</code></dt>
+<dd>
+<div class="desc"><p>Number of examples to apply top-k op to.</p></div>
+</dd>
+</dl>
+<h3>Instance variables</h3>
+<dl>
+<dt id="saev.config.Visuals.mean_values_fpath"><code class="name">prop <span class="ident">mean_values_fpath</span> : str</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def mean_values_fpath(self) -&gt; str:
+    return os.path.join(self.root, &#34;mean_values.pt&#34;)</code></pre>
+</details>
+</dd>
+<dt id="saev.config.Visuals.root"><code class="name">prop <span class="ident">root</span> : str</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def root(self) -&gt; str:
+    return os.path.join(self.dump_to, f&#34;sort_by_{self.sort_by}&#34;)</code></pre>
+</details>
+</dd>
+<dt id="saev.config.Visuals.sparsity_fpath"><code class="name">prop <span class="ident">sparsity_fpath</span> : str</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def sparsity_fpath(self) -&gt; str:
+    return os.path.join(self.root, &#34;sparsity.pt&#34;)</code></pre>
+</details>
+</dd>
+<dt id="saev.config.Visuals.top_img_i_fpath"><code class="name">prop <span class="ident">top_img_i_fpath</span> : str</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def top_img_i_fpath(self) -&gt; str:
+    return os.path.join(self.root, &#34;top_img_i.pt&#34;)</code></pre>
+</details>
+</dd>
+<dt id="saev.config.Visuals.top_patch_i_fpath"><code class="name">prop <span class="ident">top_patch_i_fpath</span> : str</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def top_patch_i_fpath(self) -&gt; str:
+    return os.path.join(self.root, &#34;top_patch_i.pt&#34;)</code></pre>
+</details>
+</dd>
+<dt id="saev.config.Visuals.top_values_fpath"><code class="name">prop <span class="ident">top_values_fpath</span> : str</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def top_values_fpath(self) -&gt; str:
+    return os.path.join(self.root, &#34;top_values.pt&#34;)</code></pre>
+</details>
+</dd>
+</dl>
 </dd>
 </dl>
 </section>
@@ -857,16 +859,6 @@ class Visuals:
 </ul>
 </li>
 <li>
-<h4><code><a title="saev.config.LaionDataset" href="#saev.config.LaionDataset">LaionDataset</a></code></h4>
-<ul class="">
-<li><code><a title="saev.config.LaionDataset.cache_dir" href="#saev.config.LaionDataset.cache_dir">cache_dir</a></code></li>
-<li><code><a title="saev.config.LaionDataset.n_imgs" href="#saev.config.LaionDataset.n_imgs">n_imgs</a></code></li>
-<li><code><a title="saev.config.LaionDataset.name" href="#saev.config.LaionDataset.name">name</a></code></li>
-<li><code><a title="saev.config.LaionDataset.tar_dir" href="#saev.config.LaionDataset.tar_dir">tar_dir</a></code></li>
-<li><code><a title="saev.config.LaionDataset.url_list_filepath" href="#saev.config.LaionDataset.url_list_filepath">url_list_filepath</a></code></li>
-</ul>
-</li>
-<li>
 <h4><code><a title="saev.config.SparseAutoencoder" href="#saev.config.SparseAutoencoder">SparseAutoencoder</a></code></h4>
 <ul class="">
 <li><code><a title="saev.config.SparseAutoencoder.d_sae" href="#saev.config.SparseAutoencoder.d_sae">d_sae</a></code></li>
@@ -882,13 +874,10 @@ class Visuals:
 </li>
 <li>
 <h4><code><a title="saev.config.Train" href="#saev.config.Train">Train</a></code></h4>
-<ul class="">
+<ul class="two-column">
 <li><code><a title="saev.config.Train.ckpt_path" href="#saev.config.Train.ckpt_path">ckpt_path</a></code></li>
 <li><code><a title="saev.config.Train.data" href="#saev.config.Train.data">data</a></code></li>
-<li><code><a title="saev.config.Train.dead_feature_threshold" href="#saev.config.Train.dead_feature_threshold">dead_feature_threshold</a></code></li>
-<li><code><a title="saev.config.Train.dead_feature_window" href="#saev.config.Train.dead_feature_window">dead_feature_window</a></code></li>
 <li><code><a title="saev.config.Train.device" href="#saev.config.Train.device">device</a></code></li>
-<li><code><a title="saev.config.Train.feature_sampling_window" href="#saev.config.Train.feature_sampling_window">feature_sampling_window</a></code></li>
 <li><code><a title="saev.config.Train.log_every" href="#saev.config.Train.log_every">log_every</a></code></li>
 <li><code><a title="saev.config.Train.log_to" href="#saev.config.Train.log_to">log_to</a></code></li>
 <li><code><a title="saev.config.Train.lr" href="#saev.config.Train.lr">lr</a></code></li>
@@ -907,15 +896,29 @@ class Visuals:
 </ul>
 </li>
 <li>
-<h4><code><a title="saev.config.TreeOfLifeDataset" href="#saev.config.TreeOfLifeDataset">TreeOfLifeDataset</a></code></h4>
-<ul class="">
-<li><code><a title="saev.config.TreeOfLifeDataset.label_key" href="#saev.config.TreeOfLifeDataset.label_key">label_key</a></code></li>
-<li><code><a title="saev.config.TreeOfLifeDataset.metadata" href="#saev.config.TreeOfLifeDataset.metadata">metadata</a></code></li>
-<li><code><a title="saev.config.TreeOfLifeDataset.n_imgs" href="#saev.config.TreeOfLifeDataset.n_imgs">n_imgs</a></code></li>
-</ul>
-</li>
-<li>
 <h4><code><a title="saev.config.Visuals" href="#saev.config.Visuals">Visuals</a></code></h4>
+<ul class="two-column">
+<li><code><a title="saev.config.Visuals.ckpt" href="#saev.config.Visuals.ckpt">ckpt</a></code></li>
+<li><code><a title="saev.config.Visuals.data" href="#saev.config.Visuals.data">data</a></code></li>
+<li><code><a title="saev.config.Visuals.device" href="#saev.config.Visuals.device">device</a></code></li>
+<li><code><a title="saev.config.Visuals.dump_to" href="#saev.config.Visuals.dump_to">dump_to</a></code></li>
+<li><code><a title="saev.config.Visuals.epsilon" href="#saev.config.Visuals.epsilon">epsilon</a></code></li>
+<li><code><a title="saev.config.Visuals.images" href="#saev.config.Visuals.images">images</a></code></li>
+<li><code><a title="saev.config.Visuals.include_latents" href="#saev.config.Visuals.include_latents">include_latents</a></code></li>
+<li><code><a title="saev.config.Visuals.log_freq_range" href="#saev.config.Visuals.log_freq_range">log_freq_range</a></code></li>
+<li><code><a title="saev.config.Visuals.log_value_range" href="#saev.config.Visuals.log_value_range">log_value_range</a></code></li>
+<li><code><a title="saev.config.Visuals.mean_values_fpath" href="#saev.config.Visuals.mean_values_fpath">mean_values_fpath</a></code></li>
+<li><code><a title="saev.config.Visuals.n_workers" href="#saev.config.Visuals.n_workers">n_workers</a></code></li>
+<li><code><a title="saev.config.Visuals.root" href="#saev.config.Visuals.root">root</a></code></li>
+<li><code><a title="saev.config.Visuals.sae_batch_size" href="#saev.config.Visuals.sae_batch_size">sae_batch_size</a></code></li>
+<li><code><a title="saev.config.Visuals.sort_by" href="#saev.config.Visuals.sort_by">sort_by</a></code></li>
+<li><code><a title="saev.config.Visuals.sparsity_fpath" href="#saev.config.Visuals.sparsity_fpath">sparsity_fpath</a></code></li>
+<li><code><a title="saev.config.Visuals.top_img_i_fpath" href="#saev.config.Visuals.top_img_i_fpath">top_img_i_fpath</a></code></li>
+<li><code><a title="saev.config.Visuals.top_k" href="#saev.config.Visuals.top_k">top_k</a></code></li>
+<li><code><a title="saev.config.Visuals.top_patch_i_fpath" href="#saev.config.Visuals.top_patch_i_fpath">top_patch_i_fpath</a></code></li>
+<li><code><a title="saev.config.Visuals.top_values_fpath" href="#saev.config.Visuals.top_values_fpath">top_values_fpath</a></code></li>
+<li><code><a title="saev.config.Visuals.topk_batch_size" href="#saev.config.Visuals.topk_batch_size">topk_batch_size</a></code></li>
+</ul>
 </li>
 </ul>
 </li>

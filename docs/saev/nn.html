@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
 <meta name="generator" content="pdoc3 0.11.1">
 <title>saev.nn API documentation</title>
-<meta name="description" content="">
+<meta name="description" content="Neural network architectures for sparse autoencoders.">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/sanitize.min.css" integrity="sha512-y1dtMcuvtTMJc1yPgEqF0ZjQbhnc/bFhyvIyVNb9Zk5mIGtqVaAB1Ttl28su8AvFMOY0EwRbAe+HCLqj6W7/KA==" crossorigin>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/typography.min.css" integrity="sha512-Y1DYSb995BAfxobCkKepB1BqJJTPrOp3zPL74AWFugHHmmdcvO+C48WLrUOlhGMc0QG7AE3f7gmvvcrmX2fDoA==" crossorigin>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css" crossorigin>
@@ -27,6 +27,7 @@ hljs.highlightAll();
 <h1 class="title">Module <code>saev.nn</code></h1>
 </header>
 <section id="section-intro">
+<p>Neural network architectures for sparse autoencoders.</p>
 </section>
 <section>
 </section>
@@ -39,13 +40,16 @@ hljs.highlightAll();
 <span>def <span class="ident">dump</span></span>(<span>fpath: str, sae: <a title="saev.nn.SparseAutoencoder" href="#saev.nn.SparseAutoencoder">SparseAutoencoder</a>)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Save an SAE checkpoint to disk along with configuration, using the <a href="https://docs.kidger.site/equinox/examples/serialisation">trick from equinox</a>.</p>
+<h2 id="arguments">Arguments</h2>
+<p>fpath: filepath to save checkpoint to.
+sae: sparse autoencoder checkpoint to save.</p></div>
 </dd>
 <dt id="saev.nn.load"><code class="name flex">
 <span>def <span class="ident">load</span></span>(<span>fpath: str, *, device: str = 'cpu') ‑> <a title="saev.nn.SparseAutoencoder" href="#saev.nn.SparseAutoencoder">SparseAutoencoder</a></span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Loads a sparse autoencoder from disk.</p></div>
 </dd>
 <dt id="saev.nn.ref_mse"><code class="name flex">
 <span>def <span class="ident">ref_mse</span></span>(<span>x_hat: jaxtyping.Float[Tensor, '*d'], x: jaxtyping.Float[Tensor, '*d'], norm: bool = True) ‑> jaxtyping.Float[Tensor, '*d']</span>
@@ -187,42 +191,12 @@ class SparseAutoencoder(torch.nn.Module):
         # Some values of x and x_hat can be very large. We can calculate a safe MSE
         mse_loss = safe_mse(x_hat, x)
 
-        ghost_loss = torch.tensor(0.0, dtype=mse_loss.dtype, device=mse_loss.device)
-        # gate on config and training so evals is not slowed down.
-        if (
-            self.cfg.ghost_grads
-            and self.training
-            and dead_neuron_mask is not None
-            and dead_neuron_mask.sum() &gt; 0
-        ):
-            assert dead_neuron_mask is not None
-
-            # ghost protocol
-
-            # 1.
-            residual = x - x_hat
-            l2_norm_residual = torch.norm(residual, dim=-1)
-
-            # 2.
-            feature_acts_dead_neurons_only = torch.exp(h_pre[:, dead_neuron_mask])
-            ghost_out = feature_acts_dead_neurons_only @ self.W_dec[dead_neuron_mask, :]
-            l2_norm_ghost_out = torch.norm(ghost_out, dim=-1)
-            norm_scaling_factor = l2_norm_residual / (1e-6 + l2_norm_ghost_out * 2)
-            ghost_out *= norm_scaling_factor[:, None].detach()
-
-            # 3.
-            ghost_loss = (
-                torch.pow((ghost_out - residual.detach().float()), 2)
-                / (residual.detach() ** 2).sum(dim=-1, keepdim=True).sqrt()
-            )
-            mse_rescaling_factor = (mse_loss / (ghost_loss + 1e-6)).detach()
-            ghost_loss *= mse_rescaling_factor
-
-        ghost_loss = ghost_loss.mean()
         mse_loss = mse_loss.mean()
         l0 = (f_x &gt; 0).float().sum(axis=1).mean(axis=0)
         l1 = f_x.sum(axis=1).mean(axis=0)
         sparsity_loss = self.cfg.sparsity_coeff * l1
+        # Ghost loss is included for backwards compatibility.
+        ghost_loss = torch.zeros_like(mse_loss)
 
         return x_hat, f_x, Loss(mse_loss, sparsity_loss, ghost_loss, l0, l1)
 

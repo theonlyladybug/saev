@@ -71,6 +71,70 @@ It will write 2.4M patches per shard, and save shards to a new directory <code>/
 </div>
 <p>This script will also save a <code>metadata.json</code> file that will record the relevant metadata for these activations, which will be read by future steps.
 The activations will be in <code>.bin</code> files, numbered starting from 000000.</p>
+<p>To add your own models, see the guide to extending in <code><a title="saev.activations" href="activations.html">saev.activations</a></code>.</p>
+<h2 id="train-saes-on-activations">Train SAEs on Activations</h2>
+<p>To train an SAE, we need to specify:</p>
+<ol>
+<li>Which activations to use as input.</li>
+<li>SAE architectural stuff.</li>
+<li>Optimization-related stuff.</li>
+</ol>
+<p><code>The </code>saev.training` module handles this.</p>
+<p>Run <code>uv run python -m saev train --help</code> to see all the configuration.</p>
+<p>Continuing on from our example before, you might want to run something like:</p>
+<pre><code class="language-sh">uv run python -m saev train \
+  --data.shard-root /local/scratch/$USER/cache/saev/ac89246f1934b45e2f0487298aebe36ad998b6bd252d880c0c9ec5de78d793c8 \
+  --data.layer -2 \
+  --data.patches patches \
+  --data.no-scale-mean \
+  --data.no-scale-norm \
+  --sae.d-vit 768 \
+  --lr 5e-4
+</code></pre>
+<p><code>--data.*</code> flags describe which activations to use.</p>
+<p><code>--data.shard-root</code> should point to a directory with <code>*.bin</code> files and the <code>metadata.json</code> file.
+<code>--data.layer</code> specifies the layer, and <code>--data.patches</code> says that want to train on individual patch activations, rather than the [CLS] token activation.
+<code>--data.no-scale-mean</code> and <code>--data.no-scale-norm</code> mean not to scale the activation mean or L2 norm.
+Anthropic's and OpenAI's papers suggest normalizing these factors, but <code><a title="saev" href="#saev">saev</a></code> still has a bug with this, so I suggest not scaling these factors.</p>
+<p><code>--sae.*</code> flags are about the SAE itself.</p>
+<p><code>--sae.d-vit</code> is the only one you need to change; the dimension of our ViT was 768 for a ViT-B, rather than the default of 1024 for a ViT-L.</p>
+<p>Finally, choose a slightly larger learning rate than the default with <code>--lr 5e-4</code>.</p>
+<p>This will train one (1) sparse autoencoder on the data.
+See the section on sweeps to learn how to train multiple SAEs in parallel using only a single GPU.</p>
+<h2 id="visualize-the-learned-features">Visualize the Learned Features</h2>
+<p>Now that you've trained an SAE, you probably want to look at its learned features.
+One way to visualize an individual learned feature <span><span class="MathJax_Preview">f</span><script type="math/tex">f</script></span> is by picking out images that maximize the activation of feature <span><span class="MathJax_Preview">f</span><script type="math/tex">f</script></span>.
+Since we train SAEs on patch-level activations, we try to find the top <em>patches</em> for each feature <span><span class="MathJax_Preview">f</span><script type="math/tex">f</script></span>.
+Then, we pick out the images those patches correspond to and create a heatmap based on SAE activation values.</p>
+<div class="admonition note">
+<p class="admonition-title">Note:&ensp;More advanced forms of visualization are possible (and valuable!), but should not be included in <code><a title="saev" href="#saev">saev</a></code> unless they can be applied to every SAE/dataset combination. If you have specific visualizations, please add them to <code>contrib/</code> or another location.</p>
+</div>
+<p><code><a title="saev.visuals" href="visuals.html">saev.visuals</a></code> records these maximally activating images for us.
+You can see all the options with <code>uv run python -m saev visuals --help</code>.</p>
+<p>So you might run:</p>
+<pre><code class="language-sh">uv run python -m saev visuals \
+  --ckpt checkpoints/abcdefg/sae.pt \
+  --dump-to /nfs/$USER/saev/webapp/abcdefg \
+  --data.shard-root /local/scratch/$USER/cache/saev/ac89246f1934b45e2f0487298aebe36ad998b6bd252d880c0c9ec5de78d793c8 \
+  --data.layer -2 \
+  --data.patches patches \
+  --data.no-scale-mean \
+  --data.no-scale-norm \
+  images:imagenet-dataset
+</code></pre>
+<p>This will record the top 128 patches, and then save the unique images among those top 128 patches for each feature in the trained SAE.
+It will cache these best activations to disk, then start saving images to visualize later on.</p>
+<p><code><a title="saev.webapp" href="webapp.html">saev.webapp</a></code> is a small web application based on <a href="https://marimo.io/">marimo</a> to interactively look at these images.</p>
+<h2 id="sweeps">Sweeps</h2>
+<div class="admonition todo">
+<p class="admonition-title">TODO</p>
+<p>Explain how to run grid sweeps.</p>
+</div>
+<h2 id="training-metrics-and-visualizations">Training Metrics and Visualizations</h2>
+<div class="admonition todo">
+<p class="admonition-title">TODO</p>
+<p>Explain how to use the <code>l0_mse_tradeoff.py</code> notebook..</p>
+</div>
 </section>
 <section>
 <h2 class="section-title" id="header-submodules">Sub-modules</h2>
@@ -83,17 +147,9 @@ The activations will be in <code>.bin</code> files, numbered starting from 00000
 <dd>
 <div class="desc"><p>All configs for all saev jobs …</p></div>
 </dd>
-<dt><code class="name"><a title="saev.cub2011" href="cub2011.html">saev.cub2011</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt><code class="name"><a title="saev.deepfashion" href="deepfashion.html">saev.deepfashion</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
 <dt><code class="name"><a title="saev.helpers" href="helpers.html">saev.helpers</a></code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Useful helpers for <code><a title="saev" href="#saev">saev</a></code>.</p></div>
 </dd>
 <dt><code class="name"><a title="saev.imaging" href="imaging.html">saev.imaging</a></code></dt>
 <dd>
@@ -101,7 +157,7 @@ The activations will be in <code>.bin</code> files, numbered starting from 00000
 </dd>
 <dt><code class="name"><a title="saev.nn" href="nn.html">saev.nn</a></code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Neural network architectures for sparse autoencoders.</p></div>
 </dd>
 <dt><code class="name"><a title="saev.test_activations" href="test_activations.html">saev.test_activations</a></code></dt>
 <dd>
@@ -123,6 +179,10 @@ These tests are quite slow</p></div>
 <dt><code class="name"><a title="saev.training" href="training.html">saev.training</a></code></dt>
 <dd>
 <div class="desc"><p>Trains many SAEs in parallel to amortize the cost of loading a single batch of data over many SAE training runs.</p></div>
+</dd>
+<dt><code class="name"><a title="saev.visuals" href="visuals.html">saev.visuals</a></code></dt>
+<dd>
+<div class="desc"><p>There is some important notation used only in this file to dramatically shorten variable names …</p></div>
 </dd>
 <dt><code class="name"><a title="saev.web" href="web/index.html">saev.web</a></code></dt>
 <dd>
@@ -146,6 +206,10 @@ These tests are quite slow</p></div>
 <ul>
 <li><a href="#guide-to-training-saes-on-vision-models">Guide to Training SAEs on Vision Models</a><ul>
 <li><a href="#record-vit-activations-to-disk">Record ViT Activations to Disk</a></li>
+<li><a href="#train-saes-on-activations">Train SAEs on Activations</a></li>
+<li><a href="#visualize-the-learned-features">Visualize the Learned Features</a></li>
+<li><a href="#sweeps">Sweeps</a></li>
+<li><a href="#training-metrics-and-visualizations">Training Metrics and Visualizations</a></li>
 </ul>
 </li>
 </ul>
@@ -155,8 +219,6 @@ These tests are quite slow</p></div>
 <ul>
 <li><code><a title="saev.activations" href="activations.html">saev.activations</a></code></li>
 <li><code><a title="saev.config" href="config.html">saev.config</a></code></li>
-<li><code><a title="saev.cub2011" href="cub2011.html">saev.cub2011</a></code></li>
-<li><code><a title="saev.deepfashion" href="deepfashion.html">saev.deepfashion</a></code></li>
 <li><code><a title="saev.helpers" href="helpers.html">saev.helpers</a></code></li>
 <li><code><a title="saev.imaging" href="imaging.html">saev.imaging</a></code></li>
 <li><code><a title="saev.nn" href="nn.html">saev.nn</a></code></li>
@@ -165,6 +227,7 @@ These tests are quite slow</p></div>
 <li><code><a title="saev.test_nn" href="test_nn.html">saev.test_nn</a></code></li>
 <li><code><a title="saev.test_webapp" href="test_webapp.html">saev.test_webapp</a></code></li>
 <li><code><a title="saev.training" href="training.html">saev.training</a></code></li>
+<li><code><a title="saev.visuals" href="visuals.html">saev.visuals</a></code></li>
 <li><code><a title="saev.web" href="web/index.html">saev.web</a></code></li>
 <li><code><a title="saev.webapp" href="webapp.html">saev.webapp</a></code></li>
 </ul>

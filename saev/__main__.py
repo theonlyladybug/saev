@@ -82,7 +82,7 @@ def train(
 def visuals(cfg: typing.Annotated[config.Visuals, tyro.conf.arg(name="")]):
     import saev.visuals
 
-    saev.visuals.main()
+    saev.visuals.main(cfg)
 
 
 if __name__ == "__main__":
