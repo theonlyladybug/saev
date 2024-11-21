@@ -29,6 +29,48 @@ hljs.highlightAll();
 <section id="section-intro">
 <p>saev is a Python package for training sparse autoencoders (SAEs) on vision transformers (ViTs) in PyTorch.</p>
 <p>The main entrypoint to the package is in <code>__main__</code>; use <code>python -m saev --help</code> to see the options and documentation for the script.</p>
+<h1 id="guide-to-training-saes-on-vision-models">Guide to Training SAEs on Vision Models</h1>
+<ol>
+<li>Record ViT activations and save them to disk.</li>
+<li>Train SAEs on the activations.</li>
+<li>Visualize the learned features from the trained SAEs.</li>
+<li>(your job) Propose trends and patterns in the visualized features.</li>
+<li>(your job, supported by code) Construct datasets to test your hypothesized trends.</li>
+<li>Confirm/reject hypotheses using <code><a title="probing" href="../probing/index.html">probing</a></code> package.</li>
+</ol>
+<p><code><a title="saev" href="#saev">saev</a></code> helps with steps 1, 2 and 3.</p>
+<div class="admonition note">
+<p class="admonition-title">Note:&ensp;<code><a title="saev" href="#saev">saev</a></code> assumes you are running on NVIDIA GPUs. On a multi-GPU system, prefix your commands with <code>CUDA_VISIBLE_DEVICES=X</code> to run on GPU X.</p>
+</div>
+<h2 id="record-vit-activations-to-disk">Record ViT Activations to Disk</h2>
+<p>To save activations to disk, we need to specify:</p>
+<ol>
+<li>Which model we would like to use</li>
+<li>Which layers we would like to save.</li>
+<li>Where on disk and how we would like to save activations.</li>
+<li>Which images we want to save activations for.</li>
+</ol>
+<p>The <code><a title="saev.activations" href="activations.html">saev.activations</a></code> module does all of this for us.</p>
+<p>Run <code>uv run python -m saev activations --help</code> to see all the configuration.</p>
+<p>In practice, you might run:</p>
+<pre><code class="language-sh">uv run python -m saev activations \
+  --model-group clip \
+  --model-ckpt ViT-B-32/openai \
+  --d-vit 768 \
+  --n-patches-per-img 49 \
+  --layers -2 \
+  --dump-to /local/scratch/$USER/cache/saev \
+  --n-patches-per-shard 2_4000_000 \
+  data:imagenet-dataset
+</code></pre>
+<p>This will save activations for the CLIP-pretrained model ViT-B/32, which has a residual stream dimension of 768, and has 49 patches per image (224 / 32 = 7; 7 x 7 = 49).
+It will save the second-to-last layer (<code>--layer -2</code>).
+It will write 2.4M patches per shard, and save shards to a new directory <code>/local/scratch$USER/cache/saev</code>.</p>
+<div class="admonition note">
+<p class="admonition-title">Note:&ensp;A note on storage space: A ViT-B/16 will save 1.2M images x 197 patches/layer/image x 1 layer = ~240M activations, each of which take up 768 floats x 4 bytes/float = 3072 bytes, for a <strong>total of 723GB</strong> for the entire dataset. As you scale to larger models (ViT-L has 1024 dimensions, 14x14 patches are 224 patches/layer/image), recorded activations will grow even larger.</p>
+</div>
+<p>This script will also save a <code>metadata.json</code> file that will record the relevant metadata for these activations, which will be read by future steps.
+The activations will be in <code>.bin</code> files, numbered starting from 000000.</p>
 </section>
 <section>
 <h2 class="section-title" id="header-submodules">Sub-modules</h2>
@@ -101,7 +143,12 @@ These tests are quite slow</p></div>
 </article>
 <nav id="sidebar">
 <div class="toc">
-<ul></ul>
+<ul>
+<li><a href="#guide-to-training-saes-on-vision-models">Guide to Training SAEs on Vision Models</a><ul>
+<li><a href="#record-vit-activations-to-disk">Record ViT Activations to Disk</a></li>
+</ul>
+</li>
+</ul>
 </div>
 <ul id="index">
 <li><h3><a href="#header-submodules">Sub-modules</a></h3>

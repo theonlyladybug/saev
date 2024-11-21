@@ -91,7 +91,7 @@ class Activations:
     d_vit: int = 1024
     &#34;&#34;&#34;Dimension of the ViT activations (depends on model).&#34;&#34;&#34;
     layers: list[int] = dataclasses.field(default_factory=lambda: [-2])
-    &#34;&#34;&#34;How many of the last ViT layers to save.&#34;&#34;&#34;
+    &#34;&#34;&#34;Which layers to save. By default, the second-to-last layer.&#34;&#34;&#34;
     n_patches_per_img: int = 256
     &#34;&#34;&#34;Number of ViT patches per image (depends on model).&#34;&#34;&#34;
     cls_token: bool = True
@@ -138,7 +138,7 @@ class Activations:
 </dd>
 <dt id="saev.config.Activations.layers"><code class="name">var <span class="ident">layers</span> : list[int]</code></dt>
 <dd>
-<div class="desc"><p>How many of the last ViT layers to save.</p></div>
+<div class="desc"><p>Which layers to save. By default, the second-to-last layer.</p></div>
 </dd>
 <dt id="saev.config.Activations.log_to"><code class="name">var <span class="ident">log_to</span> : str</code></dt>
 <dd>
