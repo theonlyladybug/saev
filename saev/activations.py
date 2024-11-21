@@ -89,11 +89,11 @@ class VitRecorder(torch.nn.Module):
 
 
 @jaxtyped(typechecker=beartype.beartype)
-class OpenClip(torch.nn.Module):
+class Clip(torch.nn.Module):
     def __init__(self, cfg: config.Activations):
         super().__init__()
 
-        assert cfg.model_org == "open-clip"
+        assert cfg.model_org == "clip"
 
         import open_clip
 
@@ -112,6 +112,7 @@ class OpenClip(torch.nn.Module):
         model.output_tokens = True  # type: ignore
         self.model = model
 
+        assert not isinstance(self.model, open_clip.timm_model.TimmModel)
         self.recorder = VitRecorder(cfg).register(self.model.transformer.resblocks)
 
     def make_img_transform(self):
@@ -201,8 +202,8 @@ class DinoV2(torch.nn.Module):
 def make_vit(cfg: config.Activations):
     if cfg.model_org == "timm":
         return TimmVit(cfg)
-    elif cfg.model_org == "open-clip":
-        return OpenClip(cfg)
+    elif cfg.model_org == "clip":
+        return Clip(cfg)
     elif cfg.model_org == "dinov2":
         return DinoV2(cfg)
     else:
@@ -216,12 +217,16 @@ class Dataset(torch.utils.data.Dataset):
     """
 
     class Example(typing.NamedTuple):
+        """Individual example."""
+
         vit_acts: Float[Tensor, " d_vit"]
         img_i: Int[Tensor, ""]
         patch_i: Int[Tensor, ""]
 
     cfg: config.DataLoad
+    """Configuration; set via CLI args."""
     metadata: "Metadata"
+    """Activations metadata; automatically loaded from disk."""
 
     def __init__(self, cfg: config.DataLoad):
         self.cfg = cfg
@@ -230,6 +235,12 @@ class Dataset(torch.utils.data.Dataset):
 
         metadata_fpath = os.path.join(self.cfg.shard_root, "metadata.json")
         self.metadata = Metadata.load(metadata_fpath)
+
+    def transform(self, act: Float[np.ndarray, " d_vit"]) -> Float[Tensor, " d_vit"]:
+        """
+        Dummy transform.
+        """
+        act = torch.from_numpy(act.copy())
 
     @property
     def d_vit(self) -> int:
@@ -244,7 +255,7 @@ class Dataset(torch.utils.data.Dataset):
                 # Select layer's cls token.
                 act = img_act[self.cfg.layer, 0, :]
                 return self.Example(
-                    torch.from_numpy(act.copy()), torch.tensor(i), torch.tensor(-1)
+                    self.transform(act), torch.tensor(i), torch.tensor(-1)
                 )
             case ("cls", "meanpool"):
                 img_act = self.get_img_patches(i)
@@ -253,7 +264,7 @@ class Dataset(torch.utils.data.Dataset):
                 # Meanpool over the layers
                 act = cls_act.mean(axis=0)
                 return self.Example(
-                    torch.from_numpy(act.copy()), torch.tensor(i), torch.tensor(-1)
+                    self.transform(act), torch.tensor(i), torch.tensor(-1)
                 )
             case ("meanpool", int()):
                 img_act = self.get_img_patches(i)
@@ -262,7 +273,7 @@ class Dataset(torch.utils.data.Dataset):
                 # Meanpool over the patches
                 act = layer_act.mean(axis=0)
                 return self.Example(
-                    torch.from_numpy(act.copy()), torch.tensor(i), torch.tensor(-1)
+                    self.transform(act), torch.tensor(i), torch.tensor(-1)
                 )
             case ("meanpool", "meanpool"):
                 img_act = self.get_img_patches(i)
@@ -271,7 +282,7 @@ class Dataset(torch.utils.data.Dataset):
                 # Meanpool over the layers and patches
                 act = act.mean(axis=(0, 1))
                 return self.Example(
-                    torch.from_numpy(act.copy()), torch.tensor(i), torch.tensor(-1)
+                    self.transform(act), torch.tensor(i), torch.tensor(-1)
                 )
             case ("patches", int()):
                 n_imgs_per_shard = (
@@ -303,7 +314,7 @@ class Dataset(torch.utils.data.Dataset):
                     pos % self.metadata.n_patches_per_img,
                 ]
                 return self.Example(
-                    torch.from_numpy(act.copy()),
+                    self.transform(act),
                     # What image is this?
                     torch.tensor(i // self.metadata.n_patches_per_img),
                     torch.tensor(i % self.metadata.n_patches_per_img),
