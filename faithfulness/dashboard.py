@@ -36,6 +36,7 @@ def __():
     import saev.activations
     import saev.config
     import saev.helpers
+    import saev.nn
     return (
         Image,
         ImageDraw,
@@ -87,8 +88,8 @@ def __(saev):
             shard_root="/local/scratch/stevens.994/cache/saev/e20bbda1b6b011896dc6f49a698597a7ec000390d73cd7197b0fb243a1e13273/",
             patches="patches",
             layer=-2,
-            scale_norm=True,
-            scale_mean=True,
+            scale_norm=False,
+            scale_mean=False,
         )
     )
 
@@ -96,8 +97,6 @@ def __(saev):
         saev.config.Ade20kDataset(
             root="/research/nfs_su_809/workspace/stevens.994/datasets/ade20k"
         ),
-        # transform=make_img_transform(),
-        # seg_transform=make_seg_transform(),
     )
     return act_dataset, img_dataset
 
@@ -162,37 +161,279 @@ def __():
 
 @app.cell
 def __(act_dataset, cls_lookup, df, np, obj_classes, pl, torch):
-    activations, labels, i_ims, i_ps = [], [], [], []
+    activations, labels, i_ims, i_ps, i_acts = [], [], [], [], []
     for obj_cls in obj_classes:
         for i_act, i_im, i_p, obj_cls in (
-            df.filter(pl.col("obj_cls") == obj_cls).sample(50).iter_rows()
+            df.filter(pl.col("obj_cls") == obj_cls).sample(50, seed=42).iter_rows()
         ):
             activations.append(act_dataset[i_act].vit_acts)
             labels.append(cls_lookup[obj_cls])
             i_ims.append(i_im)
             i_ps.append(i_p)
+            i_acts.append(i_act)
 
 
     activations = torch.stack(activations).numpy()
     labels = np.array(labels)
     i_im = np.array(i_ims)
     i_p = np.array(i_ps)
+    i_act = np.array(i_acts)
     activations.shape
-    return activations, i_act, i_im, i_ims, i_p, i_ps, labels, obj_cls
+    return (
+        activations,
+        i_act,
+        i_acts,
+        i_im,
+        i_ims,
+        i_p,
+        i_ps,
+        labels,
+        obj_cls,
+    )
 
 
 @app.cell
-def __(activations, sklearn):
+def __(activations, sklearn, without_outliers):
     pca = sklearn.decomposition.IncrementalPCA(n_components=2)
-    pca.fit(activations)
-    x_r = pca.transform(activations)
+    pca.fit(activations[without_outliers])
+    x_r = pca.transform(activations[without_outliers])
     return pca, x_r
 
 
 @app.cell
-def __(alt, directions, i_im, i_p, labels, mo, np, pca, pl, sliders, x_r):
+def __(np, x_r):
+    print(np.nonzero(x_r[:, 0] < 10)[0].tolist())
+    return
+
+
+@app.cell
+def __(np):
+    without_outliers = np.arange(200).tolist()
+    without_outliers = [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39,
+        40,
+        41,
+        42,
+        43,
+        44,
+        45,
+        46,
+        47,
+        48,
+        49,
+        50,
+        51,
+        52,
+        53,
+        54,
+        55,
+        56,
+        57,
+        58,
+        59,
+        60,
+        61,
+        62,
+        63,
+        64,
+        65,
+        66,
+        67,
+        68,
+        69,
+        70,
+        71,
+        72,
+        73,
+        74,
+        75,
+        76,
+        77,
+        78,
+        79,
+        80,
+        81,
+        82,
+        83,
+        84,
+        85,
+        86,
+        87,
+        88,
+        89,
+        90,
+        91,
+        92,
+        93,
+        94,
+        95,
+        96,
+        97,
+        98,
+        99,
+        100,
+        101,
+        102,
+        103,
+        104,
+        105,
+        106,
+        107,
+        108,
+        109,
+        110,
+        111,
+        112,
+        113,
+        114,
+        115,
+        116,
+        117,
+        118,
+        119,
+        120,
+        121,
+        122,
+        123,
+        124,
+        125,
+        126,
+        127,
+        128,
+        129,
+        130,
+        131,
+        132,
+        134,
+        135,
+        136,
+        138,
+        139,
+        140,
+        141,
+        142,
+        143,
+        144,
+        145,
+        146,
+        147,
+        148,
+        149,
+        150,
+        151,
+        152,
+        153,
+        154,
+        155,
+        156,
+        157,
+        158,
+        159,
+        160,
+        161,
+        162,
+        163,
+        164,
+        165,
+        166,
+        167,
+        168,
+        169,
+        170,
+        171,
+        172,
+        173,
+        174,
+        175,
+        176,
+        177,
+        178,
+        179,
+        180,
+        181,
+        182,
+        183,
+        184,
+        185,
+        186,
+        187,
+        188,
+        189,
+        190,
+        191,
+        192,
+        193,
+        194,
+        195,
+        196,
+        197,
+        198,
+        199,
+    ]
+    len(without_outliers)
+    return (without_outliers,)
+
+
+@app.cell
+def __(
+    alt,
+    directions,
+    i_im,
+    i_p,
+    labels,
+    mo,
+    np,
+    pca,
+    pl,
+    sliders,
+    without_outliers,
+    x_r,
+):
     x_shift, y_shift = (
-        pca.transform((np.array(sliders.value) @ directions).reshape(1, -1))
+        (
+            pca.transform(
+                (np.array(sliders.value) @ directions.detach().numpy()).reshape(1, -1)
+            )
+            - pca.transform(np.zeros((1, 768)))
+        )
         .reshape(-1)
         .astype(np.float32)
     )
@@ -202,19 +443,21 @@ def __(alt, directions, i_im, i_p, labels, mo, np, pca, pl, sliders, x_r):
             pl.concat(
                 (
                     pl.from_numpy(x_r, ("x", "y")),
-                    pl.from_numpy(i_im, ("i_im",)),
-                    pl.from_numpy(i_p, ("i_p",)),
-                    pl.from_numpy(labels, ("label",)),
+                    pl.from_numpy(i_im[without_outliers], ("i_im",)),
+                    pl.from_numpy(i_p[without_outliers], ("i_p",)),
+                    pl.from_numpy(labels[without_outliers], ("label",)),
+                    pl.from_numpy(np.array(without_outliers), ("example_index",)),
                 ),
                 how="horizontal",
             ).vstack(
                 pl.DataFrame(
                     {
-                        "x": 0 + x_shift,
-                        "y": 0 + y_shift,
-                        "i_im": 0,
-                        "i_p": 0,
-                        "label": "manipulated",
+                        "x": x_r[141, 0] + x_shift,
+                        "y": x_r[141, 1] + y_shift,
+                        "i_im": i_im[141].item(),
+                        "i_p": i_p[141].item(),
+                        "label": f"{labels[141].item()} (manipulated)",
+                        "example_index": 141,
                     }
                 )
             )
@@ -223,7 +466,7 @@ def __(alt, directions, i_im, i_p, labels, mo, np, pca, pl, sliders, x_r):
         .encode(
             x=alt.X("x"),
             y=alt.Y("y"),
-            tooltip=["i_im"],
+            tooltip=["example_index", "i_im"],
             color="label:N",
             shape="label:N",
         )
@@ -253,20 +496,32 @@ def __(chart, highlight_patches, img_dataset, mo):
 
 
 @app.cell
-def __(mo, np):
+def __():
+    features = {"rug1": 8541, "rug2": 5818, "window1": 8177}
+    return (features,)
+
+
+@app.cell
+def __(features, mo, sae):
     # Instead of random unit-norm directions, we should be using the sparse autoencoder to choose the directions.
     # Specifically, we can get f_x for the manipulated patch, then pick the dimensions that have maximal value.
     # We can pick out the columns of W_dec and move the patch in those directions.
-    directions = np.random.default_rng(seed=3).random((2, 768))
-    directions /= np.linalg.norm(directions, axis=1, keepdims=True)
+
+    # _, f = f_x.topk(10)
+    direction_names = list(features.keys())
+
+    directions = sae.W_dec[[features[name] for name in direction_names]]
+    # directions = np.random.default_rng(seed=3).random((2, 768))
+    # directions /= np.linalg.norm(directions, axis=1, keepdims=True)
 
     sliders = mo.ui.array(
         [
-            mo.ui.slider(-500, 500, step=10.0, label=f"Direction {i+1}", value=0)
-            for i in range(2)
+            mo.ui.slider(-50, 50, step=3.0, label=f"Direction '{name}' ({features[name]})", value=0)
+            for name in direction_names
         ]
     )
-    return directions, sliders
+    # " ".join([str(i) for i in f.squeeze().tolist()])
+    return direction_names, directions, sliders
 
 
 @app.cell
@@ -409,6 +664,37 @@ def __(Image):
         make_seg_transform,
         seg_transform,
     )
+
+
+@app.cell
+def __(saev):
+    sae = saev.nn.load("/home/stevens.994/projects/saev-live/checkpoints/ercgckr1/sae.pt")
+    print(sae)
+    return (sae,)
+
+
+@app.cell
+def __(activations, sae, torch):
+    with torch.no_grad():
+        x_hat, f_x, _ = sae(torch.from_numpy(activations[101:102]))
+    return f_x, x_hat
+
+
+@app.cell
+def __(activations, torch, x_hat):
+    (x_hat - torch.from_numpy(activations[101:102])).pow(2).mean()
+    return
+
+
+@app.cell
+def __(f_x):
+    f_x.topk(5)
+    return
+
+
+@app.cell
+def __():
+    return
 
 
 if __name__ == "__main__":

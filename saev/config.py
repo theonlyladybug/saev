@@ -58,7 +58,21 @@ class ImageFolderDataset:
         return n
 
 
-DatasetConfig = ImagenetDataset | ImageFolderDataset
+@beartype.beartype
+@dataclasses.dataclass(frozen=True)
+class Ade20kDataset:
+    """ """
+
+    root: str = os.path.join(".", "data", "split")
+    """Where the class folders with images are stored."""
+
+    @property
+    def n_imgs(self) -> int:
+        with open(os.path.join(self.root, "sceneCategories.txt")) as fd:
+            return len(fd.read().split("\n"))
+
+
+DatasetConfig = ImagenetDataset | ImageFolderDataset | Ade20kDataset
 
 
 @beartype.beartype
@@ -72,8 +86,8 @@ class Activations:
     """Which dataset to use."""
     dump_to: str = os.path.join(".", "shards")
     """Where to write shards."""
-    model_org: typing.Literal["clip", "siglip", "timm", "dinov2"] = "clip"
-    """Where to load models from."""
+    model_family: typing.Literal["clip", "siglip", "dinov2"] = "clip"
+    """Which model family."""
     model_ckpt: str = "ViT-L-14/openai"
     """Specific model checkpoint."""
     vit_batch_size: int = 1024

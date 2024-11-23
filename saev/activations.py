@@ -9,27 +9,32 @@ Conceptually, activations are either thought of as
 2. Multiple [n_imgs_per_shard, n_layers, (n_patches + 1), d_vit] tensors. This is a set of sharded activations.
 """
 
+import csv
 import dataclasses
 import hashlib
 import json
 import logging
 import math
 import os
-import shutil
 import typing
 
 import beartype
 import numpy as np
 import torch
 import torchvision.datasets
-import wids
 from jaxtyping import Float, Int, jaxtyped
 from torch import Tensor
+from PIL import Image
 
 from . import config, helpers
 
 log_format = "[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s"
 logging.basicConfig(level=logging.INFO, format=log_format)
+
+
+#######################
+# VISION TRANSFORMERS #
+#######################
 
 
 @jaxtyped(typechecker=beartype.beartype)
@@ -47,7 +52,9 @@ class VitRecorder(torch.nn.Module):
         self.patches = patches
         self._storage = None
         self._i = 0
-        self.logger = logging.getLogger(f"recorder({cfg.model_org}:{cfg.model_ckpt})")
+        self.logger = logging.getLogger(
+            f"recorder({cfg.model_family}:{cfg.model_ckpt})"
+        )
 
     def register(self, modules: list[torch.nn.Module]):
         for i in self.cfg.layers:
@@ -97,7 +104,7 @@ class Clip(torch.nn.Module):
     def __init__(self, cfg: config.Activations):
         super().__init__()
 
-        assert cfg.model_org == "clip"
+        assert cfg.model_family == "clip"
 
         import open_clip
 
@@ -132,7 +139,7 @@ class Clip(torch.nn.Module):
 class Siglip(torch.nn.Module):
     def __init__(self, cfg: config.Activations):
         super().__init__()
-        assert cfg.model_org == "siglip"
+        assert cfg.model_family == "siglip"
 
         import open_clip
 
@@ -164,46 +171,11 @@ class Siglip(torch.nn.Module):
 
 
 @jaxtyped(typechecker=beartype.beartype)
-class TimmVit(torch.nn.Module):
-    def __init__(self, cfg: config.Activations):
-        super().__init__()
-        assert cfg.model_org == "timm"
-        import timm
-
-        err_msg = "You are trying to load a non-ViT checkpoint; the `img_encode()` method assumes `model.forward_features()` will return features with shape (batch, n_patches, dim) which is not true for non-ViT checkpoints."
-        assert "vit" in cfg.model_ckpt, err_msg
-        self.model = timm.create_model(cfg.model_ckpt, pretrained=True)
-
-        data_cfg = timm.data.resolve_data_config(self.model.pretrained_cfg)
-        self._img_transform = timm.data.create_transform(**data_cfg, is_training=False)
-
-        self.recorder = VitRecorder(cfg).register(self.model.blocks)
-
-    def make_img_transform(self):
-        return self._img_transform
-
-    def forward(self, batch: Float[Tensor, "batch 3 width height"]):
-        self.recorder.reset()
-
-        patches = self.model.forward_features(batch)
-        # Use [CLS] token if it exists for img representation, otherwise do a maxpool
-        if self.model.num_prefix_tokens > 0:
-            img = patches[:, 0, ...]
-        else:
-            img = patches.max(axis=1).values
-
-        # Return only the [CLS] token and the patches.
-        patches = patches[:, self.model.num_prefix_tokens :, ...]
-
-        return torch.cat((img[:, None, :], patches), axis=1), self.recorder.activations
-
-
-@jaxtyped(typechecker=beartype.beartype)
 class DinoV2(torch.nn.Module):
     def __init__(self, cfg: config.Activations):
         super().__init__()
 
-        assert cfg.model_org == "dinov2"
+        assert cfg.model_family == "dinov2"
 
         self.model = torch.hub.load("facebookresearch/dinov2", cfg.model_ckpt)
 
@@ -219,6 +191,7 @@ class DinoV2(torch.nn.Module):
         from torchvision.transforms import v2
 
         return v2.Compose([
+            # TODO: I bet this should be 256, 256, which is causing localization issues in non-square images.
             v2.Resize(size=256),
             v2.CenterCrop(size=(224, 224)),
             v2.ToImage(),
@@ -239,16 +212,19 @@ class DinoV2(torch.nn.Module):
 
 @beartype.beartype
 def make_vit(cfg: config.Activations):
-    if cfg.model_org == "timm":
-        return TimmVit(cfg)
-    elif cfg.model_org == "clip":
+    if cfg.model_family == "clip":
         return Clip(cfg)
-    elif cfg.model_org == "siglip":
+    elif cfg.model_family == "siglip":
         return Siglip(cfg)
-    elif cfg.model_org == "dinov2":
+    elif cfg.model_family == "dinov2":
         return DinoV2(cfg)
     else:
-        typing.assert_never(cfg.model_org)
+        typing.assert_never(cfg.model_family)
+
+
+###############
+# ACTIVATIONS #
+###############
 
 
 @jaxtyped(typechecker=beartype.beartype)
@@ -487,6 +463,11 @@ class Dataset(torch.utils.data.Dataset):
                 typing.assert_never((self.cfg.patches, self.cfg.layer))
 
 
+##########
+# IMAGES #
+##########
+
+
 @beartype.beartype
 def setup(cfg: config.Activations):
     """
@@ -494,12 +475,10 @@ def setup(cfg: config.Activations):
     """
     if isinstance(cfg.data, config.ImagenetDataset):
         setup_imagenet(cfg)
-    elif isinstance(cfg.data, config.TreeOfLifeDataset):
-        setup_tol(cfg)
-    elif isinstance(cfg.data, config.LaionDataset):
-        setup_laion(cfg)
     elif isinstance(cfg.data, config.ImageFolderDataset):
         setup_imagefolder(cfg)
+    elif isinstance(cfg.data, config.Ade20kDataset):
+        setup_ade20k(cfg)
     else:
         typing.assert_never(cfg.data)
 
@@ -510,116 +489,19 @@ def setup_imagenet(cfg: config.Activations):
 
 
 @beartype.beartype
-def setup_tol(cfg: config.Activations):
-    assert isinstance(cfg.data, config.TreeOfLifeDataset)
-
-
-@beartype.beartype
-def setup_laion(cfg: config.Activations):
-    """
-    Do setup for LAION dataloader.
-    """
-    assert isinstance(cfg.data, config.LaionDataset)
-
-    import datasets
-    import img2dataset
-    import submitit
-
-    logger = logging.getLogger("laion")
-
-    # 1. Download cfg.data.n_imgs data urls.
-
-    # Check if URL list exists.
-    n_urls = 0
-    if os.path.isfile(cfg.data.url_list_filepath):
-
-        def blocks(files, size=65536):
-            while True:
-                b = files.read(size)
-                if not b:
-                    break
-                yield b
-
-        with open(cfg.data.url_list_filepath, "r") as fd:
-            n_urls = sum(bl.count("\n") for bl in blocks(fd))
-
-    # We use -1 just in case there's something wrong with our n_urls count.
-    dumped_urls = n_urls >= cfg.data.n_imgs - 1
-
-    # If we don't have all the image urls written, need to dump to a file.
-    if not dumped_urls:
-        logger.info("Dumping URLs to '%s'.", cfg.data.url_list_filepath)
-
-        if os.path.isfile(cfg.data.url_list_filepath):
-            logger.warning(
-                "Overwriting existing list of %d URLs because we want %d URLs.",
-                n_urls,
-                cfg.data.n_imgs,
-            )
-
-        dataset = (
-            datasets.load_dataset(cfg.data.name, streaming=True, split="train")
-            .shuffle(cfg.seed)
-            .filter(
-                lambda example: example["status"] == "success"
-                and example["height"] >= 256
-                and example["width"] >= 256
-            )
-            .take(cfg.data.n_imgs)
-        )
-
-        with open(cfg.data.url_list_filepath, "w") as fd:
-            for example in helpers.progress(
-                dataset, every=5_000, desc="Writing URLs", total=cfg.data.n_imgs
-            ):
-                fd.write(f'{{"url": "{example["url"]}", "key": "{example["key"]}"}}\n')
-
-    # 2. Download the images to a webdatset format using img2dataset
-    # TODO: check whether images are downloaded. Read all the _stats.json files and see if we have all 10M.
-    imgs_downloaded = False
-
-    if not imgs_downloaded:
-
-        def download(n_processes: int, n_threads: int):
-            assert isinstance(cfg.data, config.LaionDataset)
-
-            if os.path.exists(cfg.data.tar_dir):
-                shutil.rmtree(cfg.data.tar_dir)
-
-            img2dataset.download(
-                url_list=cfg.data.url_list_filepath,
-                input_format="jsonl",
-                image_size=256,
-                output_folder=cfg.data.tar_dir,
-                processes_count=n_processes,
-                thread_count=n_threads,
-                resize_mode="keep_ratio",
-                encode_quality=100,
-                encode_format="webp",
-                output_format="webdataset",
-                oom_shard_count=6,
-                ignore_ssl=not cfg.ssl,
-            )
-
-        if cfg.slurm:
-            executor = submitit.SlurmExecutor(folder=cfg.log_to)
-            executor.update_parameters(
-                time=12 * 60,
-                partition="cpuonly",
-                cpus_per_task=64,
-                stderr_to_stdout=True,
-                account=cfg.slurm_acct,
-            )
-            job = executor.submit(download, 64, 256)
-            job.result()
-        else:
-            download(8, 32)
-
-
-@beartype.beartype
 def setup_imagefolder(cfg: config.Activations):
     assert isinstance(cfg.data, config.ImageFolderDataset)
     breakpoint()
+
+
+@beartype.beartype
+def setup_ade20k(cfg: config.Activations):
+    assert isinstance(cfg.data, config.Ade20kDataset)
+
+    # url = "http://data.csail.mit.edu/places/ADEchallenge/ADEChallengeData2016.zip"
+    # breakpoint()
+
+    # 1. Check
 
 
 @beartype.beartype
@@ -635,9 +517,11 @@ def get_dataset(cfg: config.DatasetConfig, *, transform):
         A dataset that has dictionaries with `'image'`, `'index'`, `'target'`, and `'label'` keys containing examples.
     """
     if isinstance(cfg, config.ImagenetDataset):
-        return TransformedImagenet(cfg, transform)
+        return TransformedImagenet(cfg, transform=transform)
+    elif isinstance(cfg, config.Ade20kDataset):
+        return TransformedAde20k(cfg, transform=transform)
     else:
-        typing.assert_never(cfg.data)
+        typing.assert_never(cfg)
 
 
 @beartype.beartype
@@ -652,12 +536,11 @@ def get_dataloader(cfg: config.Activations, preprocess):
     Returns:
         A PyTorch Dataloader that yields dictionaries with `'image'` keys containing image batches.
     """
-    if isinstance(cfg.data, (config.ImagenetDataset, config.ImageFolderDataset)):
+    if isinstance(
+        cfg.data,
+        (config.ImagenetDataset, config.ImageFolderDataset, config.Ade20kDataset),
+    ):
         dataloader = get_default_dataloader(cfg, preprocess)
-    elif isinstance(cfg.data, config.TreeOfLifeDataset):
-        dataloader = get_tol_dataloader(cfg, preprocess)
-    elif isinstance(cfg.data, config.LaionDataset):
-        dataloader = get_laion_dataloader(cfg, preprocess)
     else:
         typing.assert_never(cfg.data)
 
@@ -678,7 +561,7 @@ def get_default_dataloader(
     Returns:
         A PyTorch Dataloader that yields dictionaries with `'image'` keys containing image batches, `'index'` keys containing original dataset indices and `'label'` keys containing label batches.
     """
-    dataset = get_dataset(cfg, transform)
+    dataset = get_dataset(cfg.data, transform=transform)
 
     dataloader = torch.utils.data.DataLoader(
         dataset=dataset,
@@ -693,61 +576,8 @@ def get_default_dataloader(
 
 
 @beartype.beartype
-def get_laion_dataloader(
-    cfg: config.Activations, preprocess
-) -> torch.utils.data.DataLoader:
-    """
-    Get a dataloader for a subset of the LAION datasets.
-
-    This requires several steps:
-
-    1. Download list of image URLs
-    2. Use img2dataset to download these images to webdataset format.
-    3. Create a dataloader from these webdataset tar files.
-
-    So that we don't have to redo any of these steps, we check on the existence of various files to check if this stuff is done already.
-    """
-    # 3. Create a webdataset loader over these images.
-    # TODO: somehow we need to know which images are in the dataloader. Like, a way to actually go back to the original image. The HF dataset has a "key" column that is likely unique.
-    breakpoint()
-
-
-@beartype.beartype
-def get_tol_dataloader(
-    cfg: config.Activations, preprocess
-) -> torch.utils.data.DataLoader:
-    """
-    Get a dataloader for the TreeOfLife-10M dataset.
-
-    Currently does not include a true index or label in the loaded examples.
-
-    Args:
-        cfg: Config for loading activations.
-        preprocess: Image transform to be applied to each image.
-
-    Returns:
-        A PyTorch Dataloader that yields dictionaries with `'image'` keys containing image batches.
-    """
-    assert isinstance(cfg.data, config.TreeOfLifeDataset)
-
-    def transform(sample: dict):
-        return {"image": preprocess(sample[".jpg"]), "index": sample["__key__"]}
-
-    dataset = wids.ShardListDataset(cfg.data.metadata).add_transform(transform)
-
-    dataloader = torch.utils.data.DataLoader(
-        dataset,
-        batch_size=cfg.vit_batch_size,
-        shuffle=False,
-        num_workers=cfg.n_workers,
-        persistent_workers=False,
-    )
-
-    return dataloader
-
-
 class TransformedImagenet(torch.utils.data.Dataset):
-    def __init__(self, cfg: config.ImagenetDataset, transform):
+    def __init__(self, cfg: config.ImagenetDataset, *, transform=None):
         import datasets
 
         self.hf_dataset = datasets.load_dataset(
@@ -773,6 +603,7 @@ class TransformedImagenet(torch.utils.data.Dataset):
         return len(self.hf_dataset)
 
 
+@beartype.beartype
 class TransformedImageFolder(torchvision.datasets.ImageFolder):
     def __getitem__(self, index: int) -> dict[str, object]:
         """
@@ -794,7 +625,100 @@ class TransformedImageFolder(torchvision.datasets.ImageFolder):
 
 
 @beartype.beartype
-def dump(cfg: config.Activations):
+class TransformedAde20k(torch.utils.data.Dataset):
+    class Sample(typing.TypedDict):
+        img_path: str
+        seg_path: str
+        split: str
+        label: str
+        target: int
+
+    samples: list[Sample]
+
+    def __init__(
+        self, cfg: config.Ade20kDataset, *, transform=None, seg_transform=None
+    ):
+        self.logger = logging.getLogger("ade20k")
+        self.cfg = cfg
+        self.img_dir = os.path.join(cfg.root, "images")
+        self.seg_dir = os.path.join(cfg.root, "annotations")
+        self.transform = transform
+        self.seg_transform = seg_transform
+
+        # Check that we have the right path.
+        for subdir in ("images", "annotations"):
+            if not os.path.isdir(os.path.join(cfg.root, subdir)):
+                # Something is missing.
+                if os.path.realpath(cfg.root).endswith(subdir):
+                    self.logger.warning(
+                        "The ADE20K root should contain 'images/' and 'annotations/' directories."
+                    )
+                raise ValueError(f"Can't find path '{os.path.join(cfg.root, subdir)}'.")
+
+        _, split_mapping = torchvision.datasets.folder.find_classes(self.img_dir)
+        split_lookup: dict[int, str] = {
+            value: key for key, value in split_mapping.items()
+        }
+        self.loader = torchvision.datasets.folder.default_loader
+
+        # Load all the image paths.
+        imgs: list[tuple[str, int]] = torchvision.datasets.folder.make_dataset(
+            self.img_dir,
+            split_mapping,
+            extensions=torchvision.datasets.folder.IMG_EXTENSIONS,
+        )
+
+        segs: list[tuple[str, int]] = torchvision.datasets.folder.make_dataset(
+            self.seg_dir,
+            split_mapping,
+            extensions=torchvision.datasets.folder.IMG_EXTENSIONS,
+        )
+
+        # Load all the targets, classes and mappings
+        with open(os.path.join(cfg.root, "sceneCategories.txt")) as fd:
+            img_labels: list[str] = [line.split()[1] for line in fd.readlines()]
+
+        label_set = sorted(set(img_labels))
+        label_to_idx = {label: i for i, label in enumerate(label_set)}
+
+        self.samples = [
+            self.Sample(
+                img_path=img_path,
+                seg_path=seg_path,
+                split=split_lookup[split],
+                label=label,
+                target=label_to_idx[label],
+            )
+            for (img_path, split), (seg_path, _), label in zip(imgs, segs, img_labels)
+        ]
+
+    def __getitem__(self, index: int) -> dict[str, object]:
+        # Make a copy
+        sample = dict(**self.samples[index])
+
+        sample["image"] = self.loader(sample.pop("img_path"))
+        if self.transform is not None:
+            sample["image"] = self.transform(sample["image"])
+
+        sample["segmentation"] = Image.open(sample.pop("seg_path")).convert("L")
+        if self.seg_transform is not None:
+            sample["segmentation"] = self.seg_transform(sample["segmentation"])
+
+        sample["index"] = index
+
+        return sample
+
+    def __len__(self) -> int:
+        return len(self.samples)
+
+
+########
+# MAIN #
+########
+
+
+@beartype.beartype
+def main(cfg: config.Activations):
     """
     Args:
         cfg: Config for activations.
@@ -967,7 +891,7 @@ class ShardWriter:
 @beartype.beartype
 @dataclasses.dataclass(frozen=True)
 class Metadata:
-    model_org: str
+    model_family: str
     model_ckpt: str
     layers: tuple[int, ...]
     n_patches_per_img: int
@@ -981,7 +905,7 @@ class Metadata:
     @classmethod
     def from_cfg(cls, cfg: config.Activations) -> "Metadata":
         return cls(
-            cfg.model_org,
+            cfg.model_family,
             cfg.model_ckpt,
             tuple(cfg.layers),
             cfg.n_patches_per_img,

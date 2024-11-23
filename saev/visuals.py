@@ -1,5 +1,4 @@
 """
-
 There is some important notation used only in this file to dramatically shorten variable names.
 
 Variables suffixed with `_im` refer to entire images, and variables suffixed with `_p` refer to patches.
@@ -76,7 +75,17 @@ def get_new_topk(
     k: int,
 ) -> tuple[Float[Tensor, "d_sae k"], Int[Tensor, "d_sae k"]]:
     """
-    .. todo:: document this function.
+    Picks out the new top k values among val1 and val2. Also keeps track of i1 and i2, then indices of the values in the original dataset.
+
+    Args:
+        val1: top k original SAE values.
+        i1: the patch indices of those original top k values.
+        val2: top k incoming SAE values.
+        i2: the patch indices of those incoming top k values.
+        k: k.
+
+    Returns:
+        The new top k values and their patch indices.
     """
     all_val = torch.cat([val1, val2], dim=1)
     new_values, top_i = torch.topk(all_val, k=k, dim=1)
@@ -399,7 +408,7 @@ def main(cfg: config.Visuals):
         & (torch.log10(mean_values) < max_log_value)
     )
 
-    neuron_i = torch.arange(d_sae)[mask.cpu()].tolist()
+    neuron_i = cfg.include_latents + torch.arange(d_sae)[mask.cpu()].tolist()
 
     for i in tqdm.tqdm(neuron_i, desc="saving visuals"):
         neuron_dir = os.path.join(cfg.root, "neurons", str(i))

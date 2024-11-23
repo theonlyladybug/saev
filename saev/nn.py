@@ -18,6 +18,8 @@ from . import config
 
 
 class Loss(typing.NamedTuple):
+    """The composite loss terms for an autoencoder training batch."""
+
     mse: Float[Tensor, ""]
     """Reconstruction loss (mean squared error)."""
     sparsity: Float[Tensor, ""]
@@ -61,8 +63,15 @@ class SparseAutoencoder(torch.nn.Module):
         self.logger = logging.getLogger(f"sae(seed={cfg.seed})")
 
     def forward(
-        self, x: Float[Tensor, "batch d_model"], dead_neuron_mask: None = None
+        self, x: Float[Tensor, "batch d_model"]
     ) -> tuple[Float[Tensor, "batch d_model"], Float[Tensor, "batch d_sae"], Loss]:
+        """
+        Given x, calculates the reconstructed x_hat, the intermediate activations f_x, and the loss.
+
+        Arguments:
+            x: a batch of ViT activations.
+        """
+
         # Remove encoder bias as per Anthropic
         h_pre = (
             einops.einsum(
@@ -108,7 +117,9 @@ class SparseAutoencoder(torch.nn.Module):
 
     @torch.no_grad()
     def normalize_w_dec(self):
-        # Make sure the W_dec is still unit-norm
+        """
+        Set W_dec to unit-norm columns.
+        """
         if self.cfg.normalize_w_dec:
             self.W_dec.data /= torch.norm(self.W_dec.data, dim=1, keepdim=True)
 
