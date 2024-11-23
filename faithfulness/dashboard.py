@@ -62,21 +62,19 @@ def __():
 
 @app.cell
 def __(mo):
-    mo.md(
-        r"""
-        This dashboard lets you play with the feature steering using a bunch of different techniques.
+    mo.md(r"""This dashboard lets you play with the feature steering using a bunch of different techniques.""")
+    return
 
-        # To Do
 
-        1. Record activations for ADE20K using DINOv2.
-        2. Select the subset of activations that are \(>t\) of some semantic class.
-        3. Embed a subset of *those* activations using PCA.
-        4. ... Sliders, example images, movement through the PCA `transform()` method.
-
-        ## Other Stuff
-
-        1. Embed patches with PCA using (1) pixel values (2) DINOv2 activations and (3) SAE decompositions. Expect that the more disentangled values are more seperable.
-        """
+@app.cell
+def __(cls_lookup, cls_select, mo):
+    mo.hstack(
+        [
+            cls_select,
+            mo.md(f"{len(cls_select.value)} classes chosen:"),
+            mo.md(", ".join(f"{i} ('{cls_lookup[i]}')" for i in cls_select.value)),
+        ],
+        justify="start",
     )
     return
 
@@ -148,24 +146,44 @@ def __(
 
 
 @app.cell
-def __(df):
-    df
+def __(mo):
+    n_examples_per_class_slider = mo.ui.slider(10, 100, value=20, debounce=True)
+    return (n_examples_per_class_slider,)
+
+
+@app.cell
+def __(mo, n_examples_per_class_slider):
+    mo.hstack(
+        [
+            mo.md(f"{n_examples_per_class_slider.value} samples per class"),
+            n_examples_per_class_slider,
+        ],
+        justify="start",
+    )
     return
 
 
 @app.cell
-def __():
-    obj_classes = (29, 21, 75, 38)
-    return (obj_classes,)
+def __(
+    act_dataset,
+    cls_lookup,
+    cls_select,
+    df,
+    mo,
+    n_examples_per_class_slider,
+    np,
+    pl,
+    torch,
+):
+    mo.stop(len(cls_select.value) <= 1, "Choose at least two (2) classes.")
 
-
-@app.cell
-def __(act_dataset, cls_lookup, df, np, obj_classes, pl, torch):
     activations, labels, i_ims, i_ps, i_acts = [], [], [], [], []
-    for obj_cls in obj_classes:
-        for i_act, i_im, i_p, obj_cls in (
-            df.filter(pl.col("obj_cls") == obj_cls).sample(50, seed=42).iter_rows()
-        ):
+    for obj_cls in cls_select.value:
+        obj_df = df.filter(pl.col("obj_cls") == obj_cls)
+        if len(obj_df) > n_examples_per_class_slider.value:
+            obj_df = obj_df.sample(n_examples_per_class_slider.value, seed=42)
+
+        for i_act, i_im, i_p, obj_cls in obj_df.iter_rows():
             activations.append(act_dataset[i_act].vit_acts)
             labels.append(cls_lookup[obj_cls])
             i_ims.append(i_im)
@@ -178,7 +196,6 @@ def __(act_dataset, cls_lookup, df, np, obj_classes, pl, torch):
     i_im = np.array(i_ims)
     i_p = np.array(i_ps)
     i_act = np.array(i_acts)
-    activations.shape
     return (
         activations,
         i_act,
@@ -189,233 +206,27 @@ def __(act_dataset, cls_lookup, df, np, obj_classes, pl, torch):
         i_ps,
         labels,
         obj_cls,
+        obj_df,
     )
 
 
 @app.cell
-def __(activations, sklearn, without_outliers):
+def __(activations, np, sklearn):
+    x_proj_init = sklearn.decomposition.IncrementalPCA(n_components=2).fit_transform(
+        activations
+    )
+    without_outliers = np.nonzero(x_proj_init[:, 0] < 10)[0]
+
     pca = sklearn.decomposition.IncrementalPCA(n_components=2)
     pca.fit(activations[without_outliers])
-    x_r = pca.transform(activations[without_outliers])
-    return pca, x_r
-
-
-@app.cell
-def __(np, x_r):
-    print(np.nonzero(x_r[:, 0] < 10)[0].tolist())
-    return
-
-
-@app.cell
-def __(np):
-    without_outliers = np.arange(200).tolist()
-    without_outliers = [
-        0,
-        1,
-        2,
-        3,
-        4,
-        5,
-        6,
-        7,
-        8,
-        9,
-        10,
-        11,
-        12,
-        13,
-        14,
-        15,
-        16,
-        17,
-        18,
-        19,
-        20,
-        21,
-        22,
-        23,
-        24,
-        25,
-        26,
-        28,
-        29,
-        30,
-        31,
-        32,
-        33,
-        34,
-        35,
-        36,
-        37,
-        38,
-        39,
-        40,
-        41,
-        42,
-        43,
-        44,
-        45,
-        46,
-        47,
-        48,
-        49,
-        50,
-        51,
-        52,
-        53,
-        54,
-        55,
-        56,
-        57,
-        58,
-        59,
-        60,
-        61,
-        62,
-        63,
-        64,
-        65,
-        66,
-        67,
-        68,
-        69,
-        70,
-        71,
-        72,
-        73,
-        74,
-        75,
-        76,
-        77,
-        78,
-        79,
-        80,
-        81,
-        82,
-        83,
-        84,
-        85,
-        86,
-        87,
-        88,
-        89,
-        90,
-        91,
-        92,
-        93,
-        94,
-        95,
-        96,
-        97,
-        98,
-        99,
-        100,
-        101,
-        102,
-        103,
-        104,
-        105,
-        106,
-        107,
-        108,
-        109,
-        110,
-        111,
-        112,
-        113,
-        114,
-        115,
-        116,
-        117,
-        118,
-        119,
-        120,
-        121,
-        122,
-        123,
-        124,
-        125,
-        126,
-        127,
-        128,
-        129,
-        130,
-        131,
-        132,
-        134,
-        135,
-        136,
-        138,
-        139,
-        140,
-        141,
-        142,
-        143,
-        144,
-        145,
-        146,
-        147,
-        148,
-        149,
-        150,
-        151,
-        152,
-        153,
-        154,
-        155,
-        156,
-        157,
-        158,
-        159,
-        160,
-        161,
-        162,
-        163,
-        164,
-        165,
-        166,
-        167,
-        168,
-        169,
-        170,
-        171,
-        172,
-        173,
-        174,
-        175,
-        176,
-        177,
-        178,
-        179,
-        180,
-        181,
-        182,
-        183,
-        184,
-        185,
-        186,
-        187,
-        188,
-        189,
-        190,
-        191,
-        192,
-        193,
-        194,
-        195,
-        196,
-        197,
-        198,
-        199,
-    ]
-    len(without_outliers)
-    return (without_outliers,)
+    x_proj = pca.transform(activations[without_outliers])
+    return pca, without_outliers, x_proj, x_proj_init
 
 
 @app.cell
 def __(
     alt,
-    directions,
+    feature_dirs,
     i_im,
     i_p,
     labels,
@@ -424,13 +235,12 @@ def __(
     pca,
     pl,
     sliders,
-    without_outliers,
-    x_r,
+    x_proj,
 ):
     x_shift, y_shift = (
         (
             pca.transform(
-                (np.array(sliders.value) @ directions.detach().numpy()).reshape(1, -1)
+                (np.array(sliders.value) @ feature_dirs.reshape(-1, 768)).reshape(1, -1)
             )
             - pca.transform(np.zeros((1, 768)))
         )
@@ -442,22 +252,22 @@ def __(
         alt.Chart(
             pl.concat(
                 (
-                    pl.from_numpy(x_r, ("x", "y")),
-                    pl.from_numpy(i_im[without_outliers], ("i_im",)),
-                    pl.from_numpy(i_p[without_outliers], ("i_p",)),
-                    pl.from_numpy(labels[without_outliers], ("label",)),
-                    pl.from_numpy(np.array(without_outliers), ("example_index",)),
+                    pl.from_numpy(x_proj, ("x", "y")),
+                    pl.from_numpy(i_im, ("i_im",)),
+                    pl.from_numpy(i_p, ("i_p",)),
+                    pl.from_numpy(labels, ("label",)),
+                    pl.from_numpy(np.arange(200), ("example_index",)),
                 ),
                 how="horizontal",
             ).vstack(
                 pl.DataFrame(
                     {
-                        "x": x_r[141, 0] + x_shift,
-                        "y": x_r[141, 1] + y_shift,
-                        "i_im": i_im[141].item(),
-                        "i_p": i_p[141].item(),
-                        "label": f"{labels[141].item()} (manipulated)",
-                        "example_index": 141,
+                        "x": x_proj[0, 0] + x_shift,
+                        "y": x_proj[0, 1] + y_shift,
+                        "i_im": i_im[0].item(),
+                        "i_p": i_p[0].item(),
+                        "label": f"{labels[0].item()} (manipulated)",
+                        "example_index": 0,
                     }
                 )
             )
@@ -496,52 +306,51 @@ def __(chart, highlight_patches, img_dataset, mo):
 
 
 @app.cell
-def __():
-    features = {"rug1": 8541, "rug2": 5818, "window1": 8177}
-    return (features,)
-
-
-@app.cell
-def __(features, mo, sae):
+def __(
+    activations,
+    cls_lookup,
+    cls_select,
+    get_feature_directions,
+    labels,
+    mo,
+    without_outliers,
+):
     # Instead of random unit-norm directions, we should be using the sparse autoencoder to choose the directions.
     # Specifically, we can get f_x for the manipulated patch, then pick the dimensions that have maximal value.
     # We can pick out the columns of W_dec and move the patch in those directions.
 
     # _, f = f_x.topk(10)
-    direction_names = list(features.keys())
 
-    directions = sae.W_dec[[features[name] for name in direction_names]]
-    # directions = np.random.default_rng(seed=3).random((2, 768))
-    # directions /= np.linalg.norm(directions, axis=1, keepdims=True)
-
-    sliders = mo.ui.array(
-        [
-            mo.ui.slider(-50, 50, step=3.0, label=f"Direction '{name}' ({features[name]})", value=0)
-            for name in direction_names
-        ]
+    feature_idxs, feature_dirs = get_feature_directions(
+        activations[without_outliers], labels[without_outliers]
     )
-    # " ".join([str(i) for i in f.squeeze().tolist()])
-    return direction_names, directions, sliders
+
+
+    def make_sliders():
+        sliders = []
+        for obj_idxs, obj_cls_ in zip(feature_idxs, cls_select.value):
+            for i, j in enumerate(obj_idxs):
+                sliders.append(
+                    mo.ui.slider(
+                        -50,
+                        50,
+                        step=2.0,
+                        label=f"'{cls_lookup[obj_cls_]}' #{i} (SAE {j})",
+                        value=0,
+                    )
+                )
+
+        return mo.ui.array(sliders)
+
+
+    sliders = make_sliders()
+    return feature_dirs, feature_idxs, make_sliders, sliders
 
 
 @app.cell
 def __(mo, sliders):
     mo.vstack(sliders)
     return
-
-
-@app.cell
-def __(chart, dataset, mo, pl):
-    mo.stop(
-        len(chart.value) != 1,
-        f"Select exactly 1 instance ({len(chart.value)} selected now) to manipulate dimensions.",
-    )
-
-    select_vit_act, _, _ = dataset[
-        chart.value.select(pl.col("i_im") * 196 + pl.col("i_p")).item()
-    ]
-    select_vit_act.numpy()
-    return (select_vit_act,)
 
 
 @app.cell
@@ -588,8 +397,9 @@ def __(Image, ImageDraw, beartype):
 
 
 @app.cell
-def __(csv, img_dataset, os):
-    def make_cls_lookup():
+def __(beartype, csv, img_dataset, mo, os):
+    @beartype.beartype
+    def make_cls_lookup() -> dict[int, str]:
         cls_lookup = {}
         with open(os.path.join(img_dataset.cfg.root, "objectInfo150.txt")) as fd:
             for row in csv.DictReader(fd, delimiter="\t"):
@@ -598,8 +408,11 @@ def __(csv, img_dataset, os):
 
 
     cls_lookup = make_cls_lookup()
-    cls_lookup
-    return cls_lookup, make_cls_lookup
+
+    cls_select = mo.ui.multiselect(
+        {name: value for value, name in cls_lookup.items()}, label="Classes"
+    )
+    return cls_lookup, cls_select, make_cls_lookup
 
 
 @app.cell
@@ -667,28 +480,68 @@ def __(Image):
 
 
 @app.cell
-def __(saev):
-    sae = saev.nn.load("/home/stevens.994/projects/saev-live/checkpoints/ercgckr1/sae.pt")
-    print(sae)
-    return (sae,)
+def __(
+    Float,
+    Int,
+    beartype,
+    cls_lookup,
+    cls_select,
+    jaxtyped,
+    np,
+    saev,
+    torch,
+):
+    @jaxtyped(typechecker=beartype.beartype)
+    @torch.no_grad
+    def get_feature_directions(
+        acts: Float[np.ndarray, "n d_vit"], labels: Int[np.ndarray, " n"], *, k: int = 2
+    ) -> tuple[Int[np.ndarray, "n_unique k"], Float[np.ndarray, "n_unique k d_vit"]]:
+        """
+        Get the k most meaningful features for each unique obj_cls.
+        """
+        sae = saev.nn.load(
+            "/home/stevens.994/projects/saev-live/checkpoints/ercgckr1/sae.pt"
+        )
+
+        acts_pt = torch.from_numpy(acts)
+        _, f_x, loss = sae(acts_pt)
+
+        print("MSE Loss:", loss.mse.item())
+
+        out_idxs, out_dirs = [], []
+        for obj_cls in cls_select.value:
+            i = labels == cls_lookup[obj_cls]
+            vals, idxs = f_x[i].topk(32)
+            idxs, counts = np.unique(idxs.numpy(), return_counts=True)
+            top = list(reversed(np.argsort(counts)[-k:]))
+            # print(len(top), idxs.shape, idxs[top])
+
+            out_idxs.append(idxs[top])
+            out_dirs.append(sae.W_dec[idxs[top]].numpy())
+        # print(out_dirs)
+        return np.array(out_idxs), np.array(out_dirs)
+    return (get_feature_directions,)
 
 
 @app.cell
-def __(activations, sae, torch):
-    with torch.no_grad():
-        x_hat, f_x, _ = sae(torch.from_numpy(activations[101:102]))
-    return f_x, x_hat
+def __(mo):
+    mo.md(
+        r"""
+        # Roadmap
+
+        What do I still want to do with this?
+
+        * [DONE] I want to manually pick a subset of classes from ADE20K instead of manually choosing them.
+        * [DONE] I want to automatically sample the patches without having to deal with "not enough examples"
+        * [DONE] I need to automatically filter the examples that are outside the "main cluster".
+        * [DONE] I want to automatically pick out the meaningful features from the SAE forward pass. Maybe doing it over multiple examples from the same class, then picking the dimensions that are rank high in general?
+        *  I want to automatically see the images that correspond with each SAE feature, both before and after individual patches are highlighted (with the colormap).
+        *  Embed patches with PCA using (1) pixel values (2) DINOv2 activations and (3) SAE decompositions. Expect that the more disentangled values are more seperable.
 
 
-@app.cell
-def __(activations, torch, x_hat):
-    (x_hat - torch.from_numpy(activations[101:102])).pow(2).mean()
-    return
-
-
-@app.cell
-def __(f_x):
-    f_x.topk(5)
+        Which one of these is most important?
+        """
+    )
     return
 
 
