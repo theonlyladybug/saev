@@ -37,6 +37,7 @@ def __():
     import saev.config
     import saev.helpers
     import saev.nn
+    import saev.visuals
     return (
         Image,
         ImageDraw,
@@ -62,21 +63,24 @@ def __():
 
 @app.cell
 def __(mo):
-    mo.md(r"""This dashboard lets you play with the feature steering using a bunch of different techniques.""")
+    mo.md(
+        r"""
+        # Manipulate SAE Features in Vision Models
+
+        This dashboard lets you play with the feature steering using a bunch of different techniques.
+        """
+    )
     return
 
 
 @app.cell
 def __(cls_lookup, cls_select, mo):
-    mo.hstack(
-        [
-            cls_select,
-            mo.md(f"{len(cls_select.value)} classes chosen:"),
-            mo.md(", ".join(f"{i} ('{cls_lookup[i]}')" for i in cls_select.value)),
-        ],
-        justify="start",
+    selected_classes_md = mo.md(
+        "\n".join(f"* **'{cls_lookup[i]}'** (ADE20K Class {i})" for i in cls_select.value)
     )
-    return
+
+    mo.vstack([cls_select, selected_classes_md])
+    return (selected_classes_md,)
 
 
 @app.cell
@@ -110,16 +114,18 @@ def __(
     seg_transform,
     torch,
 ):
+    def random_subset_of(dataset, *, n_subset=5000, seed=1):
+        n_original = len(dataset)
+        indices = (
+            np.random.default_rng(seed=seed).permutation(n_original)[:n_subset].tolist()
+        )
+
+        return torch.utils.data.Subset(dataset, indices)
+
+
     def make_df():
-        max_seen_p = -1
         df = []
-        for sample in saev.helpers.progress(
-            torch.utils.data.Subset(
-                img_dataset,
-                np.random.default_rng(seed=1).permutation(len(img_dataset))[:5000].tolist(),
-            ),
-            every=100,
-        ):
+        for sample in saev.helpers.progress(random_subset_of(img_dataset), every=100):
             rows = [
                 {
                     "i_act": sample["index"] * 196 + i,
@@ -134,15 +140,13 @@ def __(
                 for p in get_patches(seg, cls):
                     rows[p]["obj_cls"] = cls
 
-                    if p > max_seen_p:
-                        max_seen_p = p
             df.extend(rows)
-        print(max_seen_p)
+
         return pl.DataFrame(df)
 
 
     df = make_df()
-    return df, make_df
+    return df, make_df, random_subset_of
 
 
 @app.cell
@@ -256,7 +260,7 @@ def __(
                     pl.from_numpy(i_im, ("i_im",)),
                     pl.from_numpy(i_p, ("i_p",)),
                     pl.from_numpy(labels, ("label",)),
-                    pl.from_numpy(np.arange(200), ("example_index",)),
+                    pl.from_numpy(np.arange(len(i_im)), ("example_index",)),
                 ),
                 how="horizontal",
             ).vstack(
@@ -266,7 +270,7 @@ def __(
                         "y": x_proj[0, 1] + y_shift,
                         "i_im": i_im[0].item(),
                         "i_p": i_p[0].item(),
-                        "label": f"{labels[0].item()} (manipulated)",
+                        "label": f"(CHANGEABLE) {labels[0].item()}",
                         "example_index": 0,
                     }
                 )
@@ -306,26 +310,7 @@ def __(chart, highlight_patches, img_dataset, mo):
 
 
 @app.cell
-def __(
-    activations,
-    cls_lookup,
-    cls_select,
-    get_feature_directions,
-    labels,
-    mo,
-    without_outliers,
-):
-    # Instead of random unit-norm directions, we should be using the sparse autoencoder to choose the directions.
-    # Specifically, we can get f_x for the manipulated patch, then pick the dimensions that have maximal value.
-    # We can pick out the columns of W_dec and move the patch in those directions.
-
-    # _, f = f_x.topk(10)
-
-    feature_idxs, feature_dirs = get_feature_directions(
-        activations[without_outliers], labels[without_outliers]
-    )
-
-
+def __(cls_lookup, cls_select, feature_idxs, mo, slider_images):
     def make_sliders():
         sliders = []
         for obj_idxs, obj_cls_ in zip(feature_idxs, cls_select.value):
@@ -335,7 +320,7 @@ def __(
                         -50,
                         50,
                         step=2.0,
-                        label=f"'{cls_lookup[obj_cls_]}' #{i} (SAE {j})",
+                        label=f"'{cls_lookup[obj_cls_]}' #{i + 1} (SAE {j})",
                         value=0,
                     )
                 )
@@ -344,17 +329,113 @@ def __(
 
 
     sliders = make_sliders()
-    return feature_dirs, feature_idxs, make_sliders, sliders
+
+
+    def make_slider_ui():
+        rows = []
+        for slider, (orig, highlighted) in zip(sliders, slider_images):
+            row = mo.vstack(
+                [
+                    slider,
+                    mo.accordion(
+                        {
+                            "Example Images": mo.vstack(
+                                [
+                                    mo.hstack(orig[:4], justify="start"),
+                                    mo.hstack(highlighted[:4], justify="start"),
+                                ]
+                            )
+                        },
+                        multiple=True,
+                    ),
+                ]
+            )
+            rows.append(row)
+        return mo.vstack(rows)
+
+
+    make_slider_ui()
+    return make_slider_ui, make_sliders, sliders
 
 
 @app.cell
-def __(mo, sliders):
-    mo.vstack(sliders)
-    return
+def __(Image, beartype, feature_idxs, resize_and_crop, saev, torch):
+    @beartype.beartype
+    def make_images() -> list[tuple[list[Image.Image], list[Image.Image]]]:
+        top_i = torch.load(
+            "/research/nfs_su_809/workspace/stevens.994/saev/webapp/ercgckr1/sort_by_patch/top_img_i.pt",
+            weights_only=True,
+            map_location="cpu",
+        )
+        top_values_p = torch.load(
+            "/research/nfs_su_809/workspace/stevens.994/saev/webapp/ercgckr1/sort_by_patch/top_values.pt",
+            weights_only=True,
+            map_location="cpu",
+        )
+
+        in1k_dataset = saev.activations.get_dataset(
+            saev.config.ImagenetDataset(), transform=None
+        )
+
+        images = []
+
+        # Flatten feature_idxs because it's nested with respect the number of object classes
+        for idx in saev.helpers.progress(feature_idxs.reshape(-1), every=1):
+            seen_i_im = set()
+
+            elems = []
+            for i_im, values_p in zip(top_i[idx].tolist(), top_values_p[idx]):
+                if i_im in seen_i_im:
+                    continue
+
+                example = in1k_dataset[i_im]
+                elem = saev.visuals.GridElement(
+                    example["image"], example["label"], values_p
+                )
+                elems.append(elem)
+
+                seen_i_im.add(i_im)
+
+            upper = None
+            if top_values_p[idx].numel() > 0:
+                upper = top_values_p[idx].max().item()
+
+            orig = [
+                resize_and_crop(elem.img, (256, 256), (224, 224)).resize((196, 196))
+                for elem in elems
+            ]
+            highlighted = [
+                saev.visuals.make_img(elem, upper=upper).resize((196, 196))
+                for elem in elems
+            ]
+            images.append((orig, highlighted))
+
+        return images
+
+
+    slider_images = make_images()
+    return make_images, slider_images
 
 
 @app.cell
 def __(Image, ImageDraw, beartype):
+    @beartype.beartype
+    def resize_and_crop(
+        img: Image.Image,
+        resize_px: tuple[int, int] = (256, 256),
+        crop_px: tuple[int, int] = (224, 224),
+    ) -> Image.Image:
+        resize_w_px, resize_h_px = resize_px
+        crop_w_px, crop_h_px = crop_px
+        crop_coords_px = (
+            (resize_w_px - crop_w_px) // 2,
+            (resize_h_px - crop_h_px) // 2,
+            (resize_w_px + crop_w_px) // 2,
+            (resize_h_px + crop_h_px) // 2,
+        )
+        return img.resize(resize_px).crop(crop_coords_px)
+
+
     @beartype.beartype
     def highlight_patches(img: Image.Image, patches: list[int]) -> Image.Image:
         """
@@ -363,19 +444,11 @@ def __(Image, ImageDraw, beartype):
         Assumes 256x256 resize -> 224x224 center crop -> 16x16 patches
         """
         resize_size_px = (256, 256)
-        resize_w_px, resize_h_px = resize_size_px
         crop_size_px = (224, 224)
-        crop_w_px, crop_h_px = crop_size_px
-        crop_coords_px = (
-            (resize_w_px - crop_w_px) // 2,
-            (resize_h_px - crop_h_px) // 2,
-            (resize_w_px + crop_w_px) // 2,
-            (resize_h_px + crop_h_px) // 2,
-        )
         iw_np, ih_np = 14, 14
         pw_px, ph_px = 16, 16
 
-        img = img.resize(resize_size_px).crop(crop_coords_px)
+        img = resize_and_crop(img, resize_size_px, crop_size_px)
 
         # Create a transparent red overlay
         overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
@@ -393,7 +466,7 @@ def __(Image, ImageDraw, beartype):
 
         # Composite the original image and the overlay
         return Image.alpha_composite(img.convert("RGBA"), overlay)
-    return (highlight_patches,)
+    return highlight_patches, resize_and_crop
 
 
 @app.cell
@@ -483,13 +556,16 @@ def __(Image):
 def __(
     Float,
     Int,
+    activations,
     beartype,
     cls_lookup,
     cls_select,
     jaxtyped,
+    labels,
     np,
     saev,
     torch,
+    without_outliers,
 ):
     @jaxtyped(typechecker=beartype.beartype)
     @torch.no_grad
@@ -520,7 +596,12 @@ def __(
             out_dirs.append(sae.W_dec[idxs[top]].numpy())
         # print(out_dirs)
         return np.array(out_idxs), np.array(out_dirs)
-    return (get_feature_directions,)
+
+
+    feature_idxs, feature_dirs = get_feature_directions(
+        activations[without_outliers], labels[without_outliers]
+    )
+    return feature_dirs, feature_idxs, get_feature_directions
 
 
 @app.cell
@@ -531,15 +612,7 @@ def __(mo):
 
         What do I still want to do with this?
 
-        * [DONE] I want to manually pick a subset of classes from ADE20K instead of manually choosing them.
-        * [DONE] I want to automatically sample the patches without having to deal with "not enough examples"
-        * [DONE] I need to automatically filter the examples that are outside the "main cluster".
-        * [DONE] I want to automatically pick out the meaningful features from the SAE forward pass. Maybe doing it over multiple examples from the same class, then picking the dimensions that are rank high in general?
-        *  I want to automatically see the images that correspond with each SAE feature, both before and after individual patches are highlighted (with the colormap).
         *  Embed patches with PCA using (1) pixel values (2) DINOv2 activations and (3) SAE decompositions. Expect that the more disentangled values are more seperable.
-
-
-        Which one of these is most important?
         """
     )
     return

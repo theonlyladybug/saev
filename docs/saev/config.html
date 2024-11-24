@@ -61,7 +61,7 @@ Might be expanded in the future to support pseudo-random sampling from distribut
 <dl>
 <dt id="saev.config.Activations"><code class="flex name class">
 <span>class <span class="ident">Activations</span></span>
-<span>(</span><span>data: <a title="saev.config.ImagenetDataset" href="#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.ImageFolderDataset" href="#saev.config.ImageFolderDataset">ImageFolderDataset</a> = &lt;factory&gt;, dump_to: str = './shards', model_org: Literal['clip', 'siglip', 'timm', 'dinov2'] = 'clip', model_ckpt: str = 'ViT-L-14/openai', vit_batch_size: int = 1024, n_workers: int = 8, d_vit: int = 1024, layers: list[int] = &lt;factory&gt;, n_patches_per_img: int = 256, cls_token: bool = True, n_patches_per_shard: int = 2400000, seed: int = 42, ssl: bool = True, device: str = 'cuda', slurm: bool = False, slurm_acct: str = 'PAS2136', log_to: str = './logs')</span>
+<span>(</span><span>data: <a title="saev.config.ImagenetDataset" href="#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.ImageFolderDataset" href="#saev.config.ImageFolderDataset">ImageFolderDataset</a> | <a title="saev.config.Ade20kDataset" href="#saev.config.Ade20kDataset">Ade20kDataset</a> = &lt;factory&gt;, dump_to: str = './shards', model_family: Literal['clip', 'siglip', 'dinov2'] = 'clip', model_ckpt: str = 'ViT-L-14/openai', vit_batch_size: int = 1024, n_workers: int = 8, d_vit: int = 1024, layers: list[int] = &lt;factory&gt;, n_patches_per_img: int = 256, cls_token: bool = True, n_patches_per_shard: int = 2400000, seed: int = 42, ssl: bool = True, device: str = 'cuda', slurm: bool = False, slurm_acct: str = 'PAS2136', log_to: str = './logs')</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Configuration for calculating and saving ViT activations.</p></div>
@@ -80,8 +80,8 @@ class Activations:
     &#34;&#34;&#34;Which dataset to use.&#34;&#34;&#34;
     dump_to: str = os.path.join(&#34;.&#34;, &#34;shards&#34;)
     &#34;&#34;&#34;Where to write shards.&#34;&#34;&#34;
-    model_org: typing.Literal[&#34;clip&#34;, &#34;siglip&#34;, &#34;timm&#34;, &#34;dinov2&#34;] = &#34;clip&#34;
-    &#34;&#34;&#34;Where to load models from.&#34;&#34;&#34;
+    model_family: typing.Literal[&#34;clip&#34;, &#34;siglip&#34;, &#34;dinov2&#34;] = &#34;clip&#34;
+    &#34;&#34;&#34;Which model family.&#34;&#34;&#34;
     model_ckpt: str = &#34;ViT-L-14/openai&#34;
     &#34;&#34;&#34;Specific model checkpoint.&#34;&#34;&#34;
     vit_batch_size: int = 1024
@@ -124,7 +124,7 @@ class Activations:
 <dd>
 <div class="desc"><p>Dimension of the ViT activations (depends on model).</p></div>
 </dd>
-<dt id="saev.config.Activations.data"><code class="name">var <span class="ident">data</span> : <a title="saev.config.ImagenetDataset" href="#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.ImageFolderDataset" href="#saev.config.ImageFolderDataset">ImageFolderDataset</a></code></dt>
+<dt id="saev.config.Activations.data"><code class="name">var <span class="ident">data</span> : <a title="saev.config.ImagenetDataset" href="#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.ImageFolderDataset" href="#saev.config.ImageFolderDataset">ImageFolderDataset</a> | <a title="saev.config.Ade20kDataset" href="#saev.config.Ade20kDataset">Ade20kDataset</a></code></dt>
 <dd>
 <div class="desc"><p>Which dataset to use.</p></div>
 </dd>
@@ -148,9 +148,9 @@ class Activations:
 <dd>
 <div class="desc"><p>Specific model checkpoint.</p></div>
 </dd>
-<dt id="saev.config.Activations.model_org"><code class="name">var <span class="ident">model_org</span> : Literal['clip', 'siglip', 'timm', 'dinov2']</code></dt>
+<dt id="saev.config.Activations.model_family"><code class="name">var <span class="ident">model_family</span> : Literal['clip', 'siglip', 'dinov2']</code></dt>
 <dd>
-<div class="desc"><p>Where to load models from.</p></div>
+<div class="desc"><p>Which model family.</p></div>
 </dd>
 <dt id="saev.config.Activations.n_patches_per_img"><code class="name">var <span class="ident">n_patches_per_img</span> : int</code></dt>
 <dd>
@@ -183,6 +183,53 @@ class Activations:
 <dt id="saev.config.Activations.vit_batch_size"><code class="name">var <span class="ident">vit_batch_size</span> : int</code></dt>
 <dd>
 <div class="desc"><p>Batch size for ViT inference.</p></div>
+</dd>
+</dl>
+</dd>
+<dt id="saev.config.Ade20kDataset"><code class="flex name class">
+<span>class <span class="ident">Ade20kDataset</span></span>
+<span>(</span><span>root: str = './data/split')</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@beartype.beartype
+@dataclasses.dataclass(frozen=True)
+class Ade20kDataset:
+    &#34;&#34;&#34; &#34;&#34;&#34;
+
+    root: str = os.path.join(&#34;.&#34;, &#34;data&#34;, &#34;split&#34;)
+    &#34;&#34;&#34;Where the class folders with images are stored.&#34;&#34;&#34;
+
+    @property
+    def n_imgs(self) -&gt; int:
+        with open(os.path.join(self.root, &#34;sceneCategories.txt&#34;)) as fd:
+            return len(fd.read().split(&#34;\n&#34;))</code></pre>
+</details>
+<h3>Class variables</h3>
+<dl>
+<dt id="saev.config.Ade20kDataset.root"><code class="name">var <span class="ident">root</span> : str</code></dt>
+<dd>
+<div class="desc"><p>Where the class folders with images are stored.</p></div>
+</dd>
+</dl>
+<h3>Instance variables</h3>
+<dl>
+<dt id="saev.config.Ade20kDataset.n_imgs"><code class="name">prop <span class="ident">n_imgs</span> : int</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def n_imgs(self) -&gt; int:
+    with open(os.path.join(self.root, &#34;sceneCategories.txt&#34;)) as fd:
+        return len(fd.read().split(&#34;\n&#34;))</code></pre>
+</details>
 </dd>
 </dl>
 </dd>
@@ -585,7 +632,7 @@ class Train:
 </dd>
 <dt id="saev.config.Visuals"><code class="flex name class">
 <span>class <span class="ident">Visuals</span></span>
-<span>(</span><span>ckpt: str = './checkpoints/sae.pt', data: <a title="saev.config.DataLoad" href="#saev.config.DataLoad">DataLoad</a> = &lt;factory&gt;, images: <a title="saev.config.ImagenetDataset" href="#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.ImageFolderDataset" href="#saev.config.ImageFolderDataset">ImageFolderDataset</a> = &lt;factory&gt;, top_k: int = 128, n_workers: int = 16, topk_batch_size: int = 16384, sae_batch_size: int = 16384, epsilon: float = 1e-09, sort_by: Literal['cls', 'img', 'patch'] = 'patch', device: str = 'cuda', dump_to: str = './data', log_freq_range: tuple[float, float] = (-6.0, -2.0), log_value_range: tuple[float, float] = (-1.0, 1.0), include_latents: list[int] = &lt;factory&gt;)</span>
+<span>(</span><span>ckpt: str = './checkpoints/sae.pt', data: <a title="saev.config.DataLoad" href="#saev.config.DataLoad">DataLoad</a> = &lt;factory&gt;, images: <a title="saev.config.ImagenetDataset" href="#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.ImageFolderDataset" href="#saev.config.ImageFolderDataset">ImageFolderDataset</a> | <a title="saev.config.Ade20kDataset" href="#saev.config.Ade20kDataset">Ade20kDataset</a> = &lt;factory&gt;, top_k: int = 128, n_workers: int = 16, topk_batch_size: int = 16384, sae_batch_size: int = 16384, epsilon: float = 1e-09, sort_by: Literal['cls', 'img', 'patch'] = 'patch', device: str = 'cuda', dump_to: str = './data', log_freq_range: tuple[float, float] = (-6.0, -2.0), log_value_range: tuple[float, float] = (-1.0, 1.0), include_latents: list[int] = &lt;factory&gt;)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Configuration for generating visuals from trained SAEs.</p></div>
@@ -673,7 +720,7 @@ class Visuals:
 <dd>
 <div class="desc"><p>Value to add to avoid log(0).</p></div>
 </dd>
-<dt id="saev.config.Visuals.images"><code class="name">var <span class="ident">images</span> : <a title="saev.config.ImagenetDataset" href="#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.ImageFolderDataset" href="#saev.config.ImageFolderDataset">ImageFolderDataset</a></code></dt>
+<dt id="saev.config.Visuals.images"><code class="name">var <span class="ident">images</span> : <a title="saev.config.ImagenetDataset" href="#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.ImageFolderDataset" href="#saev.config.ImageFolderDataset">ImageFolderDataset</a> | <a title="saev.config.Ade20kDataset" href="#saev.config.Ade20kDataset">Ade20kDataset</a></code></dt>
 <dd>
 <div class="desc"><p>Which images to use.</p></div>
 </dd>
@@ -820,7 +867,7 @@ def top_values_fpath(self) -&gt; str:
 <li><code><a title="saev.config.Activations.layers" href="#saev.config.Activations.layers">layers</a></code></li>
 <li><code><a title="saev.config.Activations.log_to" href="#saev.config.Activations.log_to">log_to</a></code></li>
 <li><code><a title="saev.config.Activations.model_ckpt" href="#saev.config.Activations.model_ckpt">model_ckpt</a></code></li>
-<li><code><a title="saev.config.Activations.model_org" href="#saev.config.Activations.model_org">model_org</a></code></li>
+<li><code><a title="saev.config.Activations.model_family" href="#saev.config.Activations.model_family">model_family</a></code></li>
 <li><code><a title="saev.config.Activations.n_patches_per_img" href="#saev.config.Activations.n_patches_per_img">n_patches_per_img</a></code></li>
 <li><code><a title="saev.config.Activations.n_patches_per_shard" href="#saev.config.Activations.n_patches_per_shard">n_patches_per_shard</a></code></li>
 <li><code><a title="saev.config.Activations.n_workers" href="#saev.config.Activations.n_workers">n_workers</a></code></li>
@@ -829,6 +876,13 @@ def top_values_fpath(self) -&gt; str:
 <li><code><a title="saev.config.Activations.slurm_acct" href="#saev.config.Activations.slurm_acct">slurm_acct</a></code></li>
 <li><code><a title="saev.config.Activations.ssl" href="#saev.config.Activations.ssl">ssl</a></code></li>
 <li><code><a title="saev.config.Activations.vit_batch_size" href="#saev.config.Activations.vit_batch_size">vit_batch_size</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="saev.config.Ade20kDataset" href="#saev.config.Ade20kDataset">Ade20kDataset</a></code></h4>
+<ul class="">
+<li><code><a title="saev.config.Ade20kDataset.n_imgs" href="#saev.config.Ade20kDataset.n_imgs">n_imgs</a></code></li>
+<li><code><a title="saev.config.Ade20kDataset.root" href="#saev.config.Ade20kDataset.root">root</a></code></li>
 </ul>
 </li>
 <li>

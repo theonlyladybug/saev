@@ -100,7 +100,7 @@ See the section on sweeps to learn how to train multiple SAEs in parallel using 
 
 Now that you've trained an SAE, you probably want to look at its learned features.
 One way to visualize an individual learned feature \(f\) is by picking out images that maximize the activation of feature \(f\).
-Since we train SAEs on patch-level activations, we try to find the top *patches* for each feature \(f\). 
+Since we train SAEs on patch-level activations, we try to find the top *patches* for each feature \(f\).
 Then, we pick out the images those patches correspond to and create a heatmap based on SAE activation values.
 
 .. note:: More advanced forms of visualization are possible (and valuable!), but should not be included in `saev` unless they can be applied to every SAE/dataset combination. If you have specific visualizations, please add them to `contrib/` or another location.
@@ -126,6 +126,8 @@ This will record the top 128 patches, and then save the unique images among thos
 It will cache these best activations to disk, then start saving images to visualize later on.
 
 `saev.webapp` is a small web application based on [marimo](https://marimo.io/) to interactively look at these images.
+
+You can run it with `uv run marimo edit saev/webapp.py`.
 
 ## Sweeps
 
@@ -165,10 +167,6 @@ Conceptually, activations are either thought of as
 Functions
 ---------
 
-`dump(cfg: saev.config.Activations)`
-:   Args:
-        cfg: Config for activations.
-
 `get_acts_dir(cfg: saev.config.Activations) ‑> str`
 :   Return the activations filepath based on the relevant values of a config.
     Also saves a metadata.json file to that directory for human reference.
@@ -189,7 +187,7 @@ Functions
     Returns:
         A PyTorch Dataloader that yields dictionaries with `'image'` keys containing image batches.
 
-`get_dataset(cfg: saev.config.ImagenetDataset | saev.config.ImageFolderDataset, *, transform)`
+`get_dataset(cfg: saev.config.ImagenetDataset | saev.config.ImageFolderDataset | saev.config.Ade20kDataset, *, transform)`
 :   Gets the dataset for the current experiment; delegates construction to dataset-specific functions.
     
     Args:
@@ -209,28 +207,9 @@ Functions
     Returns:
         A PyTorch Dataloader that yields dictionaries with `'image'` keys containing image batches, `'index'` keys containing original dataset indices and `'label'` keys containing label batches.
 
-`get_laion_dataloader(cfg: saev.config.Activations, preprocess) ‑> torch.utils.data.dataloader.DataLoader`
-:   Get a dataloader for a subset of the LAION datasets.
-    
-    This requires several steps:
-    
-    1. Download list of image URLs
-    2. Use img2dataset to download these images to webdataset format.
-    3. Create a dataloader from these webdataset tar files.
-    
-    So that we don't have to redo any of these steps, we check on the existence of various files to check if this stuff is done already.
-
-`get_tol_dataloader(cfg: saev.config.Activations, preprocess) ‑> torch.utils.data.dataloader.DataLoader`
-:   Get a dataloader for the TreeOfLife-10M dataset.
-    
-    Currently does not include a true index or label in the loaded examples.
-    
-    Args:
-        cfg: Config for loading activations.
-        preprocess: Image transform to be applied to each image.
-    
-    Returns:
-        A PyTorch Dataloader that yields dictionaries with `'image'` keys containing image batches.
+`main(cfg: saev.config.Activations)`
+:   Args:
+        cfg: Config for activations.
 
 `make_vit(cfg: saev.config.Activations)`
 :   
@@ -238,16 +217,13 @@ Functions
 `setup(cfg: saev.config.Activations)`
 :   Run dataset-specific setup. These setup functions can assume they are the only job running, but they should be idempotent; they should be safe (and ideally cheap) to run multiple times in a row.
 
+`setup_ade20k(cfg: saev.config.Activations)`
+:   
+
 `setup_imagefolder(cfg: saev.config.Activations)`
 :   
 
 `setup_imagenet(cfg: saev.config.Activations)`
-:   
-
-`setup_laion(cfg: saev.config.Activations)`
-:   Do setup for LAION dataloader.
-
-`setup_tol(cfg: saev.config.Activations)`
 :   
 
 `worker_fn(cfg: saev.config.Activations)`
@@ -413,8 +389,8 @@ Classes
     `make_img_transform(self)`
     :
 
-`Metadata(model_org: str, model_ckpt: str, layers: tuple[int, ...], n_patches_per_img: int, cls_token: bool, d_vit: int, seed: int, n_imgs: int, n_patches_per_shard: int, data: str)`
-:   Metadata(model_org: str, model_ckpt: str, layers: tuple[int, ...], n_patches_per_img: int, cls_token: bool, d_vit: int, seed: int, n_imgs: int, n_patches_per_shard: int, data: str)
+`Metadata(model_family: str, model_ckpt: str, layers: tuple[int, ...], n_patches_per_img: int, cls_token: bool, d_vit: int, seed: int, n_imgs: int, n_patches_per_shard: int, data: str)`
+:   Metadata(model_family: str, model_ckpt: str, layers: tuple[int, ...], n_patches_per_img: int, cls_token: bool, d_vit: int, seed: int, n_imgs: int, n_patches_per_shard: int, data: str)
 
     ### Class variables
 
@@ -433,7 +409,7 @@ Classes
     `model_ckpt: str`
     :
 
-    `model_org: str`
+    `model_family: str`
     :
 
     `n_imgs: int`
@@ -551,58 +527,43 @@ Classes
     `make_img_transform(self)`
     :
 
-`TimmVit(cfg: saev.config.Activations)`
-:   Base class for all neural network modules.
+`TransformedAde20k(cfg: saev.config.Ade20kDataset, *, transform=None, seg_transform=None)`
+:   An abstract class representing a :class:`Dataset`.
     
-    Your models should also subclass this class.
-    
-    Modules can also contain other Modules, allowing to nest them in
-    a tree structure. You can assign the submodules as regular attributes::
-    
-        import torch.nn as nn
-        import torch.nn.functional as F
-    
-        class Model(nn.Module):
-            def __init__(self) -> None:
-                super().__init__()
-                self.conv1 = nn.Conv2d(1, 20, 5)
-                self.conv2 = nn.Conv2d(20, 20, 5)
-    
-            def forward(self, x):
-                x = F.relu(self.conv1(x))
-                return F.relu(self.conv2(x))
-    
-    Submodules assigned in this way will be registered, and will have their
-    parameters converted too when you call :meth:`to`, etc.
+    All datasets that represent a map from keys to data samples should subclass
+    it. All subclasses should overwrite :meth:`__getitem__`, supporting fetching a
+    data sample for a given key. Subclasses could also optionally overwrite
+    :meth:`__len__`, which is expected to return the size of the dataset by many
+    :class:`~torch.utils.data.Sampler` implementations and the default options
+    of :class:`~torch.utils.data.DataLoader`. Subclasses could also
+    optionally implement :meth:`__getitems__`, for speedup batched samples
+    loading. This method accepts list of indices of samples of batch and returns
+    list of samples.
     
     .. note::
-        As per the example above, an ``__init__()`` call to the parent class
-        must be made before assignment on the child.
-    
-    :ivar training: Boolean represents whether this module is in training or
-                    evaluation mode.
-    :vartype training: bool
-    
-    Initialize internal Module state, shared by both nn.Module and ScriptModule.
+      :class:`~torch.utils.data.DataLoader` by default constructs an index
+      sampler that yields integral indices.  To make it work with a map-style
+      dataset with non-integral indices/keys, a custom sampler must be provided.
 
     ### Ancestors (in MRO)
 
-    * torch.nn.modules.module.Module
+    * torch.utils.data.dataset.Dataset
+    * typing.Generic
 
-    ### Methods
+    ### Class variables
 
-    `forward(self, batch: jaxtyping.Float[Tensor, 'batch 3 width height']) ‑> Callable[..., Any]`
-    :   Define the computation performed at every call.
-        
-        Should be overridden by all subclasses.
-        
-        .. note::
-            Although the recipe for forward pass needs to be defined within
-            this function, one should call the :class:`Module` instance afterwards
-            instead of this since the former takes care of running the
-            registered hooks while the latter silently ignores them.
+    `Sample`
+    :   dict() -> new empty dictionary
+        dict(mapping) -> new dictionary initialized from a mapping object's
+            (key, value) pairs
+        dict(iterable) -> new dictionary initialized as if via:
+            d = {}
+            for k, v in iterable:
+                d[k] = v
+        dict(**kwargs) -> new dictionary initialized with the name=value pairs
+            in the keyword argument list.  For example:  dict(one=1, two=2)
 
-    `make_img_transform(self)`
+    `samples: list[saev.activations.TransformedAde20k.Sample]`
     :
 
 `TransformedImageFolder(root: Union[str, pathlib.Path], transform: Optional[Callable] = None, target_transform: Optional[Callable] = None, loader: Callable[[str], Any] = <function default_loader>, is_valid_file: Optional[Callable[[str], bool]] = None, allow_empty: bool = False)`
@@ -644,7 +605,7 @@ Classes
     * torch.utils.data.dataset.Dataset
     * typing.Generic
 
-`TransformedImagenet(cfg: saev.config.ImagenetDataset, transform)`
+`TransformedImagenet(cfg: saev.config.ImagenetDataset, *, transform=None)`
 :   An abstract class representing a :class:`Dataset`.
     
     All datasets that represent a map from keys to data samples should subclass
@@ -751,7 +712,7 @@ Functions
 Classes
 -------
 
-`Activations(data: saev.config.ImagenetDataset | saev.config.ImageFolderDataset = <factory>, dump_to: str = './shards', model_org: Literal['clip', 'siglip', 'timm', 'dinov2'] = 'clip', model_ckpt: str = 'ViT-L-14/openai', vit_batch_size: int = 1024, n_workers: int = 8, d_vit: int = 1024, layers: list[int] = <factory>, n_patches_per_img: int = 256, cls_token: bool = True, n_patches_per_shard: int = 2400000, seed: int = 42, ssl: bool = True, device: str = 'cuda', slurm: bool = False, slurm_acct: str = 'PAS2136', log_to: str = './logs')`
+`Activations(data: saev.config.ImagenetDataset | saev.config.ImageFolderDataset | saev.config.Ade20kDataset = <factory>, dump_to: str = './shards', model_family: Literal['clip', 'siglip', 'dinov2'] = 'clip', model_ckpt: str = 'ViT-L-14/openai', vit_batch_size: int = 1024, n_workers: int = 8, d_vit: int = 1024, layers: list[int] = <factory>, n_patches_per_img: int = 256, cls_token: bool = True, n_patches_per_shard: int = 2400000, seed: int = 42, ssl: bool = True, device: str = 'cuda', slurm: bool = False, slurm_acct: str = 'PAS2136', log_to: str = './logs')`
 :   Configuration for calculating and saving ViT activations.
 
     ### Class variables
@@ -762,7 +723,7 @@ Classes
     `d_vit: int`
     :   Dimension of the ViT activations (depends on model).
 
-    `data: saev.config.ImagenetDataset | saev.config.ImageFolderDataset`
+    `data: saev.config.ImagenetDataset | saev.config.ImageFolderDataset | saev.config.Ade20kDataset`
     :   Which dataset to use.
 
     `device: str`
@@ -780,8 +741,8 @@ Classes
     `model_ckpt: str`
     :   Specific model checkpoint.
 
-    `model_org: Literal['clip', 'siglip', 'timm', 'dinov2']`
-    :   Where to load models from.
+    `model_family: Literal['clip', 'siglip', 'dinov2']`
+    :   Which model family.
 
     `n_patches_per_img: int`
     :   Number of ViT patches per image (depends on model).
@@ -806,6 +767,19 @@ Classes
 
     `vit_batch_size: int`
     :   Batch size for ViT inference.
+
+`Ade20kDataset(root: str = './data/split')`
+:   
+
+    ### Class variables
+
+    `root: str`
+    :   Where the class folders with images are stored.
+
+    ### Instance variables
+
+    `n_imgs: int`
+    :
 
 `DataLoad(shard_root: str = './shards', patches: Literal['cls', 'patches', 'meanpool'] = 'patches', layer: Union[int, Literal['all', 'meanpool']] = -2, clamp: float = 100000.0, n_random_samples: int = 524288, scale_mean: bool = True, scale_norm: bool = True)`
 :   Configuration for loading activation data from disk.
@@ -955,7 +929,7 @@ Classes
     `wandb_project: str`
     :   WandB project name.
 
-`Visuals(ckpt: str = './checkpoints/sae.pt', data: saev.config.DataLoad = <factory>, images: saev.config.ImagenetDataset | saev.config.ImageFolderDataset = <factory>, top_k: int = 128, n_workers: int = 16, topk_batch_size: int = 16384, sae_batch_size: int = 16384, epsilon: float = 1e-09, sort_by: Literal['cls', 'img', 'patch'] = 'patch', device: str = 'cuda', dump_to: str = './data', log_freq_range: tuple[float, float] = (-6.0, -2.0), log_value_range: tuple[float, float] = (-1.0, 1.0), include_latents: list[int] = <factory>)`
+`Visuals(ckpt: str = './checkpoints/sae.pt', data: saev.config.DataLoad = <factory>, images: saev.config.ImagenetDataset | saev.config.ImageFolderDataset | saev.config.Ade20kDataset = <factory>, top_k: int = 128, n_workers: int = 16, topk_batch_size: int = 16384, sae_batch_size: int = 16384, epsilon: float = 1e-09, sort_by: Literal['cls', 'img', 'patch'] = 'patch', device: str = 'cuda', dump_to: str = './data', log_freq_range: tuple[float, float] = (-6.0, -2.0), log_value_range: tuple[float, float] = (-1.0, 1.0), include_latents: list[int] = <factory>)`
 :   Configuration for generating visuals from trained SAEs.
 
     ### Class variables
@@ -975,7 +949,7 @@ Classes
     `epsilon: float`
     :   Value to add to avoid log(0).
 
-    `images: saev.config.ImagenetDataset | saev.config.ImageFolderDataset`
+    `images: saev.config.ImagenetDataset | saev.config.ImageFolderDataset | saev.config.Ade20kDataset`
     :   Which images to use.
 
     `include_latents: list[int]`
@@ -1083,7 +1057,7 @@ Classes
 -------
 
 `Loss(mse: jaxtyping.Float[Tensor, ''], sparsity: jaxtyping.Float[Tensor, ''], ghost_grad: jaxtyping.Float[Tensor, ''], l0: jaxtyping.Float[Tensor, ''], l1: jaxtyping.Float[Tensor, ''])`
-:   Loss(mse, sparsity, ghost_grad, l0, l1)
+:   The composite loss terms for an autoencoder training batch.
 
     ### Ancestors (in MRO)
 
@@ -1125,22 +1099,17 @@ Classes
 
     ### Methods
 
-    `forward(self, x: jaxtyping.Float[Tensor, 'batch d_model'], dead_neuron_mask: None = None) ‑> tuple[jaxtyping.Float[Tensor, 'batch d_model'], jaxtyping.Float[Tensor, 'batch d_sae'], saev.nn.Loss]`
-    :   Define the computation performed at every call.
+    `forward(self, x: jaxtyping.Float[Tensor, 'batch d_model']) ‑> tuple[jaxtyping.Float[Tensor, 'batch d_model'], jaxtyping.Float[Tensor, 'batch d_sae'], saev.nn.Loss]`
+    :   Given x, calculates the reconstructed x_hat, the intermediate activations f_x, and the loss.
         
-        Should be overridden by all subclasses.
-        
-        .. note::
-            Although the recipe for forward pass needs to be defined within
-            this function, one should call the :class:`Module` instance afterwards
-            instead of this since the former takes care of running the
-            registered hooks while the latter silently ignores them.
+        Arguments:
+            x: a batch of ViT activations.
 
     `init_b_dec(self, vit_acts: jaxtyping.Float[Tensor, 'n d_vit'])`
     :
 
     `normalize_w_dec(self)`
-    :
+    :   Set W_dec to unit-norm columns.
 
     `remove_parallel_grads(self)`
     :   Update grads so that they remove the parallel component
@@ -1351,7 +1320,17 @@ Functions
 :   
 
 `get_new_topk(val1: jaxtyping.Float[Tensor, 'd_sae k'], i1: jaxtyping.Int[Tensor, 'd_sae k'], val2: jaxtyping.Float[Tensor, 'd_sae k'], i2: jaxtyping.Int[Tensor, 'd_sae k'], k: int) ‑> tuple[jaxtyping.Float[Tensor, 'd_sae k'], jaxtyping.Int[Tensor, 'd_sae k']]`
-:   .. todo:: document this function.
+:   Picks out the new top k values among val1 and val2. Also keeps track of i1 and i2, then indices of the values in the original dataset.
+    
+    Args:
+        val1: top k original SAE values.
+        i1: the patch indices of those original top k values.
+        val2: top k incoming SAE values.
+        i2: the patch indices of those incoming top k values.
+        k: k.
+    
+    Returns:
+        The new top k values and their patch indices.
 
 `get_sae_acts(vit_acts: jaxtyping.Float[Tensor, 'n d_vit'], sae: saev.nn.SparseAutoencoder, cfg: saev.config.Visuals) ‑> jaxtyping.Float[Tensor, 'n d_sae']`
 :   Get SAE hidden layer activations for a batch of ViT activations.
@@ -1658,6 +1637,7 @@ Module faithfulness
 Sub-modules
 -----------
 * faithfulness.config
+* faithfulness.dashboard
 * faithfulness.training
 
 Module faithfulness.config
@@ -1666,8 +1646,16 @@ Module faithfulness.config
 Classes
 -------
 
-`Train()`
-:   Train()
+`Train(data_root: str = './data/ade20k')`
+:   Train(data_root: str = './data/ade20k')
+
+    ### Class variables
+
+    `data_root: str`
+    :   Root folder of ADE20K.
+
+Module faithfulness.dashboard
+=============================
 
 Module faithfulness.training
 ============================

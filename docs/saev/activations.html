@@ -42,16 +42,6 @@ hljs.highlightAll();
 <section>
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
-<dt id="saev.activations.dump"><code class="name flex">
-<span>def <span class="ident">dump</span></span>(<span>cfg: <a title="saev.config.Activations" href="config.html#saev.config.Activations">Activations</a>)</span>
-</code></dt>
-<dd>
-<div class="desc"><h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>cfg</code></strong></dt>
-<dd>Config for activations.</dd>
-</dl></div>
-</dd>
 <dt id="saev.activations.get_acts_dir"><code class="name flex">
 <span>def <span class="ident">get_acts_dir</span></span>(<span>cfg: <a title="saev.config.Activations" href="config.html#saev.config.Activations">Activations</a>) ‑> str</span>
 </code></dt>
@@ -82,7 +72,7 @@ Also saves a metadata.json file to that directory for human reference.</p>
 <p>A PyTorch Dataloader that yields dictionaries with <code>'image'</code> keys containing image batches.</p></div>
 </dd>
 <dt id="saev.activations.get_dataset"><code class="name flex">
-<span>def <span class="ident">get_dataset</span></span>(<span>cfg: <a title="saev.config.ImagenetDataset" href="config.html#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.ImageFolderDataset" href="config.html#saev.config.ImageFolderDataset">ImageFolderDataset</a>, *, transform)</span>
+<span>def <span class="ident">get_dataset</span></span>(<span>cfg: <a title="saev.config.ImagenetDataset" href="config.html#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.ImageFolderDataset" href="config.html#saev.config.ImageFolderDataset">ImageFolderDataset</a> | <a title="saev.config.Ade20kDataset" href="config.html#saev.config.Ade20kDataset">Ade20kDataset</a>, *, transform)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Gets the dataset for the current experiment; delegates construction to dataset-specific functions.</p>
@@ -111,34 +101,15 @@ Also saves a metadata.json file to that directory for human reference.</p>
 <h2 id="returns">Returns</h2>
 <p>A PyTorch Dataloader that yields dictionaries with <code>'image'</code> keys containing image batches, <code>'index'</code> keys containing original dataset indices and <code>'label'</code> keys containing label batches.</p></div>
 </dd>
-<dt id="saev.activations.get_laion_dataloader"><code class="name flex">
-<span>def <span class="ident">get_laion_dataloader</span></span>(<span>cfg: <a title="saev.config.Activations" href="config.html#saev.config.Activations">Activations</a>, preprocess) ‑> torch.utils.data.dataloader.DataLoader</span>
+<dt id="saev.activations.main"><code class="name flex">
+<span>def <span class="ident">main</span></span>(<span>cfg: <a title="saev.config.Activations" href="config.html#saev.config.Activations">Activations</a>)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Get a dataloader for a subset of the LAION datasets.</p>
-<p>This requires several steps:</p>
-<ol>
-<li>Download list of image URLs</li>
-<li>Use img2dataset to download these images to webdataset format.</li>
-<li>Create a dataloader from these webdataset tar files.</li>
-</ol>
-<p>So that we don't have to redo any of these steps, we check on the existence of various files to check if this stuff is done already.</p></div>
-</dd>
-<dt id="saev.activations.get_tol_dataloader"><code class="name flex">
-<span>def <span class="ident">get_tol_dataloader</span></span>(<span>cfg: <a title="saev.config.Activations" href="config.html#saev.config.Activations">Activations</a>, preprocess) ‑> torch.utils.data.dataloader.DataLoader</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Get a dataloader for the TreeOfLife-10M dataset.</p>
-<p>Currently does not include a true index or label in the loaded examples.</p>
-<h2 id="args">Args</h2>
+<div class="desc"><h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>cfg</code></strong></dt>
-<dd>Config for loading activations.</dd>
-<dt><strong><code>preprocess</code></strong></dt>
-<dd>Image transform to be applied to each image.</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<p>A PyTorch Dataloader that yields dictionaries with <code>'image'</code> keys containing image batches.</p></div>
+<dd>Config for activations.</dd>
+</dl></div>
 </dd>
 <dt id="saev.activations.make_vit"><code class="name flex">
 <span>def <span class="ident">make_vit</span></span>(<span>cfg: <a title="saev.config.Activations" href="config.html#saev.config.Activations">Activations</a>)</span>
@@ -152,6 +123,12 @@ Also saves a metadata.json file to that directory for human reference.</p>
 <dd>
 <div class="desc"><p>Run dataset-specific setup. These setup functions can assume they are the only job running, but they should be idempotent; they should be safe (and ideally cheap) to run multiple times in a row.</p></div>
 </dd>
+<dt id="saev.activations.setup_ade20k"><code class="name flex">
+<span>def <span class="ident">setup_ade20k</span></span>(<span>cfg: <a title="saev.config.Activations" href="config.html#saev.config.Activations">Activations</a>)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
 <dt id="saev.activations.setup_imagefolder"><code class="name flex">
 <span>def <span class="ident">setup_imagefolder</span></span>(<span>cfg: <a title="saev.config.Activations" href="config.html#saev.config.Activations">Activations</a>)</span>
 </code></dt>
@@ -160,18 +137,6 @@ Also saves a metadata.json file to that directory for human reference.</p>
 </dd>
 <dt id="saev.activations.setup_imagenet"><code class="name flex">
 <span>def <span class="ident">setup_imagenet</span></span>(<span>cfg: <a title="saev.config.Activations" href="config.html#saev.config.Activations">Activations</a>)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt id="saev.activations.setup_laion"><code class="name flex">
-<span>def <span class="ident">setup_laion</span></span>(<span>cfg: <a title="saev.config.Activations" href="config.html#saev.config.Activations">Activations</a>)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Do setup for LAION dataloader.</p></div>
-</dd>
-<dt id="saev.activations.setup_tol"><code class="name flex">
-<span>def <span class="ident">setup_tol</span></span>(<span>cfg: <a title="saev.config.Activations" href="config.html#saev.config.Activations">Activations</a>)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -233,7 +198,7 @@ class Clip(torch.nn.Module):
     def __init__(self, cfg: config.Activations):
         super().__init__()
 
-        assert cfg.model_org == &#34;clip&#34;
+        assert cfg.model_family == &#34;clip&#34;
 
         import open_clip
 
@@ -652,7 +617,7 @@ class DinoV2(torch.nn.Module):
     def __init__(self, cfg: config.Activations):
         super().__init__()
 
-        assert cfg.model_org == &#34;dinov2&#34;
+        assert cfg.model_family == &#34;dinov2&#34;
 
         self.model = torch.hub.load(&#34;facebookresearch/dinov2&#34;, cfg.model_ckpt)
 
@@ -668,6 +633,7 @@ class DinoV2(torch.nn.Module):
         from torchvision.transforms import v2
 
         return v2.Compose([
+            # TODO: I bet this should be 256, 256, which is causing localization issues in non-square images.
             v2.Resize(size=256),
             v2.CenterCrop(size=(224, 224)),
             v2.ToImage(),
@@ -715,10 +681,10 @@ registered hooks while the latter silently ignores them.</p>
 </dd>
 <dt id="saev.activations.Metadata"><code class="flex name class">
 <span>class <span class="ident">Metadata</span></span>
-<span>(</span><span>model_org: str, model_ckpt: str, layers: tuple[int, ...], n_patches_per_img: int, cls_token: bool, d_vit: int, seed: int, n_imgs: int, n_patches_per_shard: int, data: str)</span>
+<span>(</span><span>model_family: str, model_ckpt: str, layers: tuple[int, ...], n_patches_per_img: int, cls_token: bool, d_vit: int, seed: int, n_imgs: int, n_patches_per_shard: int, data: str)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Metadata(model_org: str, model_ckpt: str, layers: tuple[int, &hellip;], n_patches_per_img: int, cls_token: bool, d_vit: int, seed: int, n_imgs: int, n_patches_per_shard: int, data: str)</p></div>
+<div class="desc"><p>Metadata(model_family: str, model_ckpt: str, layers: tuple[int, &hellip;], n_patches_per_img: int, cls_token: bool, d_vit: int, seed: int, n_imgs: int, n_patches_per_shard: int, data: str)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -726,7 +692,7 @@ registered hooks while the latter silently ignores them.</p>
 <pre><code class="python">@beartype.beartype
 @dataclasses.dataclass(frozen=True)
 class Metadata:
-    model_org: str
+    model_family: str
     model_ckpt: str
     layers: tuple[int, ...]
     n_patches_per_img: int
@@ -740,7 +706,7 @@ class Metadata:
     @classmethod
     def from_cfg(cls, cfg: config.Activations) -&gt; &#34;Metadata&#34;:
         return cls(
-            cfg.model_org,
+            cfg.model_family,
             cfg.model_ckpt,
             tuple(cfg.layers),
             cfg.n_patches_per_img,
@@ -790,7 +756,7 @@ class Metadata:
 <dd>
 <div class="desc"></div>
 </dd>
-<dt id="saev.activations.Metadata.model_org"><code class="name">var <span class="ident">model_org</span> : str</code></dt>
+<dt id="saev.activations.Metadata.model_family"><code class="name">var <span class="ident">model_family</span> : str</code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
@@ -1028,7 +994,7 @@ evaluation mode.
 class Siglip(torch.nn.Module):
     def __init__(self, cfg: config.Activations):
         super().__init__()
-        assert cfg.model_org == &#34;siglip&#34;
+        assert cfg.model_family == &#34;siglip&#34;
 
         import open_clip
 
@@ -1086,100 +1052,141 @@ registered hooks while the latter silently ignores them.</p>
 </dd>
 </dl>
 </dd>
-<dt id="saev.activations.TimmVit"><code class="flex name class">
-<span>class <span class="ident">TimmVit</span></span>
-<span>(</span><span>cfg: <a title="saev.config.Activations" href="config.html#saev.config.Activations">Activations</a>)</span>
+<dt id="saev.activations.TransformedAde20k"><code class="flex name class">
+<span>class <span class="ident">TransformedAde20k</span></span>
+<span>(</span><span>cfg: <a title="saev.config.Ade20kDataset" href="config.html#saev.config.Ade20kDataset">Ade20kDataset</a>, *, transform=None, seg_transform=None)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Base class for all neural network modules.</p>
-<p>Your models should also subclass this class.</p>
-<p>Modules can also contain other Modules, allowing to nest them in
-a tree structure. You can assign the submodules as regular attributes::</p>
-<pre><code>import torch.nn as nn
-import torch.nn.functional as F
-
-class Model(nn.Module):
-    def __init__(self) -&gt; None:
-        super().__init__()
-        self.conv1 = nn.Conv2d(1, 20, 5)
-        self.conv2 = nn.Conv2d(20, 20, 5)
-
-    def forward(self, x):
-        x = F.relu(self.conv1(x))
-        return F.relu(self.conv2(x))
-</code></pre>
-<p>Submodules assigned in this way will be registered, and will have their
-parameters converted too when you call :meth:<code>to</code>, etc.</p>
+<div class="desc"><p>An abstract class representing a :class:<code><a title="saev.activations.Dataset" href="#saev.activations.Dataset">Dataset</a></code>.</p>
+<p>All datasets that represent a map from keys to data samples should subclass
+it. All subclasses should overwrite :meth:<code>__getitem__</code>, supporting fetching a
+data sample for a given key. Subclasses could also optionally overwrite
+:meth:<code>__len__</code>, which is expected to return the size of the dataset by many
+:class:<code>~torch.utils.data.Sampler</code> implementations and the default options
+of :class:<code>~torch.utils.data.DataLoader</code>. Subclasses could also
+optionally implement :meth:<code>__getitems__</code>, for speedup batched samples
+loading. This method accepts list of indices of samples of batch and returns
+list of samples.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>As per the example above, an <code>__init__()</code> call to the parent class
-must be made before assignment on the child.</p>
-</div>
-<p>:ivar training: Boolean represents whether this module is in training or
-evaluation mode.
-:vartype training: bool</p>
-<p>Initialize internal Module state, shared by both nn.Module and ScriptModule.</p></div>
+<p>:class:<code>~torch.utils.data.DataLoader</code> by default constructs an index
+sampler that yields integral indices.
+To make it work with a map-style
+dataset with non-integral indices/keys, a custom sampler must be provided.</p>
+</div></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">@jaxtyped(typechecker=beartype.beartype)
-class TimmVit(torch.nn.Module):
-    def __init__(self, cfg: config.Activations):
-        super().__init__()
-        assert cfg.model_org == &#34;timm&#34;
-        import timm
+<pre><code class="python">@beartype.beartype
+class TransformedAde20k(torch.utils.data.Dataset):
+    class Sample(typing.TypedDict):
+        img_path: str
+        seg_path: str
+        split: str
+        label: str
+        target: int
 
-        err_msg = &#34;You are trying to load a non-ViT checkpoint; the `img_encode()` method assumes `model.forward_features()` will return features with shape (batch, n_patches, dim) which is not true for non-ViT checkpoints.&#34;
-        assert &#34;vit&#34; in cfg.model_ckpt, err_msg
-        self.model = timm.create_model(cfg.model_ckpt, pretrained=True)
+    samples: list[Sample]
 
-        data_cfg = timm.data.resolve_data_config(self.model.pretrained_cfg)
-        self._img_transform = timm.data.create_transform(**data_cfg, is_training=False)
+    def __init__(
+        self, cfg: config.Ade20kDataset, *, transform=None, seg_transform=None
+    ):
+        self.logger = logging.getLogger(&#34;ade20k&#34;)
+        self.cfg = cfg
+        self.img_dir = os.path.join(cfg.root, &#34;images&#34;)
+        self.seg_dir = os.path.join(cfg.root, &#34;annotations&#34;)
+        self.transform = transform
+        self.seg_transform = seg_transform
 
-        self.recorder = VitRecorder(cfg).register(self.model.blocks)
+        # Check that we have the right path.
+        for subdir in (&#34;images&#34;, &#34;annotations&#34;):
+            if not os.path.isdir(os.path.join(cfg.root, subdir)):
+                # Something is missing.
+                if os.path.realpath(cfg.root).endswith(subdir):
+                    self.logger.warning(
+                        &#34;The ADE20K root should contain &#39;images/&#39; and &#39;annotations/&#39; directories.&#34;
+                    )
+                raise ValueError(f&#34;Can&#39;t find path &#39;{os.path.join(cfg.root, subdir)}&#39;.&#34;)
 
-    def make_img_transform(self):
-        return self._img_transform
+        _, split_mapping = torchvision.datasets.folder.find_classes(self.img_dir)
+        split_lookup: dict[int, str] = {
+            value: key for key, value in split_mapping.items()
+        }
+        self.loader = torchvision.datasets.folder.default_loader
 
-    def forward(self, batch: Float[Tensor, &#34;batch 3 width height&#34;]):
-        self.recorder.reset()
+        # Load all the image paths.
+        imgs: list[tuple[str, int]] = torchvision.datasets.folder.make_dataset(
+            self.img_dir,
+            split_mapping,
+            extensions=torchvision.datasets.folder.IMG_EXTENSIONS,
+        )
 
-        patches = self.model.forward_features(batch)
-        # Use [CLS] token if it exists for img representation, otherwise do a maxpool
-        if self.model.num_prefix_tokens &gt; 0:
-            img = patches[:, 0, ...]
-        else:
-            img = patches.max(axis=1).values
+        segs: list[tuple[str, int]] = torchvision.datasets.folder.make_dataset(
+            self.seg_dir,
+            split_mapping,
+            extensions=torchvision.datasets.folder.IMG_EXTENSIONS,
+        )
 
-        # Return only the [CLS] token and the patches.
-        patches = patches[:, self.model.num_prefix_tokens :, ...]
+        # Load all the targets, classes and mappings
+        with open(os.path.join(cfg.root, &#34;sceneCategories.txt&#34;)) as fd:
+            img_labels: list[str] = [line.split()[1] for line in fd.readlines()]
 
-        return torch.cat((img[:, None, :], patches), axis=1), self.recorder.activations</code></pre>
+        label_set = sorted(set(img_labels))
+        label_to_idx = {label: i for i, label in enumerate(label_set)}
+
+        self.samples = [
+            self.Sample(
+                img_path=img_path,
+                seg_path=seg_path,
+                split=split_lookup[split],
+                label=label,
+                target=label_to_idx[label],
+            )
+            for (img_path, split), (seg_path, _), label in zip(imgs, segs, img_labels)
+        ]
+
+    def __getitem__(self, index: int) -&gt; dict[str, object]:
+        # Make a copy
+        sample = dict(**self.samples[index])
+
+        sample[&#34;image&#34;] = self.loader(sample.pop(&#34;img_path&#34;))
+        if self.transform is not None:
+            sample[&#34;image&#34;] = self.transform(sample[&#34;image&#34;])
+
+        sample[&#34;segmentation&#34;] = Image.open(sample.pop(&#34;seg_path&#34;)).convert(&#34;L&#34;)
+        if self.seg_transform is not None:
+            sample[&#34;segmentation&#34;] = self.seg_transform(sample[&#34;segmentation&#34;])
+
+        sample[&#34;index&#34;] = index
+
+        return sample
+
+    def __len__(self) -&gt; int:
+        return len(self.samples)</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
-<li>torch.nn.modules.module.Module</li>
+<li>torch.utils.data.dataset.Dataset</li>
+<li>typing.Generic</li>
 </ul>
-<h3>Methods</h3>
+<h3>Class variables</h3>
 <dl>
-<dt id="saev.activations.TimmVit.forward"><code class="name flex">
-<span>def <span class="ident">forward</span></span>(<span>self, batch: jaxtyping.Float[Tensor, 'batch 3 width height']) ‑> Callable[..., Any]</span>
-</code></dt>
+<dt id="saev.activations.TransformedAde20k.Sample"><code class="name">var <span class="ident">Sample</span></code></dt>
 <dd>
-<div class="desc"><p>Define the computation performed at every call.</p>
-<p>Should be overridden by all subclasses.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>Although the recipe for forward pass needs to be defined within
-this function, one should call the :class:<code>Module</code> instance afterwards
-instead of this since the former takes care of running the
-registered hooks while the latter silently ignores them.</p>
-</div></div>
+<div class="desc"><p>dict() -&gt; new empty dictionary
+dict(mapping) -&gt; new dictionary initialized from a mapping object's
+(key, value) pairs
+dict(iterable) -&gt; new dictionary initialized as if via:
+d = {}
+for k, v in iterable:
+d[k] = v
+dict(**kwargs) -&gt; new dictionary initialized with the name=value pairs
+in the keyword argument list.
+For example:
+dict(one=1, two=2)</p></div>
 </dd>
-<dt id="saev.activations.TimmVit.make_img_transform"><code class="name flex">
-<span>def <span class="ident">make_img_transform</span></span>(<span>self)</span>
-</code></dt>
+<dt id="saev.activations.TransformedAde20k.samples"><code class="name">var <span class="ident">samples</span> : list[<a title="saev.activations.TransformedAde20k.Sample" href="#saev.activations.TransformedAde20k.Sample">TransformedAde20k.Sample</a>]</code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
@@ -1226,7 +1233,8 @@ imgs (list): List of (image path, class_index) tuples</p></div>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class TransformedImageFolder(torchvision.datasets.ImageFolder):
+<pre><code class="python">@beartype.beartype
+class TransformedImageFolder(torchvision.datasets.ImageFolder):
     def __getitem__(self, index: int) -&gt; dict[str, object]:
         &#34;&#34;&#34;
         Args:
@@ -1256,7 +1264,7 @@ imgs (list): List of (image path, class_index) tuples</p></div>
 </dd>
 <dt id="saev.activations.TransformedImagenet"><code class="flex name class">
 <span>class <span class="ident">TransformedImagenet</span></span>
-<span>(</span><span>cfg: <a title="saev.config.ImagenetDataset" href="config.html#saev.config.ImagenetDataset">ImagenetDataset</a>, transform)</span>
+<span>(</span><span>cfg: <a title="saev.config.ImagenetDataset" href="config.html#saev.config.ImagenetDataset">ImagenetDataset</a>, *, transform=None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>An abstract class representing a :class:<code><a title="saev.activations.Dataset" href="#saev.activations.Dataset">Dataset</a></code>.</p>
@@ -1280,8 +1288,9 @@ dataset with non-integral indices/keys, a custom sampler must be provided.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class TransformedImagenet(torch.utils.data.Dataset):
-    def __init__(self, cfg: config.ImagenetDataset, transform):
+<pre><code class="python">@beartype.beartype
+class TransformedImagenet(torch.utils.data.Dataset):
+    def __init__(self, cfg: config.ImagenetDataset, *, transform=None):
         import datasets
 
         self.hf_dataset = datasets.load_dataset(
@@ -1364,7 +1373,9 @@ class VitRecorder(torch.nn.Module):
         self.patches = patches
         self._storage = None
         self._i = 0
-        self.logger = logging.getLogger(f&#34;recorder({cfg.model_org}:{cfg.model_ckpt})&#34;)
+        self.logger = logging.getLogger(
+            f&#34;recorder({cfg.model_family}:{cfg.model_ckpt})&#34;
+        )
 
     def register(self, modules: list[torch.nn.Module]):
         for i in self.cfg.layers:
@@ -1473,19 +1484,16 @@ def activations(self) -&gt; Float[Tensor, &#34;batch n_layers all_patches dim&#3
 </li>
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="">
-<li><code><a title="saev.activations.dump" href="#saev.activations.dump">dump</a></code></li>
 <li><code><a title="saev.activations.get_acts_dir" href="#saev.activations.get_acts_dir">get_acts_dir</a></code></li>
 <li><code><a title="saev.activations.get_dataloader" href="#saev.activations.get_dataloader">get_dataloader</a></code></li>
 <li><code><a title="saev.activations.get_dataset" href="#saev.activations.get_dataset">get_dataset</a></code></li>
 <li><code><a title="saev.activations.get_default_dataloader" href="#saev.activations.get_default_dataloader">get_default_dataloader</a></code></li>
-<li><code><a title="saev.activations.get_laion_dataloader" href="#saev.activations.get_laion_dataloader">get_laion_dataloader</a></code></li>
-<li><code><a title="saev.activations.get_tol_dataloader" href="#saev.activations.get_tol_dataloader">get_tol_dataloader</a></code></li>
+<li><code><a title="saev.activations.main" href="#saev.activations.main">main</a></code></li>
 <li><code><a title="saev.activations.make_vit" href="#saev.activations.make_vit">make_vit</a></code></li>
 <li><code><a title="saev.activations.setup" href="#saev.activations.setup">setup</a></code></li>
+<li><code><a title="saev.activations.setup_ade20k" href="#saev.activations.setup_ade20k">setup_ade20k</a></code></li>
 <li><code><a title="saev.activations.setup_imagefolder" href="#saev.activations.setup_imagefolder">setup_imagefolder</a></code></li>
 <li><code><a title="saev.activations.setup_imagenet" href="#saev.activations.setup_imagenet">setup_imagenet</a></code></li>
-<li><code><a title="saev.activations.setup_laion" href="#saev.activations.setup_laion">setup_laion</a></code></li>
-<li><code><a title="saev.activations.setup_tol" href="#saev.activations.setup_tol">setup_tol</a></code></li>
 <li><code><a title="saev.activations.worker_fn" href="#saev.activations.worker_fn">worker_fn</a></code></li>
 </ul>
 </li>
@@ -1532,7 +1540,7 @@ def activations(self) -&gt; Float[Tensor, &#34;batch n_layers all_patches dim&#3
 <li><code><a title="saev.activations.Metadata.layers" href="#saev.activations.Metadata.layers">layers</a></code></li>
 <li><code><a title="saev.activations.Metadata.load" href="#saev.activations.Metadata.load">load</a></code></li>
 <li><code><a title="saev.activations.Metadata.model_ckpt" href="#saev.activations.Metadata.model_ckpt">model_ckpt</a></code></li>
-<li><code><a title="saev.activations.Metadata.model_org" href="#saev.activations.Metadata.model_org">model_org</a></code></li>
+<li><code><a title="saev.activations.Metadata.model_family" href="#saev.activations.Metadata.model_family">model_family</a></code></li>
 <li><code><a title="saev.activations.Metadata.n_imgs" href="#saev.activations.Metadata.n_imgs">n_imgs</a></code></li>
 <li><code><a title="saev.activations.Metadata.n_patches_per_img" href="#saev.activations.Metadata.n_patches_per_img">n_patches_per_img</a></code></li>
 <li><code><a title="saev.activations.Metadata.n_patches_per_shard" href="#saev.activations.Metadata.n_patches_per_shard">n_patches_per_shard</a></code></li>
@@ -1560,10 +1568,10 @@ def activations(self) -&gt; Float[Tensor, &#34;batch n_layers all_patches dim&#3
 </ul>
 </li>
 <li>
-<h4><code><a title="saev.activations.TimmVit" href="#saev.activations.TimmVit">TimmVit</a></code></h4>
+<h4><code><a title="saev.activations.TransformedAde20k" href="#saev.activations.TransformedAde20k">TransformedAde20k</a></code></h4>
 <ul class="">
-<li><code><a title="saev.activations.TimmVit.forward" href="#saev.activations.TimmVit.forward">forward</a></code></li>
-<li><code><a title="saev.activations.TimmVit.make_img_transform" href="#saev.activations.TimmVit.make_img_transform">make_img_transform</a></code></li>
+<li><code><a title="saev.activations.TransformedAde20k.Sample" href="#saev.activations.TransformedAde20k.Sample">Sample</a></code></li>
+<li><code><a title="saev.activations.TransformedAde20k.samples" href="#saev.activations.TransformedAde20k.samples">samples</a></code></li>
 </ul>
 </li>
 <li>

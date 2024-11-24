@@ -69,10 +69,22 @@ That is, we keep track of each patch</p></div>
 <span>def <span class="ident">get_new_topk</span></span>(<span>val1: jaxtyping.Float[Tensor, 'd_sae k'], i1: jaxtyping.Int[Tensor, 'd_sae k'], val2: jaxtyping.Float[Tensor, 'd_sae k'], i2: jaxtyping.Int[Tensor, 'd_sae k'], k: int) ‑> tuple[jaxtyping.Float[Tensor, 'd_sae k'], jaxtyping.Int[Tensor, 'd_sae k']]</span>
 </code></dt>
 <dd>
-<div class="desc"><div class="admonition todo">
-<p class="admonition-title">TODO</p>
-<p>document this function.</p>
-</div></div>
+<div class="desc"><p>Picks out the new top k values among val1 and val2. Also keeps track of i1 and i2, then indices of the values in the original dataset.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>val1</code></strong></dt>
+<dd>top k original SAE values.</dd>
+<dt><strong><code>i1</code></strong></dt>
+<dd>the patch indices of those original top k values.</dd>
+<dt><strong><code>val2</code></strong></dt>
+<dd>top k incoming SAE values.</dd>
+<dt><strong><code>i2</code></strong></dt>
+<dd>the patch indices of those incoming top k values.</dd>
+<dt><strong><code>k</code></strong></dt>
+<dd>k.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>The new top k values and their patch indices.</p></div>
 </dd>
 <dt id="saev.visuals.get_sae_acts"><code class="name flex">
 <span>def <span class="ident">get_sae_acts</span></span>(<span>vit_acts: jaxtyping.Float[Tensor, 'n d_vit'], sae: <a title="saev.nn.SparseAutoencoder" href="nn.html#saev.nn.SparseAutoencoder">SparseAutoencoder</a>, cfg: <a title="saev.config.Visuals" href="config.html#saev.config.Visuals">Visuals</a>) ‑> jaxtyping.Float[Tensor, 'n d_sae']</span>

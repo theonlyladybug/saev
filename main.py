@@ -132,16 +132,16 @@ def evaluate(cfg: typing.Annotated[saev.EvaluateConfig, tyro.conf.arg(name="")])
         job.result()
 
 
-def webapp(cfg: typing.Annotated[saev.WebappConfig, tyro.conf.arg(name="")]):
-    import saev.webapp
+# def webapp(cfg: typing.Annotated[saev.WebappConfig, tyro.conf.arg(name="")]):
+#     import saev.webapp
 
-    saev.webapp.main(cfg)
+#     saev.webapp.main(cfg)
 
-    print()
-    print("To view the webapp, run:")
-    print()
-    print("    uv run marimo edit webapp.py")
-    print()
+#     print()
+#     print("To view the webapp, run:")
+#     print()
+#     print("    uv run marimo edit webapp.py")
+#     print()
 
 
 if __name__ == "__main__":
@@ -149,6 +149,6 @@ if __name__ == "__main__":
         "activations": activations,
         "sweep": sweep,
         "evaluate": evaluate,
-        "webapp": webapp,
+        # "webapp": webapp,
     })
     logger.info("Done.")

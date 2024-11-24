@@ -73,12 +73,14 @@ sae: sparse autoencoder checkpoint to save.</p></div>
 <span>(</span><span>mse: jaxtyping.Float[Tensor, ''], sparsity: jaxtyping.Float[Tensor, ''], ghost_grad: jaxtyping.Float[Tensor, ''], l0: jaxtyping.Float[Tensor, ''], l1: jaxtyping.Float[Tensor, ''])</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Loss(mse, sparsity, ghost_grad, l0, l1)</p></div>
+<div class="desc"><p>The composite loss terms for an autoencoder training batch.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">class Loss(typing.NamedTuple):
+    &#34;&#34;&#34;The composite loss terms for an autoencoder training batch.&#34;&#34;&#34;
+
     mse: Float[Tensor, &#34;&#34;]
     &#34;&#34;&#34;Reconstruction loss (mean squared error).&#34;&#34;&#34;
     sparsity: Float[Tensor, &#34;&#34;]
@@ -173,8 +175,15 @@ class SparseAutoencoder(torch.nn.Module):
         self.logger = logging.getLogger(f&#34;sae(seed={cfg.seed})&#34;)
 
     def forward(
-        self, x: Float[Tensor, &#34;batch d_model&#34;], dead_neuron_mask: None = None
+        self, x: Float[Tensor, &#34;batch d_model&#34;]
     ) -&gt; tuple[Float[Tensor, &#34;batch d_model&#34;], Float[Tensor, &#34;batch d_sae&#34;], Loss]:
+        &#34;&#34;&#34;
+        Given x, calculates the reconstructed x_hat, the intermediate activations f_x, and the loss.
+
+        Arguments:
+            x: a batch of ViT activations.
+        &#34;&#34;&#34;
+
         # Remove encoder bias as per Anthropic
         h_pre = (
             einops.einsum(
@@ -220,7 +229,9 @@ class SparseAutoencoder(torch.nn.Module):
 
     @torch.no_grad()
     def normalize_w_dec(self):
-        # Make sure the W_dec is still unit-norm
+        &#34;&#34;&#34;
+        Set W_dec to unit-norm columns.
+        &#34;&#34;&#34;
         if self.cfg.normalize_w_dec:
             self.W_dec.data /= torch.norm(self.W_dec.data, dim=1, keepdim=True)
 
@@ -259,18 +270,12 @@ class SparseAutoencoder(torch.nn.Module):
 <h3>Methods</h3>
 <dl>
 <dt id="saev.nn.SparseAutoencoder.forward"><code class="name flex">
-<span>def <span class="ident">forward</span></span>(<span>self, x: jaxtyping.Float[Tensor, 'batch d_model'], dead_neuron_mask: None = None) ‑> tuple[jaxtyping.Float[Tensor, 'batch d_model'], jaxtyping.Float[Tensor, 'batch d_sae'], <a title="saev.nn.Loss" href="#saev.nn.Loss">Loss</a>]</span>
+<span>def <span class="ident">forward</span></span>(<span>self, x: jaxtyping.Float[Tensor, 'batch d_model']) ‑> tuple[jaxtyping.Float[Tensor, 'batch d_model'], jaxtyping.Float[Tensor, 'batch d_sae'], <a title="saev.nn.Loss" href="#saev.nn.Loss">Loss</a>]</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Define the computation performed at every call.</p>
-<p>Should be overridden by all subclasses.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>Although the recipe for forward pass needs to be defined within
-this function, one should call the :class:<code>Module</code> instance afterwards
-instead of this since the former takes care of running the
-registered hooks while the latter silently ignores them.</p>
-</div></div>
+<div class="desc"><p>Given x, calculates the reconstructed x_hat, the intermediate activations f_x, and the loss.</p>
+<h2 id="arguments">Arguments</h2>
+<p>x: a batch of ViT activations.</p></div>
 </dd>
 <dt id="saev.nn.SparseAutoencoder.init_b_dec"><code class="name flex">
 <span>def <span class="ident">init_b_dec</span></span>(<span>self, vit_acts: jaxtyping.Float[Tensor, 'n d_vit'])</span>
@@ -282,7 +287,7 @@ registered hooks while the latter silently ignores them.</p>
 <span>def <span class="ident">normalize_w_dec</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Set W_dec to unit-norm columns.</p></div>
 </dd>
 <dt id="saev.nn.SparseAutoencoder.remove_parallel_grads"><code class="name flex">
 <span>def <span class="ident">remove_parallel_grads</span></span>(<span>self)</span>

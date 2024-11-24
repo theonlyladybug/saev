@@ -9,7 +9,6 @@ Conceptually, activations are either thought of as
 2. Multiple [n_imgs_per_shard, n_layers, (n_patches + 1), d_vit] tensors. This is a set of sharded activations.
 """
 
-import csv
 import dataclasses
 import hashlib
 import json
@@ -23,8 +22,8 @@ import numpy as np
 import torch
 import torchvision.datasets
 from jaxtyping import Float, Int, jaxtyped
-from torch import Tensor
 from PIL import Image
+from torch import Tensor
 
 from . import config, helpers
 
