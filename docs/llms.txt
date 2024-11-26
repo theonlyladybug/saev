@@ -211,6 +211,9 @@ Functions
 :   Args:
         cfg: Config for activations.
 
+`make_img_transform(model_family: str, model_ckpt: str) ‑> Callable`
+:   
+
 `make_vit(cfg: saev.config.Activations)`
 :   
 
@@ -283,9 +286,6 @@ Classes
             this function, one should call the :class:`Module` instance afterwards
             instead of this since the former takes care of running the
             registered hooks while the latter silently ignores them.
-
-    `make_img_transform(self)`
-    :
 
 `Dataset(cfg: saev.config.DataLoad)`
 :   Dataset of activations from disk.
@@ -385,9 +385,6 @@ Classes
             this function, one should call the :class:`Module` instance afterwards
             instead of this since the former takes care of running the
             registered hooks while the latter silently ignores them.
-
-    `make_img_transform(self)`
-    :
 
 `Metadata(model_family: str, model_ckpt: str, layers: tuple[int, ...], n_patches_per_img: int, cls_token: bool, d_vit: int, seed: int, n_imgs: int, n_patches_per_shard: int, data: str)`
 :   Metadata(model_family: str, model_ckpt: str, layers: tuple[int, ...], n_patches_per_img: int, cls_token: bool, d_vit: int, seed: int, n_imgs: int, n_patches_per_shard: int, data: str)
@@ -523,9 +520,6 @@ Classes
             this function, one should call the :class:`Module` instance afterwards
             instead of this since the former takes care of running the
             registered hooks while the latter silently ignores them.
-
-    `make_img_transform(self)`
-    :
 
 `TransformedAde20k(cfg: saev.config.Ade20kDataset, *, transform=None, seg_transform=None)`
 :   An abstract class representing a :class:`Dataset`.
@@ -1402,268 +1396,3 @@ Module saev.web.probing
 
 Module saev.webapp
 ==================
-
-Module probing
-==============
-Package for probing for individual features in trained sparse autoencoders.
-
-How can we find examples of interesting features in different checkpoints? How can we predict hypothetical trends in the way different models learn different features?
-
-In this work, we assume that manual effort is necessary. This package contains methods for trying to make it as easy as possible to identify interesting SAEs and predict trends between models.
-
-# An Observational Study of Vision Model Interpretability
-
-We have multiple ways to compare trained SAEs.
-
-1. Heuristic measures, like number of dead features, number of dense features, mean L0 norm, etc.
-2. Qualitative plots of feature frequency, mean activation value, L0-MSE tradeoff curves, etc.
-3. Manual inspection of the top K images for each feature.
-
-After proposing trends, we can construct individual probing datasets (see below).
-
-![experimental-design](docs/assets/experiment1.png)
-
-`probing.notebooks.l0_mse_tradeoff` is a notebook to explore the L0-MSE tradeoff as well as feature frequency and mean activation value distributions.
-
-Sub-modules
------------
-* probing.config
-* probing.dump_topk
-* probing.logbook
-* probing.notebooks
-
-Module probing.config
-=====================
-
-Classes
--------
-
-`Probe(ckpt: str = './checkpoints/abcdefg/sae.pt', data: saev.config.DataLoad = <factory>, n_workers: int = 8, sae_batch_size: int = 16384, device: str = 'cuda', images: saev.config.ImageFolderDataset = <factory>, dump_to: str = './logs/probes')`
-:   Probe(ckpt: str = './checkpoints/abcdefg/sae.pt', data: saev.config.DataLoad = <factory>, n_workers: int = 8, sae_batch_size: int = 16384, device: str = 'cuda', images: saev.config.ImageFolderDataset = <factory>, dump_to: str = './logs/probes')
-
-    ### Class variables
-
-    `ckpt: str`
-    :   Path to the sae.pt file.
-
-    `data: saev.config.DataLoad`
-    :   ViT activations for probing tasks.
-
-    `device: str`
-    :   Which accelerator to use.
-
-    `dump_to: str`
-    :   Where to save images.
-
-    `images: saev.config.ImageFolderDataset`
-    :   Where the raw images are.
-
-    `n_workers: int`
-    :   Number of dataloader workers.
-
-    `sae_batch_size: int`
-    :   Batch size for SAE inference.
-
-`Topk(ckpt: str = './checkpoints/sae.pt', data: saev.config.DataLoad = <factory>, images: saev.config.ImagenetDataset | saev.config.ImageFolderDataset = <factory>, top_k: int = 16, n_workers: int = 16, topk_batch_size: int = 16384, sae_batch_size: int = 16384, epsilon: float = 1e-09, sort_by: Literal['cls', 'img', 'patch'] = 'cls', device: str = 'cuda', dump_to: str = './data', log_freq_range: tuple[float, float] = (-6.0, -2.0), log_value_range: tuple[float, float] = (-1.0, 1.0), include_latents: list[int] = <factory>)`
-:   .. todo:: document.
-
-    ### Class variables
-
-    `ckpt: str`
-    :   Path to the sae.pt file.
-
-    `data: saev.config.DataLoad`
-    :   Data configuration.
-
-    `device: str`
-    :   Which accelerator to use.
-
-    `dump_to: str`
-    :   Where to save data.
-
-    `epsilon: float`
-    :   Value to add to avoid log(0).
-
-    `images: saev.config.ImagenetDataset | saev.config.ImageFolderDataset`
-    :   Which images to use.
-
-    `include_latents: list[int]`
-    :   Latents to always include, no matter what.
-
-    `log_freq_range: tuple[float, float]`
-    :   Log10 frequency range for which to save images.
-
-    `log_value_range: tuple[float, float]`
-    :   Log10 frequency range for which to save images.
-
-    `n_workers: int`
-    :   Number of dataloader workers.
-
-    `sae_batch_size: int`
-    :   Batch size for SAE inference.
-
-    `sort_by: Literal['cls', 'img', 'patch']`
-    :   How to find the top k images. 'cls' picks images where the SAE latents of the ViT's [CLS] token are maximized without any patch highligting. 'img' picks images that maximize the sum of an SAE latent over all patches in the image, highlighting the patches. 'patch' pickes images that maximize an SAE latent over all patches (not summed), highlighting the patches and only showing unique images.
-
-    `top_k: int`
-    :   How many images per SAE feature to store.
-
-    `topk_batch_size: int`
-    :   Number of examples to apply top-k op to.
-
-    ### Instance variables
-
-    `mean_values_fpath: str`
-    :
-
-    `root: str`
-    :
-
-    `sparsity_fpath: str`
-    :
-
-    `top_img_i_fpath: str`
-    :
-
-    `top_patch_i_fpath: str`
-    :
-
-    `top_values_fpath: str`
-    :
-
-Module probing.dump_topk
-========================
-There is some important notation used only in this file to dramatically shorten variable names.
-
-Variables suffixed with `_im` refer to entire images, and variables suffixed with `_p` refer to patches.
-
-Functions
----------
-
-`batched_idx(total_size: int, batch_size: int) ‑> collections.abc.Iterator[tuple[int, int]]`
-:   Iterate over (start, end) indices for total_size examples, where end - start is at most batch_size.
-    
-    Args:
-        total_size: total number of examples
-        batch_size: maximum distance between the generated indices.
-    
-    Returns:
-        A generator of (int, int) tuples that can slice up a list or a tensor.
-
-`dump_activations(cfg: probing.config.Topk)`
-:   For each SAE latent, we want to know which images have the most total "activation".
-    That is, we keep track of each patch
-
-`gather_batched(value: jaxtyping.Float[Tensor, 'batch n dim'], i: jaxtyping.Int[Tensor, 'batch k']) ‑> jaxtyping.Float[Tensor, 'batch k dim']`
-:   
-
-`get_new_topk(val1: jaxtyping.Float[Tensor, 'd_sae k'], i1: jaxtyping.Int[Tensor, 'd_sae k'], val2: jaxtyping.Float[Tensor, 'd_sae k'], i2: jaxtyping.Int[Tensor, 'd_sae k'], k: int) ‑> tuple[jaxtyping.Float[Tensor, 'd_sae k'], jaxtyping.Int[Tensor, 'd_sae k']]`
-:   .. todo:: document this function.
-
-`get_sae_acts(vit_acts: jaxtyping.Float[Tensor, 'n d_vit'], sae: saev.nn.SparseAutoencoder, cfg: probing.config.Topk) ‑> jaxtyping.Float[Tensor, 'n d_sae']`
-:   Get SAE hidden layer activations for a batch of ViT activations.
-    
-    Args:
-        vit_acts: Batch of ViT activations
-        sae: Sparse autoencder.
-        cfg: Experimental config.
-
-`get_topk_cls(cfg: probing.config.Topk) ‑> tuple[jaxtyping.Float[Tensor, 'd_sae k 0'], jaxtyping.Int[Tensor, 'd_sae k'], jaxtyping.Float[Tensor, 'd_sae'], jaxtyping.Float[Tensor, 'd_sae']]`
-:   
-
-`get_topk_img(cfg: probing.config.Topk) ‑> tuple[jaxtyping.Float[Tensor, 'd_sae k n_patches_per_img'], jaxtyping.Int[Tensor, 'd_sae k'], jaxtyping.Float[Tensor, 'd_sae'], jaxtyping.Float[Tensor, 'd_sae']]`
-:   .. todo:: Document this.
-
-`get_topk_patch(cfg: probing.config.Topk) ‑> tuple[jaxtyping.Float[Tensor, 'd_sae k n_patches_per_img'], jaxtyping.Int[Tensor, 'd_sae k'], jaxtyping.Float[Tensor, 'd_sae'], jaxtyping.Float[Tensor, 'd_sae']]`
-:   Gets the top k images for each latent in the SAE.
-    The top k images are for latent i are sorted by
-    
-        max over all patches: f_x(patch)[i]
-    
-    Thus, we could end up with duplicate images in the top k, if an image has more than one patch that maximally activates an SAE latent.
-    
-    Args:
-        cfg: Config.
-    
-    Returns:
-
-`main(cfg: probing.config.Topk)`
-:   .. todo:: document this function.
-    
-    Dump top-k images to a directory.
-    
-    Args:
-        cfg: Configuration object.
-
-`make_img(elem: probing.dump_topk.GridElement, *, upper: float | None = None) ‑> PIL.Image.Image`
-:   
-
-`safe_load(path: str) ‑> object`
-:   
-
-Classes
--------
-
-`GridElement(img: PIL.Image.Image, label: str, patches: jaxtyping.Float[Tensor, 'n_patches'])`
-:   GridElement(img: PIL.Image.Image, label: str, patches: jaxtyping.Float[Tensor, 'n_patches'])
-
-    ### Class variables
-
-    `img: PIL.Image.Image`
-    :
-
-    `label: str`
-    :
-
-    `patches: jaxtyping.Float[Tensor, 'n_patches']`
-    :
-
-Module probing.logbook
-======================
-
-Namespace probing.notebooks
-===========================
-
-Sub-modules
------------
-* probing.notebooks.l0_mse_tradeoff
-
-Module probing.notebooks.l0_mse_tradeoff
-========================================
-
-Module faithfulness
-===================
-
-Sub-modules
------------
-* faithfulness.config
-* faithfulness.dashboard
-* faithfulness.training
-
-Module faithfulness.config
-==========================
-
-Classes
--------
-
-`Train(data_root: str = './data/ade20k')`
-:   Train(data_root: str = './data/ade20k')
-
-    ### Class variables
-
-    `data_root: str`
-    :   Root folder of ADE20K.
-
-Module faithfulness.dashboard
-=============================
-
-Module faithfulness.training
-============================
-Fits a linear classifier on ViT activations to predict semantic segmentation masks for ADE20K or MS COCO.
-
-Functions
----------
-
-`main(cfg: faithfulness.config.Train)`
-:   Arguments:
-        cfg: Training config.

@@ -108,12 +108,12 @@ class Clip(torch.nn.Module):
         import open_clip
 
         if cfg.model_ckpt.startswith("hf-hub:"):
-            clip, self._img_transform = open_clip.create_model_from_pretrained(
+            clip, _ = open_clip.create_model_from_pretrained(
                 cfg.model_ckpt, cache_dir=helpers.get_cache_dir()
             )
         else:
             arch, ckpt = cfg.model_ckpt.split("/")
-            clip, self._img_transform = open_clip.create_model_from_pretrained(
+            clip, _ = open_clip.create_model_from_pretrained(
                 arch, pretrained=ckpt, cache_dir=helpers.get_cache_dir()
             )
 
@@ -124,9 +124,6 @@ class Clip(torch.nn.Module):
 
         assert not isinstance(self.model, open_clip.timm_model.TimmModel)
         self.recorder = VitRecorder(cfg).register(self.model.transformer.resblocks)
-
-    def make_img_transform(self):
-        return self._img_transform
 
     def forward(self, batch: Float[Tensor, "batch 3 width height"]):
         self.recorder.reset()
@@ -143,12 +140,12 @@ class Siglip(torch.nn.Module):
         import open_clip
 
         if cfg.model_ckpt.startswith("hf-hub:"):
-            clip, self._img_transform = open_clip.create_model_from_pretrained(
+            clip, _ = open_clip.create_model_from_pretrained(
                 cfg.model_ckpt, cache_dir=helpers.get_cache_dir()
             )
         else:
             arch, ckpt = cfg.model_ckpt.split("/")
-            clip, self._img_transform = open_clip.create_model_from_pretrained(
+            clip, _ = open_clip.create_model_from_pretrained(
                 arch, pretrained=ckpt, cache_dir=helpers.get_cache_dir()
             )
 
@@ -159,9 +156,6 @@ class Siglip(torch.nn.Module):
 
         assert isinstance(self.model, open_clip.timm_model.TimmModel)
         self.recorder = VitRecorder(cfg).register(self.model.trunk.blocks)
-
-    def make_img_transform(self):
-        return self._img_transform
 
     def forward(self, batch: Float[Tensor, "batch 3 width height"]):
         self.recorder.reset()
@@ -186,18 +180,6 @@ class DinoV2(torch.nn.Module):
 
         self.recorder = VitRecorder(cfg, patches).register(self.model.blocks)
 
-    def make_img_transform(self):
-        from torchvision.transforms import v2
-
-        return v2.Compose([
-            # TODO: I bet this should be 256, 256, which is causing localization issues in non-square images.
-            v2.Resize(size=256),
-            v2.CenterCrop(size=(224, 224)),
-            v2.ToImage(),
-            v2.ToDtype(torch.float32, scale=True),
-            v2.Normalize(mean=[0.4850, 0.4560, 0.4060], std=[0.2290, 0.2240, 0.2250]),
-        ])
-
     def forward(self, batch: Float[Tensor, "batch 3 width height"]):
         self.recorder.reset()
 
@@ -219,6 +201,38 @@ def make_vit(cfg: config.Activations):
         return DinoV2(cfg)
     else:
         typing.assert_never(cfg.model_family)
+
+
+@beartype.beartype
+def make_img_transform(model_family: str, model_ckpt: str) -> typing.Callable:
+    if model_family == "clip" or model_family == "siglip":
+        import open_clip
+
+        if model_ckpt.startswith("hf-hub:"):
+            _, img_transform = open_clip.create_model_from_pretrained(
+                model_ckpt, cache_dir=helpers.get_cache_dir()
+            )
+        else:
+            arch, ckpt = model_ckpt.split("/")
+            _, img_transform = open_clip.create_model_from_pretrained(
+                arch, pretrained=ckpt, cache_dir=helpers.get_cache_dir()
+            )
+
+        return img_transform
+
+    elif model_family == "dinov2":
+        from torchvision.transforms import v2
+
+        return v2.Compose([
+            # TODO: I bet this should be 256, 256, which is causing localization issues in non-square images.
+            v2.Resize(size=256),
+            v2.CenterCrop(size=(224, 224)),
+            v2.ToImage(),
+            v2.ToDtype(torch.float32, scale=True),
+            v2.Normalize(mean=[0.4850, 0.4560, 0.4060], std=[0.2290, 0.2240, 0.2250]),
+        ])
+    else:
+        typing.assert_never(model_family)
 
 
 ###############
@@ -775,7 +789,8 @@ def worker_fn(cfg: config.Activations):
     logger = logging.getLogger("dump")
 
     vit = make_vit(cfg)
-    dataloader = get_dataloader(cfg, vit.make_img_transform())
+    img_transform = make_img_transform(cfg.model_family, cfg.model_ckpt)
+    dataloader = get_dataloader(cfg, img_transform)
 
     writer = ShardWriter(cfg)
 
