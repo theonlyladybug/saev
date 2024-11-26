@@ -65,11 +65,15 @@ class Ade20kDataset:
 
     root: str = os.path.join(".", "data", "split")
     """Where the class folders with images are stored."""
+    split: typing.Literal["training", "validation"] = "training"
+    """Data split."""
 
     @property
     def n_imgs(self) -> int:
-        with open(os.path.join(self.root, "sceneCategories.txt")) as fd:
-            return len(fd.read().split("\n"))
+        if self.split == "validation":
+            return 2000
+        else:
+            return 20210
 
 
 DatasetConfig = ImagenetDataset | ImageFolderDataset | Ade20kDataset

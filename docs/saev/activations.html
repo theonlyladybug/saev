@@ -57,7 +57,7 @@ Also saves a metadata.json file to that directory for human reference.</p>
 <p>Directory to where activations should be dumped/loaded from.</p></div>
 </dd>
 <dt id="saev.activations.get_dataloader"><code class="name flex">
-<span>def <span class="ident">get_dataloader</span></span>(<span>cfg: <a title="saev.config.Activations" href="config.html#saev.config.Activations">Activations</a>, preprocess)</span>
+<span>def <span class="ident">get_dataloader</span></span>(<span>cfg: <a title="saev.config.Activations" href="config.html#saev.config.Activations">Activations</a>, *, img_transform=None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Gets the dataloader for the current experiment; delegates dataloader construction to dataset-specific functions.</p>
@@ -65,14 +65,14 @@ Also saves a metadata.json file to that directory for human reference.</p>
 <dl>
 <dt><strong><code>cfg</code></strong></dt>
 <dd>Experiment config.</dd>
-<dt><strong><code>preprocess</code></strong></dt>
+<dt><strong><code>img_transform</code></strong></dt>
 <dd>Image transform to be applied to each image.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>A PyTorch Dataloader that yields dictionaries with <code>'image'</code> keys containing image batches.</p></div>
 </dd>
 <dt id="saev.activations.get_dataset"><code class="name flex">
-<span>def <span class="ident">get_dataset</span></span>(<span>cfg: <a title="saev.config.ImagenetDataset" href="config.html#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.ImageFolderDataset" href="config.html#saev.config.ImageFolderDataset">ImageFolderDataset</a> | <a title="saev.config.Ade20kDataset" href="config.html#saev.config.Ade20kDataset">Ade20kDataset</a>, *, transform)</span>
+<span>def <span class="ident">get_dataset</span></span>(<span>cfg: <a title="saev.config.ImagenetDataset" href="config.html#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.ImageFolderDataset" href="config.html#saev.config.ImageFolderDataset">ImageFolderDataset</a> | <a title="saev.config.Ade20kDataset" href="config.html#saev.config.Ade20kDataset">Ade20kDataset</a>, *, img_transform)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Gets the dataset for the current experiment; delegates construction to dataset-specific functions.</p>
@@ -80,14 +80,14 @@ Also saves a metadata.json file to that directory for human reference.</p>
 <dl>
 <dt><strong><code>cfg</code></strong></dt>
 <dd>Experiment config.</dd>
-<dt><strong><code>transform</code></strong></dt>
+<dt><strong><code>img_transform</code></strong></dt>
 <dd>Image transform to be applied to each image.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>A dataset that has dictionaries with <code>'image'</code>, <code>'index'</code>, <code>'target'</code>, and <code>'label'</code> keys containing examples.</p></div>
 </dd>
 <dt id="saev.activations.get_default_dataloader"><code class="name flex">
-<span>def <span class="ident">get_default_dataloader</span></span>(<span>cfg: <a title="saev.config.Activations" href="config.html#saev.config.Activations">Activations</a>, transform) ‑> torch.utils.data.dataloader.DataLoader</span>
+<span>def <span class="ident">get_default_dataloader</span></span>(<span>cfg: <a title="saev.config.Activations" href="config.html#saev.config.Activations">Activations</a>, *, img_transform: collections.abc.Callable) ‑> torch.utils.data.dataloader.DataLoader</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Get a dataloader for a default map-style dataset.</p>
@@ -95,7 +95,7 @@ Also saves a metadata.json file to that directory for human reference.</p>
 <dl>
 <dt><strong><code>cfg</code></strong></dt>
 <dd>Config.</dd>
-<dt><strong><code>preprocess</code></strong></dt>
+<dt><strong><code>img_transform</code></strong></dt>
 <dd>Image transform to be applied to each image.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
@@ -112,7 +112,7 @@ Also saves a metadata.json file to that directory for human reference.</p>
 </dl></div>
 </dd>
 <dt id="saev.activations.make_img_transform"><code class="name flex">
-<span>def <span class="ident">make_img_transform</span></span>(<span>model_family: str, model_ckpt: str) ‑> Callable</span>
+<span>def <span class="ident">make_img_transform</span></span>(<span>model_family: str, model_ckpt: str) ‑> collections.abc.Callable</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -162,6 +162,149 @@ Also saves a metadata.json file to that directory for human reference.</p>
 <section>
 <h2 class="section-title" id="header-classes">Classes</h2>
 <dl>
+<dt id="saev.activations.Ade20k"><code class="flex name class">
+<span>class <span class="ident">Ade20k</span></span>
+<span>(</span><span>cfg: <a title="saev.config.Ade20kDataset" href="config.html#saev.config.Ade20kDataset">Ade20kDataset</a>, *, img_transform: collections.abc.Callable | None = None, seg_transform: collections.abc.Callable | None = &lt;function Ade20k.&lt;lambda&gt;&gt;)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>An abstract class representing a :class:<code><a title="saev.activations.Dataset" href="#saev.activations.Dataset">Dataset</a></code>.</p>
+<p>All datasets that represent a map from keys to data samples should subclass
+it. All subclasses should overwrite :meth:<code>__getitem__</code>, supporting fetching a
+data sample for a given key. Subclasses could also optionally overwrite
+:meth:<code>__len__</code>, which is expected to return the size of the dataset by many
+:class:<code>~torch.utils.data.Sampler</code> implementations and the default options
+of :class:<code>~torch.utils.data.DataLoader</code>. Subclasses could also
+optionally implement :meth:<code>__getitems__</code>, for speedup batched samples
+loading. This method accepts list of indices of samples of batch and returns
+list of samples.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>:class:<code>~torch.utils.data.DataLoader</code> by default constructs an index
+sampler that yields integral indices.
+To make it work with a map-style
+dataset with non-integral indices/keys, a custom sampler must be provided.</p>
+</div></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@beartype.beartype
+class Ade20k(torch.utils.data.Dataset):
+    @beartype.beartype
+    @dataclasses.dataclass(frozen=True)
+    class Sample:
+        img_path: str
+        seg_path: str
+        label: str
+        target: int
+
+    samples: list[Sample]
+
+    def __init__(
+        self,
+        cfg: config.Ade20kDataset,
+        *,
+        img_transform: collections.abc.Callable | None = None,
+        seg_transform: collections.abc.Callable | None = lambda x: None,
+    ):
+        self.logger = logging.getLogger(&#34;ade20k&#34;)
+        self.cfg = cfg
+        self.img_dir = os.path.join(cfg.root, &#34;images&#34;)
+        self.seg_dir = os.path.join(cfg.root, &#34;annotations&#34;)
+        self.img_transform = img_transform
+        self.seg_transform = seg_transform
+
+        # Check that we have the right path.
+        for subdir in (&#34;images&#34;, &#34;annotations&#34;):
+            if not os.path.isdir(os.path.join(cfg.root, subdir)):
+                # Something is missing.
+                if os.path.realpath(cfg.root).endswith(subdir):
+                    self.logger.warning(
+                        &#34;The ADE20K root should contain &#39;images/&#39; and &#39;annotations/&#39; directories.&#34;
+                    )
+                raise ValueError(f&#34;Can&#39;t find path &#39;{os.path.join(cfg.root, subdir)}&#39;.&#34;)
+
+        _, split_mapping = torchvision.datasets.folder.find_classes(self.img_dir)
+        split_lookup: dict[int, str] = {
+            value: key for key, value in split_mapping.items()
+        }
+        self.loader = torchvision.datasets.folder.default_loader
+
+        assert cfg.split in set(split_lookup.values())
+
+        # Load all the image paths.
+        imgs: list[str] = [
+            path
+            for path, s in torchvision.datasets.folder.make_dataset(
+                self.img_dir,
+                split_mapping,
+                extensions=torchvision.datasets.folder.IMG_EXTENSIONS,
+            )
+            if split_lookup[s] == cfg.split
+        ]
+
+        segs: list[str] = [
+            path
+            for path, s in torchvision.datasets.folder.make_dataset(
+                self.seg_dir,
+                split_mapping,
+                extensions=torchvision.datasets.folder.IMG_EXTENSIONS,
+            )
+            if split_lookup[s] == cfg.split
+        ]
+
+        # Load all the targets, classes and mappings
+        with open(os.path.join(cfg.root, &#34;sceneCategories.txt&#34;)) as fd:
+            img_labels: list[str] = [line.split()[1] for line in fd.readlines()]
+
+        label_set = sorted(set(img_labels))
+        label_to_idx = {label: i for i, label in enumerate(label_set)}
+
+        self.samples = [
+            self.Sample(img_path, seg_path, label, label_to_idx[label])
+            for img_path, seg_path, label in zip(imgs, segs, img_labels)
+        ]
+
+    def __getitem__(self, index: int) -&gt; dict[str, object]:
+        # Convert to dict.
+        sample = dataclasses.asdict(self.samples[index])
+
+        sample[&#34;image&#34;] = self.loader(sample.pop(&#34;img_path&#34;))
+        if self.img_transform is not None:
+            image = self.img_transform(sample.pop(&#34;image&#34;))
+            if image is not None:
+                sample[&#34;image&#34;] = image
+
+        sample[&#34;segmentation&#34;] = Image.open(sample.pop(&#34;seg_path&#34;)).convert(&#34;L&#34;)
+        if self.seg_transform is not None:
+            segmentation = self.seg_transform(sample.pop(&#34;segmentation&#34;))
+            if segmentation is not None:
+                sample[&#34;segmentation&#34;] = segmentation
+
+        sample[&#34;index&#34;] = index
+
+        return sample
+
+    def __len__(self) -&gt; int:
+        return len(self.samples)</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>torch.utils.data.dataset.Dataset</li>
+<li>typing.Generic</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="saev.activations.Ade20k.Sample"><code class="name">var <span class="ident">Sample</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="saev.activations.Ade20k.samples"><code class="name">var <span class="ident">samples</span> : list[<a title="saev.activations.Ade20k.Sample" href="#saev.activations.Ade20k.Sample">Ade20k.Sample</a>]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+</dd>
 <dt id="saev.activations.Clip"><code class="flex name class">
 <span>class <span class="ident">Clip</span></span>
 <span>(</span><span>cfg: <a title="saev.config.Activations" href="config.html#saev.config.Activations">Activations</a>)</span>
@@ -658,6 +801,135 @@ registered hooks while the latter silently ignores them.</p>
 </dd>
 </dl>
 </dd>
+<dt id="saev.activations.ImageFolder"><code class="flex name class">
+<span>class <span class="ident">ImageFolder</span></span>
+<span>(</span><span>root: Union[str, pathlib.Path], transform: Optional[Callable] = None, target_transform: Optional[Callable] = None, loader: Callable[[str], Any] = &lt;function default_loader&gt;, is_valid_file: Optional[Callable[[str], bool]] = None, allow_empty: bool = False)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>A generic data loader where the images are arranged in this way by default: ::</p>
+<pre><code>root/dog/xxx.png
+root/dog/xxy.png
+root/dog/[...]/xxz.png
+
+root/cat/123.png
+root/cat/nsdf3.png
+root/cat/[...]/asd932_.png
+</code></pre>
+<p>This class inherits from :class:<code>~torchvision.datasets.DatasetFolder</code> so
+the same methods can be overridden to customize the dataset.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt>root (str or <code>pathlib.Path</code>): Root directory path.</dt>
+<dt><strong><code>transform</code></strong> :&ensp;<code>callable</code>, optional</dt>
+<dd>A function/transform that takes in a PIL image
+and returns a transformed version. E.g, <code>transforms.RandomCrop</code></dd>
+<dt><strong><code>target_transform</code></strong> :&ensp;<code>callable</code>, optional</dt>
+<dd>A function/transform that takes in the
+target and transforms it.</dd>
+<dt><strong><code>loader</code></strong> :&ensp;<code>callable</code>, optional</dt>
+<dd>A function to load an image given its path.</dd>
+<dt><strong><code>is_valid_file</code></strong> :&ensp;<code>callable</code>, optional</dt>
+<dd>A function that takes path of an Image file
+and check if the file is a valid file (used to check of corrupt files)</dd>
+</dl>
+<p>allow_empty(bool, optional): If True, empty folders are considered to be valid classes.
+An error is raised on empty folders if False (default).
+Attributes:
+classes (list): List of the class names sorted alphabetically.
+class_to_idx (dict): Dict with items (class_name, class_index).
+imgs (list): List of (image path, class_index) tuples</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@beartype.beartype
+class ImageFolder(torchvision.datasets.ImageFolder):
+    def __getitem__(self, index: int) -&gt; dict[str, object]:
+        &#34;&#34;&#34;
+        Args:
+            index: Index
+
+        Returns:
+            dict with keys &#39;image&#39;, &#39;index&#39;, &#39;target&#39; and &#39;label&#39;.
+        &#34;&#34;&#34;
+        breakpoint()
+        path, target = self.samples[index]
+        sample = self.loader(path)
+        if self.img_transform is not None:
+            sample = self.img_transform(sample)
+        if self.target_transform is not None:
+            target = self.target_transform(target)
+
+        return {&#34;image&#34;: sample, &#34;target&#34;: target, &#34;index&#34;: index}</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>torchvision.datasets.folder.ImageFolder</li>
+<li>torchvision.datasets.folder.DatasetFolder</li>
+<li>torchvision.datasets.vision.VisionDataset</li>
+<li>torch.utils.data.dataset.Dataset</li>
+<li>typing.Generic</li>
+</ul>
+</dd>
+<dt id="saev.activations.Imagenet"><code class="flex name class">
+<span>class <span class="ident">Imagenet</span></span>
+<span>(</span><span>cfg: <a title="saev.config.ImagenetDataset" href="config.html#saev.config.ImagenetDataset">ImagenetDataset</a>, *, img_transform=None)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>An abstract class representing a :class:<code><a title="saev.activations.Dataset" href="#saev.activations.Dataset">Dataset</a></code>.</p>
+<p>All datasets that represent a map from keys to data samples should subclass
+it. All subclasses should overwrite :meth:<code>__getitem__</code>, supporting fetching a
+data sample for a given key. Subclasses could also optionally overwrite
+:meth:<code>__len__</code>, which is expected to return the size of the dataset by many
+:class:<code>~torch.utils.data.Sampler</code> implementations and the default options
+of :class:<code>~torch.utils.data.DataLoader</code>. Subclasses could also
+optionally implement :meth:<code>__getitems__</code>, for speedup batched samples
+loading. This method accepts list of indices of samples of batch and returns
+list of samples.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>:class:<code>~torch.utils.data.DataLoader</code> by default constructs an index
+sampler that yields integral indices.
+To make it work with a map-style
+dataset with non-integral indices/keys, a custom sampler must be provided.</p>
+</div></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@beartype.beartype
+class Imagenet(torch.utils.data.Dataset):
+    def __init__(self, cfg: config.ImagenetDataset, *, img_transform=None):
+        import datasets
+
+        self.hf_dataset = datasets.load_dataset(
+            cfg.name, split=cfg.split, trust_remote_code=True
+        )
+
+        self.img_transform = img_transform
+        self.labels = self.hf_dataset.info.features[&#34;label&#34;].names
+
+    def __getitem__(self, i):
+        example = self.hf_dataset[i]
+        example[&#34;index&#34;] = i
+
+        example[&#34;image&#34;] = example[&#34;image&#34;].convert(&#34;RGB&#34;)
+        if self.img_transform:
+            example[&#34;image&#34;] = self.img_transform(example[&#34;image&#34;])
+        example[&#34;target&#34;] = example.pop(&#34;label&#34;)
+        example[&#34;label&#34;] = self.labels[example[&#34;target&#34;]]
+
+        return example
+
+    def __len__(self) -&gt; int:
+        return len(self.hf_dataset)</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>torch.utils.data.dataset.Dataset</li>
+<li>typing.Generic</li>
+</ul>
+</dd>
 <dt id="saev.activations.Metadata"><code class="flex name class">
 <span>class <span class="ident">Metadata</span></span>
 <span>(</span><span>model_family: str, model_ckpt: str, layers: tuple[int, ...], n_patches_per_img: int, cls_token: bool, d_vit: int, seed: int, n_imgs: int, n_patches_per_shard: int, data: str)</span>
@@ -1022,275 +1294,6 @@ registered hooks while the latter silently ignores them.</p>
 </dd>
 </dl>
 </dd>
-<dt id="saev.activations.TransformedAde20k"><code class="flex name class">
-<span>class <span class="ident">TransformedAde20k</span></span>
-<span>(</span><span>cfg: <a title="saev.config.Ade20kDataset" href="config.html#saev.config.Ade20kDataset">Ade20kDataset</a>, *, transform=None, seg_transform=None)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>An abstract class representing a :class:<code><a title="saev.activations.Dataset" href="#saev.activations.Dataset">Dataset</a></code>.</p>
-<p>All datasets that represent a map from keys to data samples should subclass
-it. All subclasses should overwrite :meth:<code>__getitem__</code>, supporting fetching a
-data sample for a given key. Subclasses could also optionally overwrite
-:meth:<code>__len__</code>, which is expected to return the size of the dataset by many
-:class:<code>~torch.utils.data.Sampler</code> implementations and the default options
-of :class:<code>~torch.utils.data.DataLoader</code>. Subclasses could also
-optionally implement :meth:<code>__getitems__</code>, for speedup batched samples
-loading. This method accepts list of indices of samples of batch and returns
-list of samples.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>:class:<code>~torch.utils.data.DataLoader</code> by default constructs an index
-sampler that yields integral indices.
-To make it work with a map-style
-dataset with non-integral indices/keys, a custom sampler must be provided.</p>
-</div></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@beartype.beartype
-class TransformedAde20k(torch.utils.data.Dataset):
-    class Sample(typing.TypedDict):
-        img_path: str
-        seg_path: str
-        split: str
-        label: str
-        target: int
-
-    samples: list[Sample]
-
-    def __init__(
-        self, cfg: config.Ade20kDataset, *, transform=None, seg_transform=None
-    ):
-        self.logger = logging.getLogger(&#34;ade20k&#34;)
-        self.cfg = cfg
-        self.img_dir = os.path.join(cfg.root, &#34;images&#34;)
-        self.seg_dir = os.path.join(cfg.root, &#34;annotations&#34;)
-        self.transform = transform
-        self.seg_transform = seg_transform
-
-        # Check that we have the right path.
-        for subdir in (&#34;images&#34;, &#34;annotations&#34;):
-            if not os.path.isdir(os.path.join(cfg.root, subdir)):
-                # Something is missing.
-                if os.path.realpath(cfg.root).endswith(subdir):
-                    self.logger.warning(
-                        &#34;The ADE20K root should contain &#39;images/&#39; and &#39;annotations/&#39; directories.&#34;
-                    )
-                raise ValueError(f&#34;Can&#39;t find path &#39;{os.path.join(cfg.root, subdir)}&#39;.&#34;)
-
-        _, split_mapping = torchvision.datasets.folder.find_classes(self.img_dir)
-        split_lookup: dict[int, str] = {
-            value: key for key, value in split_mapping.items()
-        }
-        self.loader = torchvision.datasets.folder.default_loader
-
-        # Load all the image paths.
-        imgs: list[tuple[str, int]] = torchvision.datasets.folder.make_dataset(
-            self.img_dir,
-            split_mapping,
-            extensions=torchvision.datasets.folder.IMG_EXTENSIONS,
-        )
-
-        segs: list[tuple[str, int]] = torchvision.datasets.folder.make_dataset(
-            self.seg_dir,
-            split_mapping,
-            extensions=torchvision.datasets.folder.IMG_EXTENSIONS,
-        )
-
-        # Load all the targets, classes and mappings
-        with open(os.path.join(cfg.root, &#34;sceneCategories.txt&#34;)) as fd:
-            img_labels: list[str] = [line.split()[1] for line in fd.readlines()]
-
-        label_set = sorted(set(img_labels))
-        label_to_idx = {label: i for i, label in enumerate(label_set)}
-
-        self.samples = [
-            self.Sample(
-                img_path=img_path,
-                seg_path=seg_path,
-                split=split_lookup[split],
-                label=label,
-                target=label_to_idx[label],
-            )
-            for (img_path, split), (seg_path, _), label in zip(imgs, segs, img_labels)
-        ]
-
-    def __getitem__(self, index: int) -&gt; dict[str, object]:
-        # Make a copy
-        sample = dict(**self.samples[index])
-
-        sample[&#34;image&#34;] = self.loader(sample.pop(&#34;img_path&#34;))
-        if self.transform is not None:
-            sample[&#34;image&#34;] = self.transform(sample[&#34;image&#34;])
-
-        sample[&#34;segmentation&#34;] = Image.open(sample.pop(&#34;seg_path&#34;)).convert(&#34;L&#34;)
-        if self.seg_transform is not None:
-            sample[&#34;segmentation&#34;] = self.seg_transform(sample[&#34;segmentation&#34;])
-
-        sample[&#34;index&#34;] = index
-
-        return sample
-
-    def __len__(self) -&gt; int:
-        return len(self.samples)</code></pre>
-</details>
-<h3>Ancestors</h3>
-<ul class="hlist">
-<li>torch.utils.data.dataset.Dataset</li>
-<li>typing.Generic</li>
-</ul>
-<h3>Class variables</h3>
-<dl>
-<dt id="saev.activations.TransformedAde20k.Sample"><code class="name">var <span class="ident">Sample</span></code></dt>
-<dd>
-<div class="desc"><p>dict() -&gt; new empty dictionary
-dict(mapping) -&gt; new dictionary initialized from a mapping object's
-(key, value) pairs
-dict(iterable) -&gt; new dictionary initialized as if via:
-d = {}
-for k, v in iterable:
-d[k] = v
-dict(**kwargs) -&gt; new dictionary initialized with the name=value pairs
-in the keyword argument list.
-For example:
-dict(one=1, two=2)</p></div>
-</dd>
-<dt id="saev.activations.TransformedAde20k.samples"><code class="name">var <span class="ident">samples</span> : list[<a title="saev.activations.TransformedAde20k.Sample" href="#saev.activations.TransformedAde20k.Sample">TransformedAde20k.Sample</a>]</code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-</dl>
-</dd>
-<dt id="saev.activations.TransformedImageFolder"><code class="flex name class">
-<span>class <span class="ident">TransformedImageFolder</span></span>
-<span>(</span><span>root: Union[str, pathlib.Path], transform: Optional[Callable] = None, target_transform: Optional[Callable] = None, loader: Callable[[str], Any] = &lt;function default_loader&gt;, is_valid_file: Optional[Callable[[str], bool]] = None, allow_empty: bool = False)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>A generic data loader where the images are arranged in this way by default: ::</p>
-<pre><code>root/dog/xxx.png
-root/dog/xxy.png
-root/dog/[...]/xxz.png
-
-root/cat/123.png
-root/cat/nsdf3.png
-root/cat/[...]/asd932_.png
-</code></pre>
-<p>This class inherits from :class:<code>~torchvision.datasets.DatasetFolder</code> so
-the same methods can be overridden to customize the dataset.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt>root (str or <code>pathlib.Path</code>): Root directory path.</dt>
-<dt><strong><code>transform</code></strong> :&ensp;<code>callable</code>, optional</dt>
-<dd>A function/transform that takes in a PIL image
-and returns a transformed version. E.g, <code>transforms.RandomCrop</code></dd>
-<dt><strong><code>target_transform</code></strong> :&ensp;<code>callable</code>, optional</dt>
-<dd>A function/transform that takes in the
-target and transforms it.</dd>
-<dt><strong><code>loader</code></strong> :&ensp;<code>callable</code>, optional</dt>
-<dd>A function to load an image given its path.</dd>
-<dt><strong><code>is_valid_file</code></strong> :&ensp;<code>callable</code>, optional</dt>
-<dd>A function that takes path of an Image file
-and check if the file is a valid file (used to check of corrupt files)</dd>
-</dl>
-<p>allow_empty(bool, optional): If True, empty folders are considered to be valid classes.
-An error is raised on empty folders if False (default).
-Attributes:
-classes (list): List of the class names sorted alphabetically.
-class_to_idx (dict): Dict with items (class_name, class_index).
-imgs (list): List of (image path, class_index) tuples</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@beartype.beartype
-class TransformedImageFolder(torchvision.datasets.ImageFolder):
-    def __getitem__(self, index: int) -&gt; dict[str, object]:
-        &#34;&#34;&#34;
-        Args:
-            index: Index
-
-        Returns:
-            dict with keys &#39;image&#39;, &#39;index&#39;, &#39;target&#39; and &#39;label&#39;.
-        &#34;&#34;&#34;
-        breakpoint()
-        path, target = self.samples[index]
-        sample = self.loader(path)
-        if self.transform is not None:
-            sample = self.transform(sample)
-        if self.target_transform is not None:
-            target = self.target_transform(target)
-
-        return {&#34;image&#34;: sample, &#34;target&#34;: target, &#34;index&#34;: index}</code></pre>
-</details>
-<h3>Ancestors</h3>
-<ul class="hlist">
-<li>torchvision.datasets.folder.ImageFolder</li>
-<li>torchvision.datasets.folder.DatasetFolder</li>
-<li>torchvision.datasets.vision.VisionDataset</li>
-<li>torch.utils.data.dataset.Dataset</li>
-<li>typing.Generic</li>
-</ul>
-</dd>
-<dt id="saev.activations.TransformedImagenet"><code class="flex name class">
-<span>class <span class="ident">TransformedImagenet</span></span>
-<span>(</span><span>cfg: <a title="saev.config.ImagenetDataset" href="config.html#saev.config.ImagenetDataset">ImagenetDataset</a>, *, transform=None)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>An abstract class representing a :class:<code><a title="saev.activations.Dataset" href="#saev.activations.Dataset">Dataset</a></code>.</p>
-<p>All datasets that represent a map from keys to data samples should subclass
-it. All subclasses should overwrite :meth:<code>__getitem__</code>, supporting fetching a
-data sample for a given key. Subclasses could also optionally overwrite
-:meth:<code>__len__</code>, which is expected to return the size of the dataset by many
-:class:<code>~torch.utils.data.Sampler</code> implementations and the default options
-of :class:<code>~torch.utils.data.DataLoader</code>. Subclasses could also
-optionally implement :meth:<code>__getitems__</code>, for speedup batched samples
-loading. This method accepts list of indices of samples of batch and returns
-list of samples.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>:class:<code>~torch.utils.data.DataLoader</code> by default constructs an index
-sampler that yields integral indices.
-To make it work with a map-style
-dataset with non-integral indices/keys, a custom sampler must be provided.</p>
-</div></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@beartype.beartype
-class TransformedImagenet(torch.utils.data.Dataset):
-    def __init__(self, cfg: config.ImagenetDataset, *, transform=None):
-        import datasets
-
-        self.hf_dataset = datasets.load_dataset(
-            cfg.name, split=cfg.split, trust_remote_code=True
-        )
-
-        self.transform = transform
-        self.labels = self.hf_dataset.info.features[&#34;label&#34;].names
-
-    def __getitem__(self, i):
-        example = self.hf_dataset[i]
-        example[&#34;index&#34;] = i
-
-        example[&#34;image&#34;] = example[&#34;image&#34;].convert(&#34;RGB&#34;)
-        if self.transform:
-            example[&#34;image&#34;] = self.transform(example[&#34;image&#34;])
-        example[&#34;target&#34;] = example.pop(&#34;label&#34;)
-        example[&#34;label&#34;] = self.labels[example[&#34;target&#34;]]
-
-        return example
-
-    def __len__(self) -&gt; int:
-        return len(self.hf_dataset)</code></pre>
-</details>
-<h3>Ancestors</h3>
-<ul class="hlist">
-<li>torch.utils.data.dataset.Dataset</li>
-<li>typing.Generic</li>
-</ul>
-</dd>
 <dt id="saev.activations.VitRecorder"><code class="flex name class">
 <span>class <span class="ident">VitRecorder</span></span>
 <span>(</span><span>cfg: <a title="saev.config.Activations" href="config.html#saev.config.Activations">Activations</a>, patches: slice = slice(None, None, None))</span>
@@ -1471,6 +1474,13 @@ def activations(self) -&gt; Float[Tensor, &#34;batch n_layers all_patches dim&#3
 <li><h3><a href="#header-classes">Classes</a></h3>
 <ul>
 <li>
+<h4><code><a title="saev.activations.Ade20k" href="#saev.activations.Ade20k">Ade20k</a></code></h4>
+<ul class="">
+<li><code><a title="saev.activations.Ade20k.Sample" href="#saev.activations.Ade20k.Sample">Sample</a></code></li>
+<li><code><a title="saev.activations.Ade20k.samples" href="#saev.activations.Ade20k.samples">samples</a></code></li>
+</ul>
+</li>
+<li>
 <h4><code><a title="saev.activations.Clip" href="#saev.activations.Clip">Clip</a></code></h4>
 <ul class="">
 <li><code><a title="saev.activations.Clip.forward" href="#saev.activations.Clip.forward">forward</a></code></li>
@@ -1496,6 +1506,12 @@ def activations(self) -&gt; Float[Tensor, &#34;batch n_layers all_patches dim&#3
 <ul class="">
 <li><code><a title="saev.activations.DinoV2.forward" href="#saev.activations.DinoV2.forward">forward</a></code></li>
 </ul>
+</li>
+<li>
+<h4><code><a title="saev.activations.ImageFolder" href="#saev.activations.ImageFolder">ImageFolder</a></code></h4>
+</li>
+<li>
+<h4><code><a title="saev.activations.Imagenet" href="#saev.activations.Imagenet">Imagenet</a></code></h4>
 </li>
 <li>
 <h4><code><a title="saev.activations.Metadata" href="#saev.activations.Metadata">Metadata</a></code></h4>
@@ -1534,19 +1550,6 @@ def activations(self) -&gt; Float[Tensor, &#34;batch n_layers all_patches dim&#3
 <ul class="">
 <li><code><a title="saev.activations.Siglip.forward" href="#saev.activations.Siglip.forward">forward</a></code></li>
 </ul>
-</li>
-<li>
-<h4><code><a title="saev.activations.TransformedAde20k" href="#saev.activations.TransformedAde20k">TransformedAde20k</a></code></h4>
-<ul class="">
-<li><code><a title="saev.activations.TransformedAde20k.Sample" href="#saev.activations.TransformedAde20k.Sample">Sample</a></code></li>
-<li><code><a title="saev.activations.TransformedAde20k.samples" href="#saev.activations.TransformedAde20k.samples">samples</a></code></li>
-</ul>
-</li>
-<li>
-<h4><code><a title="saev.activations.TransformedImageFolder" href="#saev.activations.TransformedImageFolder">TransformedImageFolder</a></code></h4>
-</li>
-<li>
-<h4><code><a title="saev.activations.TransformedImagenet" href="#saev.activations.TransformedImagenet">TransformedImagenet</a></code></h4>
 </li>
 <li>
 <h4><code><a title="saev.activations.VitRecorder" href="#saev.activations.VitRecorder">VitRecorder</a></code></h4>

@@ -14,11 +14,11 @@ class Train:
     """Linear layer learning rate."""
     weight_decay: float = 1e-3
     """Weight decay  for AdamW."""
-    n_epochs: int = 10
+    n_epochs: int = 100
     """Number of training epochs for linear layer."""
-    batch_size: int = 32
+    batch_size: int = 1024
     """Training batch size for linear layer."""
-    n_workers: int = 8
+    n_workers: int = 32
     """Number of dataloader workers."""
     train_acts: saev.config.DataLoad = dataclasses.field(
         default_factory=saev.config.DataLoad

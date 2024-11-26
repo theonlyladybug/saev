@@ -9,6 +9,7 @@ Conceptually, activations are either thought of as
 2. Multiple [n_imgs_per_shard, n_layers, (n_patches + 1), d_vit] tensors. This is a set of sharded activations.
 """
 
+import collections.abc
 import dataclasses
 import hashlib
 import json
@@ -204,7 +205,7 @@ def make_vit(cfg: config.Activations):
 
 
 @beartype.beartype
-def make_img_transform(model_family: str, model_ckpt: str) -> typing.Callable:
+def make_img_transform(model_family: str, model_ckpt: str) -> collections.abc.Callable:
     if model_family == "clip" or model_family == "siglip":
         import open_clip
 
@@ -518,33 +519,33 @@ def setup_ade20k(cfg: config.Activations):
 
 
 @beartype.beartype
-def get_dataset(cfg: config.DatasetConfig, *, transform):
+def get_dataset(cfg: config.DatasetConfig, *, img_transform):
     """
     Gets the dataset for the current experiment; delegates construction to dataset-specific functions.
 
     Args:
         cfg: Experiment config.
-        transform: Image transform to be applied to each image.
+        img_transform: Image transform to be applied to each image.
 
     Returns:
         A dataset that has dictionaries with `'image'`, `'index'`, `'target'`, and `'label'` keys containing examples.
     """
     if isinstance(cfg, config.ImagenetDataset):
-        return TransformedImagenet(cfg, transform=transform)
+        return Imagenet(cfg, img_transform=img_transform)
     elif isinstance(cfg, config.Ade20kDataset):
-        return TransformedAde20k(cfg, transform=transform)
+        return Ade20k(cfg, img_transform=img_transform)
     else:
         typing.assert_never(cfg)
 
 
 @beartype.beartype
-def get_dataloader(cfg: config.Activations, preprocess):
+def get_dataloader(cfg: config.Activations, *, img_transform=None):
     """
     Gets the dataloader for the current experiment; delegates dataloader construction to dataset-specific functions.
 
     Args:
         cfg: Experiment config.
-        preprocess: Image transform to be applied to each image.
+        img_transform: Image transform to be applied to each image.
 
     Returns:
         A PyTorch Dataloader that yields dictionaries with `'image'` keys containing image batches.
@@ -553,7 +554,7 @@ def get_dataloader(cfg: config.Activations, preprocess):
         cfg.data,
         (config.ImagenetDataset, config.ImageFolderDataset, config.Ade20kDataset),
     ):
-        dataloader = get_default_dataloader(cfg, preprocess)
+        dataloader = get_default_dataloader(cfg, img_transform=img_transform)
     else:
         typing.assert_never(cfg.data)
 
@@ -562,19 +563,19 @@ def get_dataloader(cfg: config.Activations, preprocess):
 
 @beartype.beartype
 def get_default_dataloader(
-    cfg: config.Activations, transform
+    cfg: config.Activations, *, img_transform: collections.abc.Callable
 ) -> torch.utils.data.DataLoader:
     """
     Get a dataloader for a default map-style dataset.
 
     Args:
         cfg: Config.
-        preprocess: Image transform to be applied to each image.
+        img_transform: Image transform to be applied to each image.
 
     Returns:
         A PyTorch Dataloader that yields dictionaries with `'image'` keys containing image batches, `'index'` keys containing original dataset indices and `'label'` keys containing label batches.
     """
-    dataset = get_dataset(cfg.data, transform=transform)
+    dataset = get_dataset(cfg.data, img_transform=img_transform)
 
     dataloader = torch.utils.data.DataLoader(
         dataset=dataset,
@@ -589,15 +590,15 @@ def get_default_dataloader(
 
 
 @beartype.beartype
-class TransformedImagenet(torch.utils.data.Dataset):
-    def __init__(self, cfg: config.ImagenetDataset, *, transform=None):
+class Imagenet(torch.utils.data.Dataset):
+    def __init__(self, cfg: config.ImagenetDataset, *, img_transform=None):
         import datasets
 
         self.hf_dataset = datasets.load_dataset(
             cfg.name, split=cfg.split, trust_remote_code=True
         )
 
-        self.transform = transform
+        self.img_transform = img_transform
         self.labels = self.hf_dataset.info.features["label"].names
 
     def __getitem__(self, i):
@@ -605,8 +606,8 @@ class TransformedImagenet(torch.utils.data.Dataset):
         example["index"] = i
 
         example["image"] = example["image"].convert("RGB")
-        if self.transform:
-            example["image"] = self.transform(example["image"])
+        if self.img_transform:
+            example["image"] = self.img_transform(example["image"])
         example["target"] = example.pop("label")
         example["label"] = self.labels[example["target"]]
 
@@ -617,7 +618,7 @@ class TransformedImagenet(torch.utils.data.Dataset):
 
 
 @beartype.beartype
-class TransformedImageFolder(torchvision.datasets.ImageFolder):
+class ImageFolder(torchvision.datasets.ImageFolder):
     def __getitem__(self, index: int) -> dict[str, object]:
         """
         Args:
@@ -629,8 +630,8 @@ class TransformedImageFolder(torchvision.datasets.ImageFolder):
         breakpoint()
         path, target = self.samples[index]
         sample = self.loader(path)
-        if self.transform is not None:
-            sample = self.transform(sample)
+        if self.img_transform is not None:
+            sample = self.img_transform(sample)
         if self.target_transform is not None:
             target = self.target_transform(target)
 
@@ -638,24 +639,29 @@ class TransformedImageFolder(torchvision.datasets.ImageFolder):
 
 
 @beartype.beartype
-class TransformedAde20k(torch.utils.data.Dataset):
-    class Sample(typing.TypedDict):
+class Ade20k(torch.utils.data.Dataset):
+    @beartype.beartype
+    @dataclasses.dataclass(frozen=True)
+    class Sample:
         img_path: str
         seg_path: str
-        split: str
         label: str
         target: int
 
     samples: list[Sample]
 
     def __init__(
-        self, cfg: config.Ade20kDataset, *, transform=None, seg_transform=None
+        self,
+        cfg: config.Ade20kDataset,
+        *,
+        img_transform: collections.abc.Callable | None = None,
+        seg_transform: collections.abc.Callable | None = lambda x: None,
     ):
         self.logger = logging.getLogger("ade20k")
         self.cfg = cfg
         self.img_dir = os.path.join(cfg.root, "images")
         self.seg_dir = os.path.join(cfg.root, "annotations")
-        self.transform = transform
+        self.img_transform = img_transform
         self.seg_transform = seg_transform
 
         # Check that we have the right path.
@@ -674,18 +680,28 @@ class TransformedAde20k(torch.utils.data.Dataset):
         }
         self.loader = torchvision.datasets.folder.default_loader
 
-        # Load all the image paths.
-        imgs: list[tuple[str, int]] = torchvision.datasets.folder.make_dataset(
-            self.img_dir,
-            split_mapping,
-            extensions=torchvision.datasets.folder.IMG_EXTENSIONS,
-        )
+        assert cfg.split in set(split_lookup.values())
 
-        segs: list[tuple[str, int]] = torchvision.datasets.folder.make_dataset(
-            self.seg_dir,
-            split_mapping,
-            extensions=torchvision.datasets.folder.IMG_EXTENSIONS,
-        )
+        # Load all the image paths.
+        imgs: list[str] = [
+            path
+            for path, s in torchvision.datasets.folder.make_dataset(
+                self.img_dir,
+                split_mapping,
+                extensions=torchvision.datasets.folder.IMG_EXTENSIONS,
+            )
+            if split_lookup[s] == cfg.split
+        ]
+
+        segs: list[str] = [
+            path
+            for path, s in torchvision.datasets.folder.make_dataset(
+                self.seg_dir,
+                split_mapping,
+                extensions=torchvision.datasets.folder.IMG_EXTENSIONS,
+            )
+            if split_lookup[s] == cfg.split
+        ]
 
         # Load all the targets, classes and mappings
         with open(os.path.join(cfg.root, "sceneCategories.txt")) as fd:
@@ -695,27 +711,25 @@ class TransformedAde20k(torch.utils.data.Dataset):
         label_to_idx = {label: i for i, label in enumerate(label_set)}
 
         self.samples = [
-            self.Sample(
-                img_path=img_path,
-                seg_path=seg_path,
-                split=split_lookup[split],
-                label=label,
-                target=label_to_idx[label],
-            )
-            for (img_path, split), (seg_path, _), label in zip(imgs, segs, img_labels)
+            self.Sample(img_path, seg_path, label, label_to_idx[label])
+            for img_path, seg_path, label in zip(imgs, segs, img_labels)
         ]
 
     def __getitem__(self, index: int) -> dict[str, object]:
-        # Make a copy
-        sample = dict(**self.samples[index])
+        # Convert to dict.
+        sample = dataclasses.asdict(self.samples[index])
 
         sample["image"] = self.loader(sample.pop("img_path"))
-        if self.transform is not None:
-            sample["image"] = self.transform(sample["image"])
+        if self.img_transform is not None:
+            image = self.img_transform(sample.pop("image"))
+            if image is not None:
+                sample["image"] = image
 
         sample["segmentation"] = Image.open(sample.pop("seg_path")).convert("L")
         if self.seg_transform is not None:
-            sample["segmentation"] = self.seg_transform(sample["segmentation"])
+            segmentation = self.seg_transform(sample.pop("segmentation"))
+            if segmentation is not None:
+                sample["segmentation"] = segmentation
 
         sample["index"] = index
 
@@ -790,7 +804,7 @@ def worker_fn(cfg: config.Activations):
 
     vit = make_vit(cfg)
     img_transform = make_img_transform(cfg.model_family, cfg.model_ckpt)
-    dataloader = get_dataloader(cfg, img_transform)
+    dataloader = get_dataloader(cfg, img_transform=img_transform)
 
     writer = ShardWriter(cfg)
 

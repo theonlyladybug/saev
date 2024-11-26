@@ -15,23 +15,21 @@ def __():
     if pkg_root not in sys.path:
         sys.path.append(pkg_root)
 
-    import os
     import csv
-    import einops
+    import os
 
-    import marimo as mo
-    import sklearn.decomposition
-
-    import numpy as np
-    import datasets
-    import beartype
-    from PIL import Image, ImageDraw
-    from jaxtyping import jaxtyped, Int
-
-    import torch
-    import matplotlib.pyplot as plt
-    import polars as pl
     import altair as alt
+    import beartype
+    import datasets
+    import einops
+    import marimo as mo
+    import matplotlib.pyplot as plt
+    import numpy as np
+    import polars as pl
+    import sklearn.decomposition
+    import torch
+    from jaxtyping import Int, jaxtyped
+    from PIL import Image, ImageDraw
 
     import saev.activations
     import saev.config

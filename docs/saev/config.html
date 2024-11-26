@@ -188,7 +188,7 @@ class Activations:
 </dd>
 <dt id="saev.config.Ade20kDataset"><code class="flex name class">
 <span>class <span class="ident">Ade20kDataset</span></span>
-<span>(</span><span>root: str = './data/split')</span>
+<span>(</span><span>root: str = './data/split', split: Literal['training', 'validation'] = 'training')</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -203,17 +203,25 @@ class Ade20kDataset:
 
     root: str = os.path.join(&#34;.&#34;, &#34;data&#34;, &#34;split&#34;)
     &#34;&#34;&#34;Where the class folders with images are stored.&#34;&#34;&#34;
+    split: typing.Literal[&#34;training&#34;, &#34;validation&#34;] = &#34;training&#34;
+    &#34;&#34;&#34;Data split.&#34;&#34;&#34;
 
     @property
     def n_imgs(self) -&gt; int:
-        with open(os.path.join(self.root, &#34;sceneCategories.txt&#34;)) as fd:
-            return len(fd.read().split(&#34;\n&#34;))</code></pre>
+        if self.split == &#34;validation&#34;:
+            return 2000
+        else:
+            return 20210</code></pre>
 </details>
 <h3>Class variables</h3>
 <dl>
 <dt id="saev.config.Ade20kDataset.root"><code class="name">var <span class="ident">root</span> : str</code></dt>
 <dd>
 <div class="desc"><p>Where the class folders with images are stored.</p></div>
+</dd>
+<dt id="saev.config.Ade20kDataset.split"><code class="name">var <span class="ident">split</span> : Literal['training', 'validation']</code></dt>
+<dd>
+<div class="desc"><p>Data split.</p></div>
 </dd>
 </dl>
 <h3>Instance variables</h3>
@@ -227,8 +235,10 @@ class Ade20kDataset:
 </summary>
 <pre><code class="python">@property
 def n_imgs(self) -&gt; int:
-    with open(os.path.join(self.root, &#34;sceneCategories.txt&#34;)) as fd:
-        return len(fd.read().split(&#34;\n&#34;))</code></pre>
+    if self.split == &#34;validation&#34;:
+        return 2000
+    else:
+        return 20210</code></pre>
 </details>
 </dd>
 </dl>
@@ -883,6 +893,7 @@ def top_values_fpath(self) -&gt; str:
 <ul class="">
 <li><code><a title="saev.config.Ade20kDataset.n_imgs" href="#saev.config.Ade20kDataset.n_imgs">n_imgs</a></code></li>
 <li><code><a title="saev.config.Ade20kDataset.root" href="#saev.config.Ade20kDataset.root">root</a></code></li>
+<li><code><a title="saev.config.Ade20kDataset.split" href="#saev.config.Ade20kDataset.split">split</a></code></li>
 </ul>
 </li>
 <li>

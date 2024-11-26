@@ -177,32 +177,32 @@ Functions
     Returns:
         Directory to where activations should be dumped/loaded from.
 
-`get_dataloader(cfg: saev.config.Activations, preprocess)`
+`get_dataloader(cfg: saev.config.Activations, *, img_transform=None)`
 :   Gets the dataloader for the current experiment; delegates dataloader construction to dataset-specific functions.
     
     Args:
         cfg: Experiment config.
-        preprocess: Image transform to be applied to each image.
+        img_transform: Image transform to be applied to each image.
     
     Returns:
         A PyTorch Dataloader that yields dictionaries with `'image'` keys containing image batches.
 
-`get_dataset(cfg: saev.config.ImagenetDataset | saev.config.ImageFolderDataset | saev.config.Ade20kDataset, *, transform)`
+`get_dataset(cfg: saev.config.ImagenetDataset | saev.config.ImageFolderDataset | saev.config.Ade20kDataset, *, img_transform)`
 :   Gets the dataset for the current experiment; delegates construction to dataset-specific functions.
     
     Args:
         cfg: Experiment config.
-        transform: Image transform to be applied to each image.
+        img_transform: Image transform to be applied to each image.
     
     Returns:
         A dataset that has dictionaries with `'image'`, `'index'`, `'target'`, and `'label'` keys containing examples.
 
-`get_default_dataloader(cfg: saev.config.Activations, transform) ‑> torch.utils.data.dataloader.DataLoader`
+`get_default_dataloader(cfg: saev.config.Activations, *, img_transform: collections.abc.Callable) ‑> torch.utils.data.dataloader.DataLoader`
 :   Get a dataloader for a default map-style dataset.
     
     Args:
         cfg: Config.
-        preprocess: Image transform to be applied to each image.
+        img_transform: Image transform to be applied to each image.
     
     Returns:
         A PyTorch Dataloader that yields dictionaries with `'image'` keys containing image batches, `'index'` keys containing original dataset indices and `'label'` keys containing label batches.
@@ -211,7 +211,7 @@ Functions
 :   Args:
         cfg: Config for activations.
 
-`make_img_transform(model_family: str, model_ckpt: str) ‑> Callable`
+`make_img_transform(model_family: str, model_ckpt: str) ‑> collections.abc.Callable`
 :   
 
 `make_vit(cfg: saev.config.Activations)`
@@ -235,6 +235,37 @@ Functions
 
 Classes
 -------
+
+`Ade20k(cfg: saev.config.Ade20kDataset, *, img_transform: collections.abc.Callable | None = None, seg_transform: collections.abc.Callable | None = <function Ade20k.<lambda>>)`
+:   An abstract class representing a :class:`Dataset`.
+    
+    All datasets that represent a map from keys to data samples should subclass
+    it. All subclasses should overwrite :meth:`__getitem__`, supporting fetching a
+    data sample for a given key. Subclasses could also optionally overwrite
+    :meth:`__len__`, which is expected to return the size of the dataset by many
+    :class:`~torch.utils.data.Sampler` implementations and the default options
+    of :class:`~torch.utils.data.DataLoader`. Subclasses could also
+    optionally implement :meth:`__getitems__`, for speedup batched samples
+    loading. This method accepts list of indices of samples of batch and returns
+    list of samples.
+    
+    .. note::
+      :class:`~torch.utils.data.DataLoader` by default constructs an index
+      sampler that yields integral indices.  To make it work with a map-style
+      dataset with non-integral indices/keys, a custom sampler must be provided.
+
+    ### Ancestors (in MRO)
+
+    * torch.utils.data.dataset.Dataset
+    * typing.Generic
+
+    ### Class variables
+
+    `Sample`
+    :
+
+    `samples: list[saev.activations.Ade20k.Sample]`
+    :
 
 `Clip(cfg: saev.config.Activations)`
 :   Base class for all neural network modules.
@@ -386,6 +417,68 @@ Classes
             instead of this since the former takes care of running the
             registered hooks while the latter silently ignores them.
 
+`ImageFolder(root: Union[str, pathlib.Path], transform: Optional[Callable] = None, target_transform: Optional[Callable] = None, loader: Callable[[str], Any] = <function default_loader>, is_valid_file: Optional[Callable[[str], bool]] = None, allow_empty: bool = False)`
+:   A generic data loader where the images are arranged in this way by default: ::
+    
+        root/dog/xxx.png
+        root/dog/xxy.png
+        root/dog/[...]/xxz.png
+    
+        root/cat/123.png
+        root/cat/nsdf3.png
+        root/cat/[...]/asd932_.png
+    
+    This class inherits from :class:`~torchvision.datasets.DatasetFolder` so
+    the same methods can be overridden to customize the dataset.
+    
+    Args:
+        root (str or ``pathlib.Path``): Root directory path.
+        transform (callable, optional): A function/transform that takes in a PIL image
+            and returns a transformed version. E.g, ``transforms.RandomCrop``
+        target_transform (callable, optional): A function/transform that takes in the
+            target and transforms it.
+        loader (callable, optional): A function to load an image given its path.
+        is_valid_file (callable, optional): A function that takes path of an Image file
+            and check if the file is a valid file (used to check of corrupt files)
+        allow_empty(bool, optional): If True, empty folders are considered to be valid classes.
+            An error is raised on empty folders if False (default).
+    
+     Attributes:
+        classes (list): List of the class names sorted alphabetically.
+        class_to_idx (dict): Dict with items (class_name, class_index).
+        imgs (list): List of (image path, class_index) tuples
+
+    ### Ancestors (in MRO)
+
+    * torchvision.datasets.folder.ImageFolder
+    * torchvision.datasets.folder.DatasetFolder
+    * torchvision.datasets.vision.VisionDataset
+    * torch.utils.data.dataset.Dataset
+    * typing.Generic
+
+`Imagenet(cfg: saev.config.ImagenetDataset, *, img_transform=None)`
+:   An abstract class representing a :class:`Dataset`.
+    
+    All datasets that represent a map from keys to data samples should subclass
+    it. All subclasses should overwrite :meth:`__getitem__`, supporting fetching a
+    data sample for a given key. Subclasses could also optionally overwrite
+    :meth:`__len__`, which is expected to return the size of the dataset by many
+    :class:`~torch.utils.data.Sampler` implementations and the default options
+    of :class:`~torch.utils.data.DataLoader`. Subclasses could also
+    optionally implement :meth:`__getitems__`, for speedup batched samples
+    loading. This method accepts list of indices of samples of batch and returns
+    list of samples.
+    
+    .. note::
+      :class:`~torch.utils.data.DataLoader` by default constructs an index
+      sampler that yields integral indices.  To make it work with a map-style
+      dataset with non-integral indices/keys, a custom sampler must be provided.
+
+    ### Ancestors (in MRO)
+
+    * torch.utils.data.dataset.Dataset
+    * typing.Generic
+
 `Metadata(model_family: str, model_ckpt: str, layers: tuple[int, ...], n_patches_per_img: int, cls_token: bool, d_vit: int, seed: int, n_imgs: int, n_patches_per_shard: int, data: str)`
 :   Metadata(model_family: str, model_ckpt: str, layers: tuple[int, ...], n_patches_per_img: int, cls_token: bool, d_vit: int, seed: int, n_imgs: int, n_patches_per_shard: int, data: str)
 
@@ -520,107 +613,6 @@ Classes
             this function, one should call the :class:`Module` instance afterwards
             instead of this since the former takes care of running the
             registered hooks while the latter silently ignores them.
-
-`TransformedAde20k(cfg: saev.config.Ade20kDataset, *, transform=None, seg_transform=None)`
-:   An abstract class representing a :class:`Dataset`.
-    
-    All datasets that represent a map from keys to data samples should subclass
-    it. All subclasses should overwrite :meth:`__getitem__`, supporting fetching a
-    data sample for a given key. Subclasses could also optionally overwrite
-    :meth:`__len__`, which is expected to return the size of the dataset by many
-    :class:`~torch.utils.data.Sampler` implementations and the default options
-    of :class:`~torch.utils.data.DataLoader`. Subclasses could also
-    optionally implement :meth:`__getitems__`, for speedup batched samples
-    loading. This method accepts list of indices of samples of batch and returns
-    list of samples.
-    
-    .. note::
-      :class:`~torch.utils.data.DataLoader` by default constructs an index
-      sampler that yields integral indices.  To make it work with a map-style
-      dataset with non-integral indices/keys, a custom sampler must be provided.
-
-    ### Ancestors (in MRO)
-
-    * torch.utils.data.dataset.Dataset
-    * typing.Generic
-
-    ### Class variables
-
-    `Sample`
-    :   dict() -> new empty dictionary
-        dict(mapping) -> new dictionary initialized from a mapping object's
-            (key, value) pairs
-        dict(iterable) -> new dictionary initialized as if via:
-            d = {}
-            for k, v in iterable:
-                d[k] = v
-        dict(**kwargs) -> new dictionary initialized with the name=value pairs
-            in the keyword argument list.  For example:  dict(one=1, two=2)
-
-    `samples: list[saev.activations.TransformedAde20k.Sample]`
-    :
-
-`TransformedImageFolder(root: Union[str, pathlib.Path], transform: Optional[Callable] = None, target_transform: Optional[Callable] = None, loader: Callable[[str], Any] = <function default_loader>, is_valid_file: Optional[Callable[[str], bool]] = None, allow_empty: bool = False)`
-:   A generic data loader where the images are arranged in this way by default: ::
-    
-        root/dog/xxx.png
-        root/dog/xxy.png
-        root/dog/[...]/xxz.png
-    
-        root/cat/123.png
-        root/cat/nsdf3.png
-        root/cat/[...]/asd932_.png
-    
-    This class inherits from :class:`~torchvision.datasets.DatasetFolder` so
-    the same methods can be overridden to customize the dataset.
-    
-    Args:
-        root (str or ``pathlib.Path``): Root directory path.
-        transform (callable, optional): A function/transform that takes in a PIL image
-            and returns a transformed version. E.g, ``transforms.RandomCrop``
-        target_transform (callable, optional): A function/transform that takes in the
-            target and transforms it.
-        loader (callable, optional): A function to load an image given its path.
-        is_valid_file (callable, optional): A function that takes path of an Image file
-            and check if the file is a valid file (used to check of corrupt files)
-        allow_empty(bool, optional): If True, empty folders are considered to be valid classes.
-            An error is raised on empty folders if False (default).
-    
-     Attributes:
-        classes (list): List of the class names sorted alphabetically.
-        class_to_idx (dict): Dict with items (class_name, class_index).
-        imgs (list): List of (image path, class_index) tuples
-
-    ### Ancestors (in MRO)
-
-    * torchvision.datasets.folder.ImageFolder
-    * torchvision.datasets.folder.DatasetFolder
-    * torchvision.datasets.vision.VisionDataset
-    * torch.utils.data.dataset.Dataset
-    * typing.Generic
-
-`TransformedImagenet(cfg: saev.config.ImagenetDataset, *, transform=None)`
-:   An abstract class representing a :class:`Dataset`.
-    
-    All datasets that represent a map from keys to data samples should subclass
-    it. All subclasses should overwrite :meth:`__getitem__`, supporting fetching a
-    data sample for a given key. Subclasses could also optionally overwrite
-    :meth:`__len__`, which is expected to return the size of the dataset by many
-    :class:`~torch.utils.data.Sampler` implementations and the default options
-    of :class:`~torch.utils.data.DataLoader`. Subclasses could also
-    optionally implement :meth:`__getitems__`, for speedup batched samples
-    loading. This method accepts list of indices of samples of batch and returns
-    list of samples.
-    
-    .. note::
-      :class:`~torch.utils.data.DataLoader` by default constructs an index
-      sampler that yields integral indices.  To make it work with a map-style
-      dataset with non-integral indices/keys, a custom sampler must be provided.
-
-    ### Ancestors (in MRO)
-
-    * torch.utils.data.dataset.Dataset
-    * typing.Generic
 
 `VitRecorder(cfg: saev.config.Activations, patches: slice = slice(None, None, None))`
 :   Base class for all neural network modules.
@@ -762,13 +754,16 @@ Classes
     `vit_batch_size: int`
     :   Batch size for ViT inference.
 
-`Ade20kDataset(root: str = './data/split')`
+`Ade20kDataset(root: str = './data/split', split: Literal['training', 'validation'] = 'training')`
 :   
 
     ### Class variables
 
     `root: str`
     :   Where the class folders with images are stored.
+
+    `split: Literal['training', 'validation']`
+    :   Data split.
 
     ### Instance variables
 
@@ -1396,3 +1391,73 @@ Module saev.web.probing
 
 Module saev.webapp
 ==================
+
+Namespace contrib
+=================
+
+Sub-modules
+-----------
+* contrib.semseg
+
+Namespace contrib.semseg
+========================
+
+Sub-modules
+-----------
+* contrib.semseg.config
+* contrib.semseg.dashboard
+* contrib.semseg.dashboard2
+* contrib.semseg.training
+
+Module contrib.semseg.config
+============================
+
+Classes
+-------
+
+`Train(ckpt_path: str = './checkpoints/faithfulness', learning_rate: float = 0.0001, weight_decay: float = 0.001, n_epochs: int = 10, batch_size: int = 32, n_workers: int = 8, train_acts: saev.config.DataLoad = <factory>, val_acts: saev.config.DataLoad = <factory>, train_imgs: saev.config.Ade20kDataset = <factory>, val_imgs: saev.config.Ade20kDataset = <factory>, log_every: int = 10)`
+:   Train(ckpt_path: str = './checkpoints/faithfulness', learning_rate: float = 0.0001, weight_decay: float = 0.001, n_epochs: int = 10, batch_size: int = 32, n_workers: int = 8, train_acts: saev.config.DataLoad = <factory>, val_acts: saev.config.DataLoad = <factory>, train_imgs: saev.config.Ade20kDataset = <factory>, val_imgs: saev.config.Ade20kDataset = <factory>, log_every: int = 10)
+
+    ### Class variables
+
+    `batch_size: int`
+    :   Training batch size for linear layer.
+
+    `ckpt_path: str`
+    :
+
+    `learning_rate: float`
+    :   Linear layer learning rate.
+
+    `log_every: int`
+    :   How often to log during training.
+
+    `n_epochs: int`
+    :   Number of training epochs for linear layer.
+
+    `n_workers: int`
+    :   Number of dataloader workers.
+
+    `train_acts: saev.config.DataLoad`
+    :   Configuration for the saved ADE20K training ViT activations.
+
+    `train_imgs: saev.config.Ade20kDataset`
+    :   Configuration for the training ADE20K dataset.
+
+    `val_acts: saev.config.DataLoad`
+    :   Configuration for the saved ADE20K validation ViT activations.
+
+    `val_imgs: saev.config.Ade20kDataset`
+    :   Configuration for the validation ADE20K dataset.
+
+    `weight_decay: float`
+    :   Weight decay  for AdamW.
+
+Module contrib.semseg.dashboard
+===============================
+
+Module contrib.semseg.dashboard2
+================================
+
+Module contrib.semseg.training
+==============================

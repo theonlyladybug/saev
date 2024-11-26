@@ -14,17 +14,17 @@ def __():
 
     import random
 
-    import marimo as mo
     import beartype
-
+    import contrib.semantic_seg.training
+    import marimo as mo
     import numpy as np
     import torch
-    from torchvision.transforms import v2
+    from jaxtyping import Int, UInt8, jaxtyped
     from PIL import Image
-    from jaxtyping import jaxtyped, UInt8, Int
+    from torchvision.transforms import v2
 
-    import contrib.semantic_seg.training
     import saev.config
+
     return (
         Image,
         Int,
@@ -45,7 +45,9 @@ def __():
 
 @app.cell
 def __(contrib):
-    ckpt_fpath = "/home/stevens.994/projects/saev-live/checkpoints/faithfulness/model.pt"
+    ckpt_fpath = (
+        "/home/stevens.994/projects/saev-live/checkpoints/faithfulness/model.pt"
+    )
     model = contrib.semantic_seg.training.load(ckpt_fpath)
     model.eval()
     return ckpt_fpath, model
@@ -68,15 +70,12 @@ def __(contrib, saev):
 @app.cell
 def __(v2):
     def make_img_transform():
-        return v2.Compose(
-            [
-                v2.Resize(size=224, interpolation=v2.InterpolationMode.NEAREST),
-                v2.CenterCrop(size=(224, 224)),
-                # v2.ToImage(),
-                # v2.ToDtype(torch.uint8),
-            ]
-        )
-
+        return v2.Compose([
+            v2.Resize(size=224, interpolation=v2.InterpolationMode.NEAREST),
+            v2.CenterCrop(size=(224, 224)),
+            # v2.ToImage(),
+            # v2.ToDtype(torch.uint8),
+        ])
 
     img_transform = make_img_transform()
     return img_transform, make_img_transform
@@ -97,7 +96,6 @@ def __(Image, UInt8, beartype, jaxtyped, np, random):
         colors = np.array(colors, dtype=np.uint8)
         return colors
 
-
     @jaxtyped(typechecker=beartype.beartype)
     def color_map(map: UInt8[np.ndarray, "width height"]) -> Image.Image:
         colored = np.zeros((224, 224, 3), dtype=np.uint8)
@@ -105,6 +103,7 @@ def __(Image, UInt8, beartype, jaxtyped, np, random):
             colored[map == i, :] = color
 
         return Image.fromarray(colored)
+
     return color_map, make_colors
 
 
@@ -177,11 +176,17 @@ def __(Int, Tensor, beartype, jaxtyped, torch, y_pred, y_true):
 
         if ignore_class is not None:
             pred_one_hot = torch.cat(
-                (pred_one_hot[..., :ignore_class], pred_one_hot[..., ignore_class + 1 :]),
+                (
+                    pred_one_hot[..., :ignore_class],
+                    pred_one_hot[..., ignore_class + 1 :],
+                ),
                 axis=-1,
             )
             true_one_hot = torch.cat(
-                (true_one_hot[..., :ignore_class], true_one_hot[..., ignore_class + 1 :]),
+                (
+                    true_one_hot[..., :ignore_class],
+                    true_one_hot[..., ignore_class + 1 :],
+                ),
                 axis=-1,
             )
 
@@ -192,7 +197,6 @@ def __(Int, Tensor, beartype, jaxtyped, torch, y_pred, y_true):
 
         # Handle division by zero
         return ((intersection + eps) / (union + eps)).mean().item()
-
 
     mean_iou(y_pred, y_true, 151)
     return (mean_iou,)
@@ -281,7 +285,6 @@ def __(Dict, Int, Optional, beartype, jaxtyped, np, pred_label):
 
         return area_intersect, area_union, area_pred_label, area_label
 
-
     @jaxtyped(typechecker=beartype.beartype)
     def total_intersect_and_union(
         results,
@@ -321,8 +324,15 @@ def __(Dict, Int, Optional, beartype, jaxtyped, np, pred_label):
         total_area_pred_label = np.zeros((num_labels,), dtype=np.float64)
         total_area_label = np.zeros((num_labels,), dtype=np.float64)
         for result, gt_seg_map in zip(results, gt_seg_maps):
-            area_intersect, area_union, area_pred_label, area_label = intersect_and_union(
-                result, gt_seg_map, num_labels, ignore_index, label_map, reduce_labels
+            area_intersect, area_union, area_pred_label, area_label = (
+                intersect_and_union(
+                    result,
+                    gt_seg_map,
+                    num_labels,
+                    ignore_index,
+                    label_map,
+                    reduce_labels,
+                )
             )
             total_area_intersect += area_intersect
             total_area_union += area_union
@@ -334,7 +344,6 @@ def __(Dict, Int, Optional, beartype, jaxtyped, np, pred_label):
             total_area_pred_label,
             total_area_label,
         )
-
 
     @jaxtyped(typechecker=beartype.beartype)
     def mean_iou(
@@ -376,10 +385,13 @@ def __(Dict, Int, Optional, beartype, jaxtyped, np, pred_label):
             - *per_category_iou* (`ndarray` of shape `(num_labels,)`):
                 Per category IoU.
         """
-        total_area_intersect, total_area_union, total_area_pred_label, total_area_label = (
-            total_intersect_and_union(
-                results, gt_seg_maps, num_labels, ignore_index, label_map, reduce_labels
-            )
+        (
+            total_area_intersect,
+            total_area_union,
+            total_area_pred_label,
+            total_area_label,
+        ) = total_intersect_and_union(
+            results, gt_seg_maps, num_labels, ignore_index, label_map, reduce_labels
         )
 
         # compute metrics
@@ -396,20 +408,20 @@ def __(Dict, Int, Optional, beartype, jaxtyped, np, pred_label):
         metrics["per_category_accuracy"] = acc
 
         if nan_to_num is not None:
-            metrics = dict(
-                {
-                    metric: np.nan_to_num(metric_value, nan=nan_to_num)
-                    for metric, metric_value in metrics.items()
-                }
-            )
+            metrics = dict({
+                metric: np.nan_to_num(metric_value, nan=nan_to_num)
+                for metric, metric_value in metrics.items()
+            })
 
         return metrics
+
     return intersect_and_union, mean_iou, total_intersect_and_union
 
 
 @app.cell
 def __():
     import tensordict
+
     return (tensordict,)
 
 
