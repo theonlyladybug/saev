@@ -88,7 +88,7 @@ def __(cls_lookup, cls_select, mo):
 def __(saev):
     act_dataset = saev.activations.Dataset(
         saev.config.DataLoad(
-            shard_root="/local/scratch/stevens.994/cache/saev/e20bbda1b6b011896dc6f49a698597a7ec000390d73cd7197b0fb243a1e13273/",
+            shard_root="/local/scratch/stevens.994/cache/saev/a860104bf29d6093dd18b8e2dccd2e7efdfcd9fac35dceb932795af05187cb9f/",
             patches="patches",
             layer=-2,
             scale_norm=False,
@@ -96,10 +96,11 @@ def __(saev):
         )
     )
 
-    img_dataset = saev.activations.TransformedAde20k(
+    img_dataset = saev.activations.Ade20k(
         saev.config.Ade20kDataset(
-            root="/research/nfs_su_809/workspace/stevens.994/datasets/ade20k"
+            root="/research/nfs_su_809/workspace/stevens.994/datasets/ade20k",
         ),
+        seg_transform=lambda x: x,
     )
     return act_dataset, img_dataset
 

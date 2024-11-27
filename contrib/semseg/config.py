@@ -28,13 +28,11 @@ class Train:
         default_factory=saev.config.DataLoad
     )
     """Configuration for the saved ADE20K validation ViT activations."""
-    train_imgs: saev.config.Ade20kDataset = dataclasses.field(
-        default_factory=lambda: saev.config.Ade20kDataset(split="training")
+    imgs: saev.config.Ade20kDataset = dataclasses.field(
+        default_factory=saev.config.Ade20kDataset
     )
-    """Configuration for the training ADE20K dataset."""
-    val_imgs: saev.config.Ade20kDataset = dataclasses.field(
-        default_factory=lambda: saev.config.Ade20kDataset(split="validation")
-    )
-    """Configuration for the validation ADE20K dataset."""
-    log_every: int = 10
-    """How often to log during training."""
+    """Configuration for the ADE20K dataset."""
+    eval_every: int = 10
+    """How many epochs between evaluations."""
+    device: str = "cuda"
+    "Hardware to train on." ""

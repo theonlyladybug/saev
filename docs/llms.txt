@@ -1415,8 +1415,8 @@ Module contrib.semseg.config
 Classes
 -------
 
-`Train(ckpt_path: str = './checkpoints/faithfulness', learning_rate: float = 0.0001, weight_decay: float = 0.001, n_epochs: int = 10, batch_size: int = 32, n_workers: int = 8, train_acts: saev.config.DataLoad = <factory>, val_acts: saev.config.DataLoad = <factory>, train_imgs: saev.config.Ade20kDataset = <factory>, val_imgs: saev.config.Ade20kDataset = <factory>, log_every: int = 10)`
-:   Train(ckpt_path: str = './checkpoints/faithfulness', learning_rate: float = 0.0001, weight_decay: float = 0.001, n_epochs: int = 10, batch_size: int = 32, n_workers: int = 8, train_acts: saev.config.DataLoad = <factory>, val_acts: saev.config.DataLoad = <factory>, train_imgs: saev.config.Ade20kDataset = <factory>, val_imgs: saev.config.Ade20kDataset = <factory>, log_every: int = 10)
+`Train(ckpt_path: str = './checkpoints/faithfulness', learning_rate: float = 0.0001, weight_decay: float = 0.001, n_epochs: int = 100, batch_size: int = 1024, n_workers: int = 32, train_acts: saev.config.DataLoad = <factory>, val_acts: saev.config.DataLoad = <factory>, imgs: saev.config.Ade20kDataset = <factory>, eval_every: int = 10, device: str = 'cuda')`
+:   Train(ckpt_path: str = './checkpoints/faithfulness', learning_rate: float = 0.0001, weight_decay: float = 0.001, n_epochs: int = 100, batch_size: int = 1024, n_workers: int = 32, train_acts: saev.config.DataLoad = <factory>, val_acts: saev.config.DataLoad = <factory>, imgs: saev.config.Ade20kDataset = <factory>, eval_every: int = 10, device: str = 'cuda')
 
     ### Class variables
 
@@ -1426,11 +1426,17 @@ Classes
     `ckpt_path: str`
     :
 
+    `device: str`
+    :   Hardware to train on.
+
+    `eval_every: int`
+    :   How many epochs between evaluations.
+
+    `imgs: saev.config.Ade20kDataset`
+    :   Configuration for the ADE20K dataset.
+
     `learning_rate: float`
     :   Linear layer learning rate.
-
-    `log_every: int`
-    :   How often to log during training.
 
     `n_epochs: int`
     :   Number of training epochs for linear layer.
@@ -1441,14 +1447,8 @@ Classes
     `train_acts: saev.config.DataLoad`
     :   Configuration for the saved ADE20K training ViT activations.
 
-    `train_imgs: saev.config.Ade20kDataset`
-    :   Configuration for the training ADE20K dataset.
-
     `val_acts: saev.config.DataLoad`
     :   Configuration for the saved ADE20K validation ViT activations.
-
-    `val_imgs: saev.config.Ade20kDataset`
-    :   Configuration for the validation ADE20K dataset.
 
     `weight_decay: float`
     :   Weight decay  for AdamW.
@@ -1461,3 +1461,54 @@ Module contrib.semseg.dashboard2
 
 Module contrib.semseg.training
 ==============================
+
+Functions
+---------
+
+`get_dataloader(cfg: contrib.semseg.config.Train, *, is_train: bool)`
+:   
+
+`get_mean_iou(y_pred: jaxtyping.Int[Tensor, 'batch width height'], y_true: jaxtyping.Int[Tensor, 'batch width height'], n_classes: int, ignore_class: int | None = 0) ‑> float`
+:   Calculate mean IoU for predicted masks.
+    
+    Arguments:
+        y_pred:
+        y_true:
+        n_classes: Number of classes.
+    
+    Returns:
+        Mean IoU as a float.
+
+`main(cfg: contrib.semseg.config.Train)`
+:   
+
+Classes
+-------
+
+`Dataset(acts_cfg: saev.config.DataLoad, imgs_cfg: saev.config.Ade20kDataset)`
+:   An abstract class representing a :class:`Dataset`.
+    
+    All datasets that represent a map from keys to data samples should subclass
+    it. All subclasses should overwrite :meth:`__getitem__`, supporting fetching a
+    data sample for a given key. Subclasses could also optionally overwrite
+    :meth:`__len__`, which is expected to return the size of the dataset by many
+    :class:`~torch.utils.data.Sampler` implementations and the default options
+    of :class:`~torch.utils.data.DataLoader`. Subclasses could also
+    optionally implement :meth:`__getitems__`, for speedup batched samples
+    loading. This method accepts list of indices of samples of batch and returns
+    list of samples.
+    
+    .. note::
+      :class:`~torch.utils.data.DataLoader` by default constructs an index
+      sampler that yields integral indices.  To make it work with a map-style
+      dataset with non-integral indices/keys, a custom sampler must be provided.
+
+    ### Ancestors (in MRO)
+
+    * torch.utils.data.dataset.Dataset
+    * typing.Generic
+
+    ### Instance variables
+
+    `d_vit: int`
+    :

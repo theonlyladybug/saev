@@ -39,10 +39,10 @@ hljs.highlightAll();
 <dl>
 <dt id="contrib.semseg.config.Train"><code class="flex name class">
 <span>class <span class="ident">Train</span></span>
-<span>(</span><span>ckpt_path: str = './checkpoints/faithfulness', learning_rate: float = 0.0001, weight_decay: float = 0.001, n_epochs: int = 10, batch_size: int = 32, n_workers: int = 8, train_acts: <a title="saev.config.DataLoad" href="../../saev/config.html#saev.config.DataLoad">DataLoad</a> = &lt;factory&gt;, val_acts: <a title="saev.config.DataLoad" href="../../saev/config.html#saev.config.DataLoad">DataLoad</a> = &lt;factory&gt;, train_imgs: <a title="saev.config.Ade20kDataset" href="../../saev/config.html#saev.config.Ade20kDataset">Ade20kDataset</a> = &lt;factory&gt;, val_imgs: <a title="saev.config.Ade20kDataset" href="../../saev/config.html#saev.config.Ade20kDataset">Ade20kDataset</a> = &lt;factory&gt;, log_every: int = 10)</span>
+<span>(</span><span>ckpt_path: str = './checkpoints/faithfulness', learning_rate: float = 0.0001, weight_decay: float = 0.001, n_epochs: int = 100, batch_size: int = 1024, n_workers: int = 32, train_acts: <a title="saev.config.DataLoad" href="../../saev/config.html#saev.config.DataLoad">DataLoad</a> = &lt;factory&gt;, val_acts: <a title="saev.config.DataLoad" href="../../saev/config.html#saev.config.DataLoad">DataLoad</a> = &lt;factory&gt;, imgs: <a title="saev.config.Ade20kDataset" href="../../saev/config.html#saev.config.Ade20kDataset">Ade20kDataset</a> = &lt;factory&gt;, eval_every: int = 10, device: str = 'cuda')</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Train(ckpt_path: str = './checkpoints/faithfulness', learning_rate: float = 0.0001, weight_decay: float = 0.001, n_epochs: int = 10, batch_size: int = 32, n_workers: int = 8, train_acts: saev.config.DataLoad = <factory>, val_acts: saev.config.DataLoad = <factory>, train_imgs: saev.config.Ade20kDataset = <factory>, val_imgs: saev.config.Ade20kDataset = <factory>, log_every: int = 10)</p></div>
+<div class="desc"><p>Train(ckpt_path: str = './checkpoints/faithfulness', learning_rate: float = 0.0001, weight_decay: float = 0.001, n_epochs: int = 100, batch_size: int = 1024, n_workers: int = 32, train_acts: saev.config.DataLoad = <factory>, val_acts: saev.config.DataLoad = <factory>, imgs: saev.config.Ade20kDataset = <factory>, eval_every: int = 10, device: str = 'cuda')</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -55,11 +55,11 @@ class Train:
     &#34;&#34;&#34;Linear layer learning rate.&#34;&#34;&#34;
     weight_decay: float = 1e-3
     &#34;&#34;&#34;Weight decay  for AdamW.&#34;&#34;&#34;
-    n_epochs: int = 10
+    n_epochs: int = 100
     &#34;&#34;&#34;Number of training epochs for linear layer.&#34;&#34;&#34;
-    batch_size: int = 32
+    batch_size: int = 1024
     &#34;&#34;&#34;Training batch size for linear layer.&#34;&#34;&#34;
-    n_workers: int = 8
+    n_workers: int = 32
     &#34;&#34;&#34;Number of dataloader workers.&#34;&#34;&#34;
     train_acts: saev.config.DataLoad = dataclasses.field(
         default_factory=saev.config.DataLoad
@@ -69,16 +69,14 @@ class Train:
         default_factory=saev.config.DataLoad
     )
     &#34;&#34;&#34;Configuration for the saved ADE20K validation ViT activations.&#34;&#34;&#34;
-    train_imgs: saev.config.Ade20kDataset = dataclasses.field(
-        default_factory=lambda: saev.config.Ade20kDataset(split=&#34;training&#34;)
+    imgs: saev.config.Ade20kDataset = dataclasses.field(
+        default_factory=saev.config.Ade20kDataset
     )
-    &#34;&#34;&#34;Configuration for the training ADE20K dataset.&#34;&#34;&#34;
-    val_imgs: saev.config.Ade20kDataset = dataclasses.field(
-        default_factory=lambda: saev.config.Ade20kDataset(split=&#34;validation&#34;)
-    )
-    &#34;&#34;&#34;Configuration for the validation ADE20K dataset.&#34;&#34;&#34;
-    log_every: int = 10
-    &#34;&#34;&#34;How often to log during training.&#34;&#34;&#34;</code></pre>
+    &#34;&#34;&#34;Configuration for the ADE20K dataset.&#34;&#34;&#34;
+    eval_every: int = 10
+    &#34;&#34;&#34;How many epochs between evaluations.&#34;&#34;&#34;
+    device: str = &#34;cuda&#34;
+    &#34;Hardware to train on.&#34; &#34;&#34;</code></pre>
 </details>
 <h3>Class variables</h3>
 <dl>
@@ -90,13 +88,21 @@ class Train:
 <dd>
 <div class="desc"></div>
 </dd>
+<dt id="contrib.semseg.config.Train.device"><code class="name">var <span class="ident">device</span> : str</code></dt>
+<dd>
+<div class="desc"><p>Hardware to train on.</p></div>
+</dd>
+<dt id="contrib.semseg.config.Train.eval_every"><code class="name">var <span class="ident">eval_every</span> : int</code></dt>
+<dd>
+<div class="desc"><p>How many epochs between evaluations.</p></div>
+</dd>
+<dt id="contrib.semseg.config.Train.imgs"><code class="name">var <span class="ident">imgs</span> : <a title="saev.config.Ade20kDataset" href="../../saev/config.html#saev.config.Ade20kDataset">Ade20kDataset</a></code></dt>
+<dd>
+<div class="desc"><p>Configuration for the ADE20K dataset.</p></div>
+</dd>
 <dt id="contrib.semseg.config.Train.learning_rate"><code class="name">var <span class="ident">learning_rate</span> : float</code></dt>
 <dd>
 <div class="desc"><p>Linear layer learning rate.</p></div>
-</dd>
-<dt id="contrib.semseg.config.Train.log_every"><code class="name">var <span class="ident">log_every</span> : int</code></dt>
-<dd>
-<div class="desc"><p>How often to log during training.</p></div>
 </dd>
 <dt id="contrib.semseg.config.Train.n_epochs"><code class="name">var <span class="ident">n_epochs</span> : int</code></dt>
 <dd>
@@ -110,17 +116,9 @@ class Train:
 <dd>
 <div class="desc"><p>Configuration for the saved ADE20K training ViT activations.</p></div>
 </dd>
-<dt id="contrib.semseg.config.Train.train_imgs"><code class="name">var <span class="ident">train_imgs</span> : <a title="saev.config.Ade20kDataset" href="../../saev/config.html#saev.config.Ade20kDataset">Ade20kDataset</a></code></dt>
-<dd>
-<div class="desc"><p>Configuration for the training ADE20K dataset.</p></div>
-</dd>
 <dt id="contrib.semseg.config.Train.val_acts"><code class="name">var <span class="ident">val_acts</span> : <a title="saev.config.DataLoad" href="../../saev/config.html#saev.config.DataLoad">DataLoad</a></code></dt>
 <dd>
 <div class="desc"><p>Configuration for the saved ADE20K validation ViT activations.</p></div>
-</dd>
-<dt id="contrib.semseg.config.Train.val_imgs"><code class="name">var <span class="ident">val_imgs</span> : <a title="saev.config.Ade20kDataset" href="../../saev/config.html#saev.config.Ade20kDataset">Ade20kDataset</a></code></dt>
-<dd>
-<div class="desc"><p>Configuration for the validation ADE20K dataset.</p></div>
 </dd>
 <dt id="contrib.semseg.config.Train.weight_decay"><code class="name">var <span class="ident">weight_decay</span> : float</code></dt>
 <dd>
@@ -149,14 +147,14 @@ for AdamW.</p></div>
 <ul class="two-column">
 <li><code><a title="contrib.semseg.config.Train.batch_size" href="#contrib.semseg.config.Train.batch_size">batch_size</a></code></li>
 <li><code><a title="contrib.semseg.config.Train.ckpt_path" href="#contrib.semseg.config.Train.ckpt_path">ckpt_path</a></code></li>
+<li><code><a title="contrib.semseg.config.Train.device" href="#contrib.semseg.config.Train.device">device</a></code></li>
+<li><code><a title="contrib.semseg.config.Train.eval_every" href="#contrib.semseg.config.Train.eval_every">eval_every</a></code></li>
+<li><code><a title="contrib.semseg.config.Train.imgs" href="#contrib.semseg.config.Train.imgs">imgs</a></code></li>
 <li><code><a title="contrib.semseg.config.Train.learning_rate" href="#contrib.semseg.config.Train.learning_rate">learning_rate</a></code></li>
-<li><code><a title="contrib.semseg.config.Train.log_every" href="#contrib.semseg.config.Train.log_every">log_every</a></code></li>
 <li><code><a title="contrib.semseg.config.Train.n_epochs" href="#contrib.semseg.config.Train.n_epochs">n_epochs</a></code></li>
 <li><code><a title="contrib.semseg.config.Train.n_workers" href="#contrib.semseg.config.Train.n_workers">n_workers</a></code></li>
 <li><code><a title="contrib.semseg.config.Train.train_acts" href="#contrib.semseg.config.Train.train_acts">train_acts</a></code></li>
-<li><code><a title="contrib.semseg.config.Train.train_imgs" href="#contrib.semseg.config.Train.train_imgs">train_imgs</a></code></li>
 <li><code><a title="contrib.semseg.config.Train.val_acts" href="#contrib.semseg.config.Train.val_acts">val_acts</a></code></li>
-<li><code><a title="contrib.semseg.config.Train.val_imgs" href="#contrib.semseg.config.Train.val_imgs">val_imgs</a></code></li>
 <li><code><a title="contrib.semseg.config.Train.weight_decay" href="#contrib.semseg.config.Train.weight_decay">weight_decay</a></code></li>
 </ul>
 </li>

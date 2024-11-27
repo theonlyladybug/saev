@@ -1,6 +1,7 @@
 docs: lint
-    uv run pdoc3 --force --html --output-dir docs --config latex_math=True saev
-    uv run python scripts/docs.py --pkg-names saev --fpath docs/llms.txt
+    rm -rf docs/saev docs/contrib
+    uv run pdoc3 --force --html --output-dir docs --config latex_math=True saev contrib
+    uv run python scripts/docs.py --pkg-names saev contrib --fpath docs/llms.txt
 
 test: lint
     uv run pytest --cov saev probing -n auto saev
