@@ -33,16 +33,25 @@ hljs.highlightAll();
 <section>
 </section>
 <section>
+<h2 class="section-title" id="header-functions">Functions</h2>
+<dl>
+<dt id="contrib.semseg.config.grid"><code class="name flex">
+<span>def <span class="ident">grid</span></span>(<span>cfg: <a title="contrib.semseg.config.Train" href="#contrib.semseg.config.Train">Train</a>, sweep_dct: dict[str, object]) ‑> tuple[list[<a title="contrib.semseg.config.Train" href="#contrib.semseg.config.Train">Train</a>], list[str]]</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
 </section>
 <section>
 <h2 class="section-title" id="header-classes">Classes</h2>
 <dl>
 <dt id="contrib.semseg.config.Train"><code class="flex name class">
 <span>class <span class="ident">Train</span></span>
-<span>(</span><span>ckpt_path: str = './checkpoints/faithfulness', learning_rate: float = 0.0001, weight_decay: float = 0.001, n_epochs: int = 100, batch_size: int = 1024, n_workers: int = 32, train_acts: <a title="saev.config.DataLoad" href="../../saev/config.html#saev.config.DataLoad">DataLoad</a> = &lt;factory&gt;, val_acts: <a title="saev.config.DataLoad" href="../../saev/config.html#saev.config.DataLoad">DataLoad</a> = &lt;factory&gt;, imgs: <a title="saev.config.Ade20kDataset" href="../../saev/config.html#saev.config.Ade20kDataset">Ade20kDataset</a> = &lt;factory&gt;, eval_every: int = 10, device: str = 'cuda')</span>
+<span>(</span><span>learning_rate: float = 0.0001, weight_decay: float = 0.001, n_epochs: int = 100, batch_size: int = 1024, n_workers: int = 32, train_acts: <a title="saev.config.DataLoad" href="../../saev/config.html#saev.config.DataLoad">DataLoad</a> = &lt;factory&gt;, val_acts: <a title="saev.config.DataLoad" href="../../saev/config.html#saev.config.DataLoad">DataLoad</a> = &lt;factory&gt;, imgs: <a title="saev.config.Ade20kDataset" href="../../saev/config.html#saev.config.Ade20kDataset">Ade20kDataset</a> = &lt;factory&gt;, eval_every: int = 10, device: str = 'cuda', ckpt_path: str = './checkpoints/semseg', seed: int = 42, log_to: str = './logs')</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Train(ckpt_path: str = './checkpoints/faithfulness', learning_rate: float = 0.0001, weight_decay: float = 0.001, n_epochs: int = 100, batch_size: int = 1024, n_workers: int = 32, train_acts: saev.config.DataLoad = <factory>, val_acts: saev.config.DataLoad = <factory>, imgs: saev.config.Ade20kDataset = <factory>, eval_every: int = 10, device: str = 'cuda')</p></div>
+<div class="desc"><p>Train(learning_rate: float = 0.0001, weight_decay: float = 0.001, n_epochs: int = 100, batch_size: int = 1024, n_workers: int = 32, train_acts: saev.config.DataLoad = <factory>, val_acts: saev.config.DataLoad = <factory>, imgs: saev.config.Ade20kDataset = <factory>, eval_every: int = 10, device: str = 'cuda', ckpt_path: str = './checkpoints/semseg', seed: int = 42, log_to: str = './logs')</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -50,7 +59,6 @@ hljs.highlightAll();
 <pre><code class="python">@beartype.beartype
 @dataclasses.dataclass(frozen=True)
 class Train:
-    ckpt_path: str = os.path.join(&#34;.&#34;, &#34;checkpoints&#34;, &#34;faithfulness&#34;)
     learning_rate: float = 1e-4
     &#34;&#34;&#34;Linear layer learning rate.&#34;&#34;&#34;
     weight_decay: float = 1e-3
@@ -76,7 +84,11 @@ class Train:
     eval_every: int = 10
     &#34;&#34;&#34;How many epochs between evaluations.&#34;&#34;&#34;
     device: str = &#34;cuda&#34;
-    &#34;Hardware to train on.&#34; &#34;&#34;</code></pre>
+    &#34;Hardware to train on.&#34; &#34;&#34;
+    ckpt_path: str = os.path.join(&#34;.&#34;, &#34;checkpoints&#34;, &#34;semseg&#34;)
+    seed: int = 42
+    &#34;&#34;&#34;Random seed.&#34;&#34;&#34;
+    log_to: str = os.path.join(&#34;.&#34;, &#34;logs&#34;)</code></pre>
 </details>
 <h3>Class variables</h3>
 <dl>
@@ -104,6 +116,10 @@ class Train:
 <dd>
 <div class="desc"><p>Linear layer learning rate.</p></div>
 </dd>
+<dt id="contrib.semseg.config.Train.log_to"><code class="name">var <span class="ident">log_to</span> : str</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
 <dt id="contrib.semseg.config.Train.n_epochs"><code class="name">var <span class="ident">n_epochs</span> : int</code></dt>
 <dd>
 <div class="desc"><p>Number of training epochs for linear layer.</p></div>
@@ -111,6 +127,10 @@ class Train:
 <dt id="contrib.semseg.config.Train.n_workers"><code class="name">var <span class="ident">n_workers</span> : int</code></dt>
 <dd>
 <div class="desc"><p>Number of dataloader workers.</p></div>
+</dd>
+<dt id="contrib.semseg.config.Train.seed"><code class="name">var <span class="ident">seed</span> : int</code></dt>
+<dd>
+<div class="desc"><p>Random seed.</p></div>
 </dd>
 <dt id="contrib.semseg.config.Train.train_acts"><code class="name">var <span class="ident">train_acts</span> : <a title="saev.config.DataLoad" href="../../saev/config.html#saev.config.DataLoad">DataLoad</a></code></dt>
 <dd>
@@ -140,6 +160,11 @@ for AdamW.</p></div>
 <li><code><a title="contrib.semseg" href="index.html">contrib.semseg</a></code></li>
 </ul>
 </li>
+<li><h3><a href="#header-functions">Functions</a></h3>
+<ul class="">
+<li><code><a title="contrib.semseg.config.grid" href="#contrib.semseg.config.grid">grid</a></code></li>
+</ul>
+</li>
 <li><h3><a href="#header-classes">Classes</a></h3>
 <ul>
 <li>
@@ -151,8 +176,10 @@ for AdamW.</p></div>
 <li><code><a title="contrib.semseg.config.Train.eval_every" href="#contrib.semseg.config.Train.eval_every">eval_every</a></code></li>
 <li><code><a title="contrib.semseg.config.Train.imgs" href="#contrib.semseg.config.Train.imgs">imgs</a></code></li>
 <li><code><a title="contrib.semseg.config.Train.learning_rate" href="#contrib.semseg.config.Train.learning_rate">learning_rate</a></code></li>
+<li><code><a title="contrib.semseg.config.Train.log_to" href="#contrib.semseg.config.Train.log_to">log_to</a></code></li>
 <li><code><a title="contrib.semseg.config.Train.n_epochs" href="#contrib.semseg.config.Train.n_epochs">n_epochs</a></code></li>
 <li><code><a title="contrib.semseg.config.Train.n_workers" href="#contrib.semseg.config.Train.n_workers">n_workers</a></code></li>
+<li><code><a title="contrib.semseg.config.Train.seed" href="#contrib.semseg.config.Train.seed">seed</a></code></li>
 <li><code><a title="contrib.semseg.config.Train.train_acts" href="#contrib.semseg.config.Train.train_acts">train_acts</a></code></li>
 <li><code><a title="contrib.semseg.config.Train.val_acts" href="#contrib.semseg.config.Train.val_acts">val_acts</a></code></li>
 <li><code><a title="contrib.semseg.config.Train.weight_decay" href="#contrib.semseg.config.Train.weight_decay">weight_decay</a></code></li>

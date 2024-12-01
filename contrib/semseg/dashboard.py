@@ -364,7 +364,7 @@ def __(Image, beartype, feature_idxs, resize_and_crop, saev, torch):
         )
 
         in1k_dataset = saev.activations.get_dataset(
-            saev.config.ImagenetDataset(), transform=None
+            saev.config.ImagenetDataset(), img_transform=None
         )
 
         images = []

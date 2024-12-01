@@ -15,7 +15,7 @@ def __():
     import random
 
     import beartype
-    import contrib.semantic_seg.training
+    import einops
     import marimo as mo
     import numpy as np
     import torch
@@ -23,6 +23,7 @@ def __():
     from PIL import Image
     from torchvision.transforms import v2
 
+    import contrib.semseg.training
     import saev.config
 
     return (
@@ -31,6 +32,7 @@ def __():
         UInt8,
         beartype,
         contrib,
+        einops,
         jaxtyped,
         mo,
         np,
@@ -44,11 +46,12 @@ def __():
 
 
 @app.cell
-def __(contrib):
+def __(torch):
     ckpt_fpath = (
-        "/home/stevens.994/projects/saev-live/checkpoints/faithfulness/model.pt"
+        "/home/stevens.994/projects/saev-live/checkpoints/semseg/model_ep99_step2000.pt"
     )
-    model = contrib.semantic_seg.training.load(ckpt_fpath)
+    model = torch.nn.Linear(768, 151)
+    model.load_state_dict(torch.load(ckpt_fpath, weights_only=True, map_location="cpu"))
     model.eval()
     return ckpt_fpath, model
 
@@ -56,14 +59,14 @@ def __(contrib):
 @app.cell
 def __(contrib, saev):
     data_cfg = saev.config.DataLoad(
-        shard_root="/local/scratch/stevens.994/cache/saev/e20bbda1b6b011896dc6f49a698597a7ec000390d73cd7197b0fb243a1e13273/",
+        shard_root="/local/scratch/stevens.994/cache/saev/a860104bf29d6093dd18b8e2dccd2e7efdfcd9fac35dceb932795af05187cb9f",
         scale_mean=False,
         scale_norm=False,
     )
     imgs_cfg = saev.config.Ade20kDataset(
         root="/research/nfs_su_809/workspace/stevens.994/datasets/ade20k/"
     )
-    dataset = contrib.semantic_seg.training.Dataset(data_cfg, imgs_cfg)
+    dataset = contrib.semseg.training.Dataset(data_cfg, imgs_cfg)
     return data_cfg, dataset, imgs_cfg
 
 
@@ -108,20 +111,32 @@ def __(Image, UInt8, beartype, jaxtyped, np, random):
 
 
 @app.cell
-def __():
-    image_i = 10_540
+def __(mo):
+    number = mo.ui.number(start=0, stop=20_000, step=1)
+    return (number,)
+
+
+@app.cell
+def __(number):
+    number
+    return
+
+
+@app.cell
+def __(number):
+    image_i = number.value
     return (image_i,)
 
 
 @app.cell
-def __(dataset, image_i, img_transform):
-    img_transform(dataset.segs[image_i]["image"])
+def __():
+    # img_transform(dataset.imgs[image_i]["image"])
     return
 
 
 @app.cell
 def __(color_map, dataset, image_i):
-    color_map(dataset.segs[image_i]["segmentation"].numpy().reshape(224, 224))
+    color_map(dataset.imgs[image_i]["segmentation"].numpy().reshape(224, 224))
     return
 
 
@@ -130,7 +145,7 @@ def __(color_map, dataset, image_i, model, np, torch):
     example = dataset[image_i]
     pred = (
         torch.nn.functional.interpolate(
-            model(example["vit_acts"]).max(axis=-1)[1].view((1, 1, 14, 14)).float(),
+            model(example["acts"]).max(axis=-1)[1].view((1, 1, 14, 14)).float(),
             scale_factor=16,
         )
         .view((224, 224))
@@ -143,8 +158,28 @@ def __(color_map, dataset, image_i, model, np, torch):
 
 
 @app.cell
+def __(color_map, dataset, einops, image_i, model, torch):
+    def make_interpolated_pred(i):
+        example = dataset[i]
+        acts_WHD = example["acts"]
+        logits_WHC = model(acts_WHD)
+        logits_CWH = einops.rearrange(
+            logits_WHC, "width height classes -> classes width height"
+        )
+        upsampled_CWH = torch.nn.functional.interpolate(
+            logits_CWH.contiguous().unsqueeze(0), size=(224, 224), mode="bilinear"
+        )[0]
+        pred_WH = upsampled_CWH.argmax(axis=0).cpu().type(torch.uint8)
+        return pred_WH
+
+    make_interpolated_pred(image_i).numpy().shape
+    color_map(make_interpolated_pred(image_i).numpy())
+    return (make_interpolated_pred,)
+
+
+@app.cell
 def __(Image, dataset, image_i):
-    Image.fromarray(dataset.segs[image_i]["segmentation"].numpy().reshape(224, 224))
+    Image.fromarray(dataset.imgs[image_i]["segmentation"].numpy().reshape(224, 224))
     return
 
 

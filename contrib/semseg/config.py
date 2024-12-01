@@ -9,7 +9,6 @@ import saev.config
 @beartype.beartype
 @dataclasses.dataclass(frozen=True)
 class Train:
-    ckpt_path: str = os.path.join(".", "checkpoints", "faithfulness")
     learning_rate: float = 1e-4
     """Linear layer learning rate."""
     weight_decay: float = 1e-3
@@ -36,3 +35,19 @@ class Train:
     """How many epochs between evaluations."""
     device: str = "cuda"
     "Hardware to train on." ""
+    ckpt_path: str = os.path.join(".", "checkpoints", "semseg")
+    seed: int = 42
+    """Random seed."""
+    log_to: str = os.path.join(".", "logs")
+
+
+@beartype.beartype
+def grid(cfg: Train, sweep_dct: dict[str, object]) -> tuple[list[Train], list[str]]:
+    cfgs, errs = [], []
+    for d, dct in enumerate(saev.config.expand(sweep_dct)):
+        try:
+            cfgs.append(dataclasses.replace(cfg, **dct, seed=cfg.seed + d))
+        except Exception as err:
+            errs.append(str(err))
+
+    return cfgs, errs

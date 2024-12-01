@@ -1195,7 +1195,7 @@ Functions
 `main(cfgs: list[saev.config.Train]) ‑> list[str]`
 :   
 
-`make_saes(cfgs: list[saev.config.SparseAutoencoder], dataset: saev.activations.Dataset) ‑> tuple[torch.nn.modules.container.ModuleList, list[dict[str, object]]]`
+`make_saes(cfgs: list[saev.config.SparseAutoencoder]) ‑> tuple[torch.nn.modules.container.ModuleList, list[dict[str, object]]]`
 :   
 
 `train(cfgs: list[saev.config.Train]) ‑> tuple[torch.nn.modules.container.ModuleList, saev.training.ParallelWandbRun, int]`
@@ -1412,11 +1412,17 @@ Sub-modules
 Module contrib.semseg.config
 ============================
 
+Functions
+---------
+
+`grid(cfg: contrib.semseg.config.Train, sweep_dct: dict[str, object]) ‑> tuple[list[contrib.semseg.config.Train], list[str]]`
+:   
+
 Classes
 -------
 
-`Train(ckpt_path: str = './checkpoints/faithfulness', learning_rate: float = 0.0001, weight_decay: float = 0.001, n_epochs: int = 100, batch_size: int = 1024, n_workers: int = 32, train_acts: saev.config.DataLoad = <factory>, val_acts: saev.config.DataLoad = <factory>, imgs: saev.config.Ade20kDataset = <factory>, eval_every: int = 10, device: str = 'cuda')`
-:   Train(ckpt_path: str = './checkpoints/faithfulness', learning_rate: float = 0.0001, weight_decay: float = 0.001, n_epochs: int = 100, batch_size: int = 1024, n_workers: int = 32, train_acts: saev.config.DataLoad = <factory>, val_acts: saev.config.DataLoad = <factory>, imgs: saev.config.Ade20kDataset = <factory>, eval_every: int = 10, device: str = 'cuda')
+`Train(learning_rate: float = 0.0001, weight_decay: float = 0.001, n_epochs: int = 100, batch_size: int = 1024, n_workers: int = 32, train_acts: saev.config.DataLoad = <factory>, val_acts: saev.config.DataLoad = <factory>, imgs: saev.config.Ade20kDataset = <factory>, eval_every: int = 10, device: str = 'cuda', ckpt_path: str = './checkpoints/semseg', seed: int = 42, log_to: str = './logs')`
+:   Train(learning_rate: float = 0.0001, weight_decay: float = 0.001, n_epochs: int = 100, batch_size: int = 1024, n_workers: int = 32, train_acts: saev.config.DataLoad = <factory>, val_acts: saev.config.DataLoad = <factory>, imgs: saev.config.Ade20kDataset = <factory>, eval_every: int = 10, device: str = 'cuda', ckpt_path: str = './checkpoints/semseg', seed: int = 42, log_to: str = './logs')
 
     ### Class variables
 
@@ -1438,11 +1444,17 @@ Classes
     `learning_rate: float`
     :   Linear layer learning rate.
 
+    `log_to: str`
+    :
+
     `n_epochs: int`
     :   Number of training epochs for linear layer.
 
     `n_workers: int`
     :   Number of dataloader workers.
+
+    `seed: int`
+    :   Random seed.
 
     `train_acts: saev.config.DataLoad`
     :   Configuration for the saved ADE20K training ViT activations.
@@ -1465,10 +1477,29 @@ Module contrib.semseg.training
 Functions
 ---------
 
+`batched_idx(total_size: int, batch_size: int) ‑> collections.abc.Iterator[tuple[int, int]]`
+:   Iterate over (start, end) indices for total_size examples, where end - start is at most batch_size.
+    
+    Args:
+        total_size: total number of examples
+        batch_size: maximum distance between the generated indices.
+    
+    Returns:
+        A generator of (int, int) tuples that can slice up a list or a tensor.
+
+`batched_upsample_and_pred(tensor: jaxtyping.Float[Tensor, 'n channels width height'], *, size: tuple[int, int], mode: str, batch_size: int = 128) ‑> jaxtyping.Int[Tensor, 'n {size[0]} {size[1]}']`
+:   
+
+`check_cfgs(cfgs: list[contrib.semseg.config.Train])`
+:   
+
+`dump(cfg: contrib.semseg.config.Train, model: torch.nn.modules.module.Module)`
+:   Save a model checkpoint to disk along with configuration, using the [trick from equinox](https://docs.kidger.site/equinox/examples/serialisation).
+
 `get_dataloader(cfg: contrib.semseg.config.Train, *, is_train: bool)`
 :   
 
-`get_mean_iou(y_pred: jaxtyping.Int[Tensor, 'batch width height'], y_true: jaxtyping.Int[Tensor, 'batch width height'], n_classes: int, ignore_class: int | None = 0) ‑> float`
+`get_mean_ious(y_pred: jaxtyping.Int[Tensor, 'models batch width height'], y_true: jaxtyping.Int[Tensor, 'models batch width height'], n_classes: int, ignore_class: int | None = 0) ‑> jaxtyping.Float[Tensor, 'models']`
 :   Calculate mean IoU for predicted masks.
     
     Arguments:
@@ -1477,9 +1508,15 @@ Functions
         n_classes: Number of classes.
     
     Returns:
-        Mean IoU as a float.
+        Mean IoU as a float tensor.
 
-`main(cfg: contrib.semseg.config.Train)`
+`load(fpath: str, *, device: str = 'cpu') ‑> torch.nn.modules.module.Module`
+:   Loads a sparse autoencoder from disk.
+
+`main(cfgs: list[contrib.semseg.config.Train])`
+:   
+
+`make_models(cfgs: list[contrib.semseg.config.Train], d_vit: int) ‑> tuple[torch.nn.modules.container.ModuleList, list[dict[str, object]]]`
 :   
 
 Classes
