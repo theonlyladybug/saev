@@ -78,7 +78,7 @@ def init_b_dec_batched(saes: torch.nn.ModuleList, dataset: activations.Dataset):
 
 @beartype.beartype
 def make_saes(
-    cfgs: list[config.SparseAutoencoder], dataset: activations.Dataset
+    cfgs: list[config.SparseAutoencoder],
 ) -> tuple[torch.nn.ModuleList, list[dict[str, object]]]:
     param_groups = []
     saes = []
@@ -204,7 +204,7 @@ def train(
         torch.backends.cudnn.deterministic = False
 
     dataset = activations.Dataset(cfg.data)
-    saes, param_groups = make_saes([c.sae for c in cfgs], dataset)
+    saes, param_groups = make_saes([c.sae for c in cfgs])
 
     mode = "online" if cfg.track else "disabled"
     tags = [cfg.tag] if cfg.tag else []
