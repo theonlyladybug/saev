@@ -48,10 +48,10 @@ hljs.highlightAll();
 <dl>
 <dt id="contrib.semseg.config.Train"><code class="flex name class">
 <span>class <span class="ident">Train</span></span>
-<span>(</span><span>learning_rate: float = 0.0001, weight_decay: float = 0.001, n_epochs: int = 100, batch_size: int = 1024, n_workers: int = 32, train_acts: <a title="saev.config.DataLoad" href="../../saev/config.html#saev.config.DataLoad">DataLoad</a> = &lt;factory&gt;, val_acts: <a title="saev.config.DataLoad" href="../../saev/config.html#saev.config.DataLoad">DataLoad</a> = &lt;factory&gt;, imgs: <a title="saev.config.Ade20kDataset" href="../../saev/config.html#saev.config.Ade20kDataset">Ade20kDataset</a> = &lt;factory&gt;, eval_every: int = 10, device: str = 'cuda', ckpt_path: str = './checkpoints/semseg', seed: int = 42, log_to: str = './logs')</span>
+<span>(</span><span>learning_rate: float = 0.0001, weight_decay: float = 0.001, n_epochs: int = 200, batch_size: int = 1024, n_workers: int = 32, train_acts: <a title="saev.config.DataLoad" href="../../saev/config.html#saev.config.DataLoad">DataLoad</a> = &lt;factory&gt;, val_acts: <a title="saev.config.DataLoad" href="../../saev/config.html#saev.config.DataLoad">DataLoad</a> = &lt;factory&gt;, imgs: <a title="saev.config.Ade20kDataset" href="../../saev/config.html#saev.config.Ade20kDataset">Ade20kDataset</a> = &lt;factory&gt;, eval_every: int = 50, device: str = 'cuda', ckpt_path: str = './checkpoints/semseg', seed: int = 42, log_to: str = './logs')</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Train(learning_rate: float = 0.0001, weight_decay: float = 0.001, n_epochs: int = 100, batch_size: int = 1024, n_workers: int = 32, train_acts: saev.config.DataLoad = <factory>, val_acts: saev.config.DataLoad = <factory>, imgs: saev.config.Ade20kDataset = <factory>, eval_every: int = 10, device: str = 'cuda', ckpt_path: str = './checkpoints/semseg', seed: int = 42, log_to: str = './logs')</p></div>
+<div class="desc"><p>Train(learning_rate: float = 0.0001, weight_decay: float = 0.001, n_epochs: int = 200, batch_size: int = 1024, n_workers: int = 32, train_acts: saev.config.DataLoad = <factory>, val_acts: saev.config.DataLoad = <factory>, imgs: saev.config.Ade20kDataset = <factory>, eval_every: int = 50, device: str = 'cuda', ckpt_path: str = './checkpoints/semseg', seed: int = 42, log_to: str = './logs')</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -63,7 +63,7 @@ class Train:
     &#34;&#34;&#34;Linear layer learning rate.&#34;&#34;&#34;
     weight_decay: float = 1e-3
     &#34;&#34;&#34;Weight decay  for AdamW.&#34;&#34;&#34;
-    n_epochs: int = 100
+    n_epochs: int = 200
     &#34;&#34;&#34;Number of training epochs for linear layer.&#34;&#34;&#34;
     batch_size: int = 1024
     &#34;&#34;&#34;Training batch size for linear layer.&#34;&#34;&#34;
@@ -81,7 +81,7 @@ class Train:
         default_factory=saev.config.Ade20kDataset
     )
     &#34;&#34;&#34;Configuration for the ADE20K dataset.&#34;&#34;&#34;
-    eval_every: int = 10
+    eval_every: int = 50
     &#34;&#34;&#34;How many epochs between evaluations.&#34;&#34;&#34;
     device: str = &#34;cuda&#34;
     &#34;Hardware to train on.&#34; &#34;&#34;

@@ -1399,14 +1399,35 @@ Sub-modules
 -----------
 * contrib.semseg
 
-Namespace contrib.semseg
-========================
+Module contrib.semseg
+=====================
+# Overview
+
+As an overview:
+
+1. Train an SAE on activations.
+2. Train a linear probe on semantic segmentation task using ADE20K.
+3. Establish baseline metrics for the linear probe.
+4. Automatically identify feature vectors in the SAE's \(W_dec\) matrix for each class in ADE20K.
+5. Suppress those features in the vision transformer's activations before applying the linear probe.
+6. Record class-specific metrics before and after suppression.
+
+Details can be found below.
+
+# Train an SAE on ViT Activations
+
+# Train a Linear Probe on Semantic Segmentation
+
+# Establish Linear Probe Baseline Metrics
+
+# Identify Class-Specific Feature Vectors in the SAE
 
 Sub-modules
 -----------
 * contrib.semseg.config
 * contrib.semseg.dashboard
 * contrib.semseg.dashboard2
+* contrib.semseg.interactive
 * contrib.semseg.training
 
 Module contrib.semseg.config
@@ -1421,8 +1442,8 @@ Functions
 Classes
 -------
 
-`Train(learning_rate: float = 0.0001, weight_decay: float = 0.001, n_epochs: int = 100, batch_size: int = 1024, n_workers: int = 32, train_acts: saev.config.DataLoad = <factory>, val_acts: saev.config.DataLoad = <factory>, imgs: saev.config.Ade20kDataset = <factory>, eval_every: int = 10, device: str = 'cuda', ckpt_path: str = './checkpoints/semseg', seed: int = 42, log_to: str = './logs')`
-:   Train(learning_rate: float = 0.0001, weight_decay: float = 0.001, n_epochs: int = 100, batch_size: int = 1024, n_workers: int = 32, train_acts: saev.config.DataLoad = <factory>, val_acts: saev.config.DataLoad = <factory>, imgs: saev.config.Ade20kDataset = <factory>, eval_every: int = 10, device: str = 'cuda', ckpt_path: str = './checkpoints/semseg', seed: int = 42, log_to: str = './logs')
+`Train(learning_rate: float = 0.0001, weight_decay: float = 0.001, n_epochs: int = 200, batch_size: int = 1024, n_workers: int = 32, train_acts: saev.config.DataLoad = <factory>, val_acts: saev.config.DataLoad = <factory>, imgs: saev.config.Ade20kDataset = <factory>, eval_every: int = 50, device: str = 'cuda', ckpt_path: str = './checkpoints/semseg', seed: int = 42, log_to: str = './logs')`
+:   Train(learning_rate: float = 0.0001, weight_decay: float = 0.001, n_epochs: int = 200, batch_size: int = 1024, n_workers: int = 32, train_acts: saev.config.DataLoad = <factory>, val_acts: saev.config.DataLoad = <factory>, imgs: saev.config.Ade20kDataset = <factory>, eval_every: int = 50, device: str = 'cuda', ckpt_path: str = './checkpoints/semseg', seed: int = 42, log_to: str = './logs')
 
     ### Class variables
 
@@ -1471,6 +1492,16 @@ Module contrib.semseg.dashboard
 Module contrib.semseg.dashboard2
 ================================
 
+Namespace contrib.semseg.interactive
+====================================
+
+Sub-modules
+-----------
+* contrib.semseg.interactive.feature_analysis
+
+Module contrib.semseg.interactive.feature_analysis
+==================================================
+
 Module contrib.semseg.training
 ==============================
 
@@ -1493,7 +1524,7 @@ Functions
 `check_cfgs(cfgs: list[contrib.semseg.config.Train])`
 :   
 
-`dump(cfg: contrib.semseg.config.Train, model: torch.nn.modules.module.Module)`
+`dump(cfg: contrib.semseg.config.Train, model: torch.nn.modules.module.Module, *, suffix: str = '')`
 :   Save a model checkpoint to disk along with configuration, using the [trick from equinox](https://docs.kidger.site/equinox/examples/serialisation).
 
 `get_dataloader(cfg: contrib.semseg.config.Train, *, is_train: bool)`

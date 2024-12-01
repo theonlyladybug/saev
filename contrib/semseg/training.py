@@ -125,14 +125,13 @@ def main(cfgs: list[config.Train]):
                     mious[0],
                     acc_M[0],
                 )
-                breakpoint()
 
                 for cfg, model in zip(cfgs, models):
-                    dump(cfg, model)
+                    dump(cfg, model, suffix=f"ep{epoch}_step{global_step}")
 
 
 @beartype.beartype
-def dump(cfg: config.Train, model: torch.nn.Module):
+def dump(cfg: config.Train, model: torch.nn.Module, *, suffix: str = ""):
     """
     Save a model checkpoint to disk along with configuration, using the [trick from equinox](https://docs.kidger.site/equinox/examples/serialisation).
     """
@@ -145,6 +144,9 @@ def dump(cfg: config.Train, model: torch.nn.Module):
     kwargs = dict(in_features=model.in_features, out_features=model.out_features)
 
     fpath = os.path.join(dpath, "model.pt")
+    if not suffix:
+        fpath = os.path.join(dpath, f"model_{suffix}.pt")
+
     with open(fpath, "wb") as fd:
         kwargs_str = json.dumps(kwargs)
         fd.write((kwargs_str + "\n").encode("utf-8"))
@@ -152,7 +154,7 @@ def dump(cfg: config.Train, model: torch.nn.Module):
 
     fpath = os.path.join(dpath, "cfg.json")
     with open(fpath, "w") as fd:
-        json.dump(cfg, fd)
+        json.dump(dataclasses.asdict(cfg), fd)
 
 
 @beartype.beartype

@@ -13,7 +13,7 @@ class Train:
     """Linear layer learning rate."""
     weight_decay: float = 1e-3
     """Weight decay  for AdamW."""
-    n_epochs: int = 100
+    n_epochs: int = 200
     """Number of training epochs for linear layer."""
     batch_size: int = 1024
     """Training batch size for linear layer."""
@@ -31,7 +31,7 @@ class Train:
         default_factory=saev.config.Ade20kDataset
     )
     """Configuration for the ADE20K dataset."""
-    eval_every: int = 10
+    eval_every: int = 50
     """How many epochs between evaluations."""
     device: str = "cuda"
     "Hardware to train on." ""

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
 <meta name="generator" content="pdoc3 0.11.1">
 <title>contrib.semseg API documentation</title>
-<meta name="description" content="">
+<meta name="description" content="Overview …">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/sanitize.min.css" integrity="sha512-y1dtMcuvtTMJc1yPgEqF0ZjQbhnc/bFhyvIyVNb9Zk5mIGtqVaAB1Ttl28su8AvFMOY0EwRbAe+HCLqj6W7/KA==" crossorigin>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/typography.min.css" integrity="sha512-Y1DYSb995BAfxobCkKepB1BqJJTPrOp3zPL74AWFugHHmmdcvO+C48WLrUOlhGMc0QG7AE3f7gmvvcrmX2fDoA==" crossorigin>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css" crossorigin>
@@ -24,9 +24,24 @@ hljs.highlightAll();
 <main>
 <article id="content">
 <header>
-<h1 class="title">Namespace <code>contrib.semseg</code></h1>
+<h1 class="title">Module <code>contrib.semseg</code></h1>
 </header>
 <section id="section-intro">
+<h1 id="overview">Overview</h1>
+<p>As an overview:</p>
+<ol>
+<li>Train an SAE on activations.</li>
+<li>Train a linear probe on semantic segmentation task using ADE20K.</li>
+<li>Establish baseline metrics for the linear probe.</li>
+<li>Automatically identify feature vectors in the SAE's <span><span class="MathJax_Preview">W_dec</span><script type="math/tex">W_dec</script></span> matrix for each class in ADE20K.</li>
+<li>Suppress those features in the vision transformer's activations before applying the linear probe.</li>
+<li>Record class-specific metrics before and after suppression.</li>
+</ol>
+<p>Details can be found below.</p>
+<h1 id="train-an-sae-on-vit-activations">Train an SAE on ViT Activations</h1>
+<h1 id="train-a-linear-probe-on-semantic-segmentation">Train a Linear Probe on Semantic Segmentation</h1>
+<h1 id="establish-linear-probe-baseline-metrics">Establish Linear Probe Baseline Metrics</h1>
+<h1 id="identify-class-specific-feature-vectors-in-the-sae">Identify Class-Specific Feature Vectors in the SAE</h1>
 </section>
 <section>
 <h2 class="section-title" id="header-submodules">Sub-modules</h2>
@@ -40,6 +55,10 @@ hljs.highlightAll();
 <div class="desc"></div>
 </dd>
 <dt><code class="name"><a title="contrib.semseg.dashboard2" href="dashboard2.html">contrib.semseg.dashboard2</a></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt><code class="name"><a title="contrib.semseg.interactive" href="interactive/index.html">contrib.semseg.interactive</a></code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
@@ -58,7 +77,13 @@ hljs.highlightAll();
 </article>
 <nav id="sidebar">
 <div class="toc">
-<ul></ul>
+<ul>
+<li><a href="#overview">Overview</a></li>
+<li><a href="#train-an-sae-on-vit-activations">Train an SAE on ViT Activations</a></li>
+<li><a href="#train-a-linear-probe-on-semantic-segmentation">Train a Linear Probe on Semantic Segmentation</a></li>
+<li><a href="#establish-linear-probe-baseline-metrics">Establish Linear Probe Baseline Metrics</a></li>
+<li><a href="#identify-class-specific-feature-vectors-in-the-sae">Identify Class-Specific Feature Vectors in the SAE</a></li>
+</ul>
 </div>
 <ul id="index">
 <li><h3>Super-module</h3>
@@ -71,6 +96,7 @@ hljs.highlightAll();
 <li><code><a title="contrib.semseg.config" href="config.html">contrib.semseg.config</a></code></li>
 <li><code><a title="contrib.semseg.dashboard" href="dashboard.html">contrib.semseg.dashboard</a></code></li>
 <li><code><a title="contrib.semseg.dashboard2" href="dashboard2.html">contrib.semseg.dashboard2</a></code></li>
+<li><code><a title="contrib.semseg.interactive" href="interactive/index.html">contrib.semseg.interactive</a></code></li>
 <li><code><a title="contrib.semseg.training" href="training.html">contrib.semseg.training</a></code></li>
 </ul>
 </li>
