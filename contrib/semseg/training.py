@@ -4,6 +4,7 @@ import io
 import json
 import logging
 import os.path
+import re
 
 import beartype
 import einops
@@ -172,6 +173,35 @@ def load_latest(dpath: str, *, device: str = "cpu") -> torch.nn.Module:
         dpath: Directory to search.
         device: optional torch device to pass to load.
     """
+    if not os.path.exists(dpath):
+        raise FileNotFoundError(f"Directory not found: {dpath}")
+
+    # Find all .pt files
+    pt_files = [f for f in os.listdir(dpath) if f.endswith('.pt')]
+    if not pt_files:
+        raise FileNotFoundError(f"No .pt files found in {dpath}")
+
+    # Extract step numbers using regex
+    step_pattern = re.compile(r'_step(\d+)\.pt$')
+    latest_step = -1
+    latest_file = None
+
+    for fname in pt_files:
+        match = step_pattern.search(fname)
+        if match:
+            step = int(match.group(1))
+            if step > latest_step:
+                latest_step = step
+                latest_file = fname
+
+    if latest_file is None:
+        # If no files with _step found, just take the first .pt file
+        latest_file = pt_files[0]
+        logger.warning(f"No checkpoint files with _step found, using: {latest_file}")
+
+    fpath = os.path.join(dpath, latest_file)
+    logger.info(f"Loading checkpoint: {fpath}")
+    return load(fpath, device=device)
 
 
 @beartype.beartype
