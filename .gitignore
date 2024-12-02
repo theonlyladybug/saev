@@ -6,3 +6,5 @@ artifacts/
 checkpoints/
 logs/
 .hypothesis/
+.aider*
+.env

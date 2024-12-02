@@ -13,7 +13,6 @@ import typing
 
 import beartype
 import torch
-import tqdm
 from jaxtyping import Float, Int, jaxtyped
 from PIL import Image
 from torch import Tensor
@@ -396,7 +395,7 @@ def main(cfg: config.Visuals):
 
     logger.info("Loaded sorted data.")
 
-    dataset = activations.get_dataset(cfg.images, transform=None)
+    dataset = activations.get_dataset(cfg.images, img_transform=None)
 
     min_log_freq, max_log_freq = cfg.log_freq_range
     min_log_value, max_log_value = cfg.log_value_range
@@ -410,7 +409,7 @@ def main(cfg: config.Visuals):
 
     neuron_i = cfg.include_latents + torch.arange(d_sae)[mask.cpu()].tolist()
 
-    for i in tqdm.tqdm(neuron_i, desc="saving visuals"):
+    for i in helpers.progress(neuron_i, desc="saving visuals"):
         neuron_dir = os.path.join(cfg.root, "neurons", str(i))
         os.makedirs(neuron_dir, exist_ok=True)
 

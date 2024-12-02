@@ -2,15 +2,16 @@
 Propose features for manual verification.
 """
 
-from . import config, training
-import einops
 import beartype
-import torch
+import einops
 import numpy as np
-from jaxtyping import jaxtyped, Int, Shaped
+import torch
+from jaxtyping import Int, Shaped, jaxtyped
 
-import saev.nn
 import saev.helpers
+import saev.nn
+
+from . import config, training
 
 
 @beartype.beartype
@@ -58,9 +59,7 @@ def main(cfg: config.Visuals):
         fn += (~pred & true).sum(axis=0)
 
     f1 = (2 * tp) / (2 * tp + fp + fn)
-    indices = f1.topk(cfg.k).indices.tolist()
-
-    breakpoint()
+    latents = " ".join(str(i) for i in f1.topk(cfg.k).indices.tolist())
 
     scale_mean_flag = (
         "--data.scale-mean" if cfg.acts.scale_mean else "--data.no-scale-mean"
@@ -72,8 +71,10 @@ def main(cfg: config.Visuals):
     print("Run this command to save best images:")
     print()
     print(
-        f"  uv run python -m saev visuals --ckpt {cfg.ckpt} --include-latents {' '.join(indices)} --data.shard-root {cfg.data.shard_root} {scale_mean_flag} {scale_norm_flag} images:ade20k-dataset --images.root {cfg.imgs.root} --images.split {cfg.imgs.split}"
+        f"  uv run python -m saev visuals --ckpt {cfg.sae_ckpt} --include-latents {latents} --data.shard-root {cfg.acts.shard_root} {scale_mean_flag} {scale_norm_flag} images:ade20k-dataset --images.root {cfg.imgs.root} --images.split {cfg.imgs.split}"
     )
+    print()
+    print("Be sure to add --dump-to to this command.")
 
 
 @jaxtyped(typechecker=beartype.beartype)

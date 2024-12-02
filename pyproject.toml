@@ -21,6 +21,7 @@ dependencies = [
     "torch>=2.5.0",
     "tqdm>=4.66.5",
     "tyro>=0.8.12",
+    "vl-convert-python>=1.7.0",
     "wandb>=0.18.5",
     "webdataset>=0.2.100",
 ]

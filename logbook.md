@@ -841,3 +841,8 @@ What exactly are my next steps?
 Scaling Monosemanticity suggests that features should be both specific (high precision) and they influence behavior (causally faithful).
 
 They suggest that measuring sensitivity (how reliably a feature activates for text that matches our proposed concept; recall) is hard.
+
+# 12/02/2024
+
+I want to see which hparam works the best.
+I need to see how the predictions are to see if the linear model is any good.

@@ -4,8 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
 <meta name="generator" content="pdoc3 0.11.1">
-<title>contrib.semseg API documentation</title>
-<meta name="description" content="This sub-module reproduces the results from Section 4.2 of our paper …">
+<title>contrib.semseg.validation API documentation</title>
+<meta name="description" content="Make some predictions for a bunch of checkpoints.
+See which checkpoints have the best validation loss, mean IoU, class-specific IoU, validation …">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/sanitize.min.css" integrity="sha512-y1dtMcuvtTMJc1yPgEqF0ZjQbhnc/bFhyvIyVNb9Zk5mIGtqVaAB1Ttl28su8AvFMOY0EwRbAe+HCLqj6W7/KA==" crossorigin>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/typography.min.css" integrity="sha512-Y1DYSb995BAfxobCkKepB1BqJJTPrOp3zPL74AWFugHHmmdcvO+C48WLrUOlhGMc0QG7AE3f7gmvvcrmX2fDoA==" crossorigin>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css" crossorigin>
@@ -24,92 +25,56 @@ hljs.highlightAll();
 <main>
 <article id="content">
 <header>
-<h1 class="title">Module <code>contrib.semseg</code></h1>
+<h1 class="title">Module <code>contrib.semseg.validation</code></h1>
 </header>
 <section id="section-intro">
-<p>This sub-module reproduces the results from Section 4.2 of our paper.</p>
-<h1 id="overview">Overview</h1>
-<p>As an overview:</p>
-<ol>
-<li>Train an SAE on activations.</li>
-<li>Train a linear probe on semantic segmentation task using ADE20K.</li>
-<li>Establish baseline metrics for the linear probe.</li>
-<li>Automatically identify feature vectors in the SAE's <span><span class="MathJax_Preview">W_dec</span><script type="math/tex">W_dec</script></span> matrix for each class in ADE20K.</li>
-<li>Suppress those features in the vision transformer's activations before applying the linear probe.</li>
-<li>Record class-specific metrics before and after suppression.</li>
-</ol>
-<p>Details can be found below.</p>
-<h1 id="train-an-sae-on-vit-activations">Train an SAE on ViT Activations</h1>
-<h1 id="train-a-linear-probe-on-semantic-segmentation">Train a Linear Probe on Semantic Segmentation</h1>
-<h1 id="establish-linear-probe-baseline-metrics">Establish Linear Probe Baseline Metrics</h1>
-<h1 id="identify-class-specific-feature-vectors-in-the-sae">Identify Class-Specific Feature Vectors in the SAE</h1>
+<p>Make some predictions for a bunch of checkpoints.
+See which checkpoints have the best validation loss, mean IoU, class-specific IoU, validation accuracy, and qualitative results.</p>
+<p>Writes results to CSV files and hparam graphs (in-progress).</p>
 </section>
 <section>
-<h2 class="section-title" id="header-submodules">Sub-modules</h2>
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
-<dt><code class="name"><a title="contrib.semseg.config" href="config.html">contrib.semseg.config</a></code></dt>
+<dt id="contrib.semseg.validation.load_ckpts"><code class="name flex">
+<span>def <span class="ident">load_ckpts</span></span>(<span>root: str, *, device: str = 'cpu') ‑> list[tuple[<a title="contrib.semseg.config.Train" href="config.html#contrib.semseg.config.Train">Train</a>, torch.nn.modules.module.Module]]</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Loads the latest checkpoints for each directory within root.</p>
+<h2 id="arguments">Arguments</h2>
+<p>root: directory containing other directories with cfg.json and model_step{step}.pt files.
+device: where to load models.</p>
+<h2 id="returns">Returns</h2>
+<p>List of cfg, model pairs.</p></div>
+</dd>
+<dt id="contrib.semseg.validation.main"><code class="name flex">
+<span>def <span class="ident">main</span></span>(<span>cfg: <a title="contrib.semseg.config.Validation" href="config.html#contrib.semseg.config.Validation">Validation</a>)</span>
+</code></dt>
 <dd>
 <div class="desc"></div>
-</dd>
-<dt><code class="name"><a title="contrib.semseg.dashboard" href="dashboard.html">contrib.semseg.dashboard</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt><code class="name"><a title="contrib.semseg.dashboard2" href="dashboard2.html">contrib.semseg.dashboard2</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt><code class="name"><a title="contrib.semseg.interactive" href="interactive/index.html">contrib.semseg.interactive</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt><code class="name"><a title="contrib.semseg.training" href="training.html">contrib.semseg.training</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt><code class="name"><a title="contrib.semseg.validation" href="validation.html">contrib.semseg.validation</a></code></dt>
-<dd>
-<div class="desc"><p>Make some predictions for a bunch of checkpoints.
-See which checkpoints have the best validation loss, mean IoU, class-specific IoU, validation …</p></div>
-</dd>
-<dt><code class="name"><a title="contrib.semseg.visuals" href="visuals.html">contrib.semseg.visuals</a></code></dt>
-<dd>
-<div class="desc"><p>Propose features for manual verification.</p></div>
 </dd>
 </dl>
-</section>
-<section>
-</section>
-<section>
 </section>
 <section>
 </section>
 </article>
 <nav id="sidebar">
 <div class="toc">
-<ul>
-<li><a href="#overview">Overview</a></li>
-<li><a href="#train-an-sae-on-vit-activations">Train an SAE on ViT Activations</a></li>
-<li><a href="#train-a-linear-probe-on-semantic-segmentation">Train a Linear Probe on Semantic Segmentation</a></li>
-<li><a href="#establish-linear-probe-baseline-metrics">Establish Linear Probe Baseline Metrics</a></li>
-<li><a href="#identify-class-specific-feature-vectors-in-the-sae">Identify Class-Specific Feature Vectors in the SAE</a></li>
-</ul>
+<ul></ul>
 </div>
 <ul id="index">
 <li><h3>Super-module</h3>
 <ul>
-<li><code><a title="contrib" href="../index.html">contrib</a></code></li>
+<li><code><a title="contrib.semseg" href="index.html">contrib.semseg</a></code></li>
 </ul>
 </li>
-<li><h3><a href="#header-submodules">Sub-modules</a></h3>
-<ul>
-<li><code><a title="contrib.semseg.config" href="config.html">contrib.semseg.config</a></code></li>
-<li><code><a title="contrib.semseg.dashboard" href="dashboard.html">contrib.semseg.dashboard</a></code></li>
-<li><code><a title="contrib.semseg.dashboard2" href="dashboard2.html">contrib.semseg.dashboard2</a></code></li>
-<li><code><a title="contrib.semseg.interactive" href="interactive/index.html">contrib.semseg.interactive</a></code></li>
-<li><code><a title="contrib.semseg.training" href="training.html">contrib.semseg.training</a></code></li>
-<li><code><a title="contrib.semseg.validation" href="validation.html">contrib.semseg.validation</a></code></li>
-<li><code><a title="contrib.semseg.visuals" href="visuals.html">contrib.semseg.visuals</a></code></li>
+<li><h3><a href="#header-functions">Functions</a></h3>
+<ul class="">
+<li><code><a title="contrib.semseg.validation.load_ckpts" href="#contrib.semseg.validation.load_ckpts">load_ckpts</a></code></li>
+<li><code><a title="contrib.semseg.validation.main" href="#contrib.semseg.validation.main">main</a></code></li>
 </ul>
 </li>
 </ul>

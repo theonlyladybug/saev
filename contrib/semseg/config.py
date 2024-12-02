@@ -46,6 +46,10 @@ class Train:
 class Visuals:
     sae_ckpt: str = os.path.join(".", "checkpoints", "sae.pt")
     """Path to the sae.pt file."""
+    ade20k_cls: int = 29
+    """ADE20K class to probe for."""
+    k: int = 32
+    """Top K features to save."""
     acts: saev.config.DataLoad = dataclasses.field(default_factory=saev.config.DataLoad)
     """Configuration for the saved ADE20K training ViT activations."""
     imgs: saev.config.Ade20kDataset = dataclasses.field(
@@ -59,10 +63,27 @@ class Visuals:
     label_threshold: float = 0.9
     device: str = "cuda"
     "Hardware for SAE inference." ""
-    ade20k_cls: int = 29
-    """ADE20K class to probe for."""
-    k: int = 32
-    """Top K features to save."""
+
+
+@beartype.beartype
+@dataclasses.dataclass(frozen=True)
+class Validation:
+    ckpt_root: str = os.path.join(".", "checkpoints", "semseg")
+    """Root to all checkpoints to evaluate."""
+    dump_to: str = os.path.join(".", "logs", "semseg")
+    """Directory to dump results to."""
+    acts: saev.config.DataLoad = dataclasses.field(default_factory=saev.config.DataLoad)
+    """Configuration for the saved ADE20K validation ViT activations."""
+    imgs: saev.config.Ade20kDataset = dataclasses.field(
+        default_factory=lambda: saev.config.Ade20kDataset(split="validation")
+    )
+    """Configuration for the ADE20K validation dataset."""
+    batch_size: int = 128
+    """Batch size for calculating F1 scores."""
+    n_workers: int = 32
+    """Number of dataloader workers."""
+    device: str = "cuda"
+    "Hardware for linear probe inference." ""
 
 
 @beartype.beartype

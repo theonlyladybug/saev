@@ -1431,6 +1431,7 @@ Sub-modules
 * contrib.semseg.dashboard2
 * contrib.semseg.interactive
 * contrib.semseg.training
+* contrib.semseg.validation
 * contrib.semseg.visuals
 
 Module contrib.semseg.config
@@ -1489,8 +1490,34 @@ Classes
     `weight_decay: float`
     :   Weight decay  for AdamW.
 
-`Visuals(sae_ckpt: str = './checkpoints/sae.pt', acts: saev.config.DataLoad = <factory>, imgs: saev.config.Ade20kDataset = <factory>, batch_size: int = 128, n_workers: int = 32, label_threshold: float = 0.9, device: str = 'cuda', ade20k_cls: int = 29, k: int = 32)`
-:   Visuals(sae_ckpt: str = './checkpoints/sae.pt', acts: saev.config.DataLoad = <factory>, imgs: saev.config.Ade20kDataset = <factory>, batch_size: int = 128, n_workers: int = 32, label_threshold: float = 0.9, device: str = 'cuda', ade20k_cls: int = 29, k: int = 32)
+`Validation(ckpt_root: str = './checkpoints/semseg', dump_to: str = './logs/semseg', acts: saev.config.DataLoad = <factory>, imgs: saev.config.Ade20kDataset = <factory>, batch_size: int = 128, n_workers: int = 32, device: str = 'cuda')`
+:   Validation(ckpt_root: str = './checkpoints/semseg', dump_to: str = './logs/semseg', acts: saev.config.DataLoad = <factory>, imgs: saev.config.Ade20kDataset = <factory>, batch_size: int = 128, n_workers: int = 32, device: str = 'cuda')
+
+    ### Class variables
+
+    `acts: saev.config.DataLoad`
+    :   Configuration for the saved ADE20K validation ViT activations.
+
+    `batch_size: int`
+    :   Batch size for calculating F1 scores.
+
+    `ckpt_root: str`
+    :   Root to all checkpoints to evaluate.
+
+    `device: str`
+    :   Hardware for linear probe inference.
+
+    `dump_to: str`
+    :   Directory to dump results to.
+
+    `imgs: saev.config.Ade20kDataset`
+    :   Configuration for the ADE20K validation dataset.
+
+    `n_workers: int`
+    :   Number of dataloader workers.
+
+`Visuals(sae_ckpt: str = './checkpoints/sae.pt', ade20k_cls: int = 29, k: int = 32, acts: saev.config.DataLoad = <factory>, imgs: saev.config.Ade20kDataset = <factory>, batch_size: int = 128, n_workers: int = 32, label_threshold: float = 0.9, device: str = 'cuda')`
+:   Visuals(sae_ckpt: str = './checkpoints/sae.pt', ade20k_cls: int = 29, k: int = 32, acts: saev.config.DataLoad = <factory>, imgs: saev.config.Ade20kDataset = <factory>, batch_size: int = 128, n_workers: int = 32, label_threshold: float = 0.9, device: str = 'cuda')
 
     ### Class variables
 
@@ -1559,13 +1586,10 @@ Functions
 `check_cfgs(cfgs: list[contrib.semseg.config.Train])`
 :   
 
-`dump(cfg: contrib.semseg.config.Train, model: torch.nn.modules.module.Module, *, suffix: str = '')`
+`dump(cfg: contrib.semseg.config.Train, model: torch.nn.modules.module.Module, *, step: int | None = None)`
 :   Save a model checkpoint to disk along with configuration, using the [trick from equinox](https://docs.kidger.site/equinox/examples/serialisation).
 
-`get_dataloader(cfg: contrib.semseg.config.Train, *, is_train: bool)`
-:   
-
-`get_mean_ious(y_pred: jaxtyping.Int[Tensor, 'models batch width height'], y_true: jaxtyping.Int[Tensor, 'models batch width height'], n_classes: int, ignore_class: int | None = 0) ‑> jaxtyping.Float[Tensor, 'models']`
+`get_class_ious(y_pred: jaxtyping.Int[Tensor, 'models batch width height'], y_true: jaxtyping.Int[Tensor, 'models batch width height'], n_classes: int, ignore_class: int | None = 0) ‑> jaxtyping.Float[Tensor, 'models n_classes']`
 :   Calculate mean IoU for predicted masks.
     
     Arguments:
@@ -1576,8 +1600,18 @@ Functions
     Returns:
         Mean IoU as a float tensor.
 
+`get_dataloader(cfg: contrib.semseg.config.Train, *, is_train: bool)`
+:   
+
 `load(fpath: str, *, device: str = 'cpu') ‑> torch.nn.modules.module.Module`
 :   Loads a sparse autoencoder from disk.
+
+`load_latest(dpath: str, *, device: str = 'cpu') ‑> torch.nn.modules.module.Module`
+:   Loads the latest checkpoint by picking out the checkpoint file in dpath with the largest _step{step} suffix.
+    
+    Arguments:
+        dpath: Directory to search.
+        device: optional torch device to pass to load.
 
 `main(cfgs: list[contrib.semseg.config.Train])`
 :   
@@ -1615,6 +1649,29 @@ Classes
 
     `d_vit: int`
     :
+
+Module contrib.semseg.validation
+================================
+Make some predictions for a bunch of checkpoints.
+See which checkpoints have the best validation loss, mean IoU, class-specific IoU, validation accuracy, and qualitative results.
+
+Writes results to CSV files and hparam graphs (in-progress).
+
+Functions
+---------
+
+`load_ckpts(root: str, *, device: str = 'cpu') ‑> list[tuple[contrib.semseg.config.Train, torch.nn.modules.module.Module]]`
+:   Loads the latest checkpoints for each directory within root.
+    
+    Arguments:
+        root: directory containing other directories with cfg.json and model_step{step}.pt files.
+        device: where to load models.
+    
+    Returns:
+        List of cfg, model pairs.
+
+`main(cfg: contrib.semseg.config.Validation)`
+:
 
 Module contrib.semseg.visuals
 =============================

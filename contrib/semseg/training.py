@@ -111,7 +111,7 @@ def main(cfgs: list[config.Train]):
                 )
 
                 logger.info("Evaluated all validation batchs.")
-                mious = get_mean_ious(
+                class_ious_MC = get_class_ious(
                     pred_labels_MNWH,
                     true_labels_MNWH.expand(len(models), -1, -1, -1),
                     n_classes,
@@ -123,12 +123,12 @@ def main(cfgs: list[config.Train]):
                 "epoch: %d, step: %d, best miou: %.5f, best acc: %.3f",
                 epoch,
                 global_step,
-                mious.max().item(),
+                class_ious_MC.mean(axis=-1).max().item(),
                 acc_M.max().item(),
             )
 
             for cfg, model in zip(cfgs, models):
-                dump(cfg, model, suffix=f"ep{epoch}_step{global_step}")
+                dump(cfg, model, step=global_step)
 
 
 @beartype.beartype
@@ -177,12 +177,12 @@ def load_latest(dpath: str, *, device: str = "cpu") -> torch.nn.Module:
         raise FileNotFoundError(f"Directory not found: {dpath}")
 
     # Find all .pt files
-    pt_files = [f for f in os.listdir(dpath) if f.endswith('.pt')]
+    pt_files = [f for f in os.listdir(dpath) if f.endswith(".pt")]
     if not pt_files:
         raise FileNotFoundError(f"No .pt files found in {dpath}")
 
     # Extract step numbers using regex
-    step_pattern = re.compile(r'_step(\d+)\.pt$')
+    step_pattern = re.compile(r"_step(\d+)\.pt$")
     latest_step = -1
     latest_file = None
 
@@ -200,8 +200,9 @@ def load_latest(dpath: str, *, device: str = "cpu") -> torch.nn.Module:
         logger.warning(f"No checkpoint files with _step found, using: {latest_file}")
 
     fpath = os.path.join(dpath, latest_file)
-    logger.info(f"Loading checkpoint: {fpath}")
-    return load(fpath, device=device)
+    ckpt = load(fpath, device=device)
+    logger.info("Loaded checkpoint: %s", fpath)
+    return ckpt
 
 
 @beartype.beartype
@@ -216,6 +217,7 @@ def load(fpath: str, *, device: str = "cpu") -> torch.nn.Module:
     model = torch.nn.Linear(**kwargs)
     state_dict = torch.load(buffer, weights_only=True, map_location=device)
     model.load_state_dict(state_dict)
+    model = model.to(device)
     return model
 
 
@@ -343,12 +345,12 @@ class Dataset(torch.utils.data.Dataset):
 
 @jaxtyped(typechecker=beartype.beartype)
 @torch.no_grad()
-def get_mean_ious(
+def get_class_ious(
     y_pred: Int[Tensor, "models batch width height"],
     y_true: Int[Tensor, "models batch width height"],
     n_classes: int,
     ignore_class: int | None = 0,
-) -> Float[Tensor, " models"]:
+) -> Float[Tensor, " models n_classes"]:
     """
     Calculate mean IoU for predicted masks.
 
@@ -399,17 +401,17 @@ def get_mean_ious(
         )
         logger.info("Got intersection and union.")
 
+        # Check for division by zero
         if (union == 0).any():
             logger.warning(
                 "At least one class is not present in data: '%s'.",
                 torch.nonzero(union == 0),
             )
 
-        # Handle division by zero
-        miou = (intersection / union).mean().item()
+        miou = intersection / union
         mious.append(miou)
 
-    return torch.tensor(mious)
+    return torch.stack(mious)
 
 
 @jaxtyped(typechecker=beartype.beartype)

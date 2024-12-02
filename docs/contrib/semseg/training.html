@@ -63,19 +63,13 @@ hljs.highlightAll();
 <div class="desc"></div>
 </dd>
 <dt id="contrib.semseg.training.dump"><code class="name flex">
-<span>def <span class="ident">dump</span></span>(<span>cfg: <a title="contrib.semseg.config.Train" href="config.html#contrib.semseg.config.Train">Train</a>, model: torch.nn.modules.module.Module, *, suffix: str = '')</span>
+<span>def <span class="ident">dump</span></span>(<span>cfg: <a title="contrib.semseg.config.Train" href="config.html#contrib.semseg.config.Train">Train</a>, model: torch.nn.modules.module.Module, *, step: int | None = None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Save a model checkpoint to disk along with configuration, using the <a href="https://docs.kidger.site/equinox/examples/serialisation">trick from equinox</a>.</p></div>
 </dd>
-<dt id="contrib.semseg.training.get_dataloader"><code class="name flex">
-<span>def <span class="ident">get_dataloader</span></span>(<span>cfg: <a title="contrib.semseg.config.Train" href="config.html#contrib.semseg.config.Train">Train</a>, *, is_train: bool)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt id="contrib.semseg.training.get_mean_ious"><code class="name flex">
-<span>def <span class="ident">get_mean_ious</span></span>(<span>y_pred: jaxtyping.Int[Tensor, 'models batch width height'], y_true: jaxtyping.Int[Tensor, 'models batch width height'], n_classes: int, ignore_class: int | None = 0) ‑> jaxtyping.Float[Tensor, 'models']</span>
+<dt id="contrib.semseg.training.get_class_ious"><code class="name flex">
+<span>def <span class="ident">get_class_ious</span></span>(<span>y_pred: jaxtyping.Int[Tensor, 'models batch width height'], y_true: jaxtyping.Int[Tensor, 'models batch width height'], n_classes: int, ignore_class: int | None = 0) ‑> jaxtyping.Float[Tensor, 'models n_classes']</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Calculate mean IoU for predicted masks.</p>
@@ -86,11 +80,26 @@ n_classes: Number of classes.</p>
 <h2 id="returns">Returns</h2>
 <p>Mean IoU as a float tensor.</p></div>
 </dd>
+<dt id="contrib.semseg.training.get_dataloader"><code class="name flex">
+<span>def <span class="ident">get_dataloader</span></span>(<span>cfg: <a title="contrib.semseg.config.Train" href="config.html#contrib.semseg.config.Train">Train</a>, *, is_train: bool)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
 <dt id="contrib.semseg.training.load"><code class="name flex">
 <span>def <span class="ident">load</span></span>(<span>fpath: str, *, device: str = 'cpu') ‑> torch.nn.modules.module.Module</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Loads a sparse autoencoder from disk.</p></div>
+</dd>
+<dt id="contrib.semseg.training.load_latest"><code class="name flex">
+<span>def <span class="ident">load_latest</span></span>(<span>dpath: str, *, device: str = 'cpu') ‑> torch.nn.modules.module.Module</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Loads the latest checkpoint by picking out the checkpoint file in dpath with the largest _step{step} suffix.</p>
+<h2 id="arguments">Arguments</h2>
+<p>dpath: Directory to search.
+device: optional torch device to pass to load.</p></div>
 </dd>
 <dt id="contrib.semseg.training.main"><code class="name flex">
 <span>def <span class="ident">main</span></span>(<span>cfgs: list[<a title="contrib.semseg.config.Train" href="config.html#contrib.semseg.config.Train">Train</a>])</span>
@@ -226,9 +235,10 @@ def d_vit(self) -&gt; int:
 <li><code><a title="contrib.semseg.training.batched_upsample_and_pred" href="#contrib.semseg.training.batched_upsample_and_pred">batched_upsample_and_pred</a></code></li>
 <li><code><a title="contrib.semseg.training.check_cfgs" href="#contrib.semseg.training.check_cfgs">check_cfgs</a></code></li>
 <li><code><a title="contrib.semseg.training.dump" href="#contrib.semseg.training.dump">dump</a></code></li>
+<li><code><a title="contrib.semseg.training.get_class_ious" href="#contrib.semseg.training.get_class_ious">get_class_ious</a></code></li>
 <li><code><a title="contrib.semseg.training.get_dataloader" href="#contrib.semseg.training.get_dataloader">get_dataloader</a></code></li>
-<li><code><a title="contrib.semseg.training.get_mean_ious" href="#contrib.semseg.training.get_mean_ious">get_mean_ious</a></code></li>
 <li><code><a title="contrib.semseg.training.load" href="#contrib.semseg.training.load">load</a></code></li>
+<li><code><a title="contrib.semseg.training.load_latest" href="#contrib.semseg.training.load_latest">load_latest</a></code></li>
 <li><code><a title="contrib.semseg.training.main" href="#contrib.semseg.training.main">main</a></code></li>
 <li><code><a title="contrib.semseg.training.make_models" href="#contrib.semseg.training.make_models">make_models</a></code></li>
 </ul>

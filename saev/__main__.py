@@ -73,16 +73,12 @@ def train(
     job = executor.submit(saev.training.main, cfgs)
     job.result()
 
-    # for i, result in enumerate(submitit.helpers.as_completed(jobs)):
-    #     exp_id = result.result()
-    #     logger.info("Finished task %s (%d/%d)", exp_id, i + 1, len(jobs))
-
 
 @beartype.beartype
 def visuals(cfg: typing.Annotated[config.Visuals, tyro.conf.arg(name="")]):
-    import saev.visuals
+    from . import visuals
 
-    saev.visuals.main(cfg)
+    visuals.main(cfg)
 
 
 if __name__ == "__main__":
