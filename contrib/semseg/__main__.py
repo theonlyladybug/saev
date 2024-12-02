@@ -43,8 +43,10 @@ def train(
 
 
 @beartype.beartype
-def visuals():
-    print("Not implemented.")
+def visuals(cfg: typing.Annotated[config.Visuals, tyro.conf.arg(name="")]):
+    from . import visuals
+
+    visuals.main(cfg)
 
 
 if __name__ == "__main__":

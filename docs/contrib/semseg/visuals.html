@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
 <meta name="generator" content="pdoc3 0.11.1">
-<title>contrib API documentation</title>
-<meta name="description" content="">
+<title>contrib.semseg.visuals API documentation</title>
+<meta name="description" content="Propose features for manual verification.">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/sanitize.min.css" integrity="sha512-y1dtMcuvtTMJc1yPgEqF0ZjQbhnc/bFhyvIyVNb9Zk5mIGtqVaAB1Ttl28su8AvFMOY0EwRbAe+HCLqj6W7/KA==" crossorigin>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/typography.min.css" integrity="sha512-Y1DYSb995BAfxobCkKepB1BqJJTPrOp3zPL74AWFugHHmmdcvO+C48WLrUOlhGMc0QG7AE3f7gmvvcrmX2fDoA==" crossorigin>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css" crossorigin>
@@ -24,22 +24,42 @@ hljs.highlightAll();
 <main>
 <article id="content">
 <header>
-<h1 class="title">Namespace <code>contrib</code></h1>
+<h1 class="title">Module <code>contrib.semseg.visuals</code></h1>
 </header>
 <section id="section-intro">
+<p>Propose features for manual verification.</p>
 </section>
 <section>
-<h2 class="section-title" id="header-submodules">Sub-modules</h2>
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
-<dt><code class="name"><a title="contrib.semseg" href="semseg/index.html">contrib.semseg</a></code></dt>
+<dt id="contrib.semseg.visuals.axis_unique"><code class="name flex">
+<span>def <span class="ident">axis_unique</span></span>(<span>a: jaxtyping.Shaped[ndarray, '*axes'], axis: int = -1, return_counts: bool = True, *, null_value: int = -1) ‑> jaxtyping.Shaped[ndarray, '*axes'] | tuple[jaxtyping.Shaped[ndarray, '*axes'], jaxtyping.Int[ndarray, '*axes']]</span>
+</code></dt>
 <dd>
-<div class="desc"><p>This sub-module reproduces the results from Section 4.2 of our paper …</p></div>
+<div class="desc"><p>Calculate unique values and their counts along any axis of a matrix.</p>
+<h2 id="arguments">Arguments</h2>
+<p>a: Input array
+axis: The axis along which to find unique values.
+return_counts: If true, also return the count of each unique value</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>unique</code></dt>
+<dd>Array of unique values, with zeros replacing duplicates</dd>
+<dt><code>counts</code></dt>
+<dd>(optional) Count of each unique value (only if return_counts=True)</dd>
+</dl></div>
+</dd>
+<dt id="contrib.semseg.visuals.main"><code class="name flex">
+<span>def <span class="ident">main</span></span>(<span>cfg: <a title="contrib.semseg.config.Visuals" href="config.html#contrib.semseg.config.Visuals">Visuals</a>)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
 </dd>
 </dl>
-</section>
-<section>
-</section>
-<section>
 </section>
 <section>
 </section>
@@ -49,9 +69,15 @@ hljs.highlightAll();
 <ul></ul>
 </div>
 <ul id="index">
-<li><h3><a href="#header-submodules">Sub-modules</a></h3>
+<li><h3>Super-module</h3>
 <ul>
-<li><code><a title="contrib.semseg" href="semseg/index.html">contrib.semseg</a></code></li>
+<li><code><a title="contrib.semseg" href="index.html">contrib.semseg</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-functions">Functions</a></h3>
+<ul class="">
+<li><code><a title="contrib.semseg.visuals.axis_unique" href="#contrib.semseg.visuals.axis_unique">axis_unique</a></code></li>
+<li><code><a title="contrib.semseg.visuals.main" href="#contrib.semseg.visuals.main">main</a></code></li>
 </ul>
 </li>
 </ul>

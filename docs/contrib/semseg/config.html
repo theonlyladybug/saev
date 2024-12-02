@@ -147,6 +147,79 @@ for AdamW.</p></div>
 </dd>
 </dl>
 </dd>
+<dt id="contrib.semseg.config.Visuals"><code class="flex name class">
+<span>class <span class="ident">Visuals</span></span>
+<span>(</span><span>sae_ckpt: str = './checkpoints/sae.pt', acts: <a title="saev.config.DataLoad" href="../../saev/config.html#saev.config.DataLoad">DataLoad</a> = &lt;factory&gt;, imgs: <a title="saev.config.Ade20kDataset" href="../../saev/config.html#saev.config.Ade20kDataset">Ade20kDataset</a> = &lt;factory&gt;, batch_size: int = 128, n_workers: int = 32, label_threshold: float = 0.9, device: str = 'cuda', ade20k_cls: int = 29, k: int = 32)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Visuals(sae_ckpt: str = './checkpoints/sae.pt', acts: saev.config.DataLoad = <factory>, imgs: saev.config.Ade20kDataset = <factory>, batch_size: int = 128, n_workers: int = 32, label_threshold: float = 0.9, device: str = 'cuda', ade20k_cls: int = 29, k: int = 32)</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@beartype.beartype
+@dataclasses.dataclass(frozen=True)
+class Visuals:
+    sae_ckpt: str = os.path.join(&#34;.&#34;, &#34;checkpoints&#34;, &#34;sae.pt&#34;)
+    &#34;&#34;&#34;Path to the sae.pt file.&#34;&#34;&#34;
+    acts: saev.config.DataLoad = dataclasses.field(default_factory=saev.config.DataLoad)
+    &#34;&#34;&#34;Configuration for the saved ADE20K training ViT activations.&#34;&#34;&#34;
+    imgs: saev.config.Ade20kDataset = dataclasses.field(
+        default_factory=lambda: saev.config.Ade20kDataset(split=&#34;training&#34;)
+    )
+    &#34;&#34;&#34;Configuration for the ADE20K training dataset.&#34;&#34;&#34;
+    batch_size: int = 128
+    &#34;&#34;&#34;Batch size for calculating F1 scores.&#34;&#34;&#34;
+    n_workers: int = 32
+    &#34;&#34;&#34;Number of dataloader workers.&#34;&#34;&#34;
+    label_threshold: float = 0.9
+    device: str = &#34;cuda&#34;
+    &#34;Hardware for SAE inference.&#34; &#34;&#34;
+    ade20k_cls: int = 29
+    &#34;&#34;&#34;ADE20K class to probe for.&#34;&#34;&#34;
+    k: int = 32
+    &#34;&#34;&#34;Top K features to save.&#34;&#34;&#34;</code></pre>
+</details>
+<h3>Class variables</h3>
+<dl>
+<dt id="contrib.semseg.config.Visuals.acts"><code class="name">var <span class="ident">acts</span> : <a title="saev.config.DataLoad" href="../../saev/config.html#saev.config.DataLoad">DataLoad</a></code></dt>
+<dd>
+<div class="desc"><p>Configuration for the saved ADE20K training ViT activations.</p></div>
+</dd>
+<dt id="contrib.semseg.config.Visuals.ade20k_cls"><code class="name">var <span class="ident">ade20k_cls</span> : int</code></dt>
+<dd>
+<div class="desc"><p>ADE20K class to probe for.</p></div>
+</dd>
+<dt id="contrib.semseg.config.Visuals.batch_size"><code class="name">var <span class="ident">batch_size</span> : int</code></dt>
+<dd>
+<div class="desc"><p>Batch size for calculating F1 scores.</p></div>
+</dd>
+<dt id="contrib.semseg.config.Visuals.device"><code class="name">var <span class="ident">device</span> : str</code></dt>
+<dd>
+<div class="desc"><p>Hardware for SAE inference.</p></div>
+</dd>
+<dt id="contrib.semseg.config.Visuals.imgs"><code class="name">var <span class="ident">imgs</span> : <a title="saev.config.Ade20kDataset" href="../../saev/config.html#saev.config.Ade20kDataset">Ade20kDataset</a></code></dt>
+<dd>
+<div class="desc"><p>Configuration for the ADE20K training dataset.</p></div>
+</dd>
+<dt id="contrib.semseg.config.Visuals.k"><code class="name">var <span class="ident">k</span> : int</code></dt>
+<dd>
+<div class="desc"><p>Top K features to save.</p></div>
+</dd>
+<dt id="contrib.semseg.config.Visuals.label_threshold"><code class="name">var <span class="ident">label_threshold</span> : float</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="contrib.semseg.config.Visuals.n_workers"><code class="name">var <span class="ident">n_workers</span> : int</code></dt>
+<dd>
+<div class="desc"><p>Number of dataloader workers.</p></div>
+</dd>
+<dt id="contrib.semseg.config.Visuals.sae_ckpt"><code class="name">var <span class="ident">sae_ckpt</span> : str</code></dt>
+<dd>
+<div class="desc"><p>Path to the sae.pt file.</p></div>
+</dd>
+</dl>
+</dd>
 </dl>
 </section>
 </article>
@@ -183,6 +256,20 @@ for AdamW.</p></div>
 <li><code><a title="contrib.semseg.config.Train.train_acts" href="#contrib.semseg.config.Train.train_acts">train_acts</a></code></li>
 <li><code><a title="contrib.semseg.config.Train.val_acts" href="#contrib.semseg.config.Train.val_acts">val_acts</a></code></li>
 <li><code><a title="contrib.semseg.config.Train.weight_decay" href="#contrib.semseg.config.Train.weight_decay">weight_decay</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="contrib.semseg.config.Visuals" href="#contrib.semseg.config.Visuals">Visuals</a></code></h4>
+<ul class="two-column">
+<li><code><a title="contrib.semseg.config.Visuals.acts" href="#contrib.semseg.config.Visuals.acts">acts</a></code></li>
+<li><code><a title="contrib.semseg.config.Visuals.ade20k_cls" href="#contrib.semseg.config.Visuals.ade20k_cls">ade20k_cls</a></code></li>
+<li><code><a title="contrib.semseg.config.Visuals.batch_size" href="#contrib.semseg.config.Visuals.batch_size">batch_size</a></code></li>
+<li><code><a title="contrib.semseg.config.Visuals.device" href="#contrib.semseg.config.Visuals.device">device</a></code></li>
+<li><code><a title="contrib.semseg.config.Visuals.imgs" href="#contrib.semseg.config.Visuals.imgs">imgs</a></code></li>
+<li><code><a title="contrib.semseg.config.Visuals.k" href="#contrib.semseg.config.Visuals.k">k</a></code></li>
+<li><code><a title="contrib.semseg.config.Visuals.label_threshold" href="#contrib.semseg.config.Visuals.label_threshold">label_threshold</a></code></li>
+<li><code><a title="contrib.semseg.config.Visuals.n_workers" href="#contrib.semseg.config.Visuals.n_workers">n_workers</a></code></li>
+<li><code><a title="contrib.semseg.config.Visuals.sae_ckpt" href="#contrib.semseg.config.Visuals.sae_ckpt">sae_ckpt</a></code></li>
 </ul>
 </li>
 </ul>

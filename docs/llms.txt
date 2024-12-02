@@ -1401,6 +1401,8 @@ Sub-modules
 
 Module contrib.semseg
 =====================
+This sub-module reproduces the results from Section 4.2 of our paper.
+
 # Overview
 
 As an overview:
@@ -1429,6 +1431,7 @@ Sub-modules
 * contrib.semseg.dashboard2
 * contrib.semseg.interactive
 * contrib.semseg.training
+* contrib.semseg.visuals
 
 Module contrib.semseg.config
 ============================
@@ -1485,6 +1488,38 @@ Classes
 
     `weight_decay: float`
     :   Weight decay  for AdamW.
+
+`Visuals(sae_ckpt: str = './checkpoints/sae.pt', acts: saev.config.DataLoad = <factory>, imgs: saev.config.Ade20kDataset = <factory>, batch_size: int = 128, n_workers: int = 32, label_threshold: float = 0.9, device: str = 'cuda', ade20k_cls: int = 29, k: int = 32)`
+:   Visuals(sae_ckpt: str = './checkpoints/sae.pt', acts: saev.config.DataLoad = <factory>, imgs: saev.config.Ade20kDataset = <factory>, batch_size: int = 128, n_workers: int = 32, label_threshold: float = 0.9, device: str = 'cuda', ade20k_cls: int = 29, k: int = 32)
+
+    ### Class variables
+
+    `acts: saev.config.DataLoad`
+    :   Configuration for the saved ADE20K training ViT activations.
+
+    `ade20k_cls: int`
+    :   ADE20K class to probe for.
+
+    `batch_size: int`
+    :   Batch size for calculating F1 scores.
+
+    `device: str`
+    :   Hardware for SAE inference.
+
+    `imgs: saev.config.Ade20kDataset`
+    :   Configuration for the ADE20K training dataset.
+
+    `k: int`
+    :   Top K features to save.
+
+    `label_threshold: float`
+    :
+
+    `n_workers: int`
+    :   Number of dataloader workers.
+
+    `sae_ckpt: str`
+    :   Path to the sae.pt file.
 
 Module contrib.semseg.dashboard
 ===============================
@@ -1580,3 +1615,25 @@ Classes
 
     `d_vit: int`
     :
+
+Module contrib.semseg.visuals
+=============================
+Propose features for manual verification.
+
+Functions
+---------
+
+`axis_unique(a: jaxtyping.Shaped[ndarray, '*axes'], axis: int = -1, return_counts: bool = True, *, null_value: int = -1) ‑> jaxtyping.Shaped[ndarray, '*axes'] | tuple[jaxtyping.Shaped[ndarray, '*axes'], jaxtyping.Int[ndarray, '*axes']]`
+:   Calculate unique values and their counts along any axis of a matrix.
+    
+    Arguments:
+        a: Input array
+        axis: The axis along which to find unique values.
+        return_counts: If true, also return the count of each unique value
+    
+    Returns:
+        unique: Array of unique values, with zeros replacing duplicates
+        counts: (optional) Count of each unique value (only if return_counts=True)
+
+`main(cfg: contrib.semseg.config.Visuals)`
+:

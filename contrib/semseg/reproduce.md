@@ -1,3 +1,5 @@
+This sub-module reproduces the results from Section 4.2 of our paper.
+
 # Overview
 
 As an overview:
