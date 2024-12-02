@@ -118,20 +118,25 @@ def main(cfgs: list[config.Train]):
                 acc_M = (pred_labels_MNWH == true_labels_MNWH).float().mean(
                     dim=(1, 2, 3)
                 ) * 100
-                logger.info(
-                    "epoch: %d, step: %d, miou: %.5f, acc: %.3f",
-                    epoch,
-                    global_step,
-                    mious[0],
-                    acc_M[0],
-                )
+            logger.info(
+                "epoch: %d, step: %d, best miou: %.5f, best acc: %.3f",
+                epoch,
+                global_step,
+                mious.max().item(),
+                acc_M.max().item(),
+            )
 
-                for cfg, model in zip(cfgs, models):
-                    dump(cfg, model, suffix=f"ep{epoch}_step{global_step}")
+            for cfg, model in zip(cfgs, models):
+                dump(cfg, model, suffix=f"ep{epoch}_step{global_step}")
 
 
 @beartype.beartype
-def dump(cfg: config.Train, model: torch.nn.Module, *, suffix: str = ""):
+def dump(
+    cfg: config.Train,
+    model: torch.nn.Module,
+    *,
+    step: int | None = None,
+):
     """
     Save a model checkpoint to disk along with configuration, using the [trick from equinox](https://docs.kidger.site/equinox/examples/serialisation).
     """
@@ -143,10 +148,11 @@ def dump(cfg: config.Train, model: torch.nn.Module, *, suffix: str = ""):
 
     kwargs = dict(in_features=model.in_features, out_features=model.out_features)
 
-    fpath = os.path.join(dpath, "model.pt")
-    if not suffix:
-        fpath = os.path.join(dpath, f"model_{suffix}.pt")
+    fname = "model"
+    if step is not None:
+        fname += f"_step{step}"
 
+    fpath = os.path.join(dpath, f"{fname}.pt")
     with open(fpath, "wb") as fd:
         kwargs_str = json.dumps(kwargs)
         fd.write((kwargs_str + "\n").encode("utf-8"))
@@ -155,6 +161,17 @@ def dump(cfg: config.Train, model: torch.nn.Module, *, suffix: str = ""):
     fpath = os.path.join(dpath, "cfg.json")
     with open(fpath, "w") as fd:
         json.dump(dataclasses.asdict(cfg), fd)
+
+
+@beartype.beartype
+def load_latest(dpath: str, *, device: str = "cpu") -> torch.nn.Module:
+    """
+    Loads the latest checkpoint by picking out the checkpoint file in dpath with the largest _step{step} suffix.
+
+    Arguments:
+        dpath: Directory to search.
+        device: optional torch device to pass to load.
+    """
 
 
 @beartype.beartype
