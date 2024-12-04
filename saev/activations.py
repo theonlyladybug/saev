@@ -965,7 +965,7 @@ class Metadata:
 @beartype.beartype
 def get_acts_dir(cfg: config.Activations) -> str:
     """
-    Return the activations filepath based on the relevant values of a config.
+    Return the activations directory based on the relevant values of a config.
     Also saves a metadata.json file to that directory for human reference.
 
     Args:

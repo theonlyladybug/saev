@@ -94,7 +94,9 @@ def main(cfg: config.Validation):
             )
 
     # Save hyperparameter sweep charts
-    df = pl.read_csv(csv_fpath)
+    df = pl.read_csv(csv_fpath).with_columns(
+        pl.col("weight_decay").add(1e-9).alias("weight_decay")
+    )
     alt.Chart(df).mark_point().encode(
         alt.X(alt.repeat("column"), type="quantitative").scale(type="log"),
         alt.Y(alt.repeat("row"), type="quantitative").scale(zero=False),

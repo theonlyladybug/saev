@@ -50,15 +50,23 @@ def visuals(cfg: typing.Annotated[config.Visuals, tyro.conf.arg(name="")]):
 
 
 @beartype.beartype
-def validation(cfg: typing.Annotated[config.Validation, tyro.conf.arg(name="")]):
+def validate(cfg: typing.Annotated[config.Validation, tyro.conf.arg(name="")]):
     from . import validation
 
     validation.main(cfg)
+
+
+@beartype.beartype
+def manipulate(cfg: typing.Annotated[config.Manipulation, tyro.conf.arg(name="")]):
+    from . import manipulation
+
+    manipulation.main(cfg)
 
 
 if __name__ == "__main__":
     tyro.extras.subcommand_cli_from_dict({
         "train": train,
         "visuals": visuals,
-        "validation": validation,
+        "validate": validate,
+        "manipulate": manipulate,
     })

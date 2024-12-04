@@ -13,7 +13,7 @@ class Train:
     """Linear layer learning rate."""
     weight_decay: float = 1e-3
     """Weight decay  for AdamW."""
-    n_epochs: int = 200
+    n_epochs: int = 400
     """Number of training epochs for linear layer."""
     batch_size: int = 1024
     """Training batch size for linear layer."""
@@ -31,7 +31,7 @@ class Train:
         default_factory=saev.config.Ade20kDataset
     )
     """Configuration for the ADE20K dataset."""
-    eval_every: int = 50
+    eval_every: int = 100
     """How many epochs between evaluations."""
     device: str = "cuda"
     "Hardware to train on." ""
@@ -84,6 +84,33 @@ class Validation:
     """Number of dataloader workers."""
     device: str = "cuda"
     "Hardware for linear probe inference." ""
+
+
+@beartype.beartype
+@dataclasses.dataclass(frozen=True)
+class Manipulation:
+    probe_ckpt: str = os.path.join(
+        ".", "checkpoints", "semseg", "lr_0_001__wd_0_1", "model.pt"
+    )
+    """Linear probe checkpoint."""
+    sae_ckpt: str = os.path.join(".", "checkpoints", "abcdef", "sae.pt")
+    """SAE checkpoint."""
+    ade20k_classes: list[int] = dataclasses.field(default_factory=lambda: [29])
+    """One or more ADE20K classes to track."""
+    sae_latents: list[int] = dataclasses.field(default_factory=lambda: [0, 1, 2])
+    """one or more SAE latents to manipulate."""
+    acts: saev.config.DataLoad = dataclasses.field(default_factory=saev.config.DataLoad)
+    """Configuration for the saved ADE20K validation ViT activations."""
+    imgs: saev.config.Ade20kDataset = dataclasses.field(
+        default_factory=lambda: saev.config.Ade20kDataset(split="validation")
+    )
+    """Configuration for the ADE20K validation dataset."""
+    batch_size: int = 128
+    """Batch size for both linear probe and SAE."""
+    n_workers: int = 32
+    """Number of dataloader workers."""
+    device: str = "cuda"
+    "Hardware for linear probe and SAE inference." ""
 
 
 @beartype.beartype
