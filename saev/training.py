@@ -24,41 +24,6 @@ logging.basicConfig(level=logging.INFO, format=log_format)
 logger = logging.getLogger("train")
 
 
-CANNOT_PARALLELIZE = set([
-    "data",
-    "n_workers",
-    "n_patches",
-    "sae_batch_size",
-    "track",
-    "wandb_project",
-    "tag",
-    "log_every",
-    "ckpt_path",
-    "device",
-    "slurm",
-    "slurm_acct",
-    "log_to",
-])
-
-
-@beartype.beartype
-def check_cfgs(cfgs: list[config.Train]):
-    # Check that any differences in configs are supported by our parallel training run.
-    seen = collections.defaultdict(list)
-    for cfg in cfgs:
-        for key, value in vars(cfg).items():
-            seen[key].append(value)
-
-    bad_keys = {}
-    for key, values in seen.items():
-        if key in CANNOT_PARALLELIZE and len(set(values)) != 1:
-            bad_keys[key] = values
-
-    if bad_keys:
-        msg = ", ".join(f"'{key}': {values}" for key, values in bad_keys.items())
-        raise ValueError(f"Cannot parallelize training over: {msg}")
-
-
 @torch.no_grad()
 def init_b_dec_batched(saes: torch.nn.ModuleList, dataset: activations.Dataset):
     n_samples = max(sae.cfg.n_reinit_samples for sae in saes)
@@ -420,6 +385,52 @@ class BatchLimiter:
             # We try to mitigate the above issue by ignoring the last batch if we don't have drop_last.
             if not self.dataloader.drop_last:
                 self.n_seen -= self.batch_size
+
+
+#####################
+# Parallel Training #
+#####################
+
+
+CANNOT_PARALLELIZE = set([
+    "data",
+    "n_workers",
+    "n_patches",
+    "sae_batch_size",
+    "track",
+    "wandb_project",
+    "tag",
+    "log_every",
+    "ckpt_path",
+    "device",
+    "slurm",
+    "slurm_acct",
+    "log_to",
+    "sae.exp_factor",
+])
+
+
+@beartype.beartype
+def split_cfgs(cfgs: list[config.Train]) -> list[list[config.Train]]:
+    """
+    Splits configs into groups that can be parallelized.
+    """
+
+    seen = collections.defaultdict(list)
+    for cfg in cfgs:
+        dct = dataclasses.asdict(cfg)
+        dct = helpers.flattened(dct)
+        for key, value in dct.items():
+            seen[key].append(value)
+
+    bad_keys = {}
+    for key, values in seen.items():
+        if key in CANNOT_PARALLELIZE and len(set(values)) != 1:
+            bad_keys[key] = values
+
+    if bad_keys:
+        msg = ", ".join(f"'{key}': {values}" for key, values in bad_keys.items())
+        raise ValueError(f"Cannot parallelize training over: {msg}")
 
 
 ##############
