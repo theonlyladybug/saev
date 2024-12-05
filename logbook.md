@@ -846,3 +846,79 @@ They suggest that measuring sensitivity (how reliably a feature activates for te
 
 I want to see which hparam works the best.
 I need to see how the predictions are to see if the linear model is any good.
+
+# 12/04/2024
+
+I can demonstrate a lot of manipulation in various ways:
+
+* Linear probe + semantic segmentation
+* Masked autoencoder pre-trained ViT with pixel reconstruction
+* VLM with language generations
+* BioCLIP with probabilities
+
+I want to build Gradio demos for all of these.
+I also want to cherry pick qualitative examples.
+And finally, I want to present a set of hparams for training these things at the scale I'm training.
+
+> We believe the only way to really understand the precise details of a technology is to use it: to see its strengths and weaknesses for yourself, and envision where it could go in the future. 
+
+From https://goodfire.ai/blog/research-preview/
+
+Framework for intervention:
+
+1. Train an SAE on a particular set of vision transformer activations.
+2. Train a (or use an existing pre-trained) task-specific head: make predictions based on [CLS] activations, use an LLM to generate captions based on an image and a prompt, etc.
+3. Manipulate the vision transformer activations using the SAE-proposed features.
+4. Compare task-specific outputs before and after the intervention.
+
+
+## Notes from Meeting
+
+Talking about faithfulness, causal intervention, etc.
+But this method is not supposed to compete with INTR.
+It should be a good visual trait extractor.
+It should lead to highly factored visual traits.
+
+We want to show the quality of the visual traits.
+How can we demonstrate that?
+By manipulating traits for particular classification traits.
+This is just a means to an end.
+
+If two species are inseperable by human eye, does the model find traits that consistently fire/don't fire between the two species to answer that question?
+
+Can we find a difference between reticulated giraffe species?
+What about a lack of differences between two species of red wolves that were recently merged into a single species?
+
+Experiments
+
+two "understanding"
+
+dino vs clip (pre-training modality)
+bioclip vs clip (domain/finetuning effects)
+
+four "control"
+
+image classification -> CLIP
+sem seg -> DINO
+mae (image gen) -> MAE
+image captioning (vqa? moondream) -> Moondream
+
+don't compare to protopnet or stuff in intro, it can come up in related work
+
+So what's stopping us from releasing a preprint?
+
+1. Experimental results
+2. Dashboards
+3. Writing
+
+So I will:
+
+1. Kick off jobs training on normalized activations for DINOv2 (patch) and CLIP (CLS)
+2. Train an SAE on unnormalized activations for CLIP CLS to get something ready.
+3. Build gradio demo for SAE inference on CLIP activations.
+
+# 12/05/2024
+
+Instead of gradio or streamlit, I'll just use gradio as an inference endpoint and then Elm -> static html + js as the polished web demos. 
+I probably should write one pure inference demo in gradio to demonstrate how simple it can be, but for polished, interactive experiences, I want to write the frontends myself.
+But this path has many pitfalls---do not get caught up in frontends in favor of writing a paper.

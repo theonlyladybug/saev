@@ -2,7 +2,6 @@
 Trains many SAEs in parallel to amortize the cost of loading a single batch of data over many SAE training runs.
 """
 
-import collections
 import dataclasses
 import json
 import logging
@@ -154,10 +153,13 @@ def train(
     """
     Explicitly declare the optimizer, schedulers, dataloader, etc outside of `main` so that all the variables are dropped from scope and can be garbage collected.
     """
-    check_cfgs(cfgs)
+    if len(split_cfgs(cfgs)) != 1:
+        raise ValueError("Configs are not parallelizeable: {cfgs}.")
 
     err_msg = "ghost grads are disabled in current codebase."
     assert all(not c.sae.ghost_grads for c in cfgs), err_msg
+
+    logger.info("Parallelizing %d runs.", len(cfgs))
 
     cfg = cfgs[0]
     if torch.cuda.is_available():
@@ -302,12 +304,9 @@ def evaluate(cfgs: list[config.Train], saes: torch.nn.ModuleList) -> list[EvalMe
 
     torch.cuda.empty_cache()
 
-    check_cfgs(cfgs)
+    if len(split_cfgs(cfgs)) != 1:
+        raise ValueError("Configs are not parallelizeable: {cfgs}.")
 
-    # Also manually check that all SAEs are the same dimension
-    d_sae = saes[0].cfg.d_sae
-    for sae in saes:
-        assert sae.cfg.d_sae == d_sae
     saes.eval()
 
     cfg = cfgs[0]
@@ -407,6 +406,7 @@ CANNOT_PARALLELIZE = set([
     "slurm_acct",
     "log_to",
     "sae.exp_factor",
+    "sae.d_vit",
 ])
 
 
@@ -425,20 +425,23 @@ def split_cfgs(cfgs: list[config.Train]) -> list[list[config.Train]]:
     groups = {}
     for cfg in cfgs:
         dct = dataclasses.asdict(cfg)
-        dct = helpers.flattened(dct)
-        
+
         # Create a key tuple from the values of CANNOT_PARALLELIZE keys
         key_values = []
         for key in sorted(CANNOT_PARALLELIZE):
-            key_values.append((key, dct[key]))
+            key_values.append((key, make_hashable(helpers.get(dct, key))))
         group_key = tuple(key_values)
-        
+
         if group_key not in groups:
             groups[group_key] = []
         groups[group_key].append(cfg)
-    
+
     # Convert groups dict to list of lists
     return list(groups.values())
+
+
+def make_hashable(obj):
+    return json.dumps(obj, sort_keys=True)
 
 
 ##############

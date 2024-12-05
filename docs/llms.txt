@@ -140,18 +140,19 @@ You can run it with `uv run marimo edit saev/webapp.py`.
 Sub-modules
 -----------
 * saev.activations
+* saev.app
 * saev.config
 * saev.helpers
 * saev.imaging
+* saev.interactive
 * saev.nn
 * saev.test_activations
 * saev.test_config
 * saev.test_nn
-* saev.test_webapp
+* saev.test_training
+* saev.test_visuals
 * saev.training
 * saev.visuals
-* saev.web
-* saev.webapp
 
 Module saev.activations
 =======================
@@ -168,7 +169,7 @@ Functions
 ---------
 
 `get_acts_dir(cfg: saev.config.Activations) ‑> str`
-:   Return the activations filepath based on the relevant values of a config.
+:   Return the activations directory based on the relevant values of a config.
     Also saves a metadata.json file to that directory for human reference.
     
     Args:
@@ -479,6 +480,57 @@ Classes
     * torch.utils.data.dataset.Dataset
     * typing.Generic
 
+`MaskedAutoencoder(cfg: saev.config.Activations)`
+:   Base class for all neural network modules.
+    
+    Your models should also subclass this class.
+    
+    Modules can also contain other Modules, allowing to nest them in
+    a tree structure. You can assign the submodules as regular attributes::
+    
+        import torch.nn as nn
+        import torch.nn.functional as F
+    
+        class Model(nn.Module):
+            def __init__(self) -> None:
+                super().__init__()
+                self.conv1 = nn.Conv2d(1, 20, 5)
+                self.conv2 = nn.Conv2d(20, 20, 5)
+    
+            def forward(self, x):
+                x = F.relu(self.conv1(x))
+                return F.relu(self.conv2(x))
+    
+    Submodules assigned in this way will be registered, and will have their
+    parameters converted too when you call :meth:`to`, etc.
+    
+    .. note::
+        As per the example above, an ``__init__()`` call to the parent class
+        must be made before assignment on the child.
+    
+    :ivar training: Boolean represents whether this module is in training or
+                    evaluation mode.
+    :vartype training: bool
+    
+    Initialize internal Module state, shared by both nn.Module and ScriptModule.
+
+    ### Ancestors (in MRO)
+
+    * torch.nn.modules.module.Module
+
+    ### Methods
+
+    `forward(self, batch: jaxtyping.Float[Tensor, 'batch 3 width height']) ‑> Callable[..., Any]`
+    :   Define the computation performed at every call.
+        
+        Should be overridden by all subclasses.
+        
+        .. note::
+            Although the recipe for forward pass needs to be defined within
+            this function, one should call the :class:`Module` instance afterwards
+            instead of this since the former takes care of running the
+            registered hooks while the latter silently ignores them.
+
 `Metadata(model_family: str, model_ckpt: str, layers: tuple[int, ...], n_patches_per_img: int, cls_token: bool, d_vit: int, seed: int, n_imgs: int, n_patches_per_shard: int, data: str)`
 :   Metadata(model_family: str, model_ckpt: str, layers: tuple[int, ...], n_patches_per_img: int, cls_token: bool, d_vit: int, seed: int, n_imgs: int, n_patches_per_shard: int, data: str)
 
@@ -672,6 +724,9 @@ Classes
 
     `reset(self)`
     :
+
+Module saev.app
+===============
 
 Module saev.config
 ==================
@@ -992,6 +1047,12 @@ Useful helpers for `saev`.
 Functions
 ---------
 
+`flattened(dct: dict[str, object], *, sep: str = '.') ‑> dict[str, str | int | float | bool | None]`
+:   Flatten a potentially nested dict to a single-level dict with `.`-separated keys.
+
+`get(dct: dict[str, object], key: str, *, sep: str = '.') ‑> object`
+:   
+
 `get_cache_dir() ‑> str`
 :   Get cache directory from environment variables, defaulting to the current working directory (.)
     
@@ -1018,6 +1079,20 @@ Functions
 
 `add_highlights(img: PIL.Image.Image, patches: jaxtyping.Float[ndarray, 'n_patches'], *, upper: float | None = None) ‑> PIL.Image.Image`
 :
+
+Namespace saev.interactive
+==========================
+
+Sub-modules
+-----------
+* saev.interactive.features
+* saev.interactive.metrics
+
+Module saev.interactive.features
+================================
+
+Module saev.interactive.metrics
+===============================
 
 Module saev.nn
 ==============
@@ -1164,8 +1239,26 @@ Functions
 `test_safe_mse_zero_x_hat()`
 :
 
-Module saev.test_webapp
-=======================
+Module saev.test_training
+=========================
+
+Functions
+---------
+
+`test_split_cfgs_no_bad_keys()`
+:   
+
+`test_split_cfgs_on_multiple_keys_with_multiple_per_key()`
+:   
+
+`test_split_cfgs_on_single_key()`
+:   
+
+`test_split_cfgs_on_single_key_with_multiple_per_key()`
+:
+
+Module saev.test_visuals
+========================
 
 Functions
 ---------
@@ -1180,9 +1273,6 @@ Trains many SAEs in parallel to amortize the cost of loading a single batch of d
 Functions
 ---------
 
-`check_cfgs(cfgs: list[saev.config.Train])`
-:   
-
 `evaluate(cfgs: list[saev.config.Train], saes: torch.nn.modules.container.ModuleList) ‑> list[saev.training.EvalMetrics]`
 :   Evaluates SAE quality by counting the number of dead features and the number of dense features.
     Also makes histogram plots to help human qualitative comparison.
@@ -1195,8 +1285,20 @@ Functions
 `main(cfgs: list[saev.config.Train]) ‑> list[str]`
 :   
 
+`make_hashable(obj)`
+:   
+
 `make_saes(cfgs: list[saev.config.SparseAutoencoder]) ‑> tuple[torch.nn.modules.container.ModuleList, list[dict[str, object]]]`
 :   
+
+`split_cfgs(cfgs: list[saev.config.Train]) ‑> list[list[saev.config.Train]]`
+:   Splits configs into groups that can be parallelized.
+    
+    Arguments:
+        A list of configs from a sweep file.
+    
+    Returns:
+        A list of lists, where the configs in each sublist do not differ in any keys that are in `CANNOT_PARALLELIZE`. This means that each sublist is a valid "parallel" set of configs for `train`.
 
 `train(cfgs: list[saev.config.Train]) ‑> tuple[torch.nn.modules.container.ModuleList, saev.training.ParallelWandbRun, int]`
 :   Explicitly declare the optimizer, schedulers, dataloader, etc outside of `main` so that all the variables are dropped from scope and can be garbage collected.
@@ -1379,25 +1481,92 @@ Classes
     `patches: jaxtyping.Float[Tensor, 'n_patches']`
     :
 
-Namespace saev.web
-==================
-
-Sub-modules
------------
-* saev.web.probing
-
-Module saev.web.probing
-=======================
-
-Module saev.webapp
-==================
-
 Namespace contrib
 =================
 
 Sub-modules
 -----------
+* contrib.classification
+* contrib.mae
 * contrib.semseg
+
+Module contrib.classification
+=============================
+
+Sub-modules
+-----------
+* contrib.classification.app
+* contrib.classification.config
+* contrib.classification.probing
+
+Module contrib.classification.app
+=================================
+
+Module contrib.classification.config
+====================================
+
+Module contrib.classification.probing
+=====================================
+
+Namespace contrib.mae
+=====================
+
+Sub-modules
+-----------
+* contrib.mae.modeling
+
+Module contrib.mae.modeling
+===========================
+
+Functions
+---------
+
+`download()`
+:   
+
+`load_model(ckpt: str) ‑> contrib.mae.modeling.MaskedAutoencoder`
+:   
+
+Classes
+-------
+
+`MaskedAutoencoder()`
+:   Base class for all neural network modules.
+    
+    Your models should also subclass this class.
+    
+    Modules can also contain other Modules, allowing to nest them in
+    a tree structure. You can assign the submodules as regular attributes::
+    
+        import torch.nn as nn
+        import torch.nn.functional as F
+    
+        class Model(nn.Module):
+            def __init__(self) -> None:
+                super().__init__()
+                self.conv1 = nn.Conv2d(1, 20, 5)
+                self.conv2 = nn.Conv2d(20, 20, 5)
+    
+            def forward(self, x):
+                x = F.relu(self.conv1(x))
+                return F.relu(self.conv2(x))
+    
+    Submodules assigned in this way will be registered, and will have their
+    parameters converted too when you call :meth:`to`, etc.
+    
+    .. note::
+        As per the example above, an ``__init__()`` call to the parent class
+        must be made before assignment on the child.
+    
+    :ivar training: Boolean represents whether this module is in training or
+                    evaluation mode.
+    :vartype training: bool
+    
+    Initialize internal Module state, shared by both nn.Module and ScriptModule.
+
+    ### Ancestors (in MRO)
+
+    * torch.nn.modules.module.Module
 
 Module contrib.semseg
 =====================
@@ -1407,6 +1576,7 @@ This sub-module reproduces the results from Section 4.2 of our paper.
 
 As an overview:
 
+0. Record ViT activations for ADE20K.
 1. Train an SAE on activations.
 2. Train a linear probe on semantic segmentation task using ADE20K.
 3. Establish baseline metrics for the linear probe.
@@ -1416,13 +1586,67 @@ As an overview:
 
 Details can be found below.
 
+# Record ViT Activations for SAE and Linear Probe Training
+
 # Train an SAE on ViT Activations
 
 # Train a Linear Probe on Semantic Segmentation
 
+Now train a linear probe on the activations.
+
+```sh
+uv run python -m contrib.semseg train \
+  --train-acts.shard-root /local/scratch/stevens.994/cache/saev/a860104bf29d6093dd18b8e2dccd2e7efdfcd9fac35dceb932795af05187cb9f/ \
+  --train-acts.no-scale-mean \
+  --train-acts.no-scale-norm \
+  --val-acts.shard-root /local/scratch/stevens.994/cache/saev/c6756186d1490ac69fab6f8efb883a1c59d44d0594d99397051bfe8e409ca91d/ \
+  --val-acts.no-scale-mean \
+  --val-acts.no-scale-norm \
+  --imgs.root /research/nfs_su_809/workspace/stevens.994/datasets/ade20k/ \
+  --sweep contrib/semseg/sweep.toml
+```
+
 # Establish Linear Probe Baseline Metrics
 
 # Identify Class-Specific Feature Vectors in the SAE
+
+```sh
+uv run python -m contrib.semseg visuals \
+  --sae-ckpt checkpoints/ercgckr1/sae.pt \
+  --acts.shard-root /local/scratch/stevens.994/cache/saev/a860104bf29d6093dd18b8e2dccd2e7efdfcd9fac35dceb932795af05187cb9f/ \
+  --acts.no-scale-mean \
+  --acts.no-scale-norm \
+  --imgs.root /research/nfs_su_809/workspace/stevens.994/datasets/ade20k/
+```
+
+This will tell you to run a particular command in order to generate visuals for use with `saev.interactive.features`.
+
+# Manipulate ViT Activations
+
+```sh
+uv run python -m contrib.semseg manipulate \
+  --acts.shard-root /local/scratch/stevens.994/cache/saev/c6756186d1490ac69fab6f8efb883a1c59d44d0594d99397051bfe8e409ca91d/ \
+  --acts.no-scale-mean \
+  --acts.no-scale-norm \
+  --imgs.root /research/nfs_su_809/workspace/stevens.994/datasets/ade20k/ \
+  --sae-ckpt checkpoints/ercgckr1/sae.pt \
+  --probe-ckpt checkpoints/semseg/lr_0_003__wd_0_1/model_ep199_step4000.pt \
+  --ade20k-classes 29 \
+  --sae-latents 8541 5818 10230
+```
+# Dimension Key
+
+Throughout the code, variables are annotated with shape suffixes, as [recommended by Noam Shazeer](https://medium.com/@NoamShazeer/shape-suffixes-good-coding-style-f836e72e24fd).
+
+The key for these suffixes:
+
+* B: batch size
+* W: width in patches (typically 14 or 16)
+* H: height in patches (typically 14 or 16)
+* D: ViT activation dimension (typically 768 or 1024)
+* S: SAE latent dimension (768 x 16, etc)
+* L: Number of latents being manipulated at once (typically 1-5 at a time)
+* C: Number of classes in ADE20K (151)
 
 Sub-modules
 -----------
@@ -1430,6 +1654,7 @@ Sub-modules
 * contrib.semseg.dashboard
 * contrib.semseg.dashboard2
 * contrib.semseg.interactive
+* contrib.semseg.manipulation
 * contrib.semseg.training
 * contrib.semseg.validation
 * contrib.semseg.visuals
@@ -1446,8 +1671,40 @@ Functions
 Classes
 -------
 
-`Train(learning_rate: float = 0.0001, weight_decay: float = 0.001, n_epochs: int = 200, batch_size: int = 1024, n_workers: int = 32, train_acts: saev.config.DataLoad = <factory>, val_acts: saev.config.DataLoad = <factory>, imgs: saev.config.Ade20kDataset = <factory>, eval_every: int = 50, device: str = 'cuda', ckpt_path: str = './checkpoints/semseg', seed: int = 42, log_to: str = './logs')`
-:   Train(learning_rate: float = 0.0001, weight_decay: float = 0.001, n_epochs: int = 200, batch_size: int = 1024, n_workers: int = 32, train_acts: saev.config.DataLoad = <factory>, val_acts: saev.config.DataLoad = <factory>, imgs: saev.config.Ade20kDataset = <factory>, eval_every: int = 50, device: str = 'cuda', ckpt_path: str = './checkpoints/semseg', seed: int = 42, log_to: str = './logs')
+`Manipulation(probe_ckpt: str = './checkpoints/semseg/lr_0_001__wd_0_1/model.pt', sae_ckpt: str = './checkpoints/abcdef/sae.pt', ade20k_classes: list[int] = <factory>, sae_latents: list[int] = <factory>, acts: saev.config.DataLoad = <factory>, imgs: saev.config.Ade20kDataset = <factory>, batch_size: int = 128, n_workers: int = 32, device: str = 'cuda')`
+:   Manipulation(probe_ckpt: str = './checkpoints/semseg/lr_0_001__wd_0_1/model.pt', sae_ckpt: str = './checkpoints/abcdef/sae.pt', ade20k_classes: list[int] = <factory>, sae_latents: list[int] = <factory>, acts: saev.config.DataLoad = <factory>, imgs: saev.config.Ade20kDataset = <factory>, batch_size: int = 128, n_workers: int = 32, device: str = 'cuda')
+
+    ### Class variables
+
+    `acts: saev.config.DataLoad`
+    :   Configuration for the saved ADE20K validation ViT activations.
+
+    `ade20k_classes: list[int]`
+    :   One or more ADE20K classes to track.
+
+    `batch_size: int`
+    :   Batch size for both linear probe and SAE.
+
+    `device: str`
+    :   Hardware for linear probe and SAE inference.
+
+    `imgs: saev.config.Ade20kDataset`
+    :   Configuration for the ADE20K validation dataset.
+
+    `n_workers: int`
+    :   Number of dataloader workers.
+
+    `probe_ckpt: str`
+    :   Linear probe checkpoint.
+
+    `sae_ckpt: str`
+    :   SAE checkpoint.
+
+    `sae_latents: list[int]`
+    :   one or more SAE latents to manipulate.
+
+`Train(learning_rate: float = 0.0001, weight_decay: float = 0.001, n_epochs: int = 400, batch_size: int = 1024, n_workers: int = 32, train_acts: saev.config.DataLoad = <factory>, val_acts: saev.config.DataLoad = <factory>, imgs: saev.config.Ade20kDataset = <factory>, eval_every: int = 100, device: str = 'cuda', ckpt_path: str = './checkpoints/semseg', seed: int = 42, log_to: str = './logs')`
+:   Train(learning_rate: float = 0.0001, weight_decay: float = 0.001, n_epochs: int = 400, batch_size: int = 1024, n_workers: int = 32, train_acts: saev.config.DataLoad = <factory>, val_acts: saev.config.DataLoad = <factory>, imgs: saev.config.Ade20kDataset = <factory>, eval_every: int = 100, device: str = 'cuda', ckpt_path: str = './checkpoints/semseg', seed: int = 42, log_to: str = './logs')
 
     ### Class variables
 
@@ -1563,6 +1820,31 @@ Sub-modules
 
 Module contrib.semseg.interactive.feature_analysis
 ==================================================
+
+Module contrib.semseg.manipulation
+==================================
+Manipulate representations by increasing or decreasing the presence of a feature in a ViT activation, then use the linear probe for inference.
+
+Record class-specific scores before and after manipulation to see that you can directly manipulate abilities to complete downstream tasks.
+
+## Dimension Key
+
+* B: batch size
+* W: width in patches (typically 14 or 16)
+* H: height in patches (typically 14 or 16)
+* D: ViT activation dimension (typically 768 or 1024)
+* S: SAE latent dimension (768 x 16, etc)
+* L: Number of latents being manipulated at once (typically 1-5 at a time)
+* C: Number of classes in ADE20K (151)
+
+Functions
+---------
+
+`main(cfg: contrib.semseg.config.Manipulation)`
+:   
+
+`manipulate(cfg: contrib.semseg.config.Manipulation, sae: saev.nn.SparseAutoencoder, acts_BWHD: jaxtyping.Float[Tensor, 'batch width height d_vit']) ‑> tuple[jaxtyping.Float[Tensor, 'batch width height d_vit'], jaxtyping.Float[Tensor, 'batch width height d_vit']]`
+:
 
 Module contrib.semseg.training
 ==============================

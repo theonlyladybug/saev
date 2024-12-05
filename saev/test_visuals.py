@@ -1,12 +1,12 @@
 import torch
 
-from . import webapp
+from . import visuals
 
 
 def test_gather_batched_small():
     values = torch.arange(0, 64, dtype=torch.float).view(4, 2, 8)
     i = torch.tensor([[0], [0], [1], [1]])
-    actual = webapp.gather_batched(values, i)
+    actual = visuals.gather_batched(values, i)
 
     expected = torch.tensor([
         [[0, 1, 2, 3, 4, 5, 6, 7]],

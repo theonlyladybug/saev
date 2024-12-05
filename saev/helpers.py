@@ -75,3 +75,39 @@ class progress:
 
         # Will throw exception.
         return len(self.it)
+
+
+###################
+# FLATTENED DICTS #
+###################
+
+
+@beartype.beartype
+def flattened(
+    dct: dict[str, object], *, sep: str = "."
+) -> dict[str, str | int | float | bool | None]:
+    """
+    Flatten a potentially nested dict to a single-level dict with `.`-separated keys.
+    """
+    new = {}
+    for key, value in dct.items():
+        if isinstance(value, dict):
+            for nested_key, nested_value in flattened(value).items():
+                new[key + "." + nested_key] = nested_value
+            continue
+
+        new[key] = value
+
+    return new
+
+
+@beartype.beartype
+def get(dct: dict[str, object], key: str, *, sep: str = ".") -> object:
+    key = key.split(sep)
+    key = list(reversed(key))
+
+    while len(key) > 1:
+        popped = key.pop()
+        dct = dct[popped]
+
+    return dct[key.pop()]

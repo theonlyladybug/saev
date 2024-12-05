@@ -124,7 +124,7 @@ You can see all the options with <code>uv run python -m saev visuals --help</cod
 </code></pre>
 <p>This will record the top 128 patches, and then save the unique images among those top 128 patches for each feature in the trained SAE.
 It will cache these best activations to disk, then start saving images to visualize later on.</p>
-<p><code><a title="saev.webapp" href="webapp.html">saev.webapp</a></code> is a small web application based on <a href="https://marimo.io/">marimo</a> to interactively look at these images.</p>
+<p><code>saev.webapp</code> is a small web application based on <a href="https://marimo.io/">marimo</a> to interactively look at these images.</p>
 <p>You can run it with <code>uv run marimo edit saev/webapp.py</code>.</p>
 <h2 id="sweeps">Sweeps</h2>
 <div class="admonition todo">
@@ -144,6 +144,10 @@ It will cache these best activations to disk, then start saving images to visual
 <dd>
 <div class="desc"><p>To save lots of activations, we want to do things in parallel, with lots of slurm jobs, and save multiple files, rather than just one …</p></div>
 </dd>
+<dt><code class="name"><a title="saev.app" href="app.html">saev.app</a></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
 <dt><code class="name"><a title="saev.config" href="config.html">saev.config</a></code></dt>
 <dd>
 <div class="desc"><p>All configs for all saev jobs …</p></div>
@@ -153,6 +157,10 @@ It will cache these best activations to disk, then start saving images to visual
 <div class="desc"><p>Useful helpers for <code><a title="saev" href="#saev">saev</a></code>.</p></div>
 </dd>
 <dt><code class="name"><a title="saev.imaging" href="imaging.html">saev.imaging</a></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt><code class="name"><a title="saev.interactive" href="interactive/index.html">saev.interactive</a></code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
@@ -173,7 +181,11 @@ These tests are quite slow</p></div>
 <dd>
 <div class="desc"><p>Uses <a href="">hypothesis</a> and <a href="https://hypothesis-torch.readthedocs.io/en/stable/compatability/">hypothesis-torch</a> to generate test cases to compare our …</p></div>
 </dd>
-<dt><code class="name"><a title="saev.test_webapp" href="test_webapp.html">saev.test_webapp</a></code></dt>
+<dt><code class="name"><a title="saev.test_training" href="test_training.html">saev.test_training</a></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt><code class="name"><a title="saev.test_visuals" href="test_visuals.html">saev.test_visuals</a></code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
@@ -184,14 +196,6 @@ These tests are quite slow</p></div>
 <dt><code class="name"><a title="saev.visuals" href="visuals.html">saev.visuals</a></code></dt>
 <dd>
 <div class="desc"><p>There is some important notation used only in this file to dramatically shorten variable names …</p></div>
-</dd>
-<dt><code class="name"><a title="saev.web" href="web/index.html">saev.web</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt><code class="name"><a title="saev.webapp" href="webapp.html">saev.webapp</a></code></dt>
-<dd>
-<div class="desc"></div>
 </dd>
 </dl>
 </section>
@@ -219,18 +223,19 @@ These tests are quite slow</p></div>
 <li><h3><a href="#header-submodules">Sub-modules</a></h3>
 <ul>
 <li><code><a title="saev.activations" href="activations.html">saev.activations</a></code></li>
+<li><code><a title="saev.app" href="app.html">saev.app</a></code></li>
 <li><code><a title="saev.config" href="config.html">saev.config</a></code></li>
 <li><code><a title="saev.helpers" href="helpers.html">saev.helpers</a></code></li>
 <li><code><a title="saev.imaging" href="imaging.html">saev.imaging</a></code></li>
+<li><code><a title="saev.interactive" href="interactive/index.html">saev.interactive</a></code></li>
 <li><code><a title="saev.nn" href="nn.html">saev.nn</a></code></li>
 <li><code><a title="saev.test_activations" href="test_activations.html">saev.test_activations</a></code></li>
 <li><code><a title="saev.test_config" href="test_config.html">saev.test_config</a></code></li>
 <li><code><a title="saev.test_nn" href="test_nn.html">saev.test_nn</a></code></li>
-<li><code><a title="saev.test_webapp" href="test_webapp.html">saev.test_webapp</a></code></li>
+<li><code><a title="saev.test_training" href="test_training.html">saev.test_training</a></code></li>
+<li><code><a title="saev.test_visuals" href="test_visuals.html">saev.test_visuals</a></code></li>
 <li><code><a title="saev.training" href="training.html">saev.training</a></code></li>
 <li><code><a title="saev.visuals" href="visuals.html">saev.visuals</a></code></li>
-<li><code><a title="saev.web" href="web/index.html">saev.web</a></code></li>
-<li><code><a title="saev.webapp" href="webapp.html">saev.webapp</a></code></li>
 </ul>
 </li>
 </ul>

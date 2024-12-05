@@ -40,12 +40,11 @@ def train(
     """
     import submitit
 
-    import saev.config
-    import saev.training
+    from . import config, training
 
     if sweep is not None:
         with open(sweep, "rb") as fd:
-            cfgs, errs = saev.config.grid(cfg, tomllib.load(fd))
+            cfgs, errs = config.grid(cfg, tomllib.load(fd))
 
         if errs:
             for err in errs:
@@ -54,6 +53,8 @@ def train(
 
     else:
         cfgs = [cfg]
+
+    cfgs = training.split_cfgs(cfgs)
 
     logger.info("Running %d training jobs.", len(cfgs))
 
@@ -70,8 +71,9 @@ def train(
     else:
         executor = submitit.DebugExecutor(folder=cfg.log_to)
 
-    job = executor.submit(saev.training.main, cfgs)
-    job.result()
+    jobs = [executor.submit(training.main, group) for group in cfgs]
+    for job in jobs:
+        job.result()
 
 
 @beartype.beartype
