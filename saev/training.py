@@ -415,22 +415,13 @@ def split_cfgs(cfgs: list[config.Train]) -> list[list[config.Train]]:
     """
     Splits configs into groups that can be parallelized.
     """
-
-    seen = collections.defaultdict(list)
+    # Group configs by n_workers value
+    groups = collections.defaultdict(list)
     for cfg in cfgs:
-        dct = dataclasses.asdict(cfg)
-        dct = helpers.flattened(dct)
-        for key, value in dct.items():
-            seen[key].append(value)
-
-    bad_keys = {}
-    for key, values in seen.items():
-        if key in CANNOT_PARALLELIZE and len(set(values)) != 1:
-            bad_keys[key] = values
-
-    if bad_keys:
-        msg = ", ".join(f"'{key}': {values}" for key, values in bad_keys.items())
-        raise ValueError(f"Cannot parallelize training over: {msg}")
+        groups[cfg.n_workers].append(cfg)
+    
+    # Return list of groups
+    return list(groups.values())
 
 
 ##############
