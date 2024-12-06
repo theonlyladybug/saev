@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.9.14"
+__generated_with = "0.9.20"
 app = marimo.App(width="full")
 
 
@@ -23,7 +23,7 @@ def __(mo, os):
     def make_ckpt_dropdown():
         try:
             choices = os.listdir(
-                "/research/nfs_su_809/workspace/stevens.994/saev/webapp"
+                "/research/nfs_su_809/workspace/stevens.994/saev/features"
             )
 
         except FileNotFoundError:
@@ -50,7 +50,7 @@ def __(ckpt_dropdown, mo):
         ),
     )
 
-    webapp_dir = f"/research/nfs_su_809/workspace/stevens.994/saev/webapp/{ckpt_dropdown.value}/sort_by_patch"
+    webapp_dir = f"/research/nfs_su_809/workspace/stevens.994/saev/features/{ckpt_dropdown.value}/sort_by_img"
 
     get_neuron_i, set_neuron_i = mo.state(0)
     return get_neuron_i, set_neuron_i, webapp_dir

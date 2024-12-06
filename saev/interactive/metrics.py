@@ -27,15 +27,7 @@ def __():
 
 @app.cell
 def __(mo):
-    mo.md(
-        r"""I want to know how points along the reconstruction-fidelity frontier vary in their sparsity-value heatmap. Then I can look at how these heatmaps differ as I change hyperparameters like normalizing \(W_\text{dec}\), etc."""
-    )
-    return
-
-
-@app.cell
-def __(mo):
-    tag_input = mo.ui.text(value="classification-v1.0")
+    tag_input = mo.ui.text(value="classification-v1.0", label="Sweep Tag:")
     return (tag_input,)
 
 
@@ -72,14 +64,24 @@ def __(alt, df, mo):
 
 @app.cell
 def __(chart, df, mo, np, plot_dist, plt):
-    sub_df = (
-        df.join(chart.value.select("id"), on="id", how="inner")
-        .sort(by="summary/eval/l0")
-        .select("id", "summary/eval/freqs", "summary/eval/mean_values")
-        .head(4)
+    mo.stop(
+        len(chart.value) < 2,
+        mo.md(
+            "Select two or more points. Exactly one point is not supported because of a [Polars bug](https://github.com/pola-rs/polars/issues/19855)."
+        ),
     )
 
-    mo.stop(len(sub_df) == 0, "Select one or more points.")
+    sub_df = (
+        df.select(
+            "id",
+            "summary/eval/freqs",
+            "summary/eval/mean_values",
+            "summary/eval/l0",
+        )
+        .join(chart.value.select("id"), on="id", how="inner")
+        .sort(by="summary/eval/l0")
+        .head(4)
+    )
 
     scatter_fig, scatter_axes = plt.subplots(
         ncols=len(sub_df), figsize=(12, 3), squeeze=False, sharey=True, sharex=True
@@ -98,7 +100,7 @@ def __(chart, df, mo, np, plot_dist, plt):
     scatter_axes = scatter_axes.reshape(-1)
     hist_axes = hist_axes.T
 
-    for (id, freqs, values), scatter_ax, (freq_hist_ax, values_hist_ax) in zip(
+    for (id, freqs, values, _), scatter_ax, (freq_hist_ax, values_hist_ax) in zip(
         sub_df.iter_rows(), scatter_axes, hist_axes
     ):
         plot_dist(
@@ -205,7 +207,7 @@ def __(Float, beartype, jaxtyped, np):
         ax.axhline(max_log_value, linewidth=0.5, color="tab:red")
 
         ax.set_xlabel("Feature Frequency (log10)")
-        # ax.set_ylabel("Mean Activation Value (log10)")
+        ax.set_ylabel("Mean Activation Value (log10)")
 
     return (plot_dist,)
 

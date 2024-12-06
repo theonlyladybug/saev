@@ -12,6 +12,7 @@ import pickle
 import typing
 
 import beartype
+import einops
 import torch
 from jaxtyping import Float, Int, jaxtyped
 from PIL import Image
@@ -137,110 +138,71 @@ def get_sae_acts(
 
 @beartype.beartype
 @torch.inference_mode()
-def get_topk_cls(
-    cfg: config.Visuals,
-) -> tuple[
-    Float[Tensor, "d_sae k 0"],
-    Int[Tensor, "d_sae k"],
-    Float[Tensor, " d_sae"],
-    Float[Tensor, " d_sae"],
-]:
-    assert cfg.sort_by == "cls"
-    raise NotImplementedError()
-
-
-@beartype.beartype
-@torch.inference_mode()
 def get_topk_img(
     cfg: config.Visuals,
 ) -> tuple[
-    Float[Tensor, "d_sae k n_patches_per_img"],
+    Float[Tensor, "d_sae k"],
     Int[Tensor, "d_sae k"],
     Float[Tensor, " d_sae"],
     Float[Tensor, " d_sae"],
 ]:
     """
-    .. todo:: Document this.
+    Gets the top k images for each latent in the SAE.
+    The top k images are for latent i are sorted by
+
+        max over all images: f_x(cls)[i]
+
+    Thus, we will never have duplicate images for a given latent.
+    But we also will not have patch-level activations (a nice heatmap).
+
+    Args:
+        cfg: Config.
+
+    Returns:
+        .. todo:: Document this function.
     """
     assert cfg.sort_by == "img"
-    assert cfg.data.patches == "patches"
+    assert cfg.data.patches == "cls"
 
     sae = nn.load(cfg.ckpt).to(cfg.device)
     dataset = activations.Dataset(cfg.data)
 
-    top_values_p = torch.full(
-        (sae.cfg.d_sae, cfg.top_k, dataset.metadata.n_patches_per_img),
-        -1.0,
-        device=cfg.device,
-    )
-    top_i_im = torch.zeros(
+    top_values_im_SK = torch.full((sae.cfg.d_sae, cfg.top_k), -1.0, device=cfg.device)
+    top_i_im_SK = torch.zeros(
         (sae.cfg.d_sae, cfg.top_k), dtype=torch.int, device=cfg.device
     )
-
-    sparsity = torch.zeros((sae.cfg.d_sae,), device=cfg.device)
-    mean_values = torch.zeros((sae.cfg.d_sae,), device=cfg.device)
-
-    batch_size = (
-        cfg.topk_batch_size
-        // dataset.metadata.n_patches_per_img
-        * dataset.metadata.n_patches_per_img
-    )
-    n_imgs_per_batch = batch_size // dataset.metadata.n_patches_per_img
+    sparsity_S = torch.zeros((sae.cfg.d_sae,), device=cfg.device)
+    mean_values_S = torch.zeros((sae.cfg.d_sae,), device=cfg.device)
 
     dataloader = torch.utils.data.DataLoader(
         dataset,
-        batch_size=batch_size,
+        batch_size=cfg.topk_batch_size,
         shuffle=False,
         num_workers=cfg.n_workers,
-        # See if you can change this to false and still pass the beartype check.
-        drop_last=True,
+        drop_last=False,
     )
 
     logger.info("Loaded SAE and data.")
 
-    for vit_acts, i_im, _ in helpers.progress(dataloader, desc="picking top-k"):
-        sae_acts = get_sae_acts(vit_acts, sae, cfg).transpose(0, 1)
-        mean_values += sae_acts.sum(dim=1)
-        sparsity += (sae_acts > 0).sum(dim=1)
+    for vit_acts_BD, i_im_B, _ in helpers.progress(dataloader, desc="picking top-k"):
+        sae_acts_BS = get_sae_acts(vit_acts_BD, sae, cfg)
+        sae_acts_SB = einops.rearrange(sae_acts_BS, "batch d_sae -> d_sae batch")
 
-        values_p = sae_acts.view(sae.cfg.d_sae, -1, dataset.metadata.n_patches_per_img)
-        values_im = values_p.sum(axis=-1)
-        i_im = torch.sort(torch.unique(i_im)).values
+        mean_values_S += einops.reduce(sae_acts_SB, "d_sae batch -> d_sae", "sum")
+        sparsity_S += einops.reduce((sae_acts_SB > 0), "d_sae batch -> d_sae", "sum")
 
-        # Checks that I did my reshaping correctly.
-        assert values_p.shape[1] == i_im.shape[0]
-        assert len(i_im) == n_imgs_per_batch
+        sae_acts_SK, k = torch.topk(sae_acts_SB, k=cfg.top_k, dim=1)
+        i_im_SK = i_im_B.to(cfg.device)[k]
 
-        # Pick out the top 16 images for each latent in this batch.
-        values_im, i = torch.topk(values_im, k=cfg.top_k, dim=1)
-        # Update patch-level values
-        shape_in = (
-            sae.cfg.d_sae * n_imgs_per_batch,
-            dataset.metadata.n_patches_per_img,
-        )
-        shape_out = (sae.cfg.d_sae, cfg.top_k, dataset.metadata.n_patches_per_img)
-        values_p = values_p.reshape(shape_in)[i.view(-1)].reshape(shape_out)
-        # Update image indices
-        i_im = i_im.to(cfg.device)[i.view(-1)].view(i.shape)
+        all_values_im_2SK = torch.cat((top_values_im_SK, sae_acts_SK), axis=1)
 
-        # Pick out the top 16 images for each latent overall.
-        top_values_im = top_values_p.sum(axis=-1)
-        all_values_p = torch.cat((top_values_p, values_p), dim=1)
-        all_values_im = torch.cat((top_values_im, values_im), dim=1)
-        _, j = torch.topk(all_values_im, k=cfg.top_k, dim=1)
+        top_values_im_SK, k = torch.topk(all_values_im_2SK, k=cfg.top_k, axis=1)
+        top_i_im_SK = torch.gather(torch.cat((top_i_im_SK, i_im_SK), axis=1), 1, k)
 
-        shape_in = (sae.cfg.d_sae * cfg.top_k * 2, dataset.metadata.n_patches_per_img)
-        top_values_p = all_values_p.reshape(shape_in)[j.view(-1)].reshape(
-            top_values_p.shape
-        )
+    mean_values_S /= sparsity_S
+    sparsity_S /= len(dataset)
 
-        all_top_i = torch.cat((top_i_im, i_im), dim=1)
-        top_i_im = torch.gather(all_top_i, 1, j)
-
-    mean_values /= sparsity
-    sparsity /= len(dataset)
-
-    return top_values_p, top_i_im, mean_values, sparsity
+    return top_values_im_SK, top_i_im_SK, mean_values_S, sparsity_S
 
 
 @beartype.beartype
@@ -265,7 +227,7 @@ def get_topk_patch(
         cfg: Config.
 
     Returns:
-
+        .. todo:: Document this function.
     """
     assert cfg.sort_by == "patch"
     assert cfg.data.patches == "patches"
@@ -343,17 +305,15 @@ def dump_activations(cfg: config.Visuals):
     That is, we keep track of each patch
     """
     if cfg.sort_by == "img":
-        top_values_p, top_img_i, mean_values, sparsity = get_topk_img(cfg)
-    elif cfg.sort_by == "cls":
-        top_values_p, top_img_i, mean_values, sparsity = get_topk_cls(cfg)
+        top_values, top_img_i, mean_values, sparsity = get_topk_img(cfg)
     elif cfg.sort_by == "patch":
-        top_values_p, top_img_i, mean_values, sparsity = get_topk_patch(cfg)
+        top_values, top_img_i, mean_values, sparsity = get_topk_patch(cfg)
     else:
         typing.assert_never(cfg.sort_by)
 
     os.makedirs(cfg.root, exist_ok=True)
 
-    torch.save(top_values_p, cfg.top_values_fpath)
+    torch.save(top_values, cfg.top_values_fpath)
     torch.save(top_img_i, cfg.top_img_i_fpath)
     torch.save(mean_values, cfg.mean_values_fpath)
     torch.save(sparsity, cfg.sparsity_fpath)
@@ -372,7 +332,7 @@ def main(cfg: config.Visuals):
     """
 
     try:
-        top_values_p = safe_load(cfg.top_values_fpath)
+        top_values = safe_load(cfg.top_values_fpath)
         sparsity = safe_load(cfg.sparsity_fpath)
         mean_values = safe_load(cfg.mean_values_fpath)
         top_i = safe_load(cfg.top_img_i_fpath)
@@ -381,14 +341,14 @@ def main(cfg: config.Visuals):
         dump_activations(cfg)
         return main(cfg)
 
-    d_sae, cached_topk, n_patches = top_values_p.shape
+    d_sae, cached_topk, *rest = top_values.shape
     # Check that the data is at least shaped correctly.
     assert cfg.top_k == cached_topk
-    if cfg.sort_by == "cls":
-        assert n_patches == 0
-    elif cfg.sort_by == "img":
-        assert n_patches > 0
+    if cfg.sort_by == "img":
+        assert len(rest) == 0
     elif cfg.sort_by == "patch":
+        assert len(rest) == 1
+        n_patches = rest[0]
         assert n_patches > 0
     else:
         typing.assert_never(cfg.sort_by)
@@ -399,7 +359,7 @@ def main(cfg: config.Visuals):
 
     min_log_freq, max_log_freq = cfg.log_freq_range
     min_log_value, max_log_value = cfg.log_value_range
-    # breakpoint()
+
     mask = (
         (min_log_freq < torch.log10(sparsity))
         & (torch.log10(sparsity) < max_log_freq)
@@ -416,19 +376,25 @@ def main(cfg: config.Visuals):
         # Image grid
         elems = []
         seen_i_im = set()
-        for i_im, values_p in zip(top_i[i].tolist(), top_values_p[i]):
+        for i_im, values_p in zip(top_i[i].tolist(), top_values[i]):
             if i_im in seen_i_im:
                 continue
+
             example = dataset[i_im]
-            elem = GridElement(example["image"], example["label"], values_p)
+            if cfg.sort_by == "img":
+                elem = GridElement(example["image"], example["label"], torch.tensor([]))
+            elif cfg.sort_by == "patch":
+                elem = GridElement(example["image"], example["label"], values_p)
+            else:
+                typing.assert_never(cfg.sort_by)
             elems.append(elem)
 
             seen_i_im.add(i_im)
 
         # How to scale values.
         upper = None
-        if top_values_p[i].numel() > 0:
-            upper = top_values_p[i].max().item()
+        if top_values[i].numel() > 0:
+            upper = top_values[i].max().item()
 
         for i, elem in enumerate(elems):
             img = make_img(elem, upper=upper)

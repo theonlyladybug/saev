@@ -125,9 +125,9 @@ uv run python -m saev visuals \
 This will record the top 128 patches, and then save the unique images among those top 128 patches for each feature in the trained SAE.
 It will cache these best activations to disk, then start saving images to visualize later on.
 
-`saev.webapp` is a small web application based on [marimo](https://marimo.io/) to interactively look at these images.
+`saev.interactive.features` is a small web application based on [marimo](https://marimo.io/) to interactively look at these images.
 
-You can run it with `uv run marimo edit saev/webapp.py`.
+You can run it with `uv run marimo edit saev/interactive/features.py`.
 
 ## Sweeps
 
@@ -135,12 +135,11 @@ You can run it with `uv run marimo edit saev/webapp.py`.
 
 ## Training Metrics and Visualizations
 
-.. todo:: Explain how to use the `l0_mse_tradeoff.py` notebook..
+.. todo:: Explain how to use the `saev.interactive.metrics` notebook.
 
 Sub-modules
 -----------
 * saev.activations
-* saev.app
 * saev.config
 * saev.helpers
 * saev.imaging
@@ -724,9 +723,6 @@ Classes
 
     `reset(self)`
     :
-
-Module saev.app
-===============
 
 Module saev.config
 ==================
@@ -1431,11 +1427,20 @@ Functions
         sae: Sparse autoencder.
         cfg: Experimental config.
 
-`get_topk_cls(cfg: saev.config.Visuals) ‑> tuple[jaxtyping.Float[Tensor, 'd_sae k 0'], jaxtyping.Int[Tensor, 'd_sae k'], jaxtyping.Float[Tensor, 'd_sae'], jaxtyping.Float[Tensor, 'd_sae']]`
-:   
-
-`get_topk_img(cfg: saev.config.Visuals) ‑> tuple[jaxtyping.Float[Tensor, 'd_sae k n_patches_per_img'], jaxtyping.Int[Tensor, 'd_sae k'], jaxtyping.Float[Tensor, 'd_sae'], jaxtyping.Float[Tensor, 'd_sae']]`
-:   .. todo:: Document this.
+`get_topk_img(cfg: saev.config.Visuals) ‑> tuple[jaxtyping.Float[Tensor, 'd_sae k'], jaxtyping.Int[Tensor, 'd_sae k'], jaxtyping.Float[Tensor, 'd_sae'], jaxtyping.Float[Tensor, 'd_sae']]`
+:   Gets the top k images for each latent in the SAE.
+    The top k images are for latent i are sorted by
+    
+        max over all images: f_x(cls)[i]
+    
+    Thus, we will never have duplicate images for a given latent.
+    But we also will not have patch-level activations (a nice heatmap).
+    
+    Args:
+        cfg: Config.
+    
+    Returns:
+        .. todo:: Document this function.
 
 `get_topk_patch(cfg: saev.config.Visuals) ‑> tuple[jaxtyping.Float[Tensor, 'd_sae k n_patches_per_img'], jaxtyping.Int[Tensor, 'd_sae k'], jaxtyping.Float[Tensor, 'd_sae'], jaxtyping.Float[Tensor, 'd_sae']]`
 :   Gets the top k images for each latent in the SAE.
@@ -1449,6 +1454,7 @@ Functions
         cfg: Config.
     
     Returns:
+        .. todo:: Document this function.
 
 `main(cfg: saev.config.Visuals)`
 :   .. todo:: document this function.
@@ -1497,7 +1503,8 @@ Sub-modules
 -----------
 * contrib.classification.app
 * contrib.classification.config
-* contrib.classification.probing
+* contrib.classification.download_flowers
+* contrib.classification.training
 
 Module contrib.classification.app
 =================================
@@ -1505,8 +1512,90 @@ Module contrib.classification.app
 Module contrib.classification.config
 ====================================
 
-Module contrib.classification.probing
-=====================================
+Classes
+-------
+
+`Train(learning_rate: float = 0.0001, weight_decay: float = 0.001, n_epochs: int = 400, batch_size: int = 1024, n_workers: int = 32, train_acts: saev.config.DataLoad = <factory>, val_acts: saev.config.DataLoad = <factory>, imgs: saev.config.ImageFolderDataset = <factory>, eval_every: int = 100, device: str = 'cuda', ckpt_path: str = './checkpoints/contrib/classification', seed: int = 42, log_to: str = './logs')`
+:   Train(learning_rate: float = 0.0001, weight_decay: float = 0.001, n_epochs: int = 400, batch_size: int = 1024, n_workers: int = 32, train_acts: saev.config.DataLoad = <factory>, val_acts: saev.config.DataLoad = <factory>, imgs: saev.config.ImageFolderDataset = <factory>, eval_every: int = 100, device: str = 'cuda', ckpt_path: str = './checkpoints/contrib/classification', seed: int = 42, log_to: str = './logs')
+
+    ### Class variables
+
+    `batch_size: int`
+    :   Training batch size for linear layer.
+
+    `ckpt_path: str`
+    :
+
+    `device: str`
+    :   Hardware to train on.
+
+    `eval_every: int`
+    :   How many epochs between evaluations.
+
+    `imgs: saev.config.ImageFolderDataset`
+    :   Configuration for the Flowers102 dataset.
+
+    `learning_rate: float`
+    :   Linear layer learning rate.
+
+    `log_to: str`
+    :
+
+    `n_epochs: int`
+    :   Number of training epochs for linear layer.
+
+    `n_workers: int`
+    :   Number of dataloader workers.
+
+    `seed: int`
+    :   Random seed.
+
+    `train_acts: saev.config.DataLoad`
+    :   Configuration for the saved Flowers102 training ViT activations.
+
+    `val_acts: saev.config.DataLoad`
+    :   Configuration for the saved Flowers102 validation ViT activations.
+
+    `weight_decay: float`
+    :   Weight decay  for AdamW.
+
+Module contrib.classification.download_flowers
+==============================================
+A script to download the Flowers102 dataset.
+
+```sh
+uv run contrib/classification/download_flowers.py --help
+```
+
+Functions
+---------
+
+`main(args: contrib.classification.download_flowers.Args)`
+:   Download NeWT.
+
+Classes
+-------
+
+`Args(dir: str = '.', chunk_size_kb: int = 1)`
+:   Configure download options.
+
+    ### Class variables
+
+    `chunk_size_kb: int`
+    :   How many KB to download at a time before writing to file.
+
+    `dir: str`
+    :   Where to save data.
+
+Module contrib.classification.training
+======================================
+Train a linear probe on [CLS] activations from a ViT.
+
+Functions
+---------
+
+`main(cfg: contrib.classification.config.Train)`
+:
 
 Namespace contrib.mae
 =====================

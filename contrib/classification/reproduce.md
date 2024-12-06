@@ -23,8 +23,42 @@ uv run python -m saev train --sweep configs/preprint/classification.toml --data.
 
 ## Visualize the SAE Features
 
+`bd97z80b` was the best checkpoint from my sweep.
+
+```sh
+uv run python -m saev visuals \
+  --ckpt checkpoints/bd97z80b/sae.pt \
+  --dump-to /research/nfs_su_809/workspace/stevens.994/saev/features/bd97z80b \
+  --sort-byt cls \
+  --data.shard-root /local/scratch/stevens.994/cache/saev/ac89246f1934b45e2f0487298aebe36ad998b6bd252d880c0c9ec5de78d793c8/ \
+  --data.layer -2 \
+  --data.patches cls \
+  --log-freq-range -2.5 -1.5 \
+  --log-value-range 0.0 1.0 \
+  images:imagenet-dataset
+```
+
+You can see some neat features in here by using `saev.interactive.features` with `marimo`.
+
 ## Record Oxford Flowers-102 Activations
 
+For each `$SPLIT` in "train", "valid" and "test":
+
+```sh
+uv run python -m saev activations \
+  --model-family clip \
+  --model-ckpt ViT-B-16/openai \
+  --d-vit 768 \
+  --n-patches-per-img 196 \
+  --layers -2 \
+  --dump-to /local/scratch/$USER/cache/saev \
+  --n-patches-per-shard 2_4000_000 \
+  data:image-folder-dataset \
+  --data.root /nfs/datasets/flowers102/$SPLIT
+```
+
 ## Train a Linear Probe
+
+
 
 ## Manipulate

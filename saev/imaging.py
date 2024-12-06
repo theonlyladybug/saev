@@ -16,6 +16,9 @@ def add_highlights(
     *,
     upper: float | None = None,
 ) -> Image.Image:
+    if not len(patches):
+        return img
+
     iw_np, ih_np = int(math.sqrt(len(patches))), int(math.sqrt(len(patches)))
     iw_px, ih_px = img.size
     pw_px, ph_px = iw_px // iw_np, ih_px // ih_np

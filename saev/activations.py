@@ -30,7 +30,7 @@ from . import config, helpers
 
 log_format = "[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s"
 logging.basicConfig(level=logging.INFO, format=log_format)
-
+logger = logging.getLogger(__name__)
 
 #######################
 # VISION TRANSFORMERS #
@@ -505,7 +505,7 @@ def setup_imagenet(cfg: config.Activations):
 @beartype.beartype
 def setup_imagefolder(cfg: config.Activations):
     assert isinstance(cfg.data, config.ImageFolderDataset)
-    breakpoint()
+    logger.info("No dataset-specific setup for ImageFolder.")
 
 
 @beartype.beartype
@@ -534,6 +534,8 @@ def get_dataset(cfg: config.DatasetConfig, *, img_transform):
         return Imagenet(cfg, img_transform=img_transform)
     elif isinstance(cfg, config.Ade20kDataset):
         return Ade20k(cfg, img_transform=img_transform)
+    elif isinstance(cfg, config.ImageFolderDataset):
+        return ImageFolder(cfg.root, transform=img_transform)
     else:
         typing.assert_never(cfg)
 
@@ -627,15 +629,19 @@ class ImageFolder(torchvision.datasets.ImageFolder):
         Returns:
             dict with keys 'image', 'index', 'target' and 'label'.
         """
-        breakpoint()
         path, target = self.samples[index]
         sample = self.loader(path)
-        if self.img_transform is not None:
-            sample = self.img_transform(sample)
+        if self.transform is not None:
+            sample = self.transform(sample)
         if self.target_transform is not None:
             target = self.target_transform(target)
 
-        return {"image": sample, "target": target, "index": index}
+        return {
+            "image": sample,
+            "target": target,
+            "label": self.classes[target],
+            "index": index,
+        }
 
 
 @beartype.beartype

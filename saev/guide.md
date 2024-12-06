@@ -120,9 +120,9 @@ uv run python -m saev visuals \
 This will record the top 128 patches, and then save the unique images among those top 128 patches for each feature in the trained SAE.
 It will cache these best activations to disk, then start saving images to visualize later on.
 
-`saev.webapp` is a small web application based on [marimo](https://marimo.io/) to interactively look at these images.
+`saev.interactive.features` is a small web application based on [marimo](https://marimo.io/) to interactively look at these images.
 
-You can run it with `uv run marimo edit saev/webapp.py`.
+You can run it with `uv run marimo edit saev/interactive/features.py`.
 
 
 ## Sweeps
@@ -131,4 +131,4 @@ You can run it with `uv run marimo edit saev/webapp.py`.
 
 ## Training Metrics and Visualizations
 
-.. todo:: Explain how to use the `l0_mse_tradeoff.py` notebook..
+.. todo:: Explain how to use the `saev.interactive.metrics` notebook.

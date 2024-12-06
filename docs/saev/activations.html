@@ -852,15 +852,19 @@ class ImageFolder(torchvision.datasets.ImageFolder):
         Returns:
             dict with keys &#39;image&#39;, &#39;index&#39;, &#39;target&#39; and &#39;label&#39;.
         &#34;&#34;&#34;
-        breakpoint()
         path, target = self.samples[index]
         sample = self.loader(path)
-        if self.img_transform is not None:
-            sample = self.img_transform(sample)
+        if self.transform is not None:
+            sample = self.transform(sample)
         if self.target_transform is not None:
             target = self.target_transform(target)
 
-        return {&#34;image&#34;: sample, &#34;target&#34;: target, &#34;index&#34;: index}</code></pre>
+        return {
+            &#34;image&#34;: sample,
+            &#34;target&#34;: target,
+            &#34;label&#34;: self.classes[target],
+            &#34;index&#34;: index,
+        }</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">

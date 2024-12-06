@@ -124,8 +124,8 @@ You can see all the options with <code>uv run python -m saev visuals --help</cod
 </code></pre>
 <p>This will record the top 128 patches, and then save the unique images among those top 128 patches for each feature in the trained SAE.
 It will cache these best activations to disk, then start saving images to visualize later on.</p>
-<p><code>saev.webapp</code> is a small web application based on <a href="https://marimo.io/">marimo</a> to interactively look at these images.</p>
-<p>You can run it with <code>uv run marimo edit saev/webapp.py</code>.</p>
+<p><code><a title="saev.interactive.features" href="interactive/features.html">saev.interactive.features</a></code> is a small web application based on <a href="https://marimo.io/">marimo</a> to interactively look at these images.</p>
+<p>You can run it with <code>uv run marimo edit saev/interactive/features.py</code>.</p>
 <h2 id="sweeps">Sweeps</h2>
 <div class="admonition todo">
 <p class="admonition-title">TODO</p>
@@ -134,7 +134,7 @@ It will cache these best activations to disk, then start saving images to visual
 <h2 id="training-metrics-and-visualizations">Training Metrics and Visualizations</h2>
 <div class="admonition todo">
 <p class="admonition-title">TODO</p>
-<p>Explain how to use the <code>l0_mse_tradeoff.py</code> notebook..</p>
+<p>Explain how to use the <code><a title="saev.interactive.metrics" href="interactive/metrics.html">saev.interactive.metrics</a></code> notebook.</p>
 </div>
 </section>
 <section>
@@ -143,10 +143,6 @@ It will cache these best activations to disk, then start saving images to visual
 <dt><code class="name"><a title="saev.activations" href="activations.html">saev.activations</a></code></dt>
 <dd>
 <div class="desc"><p>To save lots of activations, we want to do things in parallel, with lots of slurm jobs, and save multiple files, rather than just one …</p></div>
-</dd>
-<dt><code class="name"><a title="saev.app" href="app.html">saev.app</a></code></dt>
-<dd>
-<div class="desc"></div>
 </dd>
 <dt><code class="name"><a title="saev.config" href="config.html">saev.config</a></code></dt>
 <dd>
@@ -223,7 +219,6 @@ These tests are quite slow</p></div>
 <li><h3><a href="#header-submodules">Sub-modules</a></h3>
 <ul>
 <li><code><a title="saev.activations" href="activations.html">saev.activations</a></code></li>
-<li><code><a title="saev.app" href="app.html">saev.app</a></code></li>
 <li><code><a title="saev.config" href="config.html">saev.config</a></code></li>
 <li><code><a title="saev.helpers" href="helpers.html">saev.helpers</a></code></li>
 <li><code><a title="saev.imaging" href="imaging.html">saev.imaging</a></code></li>
