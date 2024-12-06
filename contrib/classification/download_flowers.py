@@ -16,8 +16,13 @@ uv run contrib/classification/download_flowers.py --help
 """
 
 import dataclasses
+import os
 import os.path
+import shutil
 import tarfile
+import threading
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 
 import requests
 import scipy.io
@@ -94,7 +99,35 @@ def main(args: Args):
     # root/cat/[...]/asd932_.png
     #
     # We can replicate this structure for the flowers102 dataset by making directories for each label and moving images. This can be done efficiently using the python `threading` module because we are IO bound by `shutil.move()`
-    # TODO
+    # Create directories for each unique label
+    unique_labels = set(labels)
+    for label in unique_labels:
+        label_dir = os.path.join(args.dir, str(label))
+        os.makedirs(label_dir, exist_ok=True)
+
+    def move_image(idx: int):
+        """Move a single image to its label directory."""
+        img_num = str(idx + 1).zfill(5)
+        src = os.path.join(images_dir_path, f"image_{img_num}.jpg")
+        dst = os.path.join(args.dir, str(labels[idx]), f"image_{img_num}.jpg")
+        shutil.move(src, dst)
+
+    # Move files in parallel using a thread pool
+    print("Organizing images into class folders...")
+    with ThreadPoolExecutor(max_workers=min(32, len(labels))) as executor:
+        list(tqdm.tqdm(
+            executor.map(move_image, range(len(labels))),
+            total=len(labels),
+            desc="Moving images"
+        ))
+    
+    # Clean up empty source directory
+    try:
+        os.rmdir(images_dir_path)
+    except OSError:
+        pass
+
+    print(f"Organized {len(labels)} images into {len(unique_labels)} class folders.")
 
 
 if __name__ == "__main__":
