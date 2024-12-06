@@ -1501,22 +1501,25 @@ Module contrib.classification
 
 Sub-modules
 -----------
-* contrib.classification.app
 * contrib.classification.config
 * contrib.classification.download_flowers
+* contrib.classification.interactive
 * contrib.classification.training
-
-Module contrib.classification.app
-=================================
 
 Module contrib.classification.config
 ====================================
 
+Functions
+---------
+
+`grid(cfg: contrib.classification.config.Train, sweep_dct: dict[str, object]) ‑> tuple[list[contrib.classification.config.Train], list[str]]`
+:   
+
 Classes
 -------
 
-`Train(learning_rate: float = 0.0001, weight_decay: float = 0.001, n_epochs: int = 400, batch_size: int = 1024, n_workers: int = 32, train_acts: saev.config.DataLoad = <factory>, val_acts: saev.config.DataLoad = <factory>, imgs: saev.config.ImageFolderDataset = <factory>, eval_every: int = 100, device: str = 'cuda', ckpt_path: str = './checkpoints/contrib/classification', seed: int = 42, log_to: str = './logs')`
-:   Train(learning_rate: float = 0.0001, weight_decay: float = 0.001, n_epochs: int = 400, batch_size: int = 1024, n_workers: int = 32, train_acts: saev.config.DataLoad = <factory>, val_acts: saev.config.DataLoad = <factory>, imgs: saev.config.ImageFolderDataset = <factory>, eval_every: int = 100, device: str = 'cuda', ckpt_path: str = './checkpoints/contrib/classification', seed: int = 42, log_to: str = './logs')
+`Train(learning_rate: float = 0.0001, weight_decay: float = 0.001, n_steps: int = 400, batch_size: int = 1024, n_workers: int = 32, train_acts: saev.config.DataLoad = <factory>, val_acts: saev.config.DataLoad = <factory>, train_imgs: saev.config.ImageFolderDataset = <factory>, val_imgs: saev.config.ImageFolderDataset = <factory>, eval_every: int = 100, device: str = 'cuda', ckpt_path: str = './checkpoints/contrib/classification', seed: int = 42, log_to: str = './logs/contrib/classification')`
+:   Train(learning_rate: float = 0.0001, weight_decay: float = 0.001, n_steps: int = 400, batch_size: int = 1024, n_workers: int = 32, train_acts: saev.config.DataLoad = <factory>, val_acts: saev.config.DataLoad = <factory>, train_imgs: saev.config.ImageFolderDataset = <factory>, val_imgs: saev.config.ImageFolderDataset = <factory>, eval_every: int = 100, device: str = 'cuda', ckpt_path: str = './checkpoints/contrib/classification', seed: int = 42, log_to: str = './logs/contrib/classification')
 
     ### Class variables
 
@@ -1532,17 +1535,14 @@ Classes
     `eval_every: int`
     :   How many epochs between evaluations.
 
-    `imgs: saev.config.ImageFolderDataset`
-    :   Configuration for the Flowers102 dataset.
-
     `learning_rate: float`
     :   Linear layer learning rate.
 
     `log_to: str`
     :
 
-    `n_epochs: int`
-    :   Number of training epochs for linear layer.
+    `n_steps: int`
+    :   Number of training steps for linear layer.
 
     `n_workers: int`
     :   Number of dataloader workers.
@@ -1553,8 +1553,14 @@ Classes
     `train_acts: saev.config.DataLoad`
     :   Configuration for the saved Flowers102 training ViT activations.
 
+    `train_imgs: saev.config.ImageFolderDataset`
+    :   Configuration for the Flowers102 training images.
+
     `val_acts: saev.config.DataLoad`
     :   Configuration for the saved Flowers102 validation ViT activations.
+
+    `val_imgs: saev.config.ImageFolderDataset`
+    :   Configuration for the Flowers102 validation images.
 
     `weight_decay: float`
     :   Weight decay  for AdamW.
@@ -1587,15 +1593,75 @@ Classes
     `dir: str`
     :   Where to save data.
 
+Module contrib.classification.interactive
+=========================================
+
 Module contrib.classification.training
 ======================================
 Train a linear probe on [CLS] activations from a ViT.
 
+This assumes the training and evaluation dataset are very small and can fit in GPU memory. If this is not true, look at contrib/semseg/training.py for some inspiration.
+
 Functions
 ---------
 
-`main(cfg: contrib.classification.config.Train)`
-:
+`check_cfgs(cfgs: list[contrib.classification.config.Train])`
+:   
+
+`dump_model(cfg: contrib.classification.config.Train, model: torch.nn.modules.module.Module)`
+:   Save a model checkpoint to disk along with configuration, using the [trick from equinox](https://docs.kidger.site/equinox/examples/serialisation).
+
+`load_acts(cfg: saev.config.DataLoad) ‑> jaxtyping.Float[Tensor, 'n d_vit']`
+:   
+
+`load_class_headers(cfg: saev.config.ImageFolderDataset) ‑> list[str]`
+:   
+
+`load_model(fpath: str, *, device: str = 'cpu') ‑> torch.nn.modules.module.Module`
+:   Loads a linear layer from disk.
+
+`load_targets(cfg: saev.config.ImageFolderDataset) ‑> jaxtyping.Int[Tensor, 'n']`
+:   
+
+`main(cfgs: list[contrib.classification.config.Train])`
+:   
+
+`make_models(cfgs: list[contrib.classification.config.Train], d_in: int, d_out: int) ‑> tuple[torch.nn.modules.container.ModuleList, list[dict[str, object]]]`
+:   
+
+Classes
+-------
+
+`Dataset(acts_cfg: saev.config.DataLoad, imgs_cfg: saev.config.ImageFolderDataset)`
+:   An abstract class representing a :class:`Dataset`.
+    
+    All datasets that represent a map from keys to data samples should subclass
+    it. All subclasses should overwrite :meth:`__getitem__`, supporting fetching a
+    data sample for a given key. Subclasses could also optionally overwrite
+    :meth:`__len__`, which is expected to return the size of the dataset by many
+    :class:`~torch.utils.data.Sampler` implementations and the default options
+    of :class:`~torch.utils.data.DataLoader`. Subclasses could also
+    optionally implement :meth:`__getitems__`, for speedup batched samples
+    loading. This method accepts list of indices of samples of batch and returns
+    list of samples.
+    
+    .. note::
+      :class:`~torch.utils.data.DataLoader` by default constructs an index
+      sampler that yields integral indices.  To make it work with a map-style
+      dataset with non-integral indices/keys, a custom sampler must be provided.
+
+    ### Ancestors (in MRO)
+
+    * torch.utils.data.dataset.Dataset
+    * typing.Generic
+
+    ### Instance variables
+
+    `d_vit: int`
+    :
+
+    `n_classes: int`
+    :
 
 Namespace contrib.mae
 =====================

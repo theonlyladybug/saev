@@ -59,6 +59,30 @@ uv run python -m saev activations \
 
 ## Train a Linear Probe
 
+```sh
+uv run python -m contrib.classification train \
+  --n-workers 32 \
+  --train-acts.shard-root /local/scratch/$USER/cache/saev/$TRAIN \
+  --val-acts.shard-root /local/scratch/$USER/cache/saev/$VAL \
+  --train-imgs.root /nfs/$USER/datasets/flowers102/train \
+  --val-imgs.root /nfs/$USER/datasets/flowers102/val \
+  --sweep contrib/classification/sweep.toml
+```
 
+Then look at `logs/contrib/classification/hparam-sweeps.png`. It probably works for any of the learning rates above 1e-5 or so.
 
 ## Manipulate
+
+Now we will manipulate the inputs to the probe by using the directions proposed by the SAE trained on ImageNet-1K and observe the changes in the linear model's predictions.
+There are two ways to do this:
+
+1. The marimo dashboard, which requires that you run your own inference.
+2. The online dashboard, which is more polished but offers less control.
+
+Since you have gone through the effort of training all this stuff, you probably want more control and have the hardware for inference.
+
+Run the marimo dashboard with:
+
+```sh
+uv run marimo edit contrib/classification/interactive.py
+```
