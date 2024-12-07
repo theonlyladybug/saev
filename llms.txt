@@ -1,34 +1,71 @@
-I'm writing a submission to ICML. The premise is that we apply sparse autoencoders to vision models like DINOv2 and CLIP to interpret their internal representations.
+I'm writing a submission to ICML. The premise is that we apply sparse autoencoders to vision models like DINOv2 and CLIP to interpret their internal representations. 
 
-My current outline is
+My current outline is 
 
 1. Introduction
-	1.1. Vision foundation models are crucial for modern computer vision but require interpretability for high-stakes scenarios.
-	1.2. Foundation models learn rich internal representations, supported by theoretical results (information bottleneck, nuisance variables) and empirical evidence from interpretability methods.
-	1.3. Understanding learned concepts is challenging due to limitations of current methods (individual neurons vs distributed representations) and superposition of features.
-	1.4. An ideal interpretability method should: (a) work on foundation models, (b) explain concepts being represented, and (c) be computationally efficient.
-	1.5. Current methods (saliency maps, ProtoPNet) fail to meet these requirements due to various limitations.
-	1.6. Sparse autoencoders (SAEs) satisfy all requirements for an ideal interpretability method.
-	1.7. We analyze CLIP and DINOv2 using SAEs, revealing how different training objectives lead to systematic differences in learned representations.
-2. Related work.
-3. How we train the SAEs (technical details, easy to write)
-	3.1. We train ReLU autoencoders, minimizing both MSE reconstruction and L1 sparsity of the intermediate activations, parameterized by lambda.
-	3.2. We train on 100M patch-level activations from the second to last layer of a model M on a dataset D, typically DINOv2 on ImageNet-1K.
-4. Findings
-	4.1. Different pre-training supervision methods learn different features: we compare vision-language models like CLIP and SigLIP to vision-only models like DINOv2 and V-JEPA. Language-vision models learn abstract semantic relationships, vision-only don't.
-	4.2. (unknown section title) If we know the learned features of vision models, and the features we expect to be relevant for a new downstream task, we can predict which vision models will do better on a downstream task.
-	4.3. (unknown title) SAE-recovered features can effectively steer classifications on downstream tasks.
-5. Conclusion & Future Work
+    1.1. Need for AI control beyond passive observation
+    1.2. Vision control problem and limitations
+    1.3. Three criteria for ideal control: interpretable concepts, reliable control, model preservation
+    1.4. Current approaches fall short
+    1.5. SAEs as solution
+    1.6. Contributions
+
+2. Background & Related Work
+    2.1. Foundation model interpretability
+    2.2. Model editing 
+    2.3. Sparse representations
+    2.4. SAEs in language models
+
+3. Method
+    3.1. SAE architecture and training
+    3.2. Feature intervention framework
+        3.2.1. Train a (or use an existing pre-trained) task-specific head: make predictions based on [CLS] activations, use an LLM to generate captions based on an image and a prompt, etc.
+        3.2.2. Manipulate the vision transformer activations using the SAE-proposed features and compare outputs before/after intervention.
+    3.4. Evaluation metrics
+
+4. Experimental Results
+    4.1. Intervention Framework
+        4.1.1. Feature identification
+        4.1.2. Intervention mechanics
+        4.1.3. Validation methods
+    
+    4.2. Semantic Segmentation Control
+        4.2.1. Experimental setup
+        4.2.2. Quantitative results
+        4.2.3. Case studies
+    
+    4.3. Image Generation Control
+        4.3.1. Setup
+        4.3.2. Results
+        4.3.3. Analysis
+    
+    4.4. Vision-Language Control
+        4.4.1. Setup
+        4.4.2. Results
+        4.4.3. Analysis
+
+5. Discussion
+    5.1. Limitations
+    5.2. Societal implications
+    5.3. Future work
+
+I also want to build some interactive dashboards and tools to demonstrate that this stuff works.
+
+1. I want my current PCA dashboard with UMAP instead
+2. Given a linear classifier of semantic segmentation features, I want to manipulate the features in a given patch, and apply the suppression to all patches to see the live changes on the segmentation mask.
+3. After training an SAE on a CLS token, I can then train a linear classifier on the CLS token with ImageNet-1K, and manipulate the features directly.
+4. Given a small vision-language model like Phi-3.5 or Moondream, I want to manipulate the vision embeddings (suppressing or adding one or more features) and then see how the top 5 responses change in response to the user input (non-zero temperature).
+5. Given a zero-shot CLIP or SigLIP classifier, you can add subtract features from all patches, then see how the classification changes
 
 ---
 
-With respect to writing, we want to frame everything as Goal->Problem->Solution. In general, I want you to be extremely skeptical and challenge any arguments that are not supported by evidence.
+With respect to writing, we want to frame everything as Goal->Problem->Solution. In general, I want you to be skeptical and challenging of arguments that are not supported by evidence.
 
 Some questions that come up that are not in the outline yet:
 
 Q: Am you using standard SAEs or have you adopted the architecture?
 
-A: I am using ReLU SAEs with an L1 sparsity term and I have constrained the columns of W_dec to be unit norm to prevent shrinkage.
+A: I am using ReLU SAEs with an L1 sparsity term and I have constrained the columns of W_dec to be unit norm to prevent shrinkage. We are not using sigmoid or tanh activations because of prior work from Anthropic exploring the use of these activation functions, finding them to produce worse features than ReLU.
 
 Q: What datasets are you using?
 
@@ -39,3 +76,5 @@ A: I am using ImageNet-1K for training and testing. I am extending it to iNat202
 We're going to work together on writing this paper, so I want to give you an opportunity to ask any questions you might have.
 
 It can be helpful to think about this project from the perspective of a top machine learning researcher, like Lucas Beyer, Yann LeCun, or Francois Chollet. What would they think about this project? What criticisms would they have? What parts would be novel or exciting to them?
+
+
