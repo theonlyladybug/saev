@@ -412,12 +412,12 @@ class Dataset(torch.utils.data.Dataset):
     Dataset of activations from disk.
     &#34;&#34;&#34;
 
-    class Example(typing.NamedTuple):
+    class Example(typing.TypedDict):
         &#34;&#34;&#34;Individual example.&#34;&#34;&#34;
 
-        vit_acts: Float[Tensor, &#34; d_vit&#34;]
-        img_i: Int[Tensor, &#34;&#34;]
-        patch_i: Int[Tensor, &#34;&#34;]
+        act: Float[Tensor, &#34; d_vit&#34;]
+        img_i: int
+        patch_i: int
 
     cfg: config.DataLoad
     &#34;&#34;&#34;Configuration; set via CLI args.&#34;&#34;&#34;
@@ -455,13 +455,13 @@ class Dataset(torch.utils.data.Dataset):
             perm = np.random.default_rng(seed=42).permutation(len(self))
             perm = perm[: cfg.n_random_samples]
 
-            samples, _, _ = zip(*[
+            samples = [
                 self[p.item()]
                 for p in helpers.progress(
                     perm, every=25_000, desc=&#34;examples to calc means&#34;
                 )
-            ])
-            samples = torch.stack(samples)
+            ]
+            samples = torch.stack([sample[&#34;act&#34;] for sample in samples])
             if samples.abs().max() &gt; 1e3:
                 raise ValueError(
                     &#34;You found an abnormally large activation {example.abs().max().item():.5f} that will mess up your L2 mean.&#34;
@@ -509,36 +509,28 @@ class Dataset(torch.utils.data.Dataset):
                 img_act = self.get_img_patches(i)
                 # Select layer&#39;s cls token.
                 act = img_act[self.layer_index, 0, :]
-                return self.Example(
-                    self.transform(act), torch.tensor(i), torch.tensor(-1)
-                )
+                return self.Example(act=self.transform(act), img_i=i, patch_i=-1)
             case (&#34;cls&#34;, &#34;meanpool&#34;):
                 img_act = self.get_img_patches(i)
                 # Select cls tokens from across all layers
                 cls_act = img_act[:, 0, :]
                 # Meanpool over the layers
                 act = cls_act.mean(axis=0)
-                return self.Example(
-                    self.transform(act), torch.tensor(i), torch.tensor(-1)
-                )
+                return self.Example(act=self.transform(act), img_i=i, patch_i=-1)
             case (&#34;meanpool&#34;, int()):
                 img_act = self.get_img_patches(i)
                 # Select layer&#39;s patches.
                 layer_act = img_act[self.layer_index, 1:, :]
                 # Meanpool over the patches
                 act = layer_act.mean(axis=0)
-                return self.Example(
-                    self.transform(act), torch.tensor(i), torch.tensor(-1)
-                )
+                return self.Example(act=self.transform(act), img_i=i, patch_i=-1)
             case (&#34;meanpool&#34;, &#34;meanpool&#34;):
                 img_act = self.get_img_patches(i)
                 # Select all layer&#39;s patches.
                 act = img_act[:, 1:, :]
                 # Meanpool over the layers and patches
                 act = act.mean(axis=(0, 1))
-                return self.Example(
-                    self.transform(act), torch.tensor(i), torch.tensor(-1)
-                )
+                return self.Example(act=self.transform(act), img_i=i, patch_i=-1)
             case (&#34;patches&#34;, int()):
                 n_imgs_per_shard = (
                     self.metadata.n_patches_per_shard
@@ -569,10 +561,10 @@ class Dataset(torch.utils.data.Dataset):
                     pos % self.metadata.n_patches_per_img,
                 ]
                 return self.Example(
-                    self.transform(act),
+                    act=self.transform(act),
                     # What image is this?
-                    torch.tensor(i // self.metadata.n_patches_per_img),
-                    torch.tensor(i % self.metadata.n_patches_per_img),
+                    img_i=i // self.metadata.n_patches_per_img,
+                    patch_i=i % self.metadata.n_patches_per_img,
                 )
             case _:
                 print((self.cfg.patches, self.cfg.layer))
@@ -933,6 +925,83 @@ class Imagenet(torch.utils.data.Dataset):
 <li>torch.utils.data.dataset.Dataset</li>
 <li>typing.Generic</li>
 </ul>
+</dd>
+<dt id="saev.activations.MaskedAutoencoder"><code class="flex name class">
+<span>class <span class="ident">MaskedAutoencoder</span></span>
+<span>(</span><span>cfg: <a title="saev.config.Activations" href="config.html#saev.config.Activations">Activations</a>)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Base class for all neural network modules.</p>
+<p>Your models should also subclass this class.</p>
+<p>Modules can also contain other Modules, allowing to nest them in
+a tree structure. You can assign the submodules as regular attributes::</p>
+<pre><code>import torch.nn as nn
+import torch.nn.functional as F
+
+class Model(nn.Module):
+    def __init__(self) -&gt; None:
+        super().__init__()
+        self.conv1 = nn.Conv2d(1, 20, 5)
+        self.conv2 = nn.Conv2d(20, 20, 5)
+
+    def forward(self, x):
+        x = F.relu(self.conv1(x))
+        return F.relu(self.conv2(x))
+</code></pre>
+<p>Submodules assigned in this way will be registered, and will have their
+parameters converted too when you call :meth:<code>to</code>, etc.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>As per the example above, an <code>__init__()</code> call to the parent class
+must be made before assignment on the child.</p>
+</div>
+<p>:ivar training: Boolean represents whether this module is in training or
+evaluation mode.
+:vartype training: bool</p>
+<p>Initialize internal Module state, shared by both nn.Module and ScriptModule.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@jaxtyped(typechecker=beartype.beartype)
+class MaskedAutoencoder(torch.nn.Module):
+    def __init__(self, cfg: config.Activations):
+        super().__init__()
+        assert cfg.model_family == &#34;mae&#34;
+
+        import mae
+
+        self.model = mae.load_model(cfg.model_ckpt)
+        self.recorder = VitRecorder(cfg).register(self.model.vit.encoder.layer)
+
+    def forward(self, batch: Float[Tensor, &#34;batch 3 width height&#34;]):
+        self.recorder.reset()
+
+        y = self.model(batch)
+
+        return y, self.recorder.activations</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>torch.nn.modules.module.Module</li>
+</ul>
+<h3>Methods</h3>
+<dl>
+<dt id="saev.activations.MaskedAutoencoder.forward"><code class="name flex">
+<span>def <span class="ident">forward</span></span>(<span>self, batch: jaxtyping.Float[Tensor, 'batch 3 width height']) ‑> Callable[..., Any]</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Define the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the :class:<code>Module</code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div></div>
+</dd>
+</dl>
 </dd>
 <dt id="saev.activations.Metadata"><code class="flex name class">
 <span>class <span class="ident">Metadata</span></span>
@@ -1516,6 +1585,12 @@ def activations(self) -&gt; Float[Tensor, &#34;batch n_layers all_patches dim&#3
 </li>
 <li>
 <h4><code><a title="saev.activations.Imagenet" href="#saev.activations.Imagenet">Imagenet</a></code></h4>
+</li>
+<li>
+<h4><code><a title="saev.activations.MaskedAutoencoder" href="#saev.activations.MaskedAutoencoder">MaskedAutoencoder</a></code></h4>
+<ul class="">
+<li><code><a title="saev.activations.MaskedAutoencoder.forward" href="#saev.activations.MaskedAutoencoder.forward">forward</a></code></li>
+</ul>
 </li>
 <li>
 <h4><code><a title="saev.activations.Metadata" href="#saev.activations.Metadata">Metadata</a></code></h4>

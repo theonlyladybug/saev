@@ -136,6 +136,20 @@ It will cache these best activations to disk, then start saving images to visual
 <p class="admonition-title">TODO</p>
 <p>Explain how to use the <code><a title="saev.interactive.metrics" href="interactive/metrics.html">saev.interactive.metrics</a></code> notebook.</p>
 </div>
+<h1 id="related-work">Related Work</h1>
+<p>Various papers and internet posts on training SAEs for vision.</p>
+<h2 id="preprints">Preprints</h2>
+<p><a href="https://arxiv.org/pdf/2410.03334">An X-Ray Is Worth 15 Features: Sparse Autoencoders for Interpretable Radiology Report Generation</a>
+* Haven't read this yet, but Hugo Fry is an author.</p>
+<h2 id="lesswrong">LessWrong</h2>
+<p><a href="https://www.lesswrong.com/posts/bCtbuWraqYTDtuARg/towards-multimodal-interpretability-learning-sparse-2">Towards Multimodal Interpretability: Learning Sparse Interpretable Features in Vision Transformers</a>
+* Trains a sparse autoencoder on the 22nd layer of a CLIP ViT-L/14. First public work training an SAE on a ViT. Finds interesting features, demonstrating that SAEs work with ViTs.</p>
+<p><a href="https://www.lesswrong.com/posts/Quqekpvx8BGMMcaem/interpreting-and-steering-features-in-images">Interpreting and Steering Features in Images</a>
+* Havne't read it yet.</p>
+<p><a href="https://www.lesswrong.com/posts/iYFuZo9BMvr6GgMs5/case-study-interpreting-manipulating-and-controlling-clip">Case Study: Interpreting, Manipulating, and Controlling CLIP With Sparse Autoencoders</a>
+* Followup to the above work; haven't read it yet.</p>
+<p><a href="https://www.lesswrong.com/posts/wrznNDMRmbQABAEMH/a-suite-of-vision-sparse-autoencoders">A Suite of Vision Sparse Autoencoders</a>
+* Train a sparse autoencoder on various layers using the TopK with k=32 on a CLIP ViT-L/14 trained on LAION-2B. The SAE is trained on 1.2B tokens including patch (not just [CLS]). Limited evaluation.</p>
 </section>
 <section>
 <h2 class="section-title" id="header-submodules">Sub-modules</h2>
@@ -211,6 +225,11 @@ These tests are quite slow</p></div>
 <li><a href="#visualize-the-learned-features">Visualize the Learned Features</a></li>
 <li><a href="#sweeps">Sweeps</a></li>
 <li><a href="#training-metrics-and-visualizations">Training Metrics and Visualizations</a></li>
+</ul>
+</li>
+<li><a href="#related-work">Related Work</a><ul>
+<li><a href="#preprints">Preprints</a></li>
+<li><a href="#lesswrong">LessWrong</a></li>
 </ul>
 </li>
 </ul>

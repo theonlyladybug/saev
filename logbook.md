@@ -925,7 +925,20 @@ But this path has many pitfalls---do not get caught up in frontends in favor of 
 
 # 12/07/2024
 
-Stupid interface isn't working.
+Silly interface isn't working.
 Part of the problem is that features for specific flower classes aren't actually flowers.
 So it looks really bad.
 Or if a feature is a flower, then it fires on all the flowers, so it's not specific enough.
+
+Ok, I fixed it by using Caltech-101 instead.
+I think part of the problem is that it's image-level, so there's not as much room to subtly manipulate the predictions.
+I think a SigLIP model with image-text matching would be absolutely dope because you could write super specific captions, then manipulate at a patch level, then compute the last layer of the SigLIP + do the softmax to compute probabilities.
+
+It would be especailly cool to do this on a patch level.
+
+What else is important right now?
+
+I need a complete to-do list of every single item that needs to be done from an experimental perspective.
+Because there are a lot of different things to do.
+
+Use [facebook/vit-mae-base](https://huggingface.co/facebook/vit-mae-base) as an MAE.

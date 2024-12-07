@@ -137,6 +137,29 @@ You can run it with `uv run marimo edit saev/interactive/features.py`.
 
 .. todo:: Explain how to use the `saev.interactive.metrics` notebook.
 
+# Related Work
+
+Various papers and internet posts on training SAEs for vision.
+
+## Preprints
+
+[An X-Ray Is Worth 15 Features: Sparse Autoencoders for Interpretable Radiology Report Generation](https://arxiv.org/pdf/2410.03334)
+* Haven't read this yet, but Hugo Fry is an author.
+
+## LessWrong
+
+[Towards Multimodal Interpretability: Learning Sparse Interpretable Features in Vision Transformers](https://www.lesswrong.com/posts/bCtbuWraqYTDtuARg/towards-multimodal-interpretability-learning-sparse-2)
+* Trains a sparse autoencoder on the 22nd layer of a CLIP ViT-L/14. First public work training an SAE on a ViT. Finds interesting features, demonstrating that SAEs work with ViTs.
+
+[Interpreting and Steering Features in Images](https://www.lesswrong.com/posts/Quqekpvx8BGMMcaem/interpreting-and-steering-features-in-images)
+* Havne't read it yet.
+
+[Case Study: Interpreting, Manipulating, and Controlling CLIP With Sparse Autoencoders](https://www.lesswrong.com/posts/iYFuZo9BMvr6GgMs5/case-study-interpreting-manipulating-and-controlling-clip)
+* Followup to the above work; haven't read it yet.
+
+[A Suite of Vision Sparse Autoencoders](https://www.lesswrong.com/posts/wrznNDMRmbQABAEMH/a-suite-of-vision-sparse-autoencoders)
+* Train a sparse autoencoder on various layers using the TopK with k=32 on a CLIP ViT-L/14 trained on LAION-2B. The SAE is trained on 1.2B tokens including patch (not just [CLS]). Limited evaluation.
+
 Sub-modules
 -----------
 * saev.activations
@@ -478,6 +501,57 @@ Classes
 
     * torch.utils.data.dataset.Dataset
     * typing.Generic
+
+`MaskedAutoencoder(cfg: saev.config.Activations)`
+:   Base class for all neural network modules.
+    
+    Your models should also subclass this class.
+    
+    Modules can also contain other Modules, allowing to nest them in
+    a tree structure. You can assign the submodules as regular attributes::
+    
+        import torch.nn as nn
+        import torch.nn.functional as F
+    
+        class Model(nn.Module):
+            def __init__(self) -> None:
+                super().__init__()
+                self.conv1 = nn.Conv2d(1, 20, 5)
+                self.conv2 = nn.Conv2d(20, 20, 5)
+    
+            def forward(self, x):
+                x = F.relu(self.conv1(x))
+                return F.relu(self.conv2(x))
+    
+    Submodules assigned in this way will be registered, and will have their
+    parameters converted too when you call :meth:`to`, etc.
+    
+    .. note::
+        As per the example above, an ``__init__()`` call to the parent class
+        must be made before assignment on the child.
+    
+    :ivar training: Boolean represents whether this module is in training or
+                    evaluation mode.
+    :vartype training: bool
+    
+    Initialize internal Module state, shared by both nn.Module and ScriptModule.
+
+    ### Ancestors (in MRO)
+
+    * torch.nn.modules.module.Module
+
+    ### Methods
+
+    `forward(self, batch: jaxtyping.Float[Tensor, 'batch 3 width height']) ‑> Callable[..., Any]`
+    :   Define the computation performed at every call.
+        
+        Should be overridden by all subclasses.
+        
+        .. note::
+            Although the recipe for forward pass needs to be defined within
+            this function, one should call the :class:`Module` instance afterwards
+            instead of this since the former takes care of running the
+            registered hooks while the latter silently ignores them.
 
 `Metadata(model_family: str, model_ckpt: str, layers: tuple[int, ...], n_patches_per_img: int, cls_token: bool, d_vit: int, seed: int, n_imgs: int, n_patches_per_shard: int, data: str)`
 :   Metadata(model_family: str, model_ckpt: str, layers: tuple[int, ...], n_patches_per_img: int, cls_token: bool, d_vit: int, seed: int, n_imgs: int, n_patches_per_shard: int, data: str)
@@ -1442,6 +1516,7 @@ Namespace contrib
 Sub-modules
 -----------
 * contrib.classification
+* contrib.mae
 * contrib.semseg
 
 Module contrib.classification
@@ -1765,6 +1840,66 @@ Classes
     `n_classes: int`
     :
 
+Namespace contrib.mae
+=====================
+
+Sub-modules
+-----------
+* contrib.mae.modeling
+
+Module contrib.mae.modeling
+===========================
+
+Functions
+---------
+
+`download()`
+:   
+
+`load_model(ckpt: str) ‑> contrib.mae.modeling.MaskedAutoencoder`
+:   
+
+Classes
+-------
+
+`MaskedAutoencoder()`
+:   Base class for all neural network modules.
+    
+    Your models should also subclass this class.
+    
+    Modules can also contain other Modules, allowing to nest them in
+    a tree structure. You can assign the submodules as regular attributes::
+    
+        import torch.nn as nn
+        import torch.nn.functional as F
+    
+        class Model(nn.Module):
+            def __init__(self) -> None:
+                super().__init__()
+                self.conv1 = nn.Conv2d(1, 20, 5)
+                self.conv2 = nn.Conv2d(20, 20, 5)
+    
+            def forward(self, x):
+                x = F.relu(self.conv1(x))
+                return F.relu(self.conv2(x))
+    
+    Submodules assigned in this way will be registered, and will have their
+    parameters converted too when you call :meth:`to`, etc.
+    
+    .. note::
+        As per the example above, an ``__init__()`` call to the parent class
+        must be made before assignment on the child.
+    
+    :ivar training: Boolean represents whether this module is in training or
+                    evaluation mode.
+    :vartype training: bool
+    
+    Initialize internal Module state, shared by both nn.Module and ScriptModule.
+
+    ### Ancestors (in MRO)
+
+    * torch.nn.modules.module.Module
+
 Module contrib.semseg
 =====================
 This sub-module reproduces the results from Section 4.2 of our paper.
@@ -1851,6 +1986,7 @@ Sub-modules
 * contrib.semseg.dashboard
 * contrib.semseg.dashboard2
 * contrib.semseg.interactive
+* contrib.semseg.manipulation
 * contrib.semseg.training
 * contrib.semseg.validation
 * contrib.semseg.visuals
@@ -2016,6 +2152,31 @@ Sub-modules
 
 Module contrib.semseg.interactive.feature_analysis
 ==================================================
+
+Module contrib.semseg.manipulation
+==================================
+Manipulate representations by increasing or decreasing the presence of a feature in a ViT activation, then use the linear probe for inference.
+
+Record class-specific scores before and after manipulation to see that you can directly manipulate abilities to complete downstream tasks.
+
+## Dimension Key
+
+* B: batch size
+* W: width in patches (typically 14 or 16)
+* H: height in patches (typically 14 or 16)
+* D: ViT activation dimension (typically 768 or 1024)
+* S: SAE latent dimension (768 x 16, etc)
+* L: Number of latents being manipulated at once (typically 1-5 at a time)
+* C: Number of classes in ADE20K (151)
+
+Functions
+---------
+
+`main(cfg: contrib.semseg.config.Manipulation)`
+:   
+
+`manipulate(cfg: contrib.semseg.config.Manipulation, sae: saev.nn.SparseAutoencoder, acts_BWHD: jaxtyping.Float[Tensor, 'batch width height d_vit']) ‑> tuple[jaxtyping.Float[Tensor, 'batch width height d_vit'], jaxtyping.Float[Tensor, 'batch width height d_vit']]`
+:
 
 Module contrib.semseg.training
 ==============================
