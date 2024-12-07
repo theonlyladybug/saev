@@ -101,13 +101,13 @@ The main parts of the dashboard:
 4. The top classes as predicted by the pre-trained classification model (a linear probe; shown in green below). 
 5. The top classes as predicted by the *same* pre-trained classification model, *after* modifying the dense vector representation with the SAE's vectors. These predictions are updated as you change the sliders on the screen.
 
-![Annotated dashbaord view of a sunflower example.](/assets/contrib/classification/sunflower-unchanged-annotated.png)
+![Annotated dashbaord view of a sunflower example.](/saev/assets/contrib/classification/sunflower-unchanged-annotated.png)
 
 As an example, you can scale *up* the top bonsai features. 
 As you do, the most likely class will be a bonsai.
 See below.
 
-![A sunflower changed to look like a bonsai.](/assets/contrib/classification/class-manipulation.png)
+![A sunflower changed to look like a bonsai.](/saev/assets/contrib/classification/class-manipulation.png)
 
 Here's another example.
 With another sunflower, you can manipulate turn up the SAE feature that fires strongly on pagodas and other traditionally Asian architectural structures.
