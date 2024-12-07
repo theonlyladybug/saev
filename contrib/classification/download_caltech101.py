@@ -73,12 +73,23 @@ def main(args: Args):
         for member in tqdm.tqdm(tar, desc="Extracting images"):
             tar.extract(member, path=args.dir, filter="data")
 
-    # Make these changes: AI!
-    # * Remove args.dir/caltech-101/
-    # * Move args.dir/101_ObjectCategories/ to args.dir/caltech-101
-    # * Remove the args.dir/caltech-101/BACKGROUND_Google folder and its contents.
-    # Add a print() statement after each of these actions.
-    breakpoint()
+    # Clean up and organize files
+    import shutil
+    
+    # Remove the temporary caltech-101 directory
+    shutil.rmtree(os.path.join(args.dir, "caltech-101"))
+    print(f"Removed temporary directory: {os.path.join(args.dir, 'caltech-101')}")
+    
+    # Move 101_ObjectCategories to caltech-101
+    os.rename(
+        os.path.join(args.dir, "101_ObjectCategories"),
+        os.path.join(args.dir, "caltech-101")
+    )
+    print(f"Moved dataset to: {os.path.join(args.dir, 'caltech-101')}")
+    
+    # Remove the BACKGROUND_Google folder
+    shutil.rmtree(os.path.join(args.dir, "caltech-101", "BACKGROUND_Google"))
+    print("Removed BACKGROUND_Google folder")
 
 
 if __name__ == "__main__":
