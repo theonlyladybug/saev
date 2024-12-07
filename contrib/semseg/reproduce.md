@@ -48,7 +48,7 @@ uv run python -m contrib.semseg visuals \
   --imgs.root /research/nfs_su_809/workspace/stevens.994/datasets/ade20k/
 ```
 
-This will tell you to run a particular command in order to generate visuals for use with `saev.interactive.webapp`.
+This will tell you to run a particular command in order to generate visuals for use with `saev.interactive.features`.
 
 # Manipulate ViT Activations
 

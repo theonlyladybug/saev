@@ -18,9 +18,8 @@ def __():
     import matplotlib.pyplot as plt
     import numpy as np
     import polars as pl
-    from jaxtyping import Float, jaxtyped
-
     import wandb
+    from jaxtyping import Float, jaxtyped
 
     return Float, alt, beartype, jaxtyped, json, mo, np, os, pl, plt, wandb
 

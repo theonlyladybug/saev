@@ -38,7 +38,7 @@ class Train:
     eval_every: int = 100
     """How many epochs between evaluations."""
     device: str = "cuda"
-    "Hardware to train on." ""
+    "Hardware to train on."
     ckpt_path: str = os.path.join(".", "checkpoints", "contrib", "classification")
     seed: int = 42
     """Random seed."""

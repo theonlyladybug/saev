@@ -34,7 +34,7 @@ class Train:
     eval_every: int = 100
     """How many epochs between evaluations."""
     device: str = "cuda"
-    "Hardware to train on." ""
+    "Hardware to train on."
     ckpt_path: str = os.path.join(".", "checkpoints", "semseg")
     seed: int = 42
     """Random seed."""
@@ -62,7 +62,7 @@ class Visuals:
     """Number of dataloader workers."""
     label_threshold: float = 0.9
     device: str = "cuda"
-    "Hardware for SAE inference." ""
+    "Hardware for SAE inference."
 
 
 @beartype.beartype
@@ -83,7 +83,7 @@ class Validation:
     n_workers: int = 32
     """Number of dataloader workers."""
     device: str = "cuda"
-    "Hardware for linear probe inference." ""
+    "Hardware for linear probe inference."
 
 
 @beartype.beartype
@@ -110,7 +110,7 @@ class Manipulation:
     n_workers: int = 32
     """Number of dataloader workers."""
     device: str = "cuda"
-    "Hardware for linear probe and SAE inference." ""
+    "Hardware for linear probe and SAE inference."
 
 
 @beartype.beartype

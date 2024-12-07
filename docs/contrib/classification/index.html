@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
-<meta name="generator" content="pdoc3 0.11.1">
+<meta name="generator" content="pdoc3 0.11.3">
 <title>contrib.classification API documentation</title>
-<meta name="description" content="">
+<meta name="description" content="Reproduce …">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/sanitize.min.css" integrity="sha512-y1dtMcuvtTMJc1yPgEqF0ZjQbhnc/bFhyvIyVNb9Zk5mIGtqVaAB1Ttl28su8AvFMOY0EwRbAe+HCLqj6W7/KA==" crossorigin>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/typography.min.css" integrity="sha512-Y1DYSb995BAfxobCkKepB1BqJJTPrOp3zPL74AWFugHHmmdcvO+C48WLrUOlhGMc0QG7AE3f7gmvvcrmX2fDoA==" crossorigin>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css" crossorigin>
-<style>:root{--highlight-color:#fe9}.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:1.5em;overflow:hidden}#sidebar > *:last-child{margin-bottom:2cm}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:2em 0 .50em 0}h3{font-size:1.4em;margin:1.6em 0 .7em 0}h4{margin:0;font-size:105%}h1:target,h2:target,h3:target,h4:target,h5:target,h6:target{background:var(--highlight-color);padding:.2em 0}a{color:#058;text-decoration:none;transition:color .2s ease-in-out}a:visited{color:#503}a:hover{color:#b62}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900;font-weight:bold}pre code{font-size:.8em;line-height:1.4em;padding:1em;display:block}code{background:#f3f3f3;font-family:"DejaVu Sans Mono",monospace;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{margin-top:.6em;font-weight:bold}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}dt:target .name{background:var(--highlight-color)}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}td{padding:0 .5em}.admonition{padding:.1em 1em;margin-bottom:1em}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
+<style>:root{--highlight-color:#fe9}.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:1.5em;overflow:hidden}#sidebar > *:last-child{margin-bottom:2cm}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:2em 0 .50em 0}h3{font-size:1.4em;margin:1.6em 0 .7em 0}h4{margin:0;font-size:105%}h1:target,h2:target,h3:target,h4:target,h5:target,h6:target{background:var(--highlight-color);padding:.2em 0}a{color:#058;text-decoration:none;transition:color .2s ease-in-out}a:visited{color:#503}a:hover{color:#b62}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900;font-weight:bold}pre code{font-size:.8em;line-height:1.4em;padding:1em;display:block}code{background:#f3f3f3;font-family:"DejaVu Sans Mono",monospace;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{margin-top:.6em;font-weight:bold}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}dt:target .name{background:var(--highlight-color)}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}td{padding:0 .5em}.admonition{padding:.1em 1em;margin:1em 0}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
 <style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%;height:100vh;overflow:auto;position:sticky;top:0}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul ul{padding-left:1em}.toc > ul > li{margin-top:.5em}}</style>
 <style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
 <script type="text/x-mathjax-config">MathJax.Hub.Config({ tex2jax: { inlineMath: [ ['$','$'], ["\\(","\\)"] ], processEscapes: true } });</script>
@@ -27,6 +27,94 @@ hljs.highlightAll();
 <h1 class="title">Module <code>contrib.classification</code></h1>
 </header>
 <section id="section-intro">
+<h1 id="reproduce">Reproduce</h1>
+<p>You can reproduce our classification control experiments from our preprint by following these instructions.</p>
+<p>The big overview (as described in our paper) is:</p>
+<ol>
+<li>Train an SAE on the ImageNet-1K [CLS] token activations from a CLIP ViT-B/16, from the 11th (second-to-last) layer.</li>
+<li>Show that you get meaningful features, through visualizations.</li>
+<li>Train a linear probe on the [CLS] token activations from
+a CLIP ViT-B/16, from the 11th layer, on the Caltech-101 dataset. We use an arbitrary random train/test split.</li>
+<li>Show that we get good accuracy.</li>
+<li>Manipulate the activations using the proposed SAE features.</li>
+<li>Be amazed. :)</li>
+</ol>
+<p>To do these steps:</p>
+<h2 id="record-imagenet-1k-activations">Record ImageNet-1K activations</h2>
+<h2 id="train-an-sae">Train an SAE</h2>
+<pre><code class="language-sh">uv run python -m saev train --sweep configs/preprint/classification.toml --data.shard-root /local/scratch/stevens.994/cache/saev/ac89246f1934b45e2f0487298aebe36ad998b6bd252d880c0c9ec5de78d793c8/ --data.patches cls --data.layer -2 --sae.d-vit 768
+</code></pre>
+<h2 id="visualize-the-sae-features">Visualize the SAE Features</h2>
+<p><code>bd97z80b</code> was the best checkpoint from my sweep.</p>
+<pre><code class="language-sh">uv run python -m saev visuals \
+  --ckpt checkpoints/bd97z80b/sae.pt \
+  --dump-to /research/nfs_su_809/workspace/stevens.994/saev/features/bd97z80b \
+  --sort-byt cls \
+  --data.shard-root /local/scratch/stevens.994/cache/saev/ac89246f1934b45e2f0487298aebe36ad998b6bd252d880c0c9ec5de78d793c8/ \
+  --data.layer -2 \
+  --data.patches cls \
+  --log-freq-range -2.5 -1.5 \
+  --log-value-range 0.0 1.0 \
+  images:imagenet-dataset
+</code></pre>
+<p>You can see some neat features in here by using <code><a title="saev.interactive.features" href="../../saev/interactive/features.html">saev.interactive.features</a></code> with <code>marimo</code>.</p>
+<h2 id="record-caltech-101-activations">Record Caltech-101 Activations</h2>
+<p>For each <code>$SPLIT</code> in "train" and "test":</p>
+<pre><code class="language-sh">uv run python -m saev activations \
+  --model-family clip \
+  --model-ckpt ViT-B-16/openai \
+  --d-vit 768 \
+  --n-patches-per-img 196 \
+  --layers -2 \
+  --dump-to /local/scratch/$USER/cache/saev \
+  --n-patches-per-shard 2_4000_000 \
+  data:image-folder-dataset \
+  --data.root /nfs/datasets/caltech-101/$SPLIT
+</code></pre>
+<h2 id="train-a-linear-probe">Train a Linear Probe</h2>
+<pre><code class="language-sh">uv run python -m contrib.classification train \
+  --n-workers 32 \
+  --train-acts.shard-root /local/scratch/$USER/cache/saev/$TRAIN \
+  --val-acts.shard-root /local/scratch/$USER/cache/saev/$TEST \
+  --train-imgs.root /nfs/$USER/datasets/flowers102/train \
+  --val-imgs.root /nfs/$USER/datasets/flowers102/val \
+  --sweep contrib/classification/sweep.toml
+</code></pre>
+<p>Then look at <code>logs/contrib/classification/hparam-sweeps.png</code>. It probably works for any of the learning rates above 1e-5 or so.</p>
+<h2 id="manipulate">Manipulate</h2>
+<p>Now we will manipulate the inputs to the probe by using the directions proposed by the SAE trained on ImageNet-1K and observe the changes in the linear model's predictions.
+There are two ways to do this:</p>
+<ol>
+<li>The marimo dashboard, which requires that you run your own inference.</li>
+<li>The online dashboard, which is more polished but offers less control.</li>
+</ol>
+<p>Since you have gone through the effort of training all this stuff, you probably want more control and have the hardware for inference.</p>
+<p>Run the marimo dashboard with:</p>
+<pre><code class="language-sh">uv run marimo edit contrib/classification/interactive.py
+</code></pre>
+<p>These screenshots show the kinds of findings you can uncover with this dashboard.</p>
+<p>First, when you open the dashboard and configure the options, you will eventually see something like this:</p>
+<p><img alt="Default dashbaord view of a sunflower example." src="/assets/contrib/classification/sunflower-unchanged.png"></p>
+<p>The main parts of the dashboard:</p>
+<ol>
+<li>Example selector: choose which test image to classify. The image is shown on the bottom left.</li>
+<li>The top SAE latents for the test image's class (in purple below). The latent values of $h$ are also shown. Many will be 0 because SAE latents fire very rarely (<em>sparse</em> autoencoder).</li>
+<li>The top SAE latents for another, user-selected class (in orange below). Choose the class on the top right dropdown.</li>
+<li>The top classes as predicted by the pre-trained classification model (a linear probe; shown in green below). </li>
+<li>The top classes as predicted by the <em>same</em> pre-trained classification model, <em>after</em> modifying the dense vector representation with the SAE's vectors. These predictions are updated as you change the sliders on the screen.</li>
+</ol>
+<p><img alt="Annotated dashbaord view of a sunflower example." src="/assets/contrib/classification/sunflower-unchanged-annotated.png"></p>
+<p>As an example, you can scale <em>up</em> the top bonsai features.
+As you do, the most likely class will be a bonsai.
+See below.</p>
+<p><img alt="A sunflower changed to look like a bonsai." src="/assets/contrib/classification/class-manipulation.png"></p>
+<p>Here's another example.
+With another sunflower, you can manipulate turn up the SAE feature that fires strongly on pagodas and other traditionally Asian architectural structures.
+If you do, the most likley classification is a lotus, which is popular in Japanese and other Asian cultures.</p>
+<p><img alt="A sunflower changed to be a lotus (a culturally Asian flower)." src="/assets/contrib/classification/japanese-culture.png"></p>
+<p>Only once you turn up the SAE feature that fires strongly on potted plants does the classification change to bonsai (which are typically potted).</p>
+<p><img alt="A sunflower changed to &quot;bonsai&quot;." src="/assets/contrib/classification/bonsai.png"></p>
+<p>I encourage you to look at other test images and manipulate the predictions.</p>
 </section>
 <section>
 <h2 class="section-title" id="header-submodules">Sub-modules</h2>
@@ -62,7 +150,17 @@ hljs.highlightAll();
 </article>
 <nav id="sidebar">
 <div class="toc">
-<ul></ul>
+<ul>
+<li><a href="#reproduce">Reproduce</a><ul>
+<li><a href="#record-imagenet-1k-activations">Record ImageNet-1K activations</a></li>
+<li><a href="#train-an-sae">Train an SAE</a></li>
+<li><a href="#visualize-the-sae-features">Visualize the SAE Features</a></li>
+<li><a href="#record-caltech-101-activations">Record Caltech-101 Activations</a></li>
+<li><a href="#train-a-linear-probe">Train a Linear Probe</a></li>
+<li><a href="#manipulate">Manipulate</a></li>
+</ul>
+</li>
+</ul>
 </div>
 <ul id="index">
 <li><h3>Super-module</h3>
@@ -83,7 +181,7 @@ hljs.highlightAll();
 </nav>
 </main>
 <footer id="footer">
-<p>Generated by <a href="https://pdoc3.github.io/pdoc" title="pdoc: Python API documentation generator"><cite>pdoc</cite> 0.11.1</a>.</p>
+<p>Generated by <a href="https://pdoc3.github.io/pdoc" title="pdoc: Python API documentation generator"><cite>pdoc</cite> 0.11.3</a>.</p>
 </footer>
 </body>
 </html>
