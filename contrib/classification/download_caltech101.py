@@ -22,7 +22,6 @@ import os
 import random
 import tarfile
 import zipfile
-from pathlib import Path
 
 import beartype
 import requests
