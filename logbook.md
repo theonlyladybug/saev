@@ -922,3 +922,10 @@ So I will:
 Instead of gradio or streamlit, I'll just use gradio as an inference endpoint and then Elm -> static html + js as the polished web demos. 
 I probably should write one pure inference demo in gradio to demonstrate how simple it can be, but for polished, interactive experiences, I want to write the frontends myself.
 But this path has many pitfalls---do not get caught up in frontends in favor of writing a paper.
+
+# 12/07/2024
+
+Stupid interface isn't working.
+Part of the problem is that features for specific flower classes aren't actually flowers.
+So it looks really bad.
+Or if a feature is a flower, then it fires on all the flowers, so it's not specific enough.

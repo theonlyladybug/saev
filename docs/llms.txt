@@ -1502,6 +1502,7 @@ Module contrib.classification
 Sub-modules
 -----------
 * contrib.classification.config
+* contrib.classification.download_caltech101
 * contrib.classification.download_flowers
 * contrib.classification.interactive
 * contrib.classification.training
@@ -1564,6 +1565,37 @@ Classes
 
     `weight_decay: float`
     :   Weight decay  for AdamW.
+
+Module contrib.classification.download_caltech101
+=================================================
+A script to download the Caltech101 dataset for use as an saev.activations.ImageFolderDataset.
+
+```sh
+uv run contrib/classification/download_flowers.py --help
+```
+
+Functions
+---------
+
+`main(args: contrib.classification.download_caltech101.Args)`
+:   Download NeWT.
+
+Classes
+-------
+
+`Args(dir: str = '.', chunk_size_kb: int = 1, seed: int = 42)`
+:   Configure download options.
+
+    ### Class variables
+
+    `chunk_size_kb: int`
+    :   How many KB to download at a time before writing to file.
+
+    `dir: str`
+    :   Where to save data.
+
+    `seed: int`
+    :   Random seed used to generate split.
 
 Module contrib.classification.download_flowers
 ==============================================

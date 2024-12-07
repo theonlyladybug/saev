@@ -16,10 +16,10 @@ uv run contrib/classification/download_flowers.py --help
 ```
 """
 
-import shutil
 import dataclasses
 import os
 import random
+import shutil
 import tarfile
 import zipfile
 
@@ -29,6 +29,9 @@ import tqdm
 import tyro
 
 url = "https://data.caltech.edu/records/mzrjq-6wc02/files/caltech-101.zip"
+
+
+IMG_EXTS = (".jpg", ".jpeg", ".png")
 
 
 @beartype.beartype
@@ -97,7 +100,7 @@ def main(args: Args):
 
     # Create train/test split
     random.seed(args.seed)
-    
+
     # Create output directories
     train_dir = os.path.join(args.dir, "train")
     test_dir = os.path.join(args.dir, "test")
@@ -105,13 +108,16 @@ def main(args: Args):
     os.makedirs(test_dir, exist_ok=True)
 
     # Process each class directory
-    for class_name in os.listdir(dpath):
-        class_path = os.path.join(dpath, class_name)
-        if not os.path.isdir(class_path):
+    for class_name in sorted(os.listdir(dpath)):
+        class_dpath = os.path.join(dpath, class_name)
+        if not os.path.isdir(class_dpath):
+            print(f"Skippping {class_dpath} because it is not a directory.")
             continue
 
         # Get all image files
-        image_files = [f for f in os.listdir(class_path) if f.endswith(('.jpg', '.jpeg', '.png'))]
+        image_files = [
+            f for f in sorted(os.listdir(class_dpath)) if f.endswith(IMG_EXTS)
+        ]
         random.shuffle(image_files)
 
         # Take first 30 for training
@@ -125,13 +131,13 @@ def main(args: Args):
 
         # Move training images
         for img in train_images:
-            src = os.path.join(class_path, img)
+            src = os.path.join(class_dpath, img)
             dst = os.path.join(train_dir, class_name, img)
             shutil.copy2(src, dst)
 
         # Move test images
         for img in test_images:
-            src = os.path.join(class_path, img)
+            src = os.path.join(class_dpath, img)
             dst = os.path.join(test_dir, class_name, img)
             shutil.copy2(src, dst)
 

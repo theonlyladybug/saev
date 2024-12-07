@@ -18,7 +18,6 @@ uv run contrib/classification/download_flowers.py --help
 
 import dataclasses
 import os
-import os.path
 import shutil
 import tarfile
 from concurrent.futures import ThreadPoolExecutor
