@@ -117,6 +117,6 @@ If you do, the most likley classification is a lotus, which is popular in Japane
 
 Only once you turn up the SAE feature that fires strongly on potted plants does the classification change to bonsai (which are typically potted).
 
-![A sunflower changed to "bonsai".](assets/contrib/classification/bonsai.png)
+![A sunflower changed to "bonsai".](/saev/assets/contrib/classification/bonsai.png)
 
-I encourage you to look at other test images and manipulate the predictions.
+I encourage you to look at other test images and manipulate the predictions!
