@@ -16,6 +16,7 @@ uv run contrib/classification/download_flowers.py --help
 ```
 """
 
+import shutil
 import dataclasses
 import os
 import tarfile
@@ -39,6 +40,9 @@ class Args:
 
     chunk_size_kb: int = 1
     """How many KB to download at a time before writing to file."""
+
+    seed: int = 42
+    """Random seed used to generate split."""
 
 
 def main(args: Args):
@@ -68,28 +72,31 @@ def main(args: Args):
 
     zip = zipfile.ZipFile(zip_path)
     zip.extract("caltech-101/101_ObjectCategories.tar.gz", args.dir)
+    print("Unzipped file.")
 
     with tarfile.open(tgz_path, "r") as tar:
         for member in tqdm.tqdm(tar, desc="Extracting images"):
             tar.extract(member, path=args.dir, filter="data")
+    print("Extracted images.")
 
     # Clean up and organize files
-    import shutil
-    
+
     # Remove the temporary caltech-101 directory
-    shutil.rmtree(os.path.join(args.dir, "caltech-101"))
-    print(f"Removed temporary directory: {os.path.join(args.dir, 'caltech-101')}")
-    
+    dpath = os.path.join(args.dir, "caltech-101")
+    shutil.rmtree(dpath)
+    print(f"Removed temporary directory: {dpath}")
+
     # Move 101_ObjectCategories to caltech-101
-    os.rename(
-        os.path.join(args.dir, "101_ObjectCategories"),
-        os.path.join(args.dir, "caltech-101")
-    )
-    print(f"Moved dataset to: {os.path.join(args.dir, 'caltech-101')}")
-    
+    os.rename(os.path.join(args.dir, "101_ObjectCategories"), dpath)
+    print(f"Moved dataset to: {dpath}")
+
     # Remove the BACKGROUND_Google folder
-    shutil.rmtree(os.path.join(args.dir, "caltech-101", "BACKGROUND_Google"))
+    shutil.rmtree(os.path.join(dpath, "BACKGROUND_Google"))
     print("Removed BACKGROUND_Google folder")
+
+    # Using a fixed seed, generate a train/test split with 30 images per class for training and at most 50 images per class for testing.
+    # Then move the files on disk from args.dir/caltech-101 into a args.dir/train and an args.dir/test directory.
+    # AI!
 
 
 if __name__ == "__main__":
