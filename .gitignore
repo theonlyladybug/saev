@@ -8,3 +8,4 @@ logs/
 .hypothesis/
 .aider*
 .env
+.DS_Store
