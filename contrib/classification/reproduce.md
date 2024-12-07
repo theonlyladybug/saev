@@ -113,10 +113,10 @@ Here's another example.
 With another sunflower, you can manipulate turn up the SAE feature that fires strongly on pagodas and other traditionally Asian architectural structures.
 If you do, the most likley classification is a lotus, which is popular in Japanese and other Asian cultures.
 
-![A sunflower changed to be a lotus (a culturally Asian flower).](/assets/contrib/classification/japanese-culture.png)
+![A sunflower changed to be a lotus (a culturally Asian flower).](/saev/assets/contrib/classification/japanese-culture.png)
 
 Only once you turn up the SAE feature that fires strongly on potted plants does the classification change to bonsai (which are typically potted).
 
-![A sunflower changed to "bonsai".](/assets/contrib/classification/bonsai.png)
+![A sunflower changed to "bonsai".](assets/contrib/classification/bonsai.png)
 
 I encourage you to look at other test images and manipulate the predictions.
