@@ -19,8 +19,10 @@ uv run contrib/classification/download_flowers.py --help
 import shutil
 import dataclasses
 import os
+import random
 import tarfile
 import zipfile
+from pathlib import Path
 
 import beartype
 import requests
@@ -94,9 +96,51 @@ def main(args: Args):
     shutil.rmtree(os.path.join(dpath, "BACKGROUND_Google"))
     print("Removed BACKGROUND_Google folder")
 
-    # Using a fixed seed, generate a train/test split with 30 images per class for training and at most 50 images per class for testing.
-    # Then move the files on disk from args.dir/caltech-101 into a args.dir/train and an args.dir/test directory.
-    # AI!
+    # Create train/test split
+    random.seed(args.seed)
+    
+    # Create output directories
+    train_dir = os.path.join(args.dir, "train")
+    test_dir = os.path.join(args.dir, "test")
+    os.makedirs(train_dir, exist_ok=True)
+    os.makedirs(test_dir, exist_ok=True)
+
+    # Process each class directory
+    for class_name in os.listdir(dpath):
+        class_path = os.path.join(dpath, class_name)
+        if not os.path.isdir(class_path):
+            continue
+
+        # Get all image files
+        image_files = [f for f in os.listdir(class_path) if f.endswith(('.jpg', '.jpeg', '.png'))]
+        random.shuffle(image_files)
+
+        # Take first 30 for training
+        train_images = image_files[:30]
+        # Take up to next 50 for testing
+        test_images = image_files[30:80]
+
+        # Create class directories in train and test
+        os.makedirs(os.path.join(train_dir, class_name), exist_ok=True)
+        os.makedirs(os.path.join(test_dir, class_name), exist_ok=True)
+
+        # Move training images
+        for img in train_images:
+            src = os.path.join(class_path, img)
+            dst = os.path.join(train_dir, class_name, img)
+            shutil.copy2(src, dst)
+
+        # Move test images
+        for img in test_images:
+            src = os.path.join(class_path, img)
+            dst = os.path.join(test_dir, class_name, img)
+            shutil.copy2(src, dst)
+
+    # Remove the original directory
+    shutil.rmtree(dpath)
+    print(f"Created train/test split with {len(os.listdir(train_dir))} classes")
+    print(f"Train directory: {train_dir}")
+    print(f"Test directory: {test_dir}")
 
 
 if __name__ == "__main__":
