@@ -42,10 +42,5 @@ def train(
     job.result()
 
 
-@beartype.beartype
-def validate():
-    print("Not implemented.")
-
-
 if __name__ == "__main__":
-    tyro.extras.subcommand_cli_from_dict({"train": train, "validate": validate})
+    tyro.cli(train)

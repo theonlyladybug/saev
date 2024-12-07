@@ -43,7 +43,9 @@ def __(contrib, saev):
     sae = saev.nn.load(sae_ckpt_fpath)
     sae.eval()
 
-    imgs_test_dpath = "/research/nfs_su_809/workspace/stevens.994/datasets/caltech101/test"
+    imgs_test_dpath = (
+        "/research/nfs_su_809/workspace/stevens.994/datasets/caltech101/test"
+    )
     imgs_cfg = saev.config.ImageFolderDataset(root=imgs_test_dpath)
     imgs_dataset = saev.activations.ImageFolder(imgs_cfg.root)
 
@@ -76,13 +78,19 @@ def __(os, torch):
     )
 
     top_img_i = torch.load(
-        os.path.join(sae_data_root, "top_img_i.pt"), weights_only=True, map_location="cpu"
+        os.path.join(sae_data_root, "top_img_i.pt"),
+        weights_only=True,
+        map_location="cpu",
     )
     top_values = torch.load(
-        os.path.join(sae_data_root, "top_values.pt"), weights_only=True, map_location="cpu"
+        os.path.join(sae_data_root, "top_values.pt"),
+        weights_only=True,
+        map_location="cpu",
     )
     sparsity = torch.load(
-        os.path.join(sae_data_root, "sparsity.pt"), weights_only=True, map_location="cpu"
+        os.path.join(sae_data_root, "sparsity.pt"),
+        weights_only=True,
+        map_location="cpu",
     )
     return sae_data_root, sparsity, top_img_i, top_values
 
@@ -120,7 +128,9 @@ def __(imgs_dataset, mo):
     cls_dropdown = mo.ui.dropdown(
         options={
             name: i
-            for i, name in sorted(enumerate(imgs_dataset.classes), key=lambda pair: pair[1])
+            for i, name in sorted(
+                enumerate(imgs_dataset.classes), key=lambda pair: pair[1]
+            )
         },
         label="Alternative class:",
         value=imgs_dataset.classes[0],
@@ -139,6 +149,7 @@ def __(beartype, getter, setter):
     @beartype.beartype
     def indexed_setter(i: int, v: float):
         setter(getter()[:i] + [v] + getter()[i + 1 :])
+
     return (indexed_setter,)
 
 
@@ -146,6 +157,7 @@ def __(beartype, getter, setter):
 def __(indexed_setter):
     def make_indexed_reset(i: int, default: float):
         return lambda _: indexed_setter(i, default)
+
     return (make_indexed_reset,)
 
 
@@ -180,8 +192,11 @@ def __(Feature, beartype, mo):
     @beartype.beartype
     def make_slider(feature: Feature) -> tuple[object, object, object]:
         getter, setter = mo.state(feature.default)
-        slider = mo.ui.slider(start=-1, stop=1, step=0.1, value=getter(), on_change=setter)
+        slider = mo.ui.slider(
+            start=-1, stop=1, step=0.1, value=getter(), on_change=setter
+        )
         return getter, setter, slider
+
     return (make_slider,)
 
 
@@ -191,7 +206,6 @@ def __(Int, Tensor, beartype, imgs_dataset, jaxtyped, torch):
     def load_targets() -> Int[Tensor, " n"]:
         targets = torch.tensor([tgt for sample, tgt in imgs_dataset.samples])
         return targets
-
 
     targets = load_targets()
     return load_targets, targets
@@ -245,19 +259,17 @@ def __(
     random_example_btn,
     target,
 ):
-    mo.hstack(
-        [
-            mo.hstack(
-                [
-                    random_example_btn,
-                    example_num,
-                    mo.md(f"'{imgs_dataset.classes[target]}'"),
-                ],
-                justify="start",
-            ),
-            cls_dropdown,
-        ]
-    )
+    mo.hstack([
+        mo.hstack(
+            [
+                random_example_btn,
+                example_num,
+                mo.md(f"'{imgs_dataset.classes[target]}'"),
+            ],
+            justify="start",
+        ),
+        cls_dropdown,
+    ])
     return
 
 
@@ -302,7 +314,11 @@ def __(
                     + rows[n_features * 0 : n_features * 1]
                 ),
                 mo.vstack(
-                    [mo.md(f"Features for '{imgs_dataset.classes[cls_dropdown.value]}'")]
+                    [
+                        mo.md(
+                            f"Features for '{imgs_dataset.classes[cls_dropdown.value]}'"
+                        )
+                    ]
                     + rows[n_features * 1 : n_features * 2]
                 ),
                 mo.vstack(
@@ -312,7 +328,6 @@ def __(
             justify="start",
             gap=1.0,
         )
-
 
     make_sliders_ui()
     return (make_sliders_ui,)
@@ -348,17 +363,15 @@ def __(
     probs,
     target,
 ):
-    mo.hstack(
-        [
-            mo.vstack(
-                [pil_image, mo.md(f"True class: {imgs_dataset.classes[target]}")],
-                align="center",
-            ),
-            plot_probs(probs),
-            plot_probs(modified_probs),
-            # plot_probs(modified_probs - probs),
-        ]
-    )
+    mo.hstack([
+        mo.vstack(
+            [pil_image, mo.md(f"True class: {imgs_dataset.classes[target]}")],
+            align="center",
+        ),
+        plot_probs(probs),
+        plot_probs(modified_probs),
+        # plot_probs(modified_probs - probs),
+    ])
     return
 
 
@@ -386,6 +399,7 @@ def __(imgs_dataset, pl, plt, torch):
 
         fig.tight_layout()
         return fig
+
     return (plot_probs,)
 
 
@@ -411,9 +425,9 @@ def __(
         err_D = act_D - x_hat_D
 
         latents = [f.latent for f in features]
-        values = torch.tensor(
-            [f.unscaled(sliders.value[i]) for i, f in enumerate(features)]
-        )
+        values = torch.tensor([
+            f.unscaled(sliders.value[i]) for i, f in enumerate(features)
+        ])
         modified_f_x_S = f_x_S.clone()
         modified_f_x_S[..., latents] = values
 
@@ -425,6 +439,7 @@ def __(
         modified_D = modified_x_hat_D + err_D
 
         return modified_D
+
     return (modify,)
 
 
@@ -465,6 +480,7 @@ def __(
             Feature(latent.item(), max_obs, obs.item())
             for obs, latent in zip(vals, latents)
         ]
+
     return (get_agg_features,)
 
 
@@ -488,6 +504,7 @@ def __(Feature, act_D, beartype, n_features, sae, sparsity, torch):
             Feature(latent.item(), max_obs, obs.item())
             for obs, latent in zip(values, latents)
         ]
+
     return (get_random_features,)
 
 
@@ -495,9 +512,10 @@ def __(Feature, act_D, beartype, n_features, sae, sparsity, torch):
 def __(saev, v2):
     in1k_dataset = saev.activations.get_dataset(
         saev.config.ImagenetDataset(),
-        img_transform=v2.Compose(
-            [v2.Resize(size=(128, 128)), v2.CenterCrop(size=(112, 112))]
-        ),
+        img_transform=v2.Compose([
+            v2.Resize(size=(128, 128)),
+            v2.CenterCrop(size=(112, 112)),
+        ]),
     )
     return (in1k_dataset,)
 
@@ -523,6 +541,7 @@ def __(beartype, dataclasses):
         def scaled(self, x: float) -> float:
             """Return raw_obs, scaled from [-max_obs, max_obs] to [-1, 1]."""
             return -1 + (x + self.max_obs) * 2 / (2 * self.max_obs)
+
     return (Feature,)
 
 
@@ -533,21 +552,24 @@ def __():
     pkg_root = "/home/stevens.994/projects/saev"
     if pkg_root not in sys.path:
         sys.path.append(pkg_root)
-    import random
-    import os.path
-    import beartype
     import dataclasses
-    from jaxtyping import jaxtyped, Float, Bool
+    import functools
+    import os.path
+    import random
+
+    import beartype
+    import einops
     import marimo as mo
+    import matplotlib.pyplot as plt
+    import polars as pl
     import torch
+    from jaxtyping import Bool, Float, jaxtyped
+    from torch import Tensor
+    from torchvision.transforms import v2
+
     import contrib.classification.training
     import saev.nn
-    import polars as pl
-    import einops
-    from torch import Tensor
-    import matplotlib.pyplot as plt
-    from torchvision.transforms import v2
-    import functools
+
     return (
         Bool,
         Float,
