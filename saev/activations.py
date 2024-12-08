@@ -22,7 +22,7 @@ import beartype
 import numpy as np
 import torch
 import torchvision.datasets
-from jaxtyping import Float, Int, jaxtyped
+from jaxtyping import Float, jaxtyped
 from PIL import Image
 from torch import Tensor
 
@@ -31,6 +31,7 @@ from . import config, helpers
 log_format = "[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s"
 logging.basicConfig(level=logging.INFO, format=log_format)
 logger = logging.getLogger(__name__)
+
 
 #######################
 # VISION TRANSFORMERS #
@@ -192,6 +193,25 @@ class DinoV2(torch.nn.Module):
         return features, self.recorder.activations
 
 
+@jaxtyped(typechecker=beartype.beartype)
+class MaskedAutoencoder(torch.nn.Module):
+    def __init__(self, cfg: config.Activations):
+        super().__init__()
+        assert cfg.model_family == "mae"
+
+        import mae
+
+        self.model = mae.load_model(cfg.model_ckpt)
+        self.recorder = VitRecorder(cfg).register(self.model.vit.encoder.layers)
+
+    def forward(self, batch: Float[Tensor, "batch 3 width height"]):
+        self.recorder.reset()
+
+        y = self.model(batch)
+
+        return y, self.recorder.activations
+
+
 @beartype.beartype
 def make_vit(cfg: config.Activations):
     if cfg.model_family == "clip":
@@ -200,6 +220,8 @@ def make_vit(cfg: config.Activations):
         return Siglip(cfg)
     elif cfg.model_family == "dinov2":
         return DinoV2(cfg)
+    elif cfg.model_family == "mae":
+        return MaskedAutoencoder(cfg)
     else:
         typing.assert_never(cfg.model_family)
 
@@ -247,12 +269,12 @@ class Dataset(torch.utils.data.Dataset):
     Dataset of activations from disk.
     """
 
-    class Example(typing.NamedTuple):
+    class Example(typing.TypedDict):
         """Individual example."""
 
-        vit_acts: Float[Tensor, " d_vit"]
-        img_i: Int[Tensor, ""]
-        patch_i: Int[Tensor, ""]
+        act: Float[Tensor, " d_vit"]
+        img_i: int
+        patch_i: int
 
     cfg: config.DataLoad
     """Configuration; set via CLI args."""
@@ -290,13 +312,13 @@ class Dataset(torch.utils.data.Dataset):
             perm = np.random.default_rng(seed=42).permutation(len(self))
             perm = perm[: cfg.n_random_samples]
 
-            samples, _, _ = zip(*[
+            samples = [
                 self[p.item()]
                 for p in helpers.progress(
                     perm, every=25_000, desc="examples to calc means"
                 )
-            ])
-            samples = torch.stack(samples)
+            ]
+            samples = torch.stack([sample["act"] for sample in samples])
             if samples.abs().max() > 1e3:
                 raise ValueError(
                     "You found an abnormally large activation {example.abs().max().item():.5f} that will mess up your L2 mean."
@@ -344,36 +366,28 @@ class Dataset(torch.utils.data.Dataset):
                 img_act = self.get_img_patches(i)
                 # Select layer's cls token.
                 act = img_act[self.layer_index, 0, :]
-                return self.Example(
-                    self.transform(act), torch.tensor(i), torch.tensor(-1)
-                )
+                return self.Example(act=self.transform(act), img_i=i, patch_i=-1)
             case ("cls", "meanpool"):
                 img_act = self.get_img_patches(i)
                 # Select cls tokens from across all layers
                 cls_act = img_act[:, 0, :]
                 # Meanpool over the layers
                 act = cls_act.mean(axis=0)
-                return self.Example(
-                    self.transform(act), torch.tensor(i), torch.tensor(-1)
-                )
+                return self.Example(act=self.transform(act), img_i=i, patch_i=-1)
             case ("meanpool", int()):
                 img_act = self.get_img_patches(i)
                 # Select layer's patches.
                 layer_act = img_act[self.layer_index, 1:, :]
                 # Meanpool over the patches
                 act = layer_act.mean(axis=0)
-                return self.Example(
-                    self.transform(act), torch.tensor(i), torch.tensor(-1)
-                )
+                return self.Example(act=self.transform(act), img_i=i, patch_i=-1)
             case ("meanpool", "meanpool"):
                 img_act = self.get_img_patches(i)
                 # Select all layer's patches.
                 act = img_act[:, 1:, :]
                 # Meanpool over the layers and patches
                 act = act.mean(axis=(0, 1))
-                return self.Example(
-                    self.transform(act), torch.tensor(i), torch.tensor(-1)
-                )
+                return self.Example(act=self.transform(act), img_i=i, patch_i=-1)
             case ("patches", int()):
                 n_imgs_per_shard = (
                     self.metadata.n_patches_per_shard
@@ -404,10 +418,10 @@ class Dataset(torch.utils.data.Dataset):
                     pos % self.metadata.n_patches_per_img,
                 ]
                 return self.Example(
-                    self.transform(act),
+                    act=self.transform(act),
                     # What image is this?
-                    torch.tensor(i // self.metadata.n_patches_per_img),
-                    torch.tensor(i % self.metadata.n_patches_per_img),
+                    img_i=i // self.metadata.n_patches_per_img,
+                    patch_i=i % self.metadata.n_patches_per_img,
                 )
             case _:
                 print((self.cfg.patches, self.cfg.layer))

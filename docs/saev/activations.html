@@ -972,7 +972,7 @@ class MaskedAutoencoder(torch.nn.Module):
         import mae
 
         self.model = mae.load_model(cfg.model_ckpt)
-        self.recorder = VitRecorder(cfg).register(self.model.vit.encoder.layer)
+        self.recorder = VitRecorder(cfg).register(self.model.vit.encoder.layers)
 
     def forward(self, batch: Float[Tensor, &#34;batch 3 width height&#34;]):
         self.recorder.reset()
