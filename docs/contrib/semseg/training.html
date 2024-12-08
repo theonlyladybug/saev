@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
-<meta name="generator" content="pdoc3 0.11.1">
+<meta name="generator" content="pdoc3 0.11.3">
 <title>contrib.semseg.training API documentation</title>
 <meta name="description" content="">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/sanitize.min.css" integrity="sha512-y1dtMcuvtTMJc1yPgEqF0ZjQbhnc/bFhyvIyVNb9Zk5mIGtqVaAB1Ttl28su8AvFMOY0EwRbAe+HCLqj6W7/KA==" crossorigin>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/typography.min.css" integrity="sha512-Y1DYSb995BAfxobCkKepB1BqJJTPrOp3zPL74AWFugHHmmdcvO+C48WLrUOlhGMc0QG7AE3f7gmvvcrmX2fDoA==" crossorigin>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css" crossorigin>
-<style>:root{--highlight-color:#fe9}.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:1.5em;overflow:hidden}#sidebar > *:last-child{margin-bottom:2cm}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:2em 0 .50em 0}h3{font-size:1.4em;margin:1.6em 0 .7em 0}h4{margin:0;font-size:105%}h1:target,h2:target,h3:target,h4:target,h5:target,h6:target{background:var(--highlight-color);padding:.2em 0}a{color:#058;text-decoration:none;transition:color .2s ease-in-out}a:visited{color:#503}a:hover{color:#b62}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900;font-weight:bold}pre code{font-size:.8em;line-height:1.4em;padding:1em;display:block}code{background:#f3f3f3;font-family:"DejaVu Sans Mono",monospace;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{margin-top:.6em;font-weight:bold}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}dt:target .name{background:var(--highlight-color)}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}td{padding:0 .5em}.admonition{padding:.1em 1em;margin-bottom:1em}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
+<style>:root{--highlight-color:#fe9}.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:1.5em;overflow:hidden}#sidebar > *:last-child{margin-bottom:2cm}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:2em 0 .50em 0}h3{font-size:1.4em;margin:1.6em 0 .7em 0}h4{margin:0;font-size:105%}h1:target,h2:target,h3:target,h4:target,h5:target,h6:target{background:var(--highlight-color);padding:.2em 0}a{color:#058;text-decoration:none;transition:color .2s ease-in-out}a:visited{color:#503}a:hover{color:#b62}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900;font-weight:bold}pre code{font-size:.8em;line-height:1.4em;padding:1em;display:block}code{background:#f3f3f3;font-family:"DejaVu Sans Mono",monospace;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{margin-top:.6em;font-weight:bold}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}dt:target .name{background:var(--highlight-color)}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}td{padding:0 .5em}.admonition{padding:.1em 1em;margin:1em 0}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
 <style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%;height:100vh;overflow:auto;position:sticky;top:0}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul ul{padding-left:1em}.toc > ul > li{margin-top:.5em}}</style>
 <style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
 <script type="text/x-mathjax-config">MathJax.Hub.Config({ tex2jax: { inlineMath: [ ['$','$'], ["\\(","\\)"] ], processEscapes: true } });</script>
@@ -36,7 +36,7 @@ hljs.highlightAll();
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
 <dt id="contrib.semseg.training.batched_idx"><code class="name flex">
-<span>def <span class="ident">batched_idx</span></span>(<span>total_size: int, batch_size: int) ‑> collections.abc.Iterator[tuple[int, int]]</span>
+<span>def <span class="ident">batched_idx</span></span>(<span>total_size: int, batch_size: int) ‑> Iterator[tuple[int, int]]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Iterate over (start, end) indices for total_size examples, where end - start is at most batch_size.</p>
@@ -51,7 +51,7 @@ hljs.highlightAll();
 <p>A generator of (int, int) tuples that can slice up a list or a tensor.</p></div>
 </dd>
 <dt id="contrib.semseg.training.batched_upsample_and_pred"><code class="name flex">
-<span>def <span class="ident">batched_upsample_and_pred</span></span>(<span>tensor: jaxtyping.Float[Tensor, 'n channels width height'], *, size: tuple[int, int], mode: str, batch_size: int = 128) ‑> jaxtyping.Int[Tensor, 'n {size[0]} {size[1]}']</span>
+<span>def <span class="ident">batched_upsample_and_pred</span></span>(<span>tensor: jaxtyping.Float[Tensor, 'n channels width height'],<br>*,<br>size: tuple[int, int],<br>mode: str,<br>batch_size: int = 128) ‑> jaxtyping.Int[Tensor, 'n {size[0]} {size[1]}']</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -63,13 +63,13 @@ hljs.highlightAll();
 <div class="desc"></div>
 </dd>
 <dt id="contrib.semseg.training.dump"><code class="name flex">
-<span>def <span class="ident">dump</span></span>(<span>cfg: <a title="contrib.semseg.config.Train" href="config.html#contrib.semseg.config.Train">Train</a>, model: torch.nn.modules.module.Module, *, step: int | None = None)</span>
+<span>def <span class="ident">dump</span></span>(<span>cfg: <a title="contrib.semseg.config.Train" href="config.html#contrib.semseg.config.Train">Train</a>,<br>model: torch.nn.modules.module.Module,<br>*,<br>step: int | None = None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Save a model checkpoint to disk along with configuration, using the <a href="https://docs.kidger.site/equinox/examples/serialisation">trick from equinox</a>.</p></div>
 </dd>
 <dt id="contrib.semseg.training.get_class_ious"><code class="name flex">
-<span>def <span class="ident">get_class_ious</span></span>(<span>y_pred: jaxtyping.Int[Tensor, 'models batch width height'], y_true: jaxtyping.Int[Tensor, 'models batch width height'], n_classes: int, ignore_class: int | None = 0) ‑> jaxtyping.Float[Tensor, 'models n_classes']</span>
+<span>def <span class="ident">get_class_ious</span></span>(<span>y_pred: jaxtyping.Int[Tensor, 'models batch width height'],<br>y_true: jaxtyping.Int[Tensor, 'models batch width height'],<br>n_classes: int,<br>ignore_class: int | None = 0) ‑> jaxtyping.Float[Tensor, 'models n_classes']</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Calculate mean IoU for predicted masks.</p>
@@ -81,7 +81,7 @@ n_classes: Number of classes.</p>
 <p>Mean IoU as a float tensor.</p></div>
 </dd>
 <dt id="contrib.semseg.training.get_dataloader"><code class="name flex">
-<span>def <span class="ident">get_dataloader</span></span>(<span>cfg: <a title="contrib.semseg.config.Train" href="config.html#contrib.semseg.config.Train">Train</a>, *, is_train: bool)</span>
+<span>def <span class="ident">get_dataloader</span></span>(<span>cfg: <a title="contrib.semseg.config.Train" href="config.html#contrib.semseg.config.Train">Train</a>,<br>*,<br>is_train: bool)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -108,7 +108,7 @@ device: optional torch device to pass to load.</p></div>
 <div class="desc"></div>
 </dd>
 <dt id="contrib.semseg.training.make_models"><code class="name flex">
-<span>def <span class="ident">make_models</span></span>(<span>cfgs: list[<a title="contrib.semseg.config.Train" href="config.html#contrib.semseg.config.Train">Train</a>], d_vit: int) ‑> tuple[torch.nn.modules.container.ModuleList, list[dict[str, object]]]</span>
+<span>def <span class="ident">make_models</span></span>(<span>cfgs: list[<a title="contrib.semseg.config.Train" href="config.html#contrib.semseg.config.Train">Train</a>],<br>d_vit: int) ‑> tuple[torch.nn.modules.container.ModuleList, list[dict[str, object]]]</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -120,7 +120,7 @@ device: optional torch device to pass to load.</p></div>
 <dl>
 <dt id="contrib.semseg.training.Dataset"><code class="flex name class">
 <span>class <span class="ident">Dataset</span></span>
-<span>(</span><span>acts_cfg: <a title="saev.config.DataLoad" href="../../saev/config.html#saev.config.DataLoad">DataLoad</a>, imgs_cfg: <a title="saev.config.Ade20kDataset" href="../../saev/config.html#saev.config.Ade20kDataset">Ade20kDataset</a>)</span>
+<span>(</span><span>acts_cfg: <a title="saev.config.DataLoad" href="../../saev/config.html#saev.config.DataLoad">DataLoad</a>,<br>imgs_cfg: <a title="saev.config.Ade20kDataset" href="../../saev/config.html#saev.config.Ade20kDataset">Ade20kDataset</a>,<br>patch_size_px: tuple[int, int])</span>
 </code></dt>
 <dd>
 <div class="desc"><p>An abstract class representing a :class:<code><a title="contrib.semseg.training.Dataset" href="#contrib.semseg.training.Dataset">Dataset</a></code>.</p>
@@ -147,7 +147,10 @@ dataset with non-integral indices/keys, a custom sampler must be provided.</p>
 <pre><code class="python">@beartype.beartype
 class Dataset(torch.utils.data.Dataset):
     def __init__(
-        self, acts_cfg: saev.config.DataLoad, imgs_cfg: saev.config.Ade20kDataset
+        self,
+        acts_cfg: saev.config.DataLoad,
+        imgs_cfg: saev.config.Ade20kDataset,
+        patch_size_px: tuple[int, int],
     ):
         self.acts = saev.activations.Dataset(acts_cfg)
         to_array = v2.Compose([
@@ -159,7 +162,9 @@ class Dataset(torch.utils.data.Dataset):
             imgs_cfg, img_transform=to_array, seg_transform=to_array
         )
 
-        assert len(self.imgs) * 196 == len(self.acts)
+        assert len(self.imgs) * self.acts.metadata.n_patches_per_img == len(self.acts)
+
+        self.patch_size_px = patch_size_px
 
     @property
     def d_vit(self) -&gt; int:
@@ -168,19 +173,25 @@ class Dataset(torch.utils.data.Dataset):
     def __getitem__(self, i: int) -&gt; dict[str, object]:
         # Get activations
         acts = []
-        for j, k in enumerate(range(i * 196, (i + 1) * 196)):
+        start = i * self.acts.metadata.n_patches_per_img
+        end = start + self.acts.metadata.n_patches_per_img
+        for j, k in enumerate(range(start, end)):
             act = self.acts[k]
-            assert act.patch_i.item() == j
-            assert act.img_i.item() == i
-            acts.append(act.vit_acts)
-        acts = torch.stack(acts).reshape((14, 14, self.d_vit))
+            assert act[&#34;patch_i&#34;] == j
+            assert act[&#34;img_i&#34;] == i
+            acts.append(act[&#34;act&#34;])
+
+        n_patch_w = int(math.sqrt(self.acts.metadata.n_patches_per_img))
+        n_patch_h = n_patch_w
+        acts = torch.stack(acts).reshape((n_patch_w, n_patch_h, self.d_vit))
 
         # Get patch and pixel level semantic labels.
         img = self.imgs[i]
         pixel_labels = img[&#34;segmentation&#34;].squeeze()
 
+        pw, ph = self.patch_size_px
         patch_labels = (
-            einops.rearrange(pixel_labels, &#34;(w pw) (h ph) -&gt; w h (pw ph)&#34;, pw=16, ph=16)
+            einops.rearrange(pixel_labels, &#34;(w pw) (h ph) -&gt; w h (pw ph)&#34;, pw=pw, ph=ph)
             .mode(axis=-1)
             .values
         )
@@ -257,7 +268,7 @@ def d_vit(self) -&gt; int:
 </nav>
 </main>
 <footer id="footer">
-<p>Generated by <a href="https://pdoc3.github.io/pdoc" title="pdoc: Python API documentation generator"><cite>pdoc</cite> 0.11.1</a>.</p>
+<p>Generated by <a href="https://pdoc3.github.io/pdoc" title="pdoc: Python API documentation generator"><cite>pdoc</cite> 0.11.3</a>.</p>
 </footer>
 </body>
 </html>

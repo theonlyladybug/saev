@@ -3,6 +3,7 @@ import dataclasses
 import io
 import json
 import logging
+import math
 import os.path
 import re
 
@@ -54,12 +55,12 @@ def main(cfgs: list[config.Train]):
     for epoch in range(cfg.n_epochs):
         models.train()
         for batch in train_dataloader:
-            acts = batch["acts"].to(cfg.device)
-            patch_labels = batch["patch_labels"].to(cfg.device)
-            logits = torch.stack([model(acts) for model in models])
+            acts_BWHD = batch["acts"].to(cfg.device)
+            patch_labels_BWH = batch["patch_labels"].to(cfg.device)
+            patch_labels_MBWH = patch_labels_BWH.expand(len(cfgs), -1, -1, -1)
+            logits_MBWHC = torch.stack([model(acts_BWHD) for model in models])
             loss = torch.nn.functional.cross_entropy(
-                logits.view(-1, n_classes),
-                patch_labels.expand(len(cfgs), -1, -1, -1).reshape(-1),
+                logits_MBWHC.view(-1, n_classes), patch_labels_MBWH.reshape(-1)
             )
             loss.backward()
             optim.step()
@@ -68,15 +69,17 @@ def main(cfgs: list[config.Train]):
             global_step += 1
 
         # Show last batch's loss and acc.
-        accs = (
-            logits.argmax(axis=-1) == patch_labels.expand(len(cfgs), -1, -1, -1)
-        ).float().mean().item() * 100
+        acc_M = einops.reduce(
+            (logits_MBWHC.argmax(axis=-1) == patch_labels_MBWH).float(),
+            "models batch width height -> models",
+            "mean",
+        )
         logger.info(
-            "epoch: %d, step: %d, (mean) loss: %.5f, (mean) acc: %.3f",
+            "epoch: %d, step: %d, mean train loss: %.5f, max train acc: %.3f",
             epoch,
             global_step,
             loss.item(),
-            accs,
+            acc_M.max().item() * 100,
         )
 
         if epoch % cfg.eval_every == 0 or epoch + 1 == cfg.n_epochs:
@@ -116,15 +119,21 @@ def main(cfgs: list[config.Train]):
                     true_labels_MNWH.expand(len(models), -1, -1, -1),
                     n_classes,
                 )
-                acc_M = (pred_labels_MNWH == true_labels_MNWH).float().mean(
-                    dim=(1, 2, 3)
-                ) * 100
+                mean_ious_M = einops.reduce(
+                    class_ious_MC, "models classes -> models", "mean"
+                )
+                acc_M = einops.reduce(
+                    (pred_labels_MNWH == true_labels_MNWH).float(),
+                    "models n width height -> models",
+                    "mean",
+                )
+
             logger.info(
-                "epoch: %d, step: %d, best miou: %.5f, best acc: %.3f",
+                "epoch: %d, step: %d, max val miou: %.5f, max val acc: %.3f",
                 epoch,
                 global_step,
-                class_ious_MC.mean(axis=-1).max().item(),
-                acc_M.max().item(),
+                mean_ious_M.max().item(),
+                acc_M.max().item() * 100,
             )
 
             for cfg, model in zip(cfgs, models):
@@ -274,12 +283,16 @@ def get_dataloader(cfg: config.Train, *, is_train: bool):
     if is_train:
         shuffle = True
         dataset = Dataset(
-            cfg.train_acts, dataclasses.replace(cfg.imgs, split="training")
+            cfg.train_acts,
+            dataclasses.replace(cfg.imgs, split="training"),
+            cfg.patch_size_px,
         )
     else:
         shuffle = False
         dataset = Dataset(
-            cfg.val_acts, dataclasses.replace(cfg.imgs, split="validation")
+            cfg.val_acts,
+            dataclasses.replace(cfg.imgs, split="validation"),
+            cfg.patch_size_px,
         )
 
     return torch.utils.data.DataLoader(
@@ -294,7 +307,10 @@ def get_dataloader(cfg: config.Train, *, is_train: bool):
 @beartype.beartype
 class Dataset(torch.utils.data.Dataset):
     def __init__(
-        self, acts_cfg: saev.config.DataLoad, imgs_cfg: saev.config.Ade20kDataset
+        self,
+        acts_cfg: saev.config.DataLoad,
+        imgs_cfg: saev.config.Ade20kDataset,
+        patch_size_px: tuple[int, int],
     ):
         self.acts = saev.activations.Dataset(acts_cfg)
         to_array = v2.Compose([
@@ -306,7 +322,9 @@ class Dataset(torch.utils.data.Dataset):
             imgs_cfg, img_transform=to_array, seg_transform=to_array
         )
 
-        assert len(self.imgs) * 196 == len(self.acts)
+        assert len(self.imgs) * self.acts.metadata.n_patches_per_img == len(self.acts)
+
+        self.patch_size_px = patch_size_px
 
     @property
     def d_vit(self) -> int:
@@ -315,19 +333,25 @@ class Dataset(torch.utils.data.Dataset):
     def __getitem__(self, i: int) -> dict[str, object]:
         # Get activations
         acts = []
-        for j, k in enumerate(range(i * 196, (i + 1) * 196)):
+        start = i * self.acts.metadata.n_patches_per_img
+        end = start + self.acts.metadata.n_patches_per_img
+        for j, k in enumerate(range(start, end)):
             act = self.acts[k]
-            assert act.patch_i.item() == j
-            assert act.img_i.item() == i
-            acts.append(act.vit_acts)
-        acts = torch.stack(acts).reshape((14, 14, self.d_vit))
+            assert act["patch_i"] == j
+            assert act["img_i"] == i
+            acts.append(act["act"])
+
+        n_patch_w = int(math.sqrt(self.acts.metadata.n_patches_per_img))
+        n_patch_h = n_patch_w
+        acts = torch.stack(acts).reshape((n_patch_w, n_patch_h, self.d_vit))
 
         # Get patch and pixel level semantic labels.
         img = self.imgs[i]
         pixel_labels = img["segmentation"].squeeze()
 
+        pw, ph = self.patch_size_px
         patch_labels = (
-            einops.rearrange(pixel_labels, "(w pw) (h ph) -> w h (pw ph)", pw=16, ph=16)
+            einops.rearrange(pixel_labels, "(w pw) (h ph) -> w h (pw ph)", pw=pw, ph=ph)
             .mode(axis=-1)
             .values
         )

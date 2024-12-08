@@ -63,7 +63,7 @@ class ImageFolderDataset:
 class Ade20kDataset:
     """ """
 
-    root: str = os.path.join(".", "data", "split")
+    root: str = os.path.join(".", "data", "ade20k")
     """Where the class folders with images are stored."""
     split: typing.Literal["training", "validation"] = "training"
     """Data split."""

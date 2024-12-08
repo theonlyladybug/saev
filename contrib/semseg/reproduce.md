@@ -1,6 +1,4 @@
-This sub-module reproduces the results from Section 4.2 of our paper.
-
-# Overview
+You can reproduce our semantic segmentation control experiments from our preprint by following these instructions.
 
 As an overview:
 
@@ -24,42 +22,31 @@ Now train a linear probe on the activations.
 
 ```sh
 uv run python -m contrib.semseg train \
-  --train-acts.shard-root /local/scratch/stevens.994/cache/saev/a860104bf29d6093dd18b8e2dccd2e7efdfcd9fac35dceb932795af05187cb9f/ \
-  --train-acts.no-scale-mean \
-  --train-acts.no-scale-norm \
-  --val-acts.shard-root /local/scratch/stevens.994/cache/saev/c6756186d1490ac69fab6f8efb883a1c59d44d0594d99397051bfe8e409ca91d/ \
-  --val-acts.no-scale-mean \
-  --val-acts.no-scale-norm \
-  --imgs.root /research/nfs_su_809/workspace/stevens.994/datasets/ade20k/ \
+  --train-acts.shard-root /local/scratch/$USER/cache/saev/a860104bf29d6093dd18b8e2dccd2e7efdfcd9fac35dceb932795af05187cb9f/ \
+  --val-acts.shard-root /local/scratch/$USER/cache/saev/c6756186d1490ac69fab6f8efb883a1c59d44d0594d99397051bfe8e409ca91d/ \
+  --imgs.root /nfs/$USER/datasets/ade20k/ \
   --sweep contrib/semseg/sweep.toml
 ```
 
-
 # Establish Linear Probe Baseline Metrics
 
+```sh
+uv run python -m contrib.semseg validate \
+  --imgs.root /nfs/$USER/datasets/ade20k/ \
+  --acts.shard-root /local/scratch/$USER/cache/saev/51cf4f907e562213fff9cc094b0b5259e546f1f9f72633a725888e15f798bc30/
+```
+
+Then you can look in `./logs/contrib/semseg` for `hparam-sweeps.png` to see what learning rate/weight decay combination is best.
+
 # Identify Class-Specific Feature Vectors in the SAE
+
+Given that you have an SAE trained on the DINOv2 ImageNet-1K training data
 
 ```sh
 uv run python -m contrib.semseg visuals \
   --sae-ckpt checkpoints/ercgckr1/sae.pt \
-  --acts.shard-root /local/scratch/stevens.994/cache/saev/a860104bf29d6093dd18b8e2dccd2e7efdfcd9fac35dceb932795af05187cb9f/ \
-  --acts.no-scale-mean \
-  --acts.no-scale-norm \
-  --imgs.root /research/nfs_su_809/workspace/stevens.994/datasets/ade20k/
+  --acts.shard-root /local/scratch/$USER/cache/saev/a860104bf29d6093dd18b8e2dccd2e7efdfcd9fac35dceb932795af05187cb9f \
+  --imgs.root /nfs/$USER/datasets/ade20k
 ```
 
 This will tell you to run a particular command in order to generate visuals for use with `saev.interactive.features`.
-
-# Manipulate ViT Activations
-
-```sh
-uv run python -m contrib.semseg manipulate \
-  --acts.shard-root /local/scratch/stevens.994/cache/saev/c6756186d1490ac69fab6f8efb883a1c59d44d0594d99397051bfe8e409ca91d/ \
-  --acts.no-scale-mean \
-  --acts.no-scale-norm \
-  --imgs.root /research/nfs_su_809/workspace/stevens.994/datasets/ade20k/ \
-  --sae-ckpt checkpoints/ercgckr1/sae.pt \
-  --probe-ckpt checkpoints/semseg/lr_0_003__wd_0_1/model_ep199_step4000.pt \
-  --ade20k-classes 29 \
-  --sae-latents 8541 5818 10230
-```

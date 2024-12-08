@@ -828,7 +828,7 @@ Classes
     `vit_batch_size: int`
     :   Batch size for ViT inference.
 
-`Ade20kDataset(root: str = './data/split', split: Literal['training', 'validation'] = 'training')`
+`Ade20kDataset(root: str = './data/ade20k', split: Literal['training', 'validation'] = 'training')`
 :   
 
     ### Class variables
@@ -1538,10 +1538,14 @@ To do these steps:
 
 ## Record ImageNet-1K activations
 
-## Train an SAE
+## Train an SAE on [CLS] Activations
 
 ```sh
-uv run python -m saev train --sweep configs/preprint/classification.toml --data.shard-root /local/scratch/stevens.994/cache/saev/ac89246f1934b45e2f0487298aebe36ad998b6bd252d880c0c9ec5de78d793c8/ --data.patches cls --data.layer -2 --sae.d-vit 768
+uv run python -m saev train \
+  --sweep configs/preprint/classification.toml \
+  --data.shard-root /local/scratch/$USER/cache/saev/ac89246f1934b45e2f0487298aebe36ad998b6bd252d880c0c9ec5de78d793c8/ \
+  --data.patches cls \
+  --sae.d-vit 768
 ```
 
 ## Visualize the SAE Features
@@ -1902,9 +1906,7 @@ Classes
 
 Module contrib.semseg
 =====================
-This sub-module reproduces the results from Section 4.2 of our paper.
-
-# Overview
+You can reproduce our semantic segmentation control experiments from our preprint by following these instructions.
 
 As an overview:
 
@@ -1928,57 +1930,34 @@ Now train a linear probe on the activations.
 
 ```sh
 uv run python -m contrib.semseg train \
-  --train-acts.shard-root /local/scratch/stevens.994/cache/saev/a860104bf29d6093dd18b8e2dccd2e7efdfcd9fac35dceb932795af05187cb9f/ \
-  --train-acts.no-scale-mean \
-  --train-acts.no-scale-norm \
-  --val-acts.shard-root /local/scratch/stevens.994/cache/saev/c6756186d1490ac69fab6f8efb883a1c59d44d0594d99397051bfe8e409ca91d/ \
-  --val-acts.no-scale-mean \
-  --val-acts.no-scale-norm \
-  --imgs.root /research/nfs_su_809/workspace/stevens.994/datasets/ade20k/ \
+  --train-acts.shard-root /local/scratch/$USER/cache/saev/a860104bf29d6093dd18b8e2dccd2e7efdfcd9fac35dceb932795af05187cb9f/ \
+  --val-acts.shard-root /local/scratch/$USER/cache/saev/c6756186d1490ac69fab6f8efb883a1c59d44d0594d99397051bfe8e409ca91d/ \
+  --imgs.root /nfs/$USER/datasets/ade20k/ \
   --sweep contrib/semseg/sweep.toml
 ```
 
 # Establish Linear Probe Baseline Metrics
 
+```sh
+uv run python -m contrib.semseg validate \
+  --imgs.root /nfs/$USER/datasets/ade20k/ \
+  --acts.shard-root /local/scratch/$USER/cache/saev/51cf4f907e562213fff9cc094b0b5259e546f1f9f72633a725888e15f798bc30/
+```
+
+Then you can look in `./logs/contrib/semseg` for `hparam-sweeps.png` to see what learning rate/weight decay combination is best.
+
 # Identify Class-Specific Feature Vectors in the SAE
+
+Given that you have an SAE trained on the DINOv2 ImageNet-1K training data
 
 ```sh
 uv run python -m contrib.semseg visuals \
   --sae-ckpt checkpoints/ercgckr1/sae.pt \
-  --acts.shard-root /local/scratch/stevens.994/cache/saev/a860104bf29d6093dd18b8e2dccd2e7efdfcd9fac35dceb932795af05187cb9f/ \
-  --acts.no-scale-mean \
-  --acts.no-scale-norm \
-  --imgs.root /research/nfs_su_809/workspace/stevens.994/datasets/ade20k/
+  --acts.shard-root /local/scratch/$USER/cache/saev/a860104bf29d6093dd18b8e2dccd2e7efdfcd9fac35dceb932795af05187cb9f \
+  --imgs.root /nfs/$USER/datasets/ade20k
 ```
 
 This will tell you to run a particular command in order to generate visuals for use with `saev.interactive.features`.
-
-# Manipulate ViT Activations
-
-```sh
-uv run python -m contrib.semseg manipulate \
-  --acts.shard-root /local/scratch/stevens.994/cache/saev/c6756186d1490ac69fab6f8efb883a1c59d44d0594d99397051bfe8e409ca91d/ \
-  --acts.no-scale-mean \
-  --acts.no-scale-norm \
-  --imgs.root /research/nfs_su_809/workspace/stevens.994/datasets/ade20k/ \
-  --sae-ckpt checkpoints/ercgckr1/sae.pt \
-  --probe-ckpt checkpoints/semseg/lr_0_003__wd_0_1/model_ep199_step4000.pt \
-  --ade20k-classes 29 \
-  --sae-latents 8541 5818 10230
-```
-# Dimension Key
-
-Throughout the code, variables are annotated with shape suffixes, as [recommended by Noam Shazeer](https://medium.com/@NoamShazeer/shape-suffixes-good-coding-style-f836e72e24fd).
-
-The key for these suffixes:
-
-* B: batch size
-* W: width in patches (typically 14 or 16)
-* H: height in patches (typically 14 or 16)
-* D: ViT activation dimension (typically 768 or 1024)
-* S: SAE latent dimension (768 x 16, etc)
-* L: Number of latents being manipulated at once (typically 1-5 at a time)
-* C: Number of classes in ADE20K (151)
 
 Sub-modules
 -----------
@@ -2035,8 +2014,8 @@ Classes
     `sae_latents: list[int]`
     :   one or more SAE latents to manipulate.
 
-`Train(learning_rate: float = 0.0001, weight_decay: float = 0.001, n_epochs: int = 400, batch_size: int = 1024, n_workers: int = 32, train_acts: saev.config.DataLoad = <factory>, val_acts: saev.config.DataLoad = <factory>, imgs: saev.config.Ade20kDataset = <factory>, eval_every: int = 100, device: str = 'cuda', ckpt_path: str = './checkpoints/semseg', seed: int = 42, log_to: str = './logs')`
-:   Train(learning_rate: float = 0.0001, weight_decay: float = 0.001, n_epochs: int = 400, batch_size: int = 1024, n_workers: int = 32, train_acts: saev.config.DataLoad = <factory>, val_acts: saev.config.DataLoad = <factory>, imgs: saev.config.Ade20kDataset = <factory>, eval_every: int = 100, device: str = 'cuda', ckpt_path: str = './checkpoints/semseg', seed: int = 42, log_to: str = './logs')
+`Train(learning_rate: float = 0.0001, weight_decay: float = 0.001, n_epochs: int = 400, batch_size: int = 1024, n_workers: int = 32, train_acts: saev.config.DataLoad = <factory>, val_acts: saev.config.DataLoad = <factory>, imgs: saev.config.Ade20kDataset = <factory>, patch_size_px: tuple[int, int] = (14, 14), eval_every: int = 100, device: str = 'cuda', ckpt_path: str = './checkpoints/contrib/semseg', seed: int = 42, log_to: str = './logs/contrib/semseg')`
+:   Train(learning_rate: float = 0.0001, weight_decay: float = 0.001, n_epochs: int = 400, batch_size: int = 1024, n_workers: int = 32, train_acts: saev.config.DataLoad = <factory>, val_acts: saev.config.DataLoad = <factory>, imgs: saev.config.Ade20kDataset = <factory>, patch_size_px: tuple[int, int] = (14, 14), eval_every: int = 100, device: str = 'cuda', ckpt_path: str = './checkpoints/contrib/semseg', seed: int = 42, log_to: str = './logs/contrib/semseg')
 
     ### Class variables
 
@@ -2067,6 +2046,9 @@ Classes
     `n_workers: int`
     :   Number of dataloader workers.
 
+    `patch_size_px: tuple[int, int]`
+    :   Patch size in pixels.
+
     `seed: int`
     :   Random seed.
 
@@ -2079,8 +2061,8 @@ Classes
     `weight_decay: float`
     :   Weight decay  for AdamW.
 
-`Validation(ckpt_root: str = './checkpoints/semseg', dump_to: str = './logs/semseg', acts: saev.config.DataLoad = <factory>, imgs: saev.config.Ade20kDataset = <factory>, batch_size: int = 128, n_workers: int = 32, device: str = 'cuda')`
-:   Validation(ckpt_root: str = './checkpoints/semseg', dump_to: str = './logs/semseg', acts: saev.config.DataLoad = <factory>, imgs: saev.config.Ade20kDataset = <factory>, batch_size: int = 128, n_workers: int = 32, device: str = 'cuda')
+`Validation(ckpt_root: str = './checkpoints/contrib/semseg', dump_to: str = './logs/contrib/semseg', acts: saev.config.DataLoad = <factory>, imgs: saev.config.Ade20kDataset = <factory>, patch_size_px: tuple[int, int] = (14, 14), batch_size: int = 128, n_workers: int = 32, device: str = 'cuda')`
+:   Validation(ckpt_root: str = './checkpoints/contrib/semseg', dump_to: str = './logs/contrib/semseg', acts: saev.config.DataLoad = <factory>, imgs: saev.config.Ade20kDataset = <factory>, patch_size_px: tuple[int, int] = (14, 14), batch_size: int = 128, n_workers: int = 32, device: str = 'cuda')
 
     ### Class variables
 
@@ -2104,6 +2086,9 @@ Classes
 
     `n_workers: int`
     :   Number of dataloader workers.
+
+    `patch_size_px: tuple[int, int]`
+    :   Patch size in pixels.
 
 `Visuals(sae_ckpt: str = './checkpoints/sae.pt', ade20k_cls: int = 29, k: int = 32, acts: saev.config.DataLoad = <factory>, imgs: saev.config.Ade20kDataset = <factory>, batch_size: int = 128, n_workers: int = 32, label_threshold: float = 0.9, device: str = 'cuda')`
 :   Visuals(sae_ckpt: str = './checkpoints/sae.pt', ade20k_cls: int = 29, k: int = 32, acts: saev.config.DataLoad = <factory>, imgs: saev.config.Ade20kDataset = <factory>, batch_size: int = 128, n_workers: int = 32, label_threshold: float = 0.9, device: str = 'cuda')
@@ -2158,16 +2143,6 @@ Module contrib.semseg.manipulation
 Manipulate representations by increasing or decreasing the presence of a feature in a ViT activation, then use the linear probe for inference.
 
 Record class-specific scores before and after manipulation to see that you can directly manipulate abilities to complete downstream tasks.
-
-## Dimension Key
-
-* B: batch size
-* W: width in patches (typically 14 or 16)
-* H: height in patches (typically 14 or 16)
-* D: ViT activation dimension (typically 768 or 1024)
-* S: SAE latent dimension (768 x 16, etc)
-* L: Number of latents being manipulated at once (typically 1-5 at a time)
-* C: Number of classes in ADE20K (151)
 
 Functions
 ---------
@@ -2236,7 +2211,7 @@ Functions
 Classes
 -------
 
-`Dataset(acts_cfg: saev.config.DataLoad, imgs_cfg: saev.config.Ade20kDataset)`
+`Dataset(acts_cfg: saev.config.DataLoad, imgs_cfg: saev.config.Ade20kDataset, patch_size_px: tuple[int, int])`
 :   An abstract class representing a :class:`Dataset`.
     
     All datasets that represent a map from keys to data samples should subclass

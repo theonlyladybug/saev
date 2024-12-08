@@ -3,12 +3,12 @@ I'm writing a submission to ICML. The premise is that we apply sparse autoencode
 My current outline is 
 
 1. Introduction
-    1.1. Need for AI control beyond passive observation
-    1.2. Vision control problem and limitations
-    1.3. Three criteria for ideal control: interpretable concepts, reliable control, model preservation
-    1.4. Current approaches fall short
-    1.5. SAEs as solution
-    1.6. Contributions
+    1.1. Need for both understanding and control in deployed vision models
+    1.2. Current methods provide only understanding or only control, never both
+    1.3. Need unified approach: interpretable features, clear examples, precise manipulation
+    1.4. Vision models lack precise steering methods, unlike language models (ROME)
+    1.5. SAEs provide unified solution: interpretable features that can be precisely controlled
+    1.6. Contributions: SAE for vision model, new understanding of differences in vision models, multiple control examples across tasks
 
 2. Background & Related Work
     2.1. Foundation model interpretability

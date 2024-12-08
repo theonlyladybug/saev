@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 @beartype.beartype
 def main(cfg: config.Validation):
-    dataset = training.Dataset(cfg.acts, cfg.imgs)
+    dataset = training.Dataset(cfg.acts, cfg.imgs, cfg.patch_size_px)
     dataloader = torch.utils.data.DataLoader(
         dataset,
         batch_size=cfg.batch_size,
@@ -141,6 +141,7 @@ def load_ckpts(
         cfg_dict["train_acts"] = saev.config.DataLoad(**cfg_dict["train_acts"])
         cfg_dict["val_acts"] = saev.config.DataLoad(**cfg_dict["val_acts"])
         cfg_dict["imgs"] = saev.config.Ade20kDataset(**cfg_dict["imgs"])
+        cfg_dict["patch_size_px"] = tuple(cfg_dict["patch_size_px"])
         cfg = config.Train(**cfg_dict)
 
         # Load latest model checkpoint

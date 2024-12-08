@@ -188,7 +188,7 @@ class Activations:
 </dd>
 <dt id="saev.config.Ade20kDataset"><code class="flex name class">
 <span>class <span class="ident">Ade20kDataset</span></span>
-<span>(</span><span>root: str = './data/split',<br>split: Literal['training', 'validation'] = 'training')</span>
+<span>(</span><span>root: str = './data/ade20k',<br>split: Literal['training', 'validation'] = 'training')</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -201,7 +201,7 @@ class Activations:
 class Ade20kDataset:
     &#34;&#34;&#34; &#34;&#34;&#34;
 
-    root: str = os.path.join(&#34;.&#34;, &#34;data&#34;, &#34;split&#34;)
+    root: str = os.path.join(&#34;.&#34;, &#34;data&#34;, &#34;ade20k&#34;)
     &#34;&#34;&#34;Where the class folders with images are stored.&#34;&#34;&#34;
     split: typing.Literal[&#34;training&#34;, &#34;validation&#34;] = &#34;training&#34;
     &#34;&#34;&#34;Data split.&#34;&#34;&#34;

@@ -31,14 +31,16 @@ class Train:
         default_factory=saev.config.Ade20kDataset
     )
     """Configuration for the ADE20K dataset."""
+    patch_size_px: tuple[int, int] = (14, 14)
+    """Patch size in pixels."""
     eval_every: int = 100
     """How many epochs between evaluations."""
     device: str = "cuda"
     "Hardware to train on."
-    ckpt_path: str = os.path.join(".", "checkpoints", "semseg")
+    ckpt_path: str = os.path.join(".", "checkpoints", "contrib", "semseg")
     seed: int = 42
     """Random seed."""
-    log_to: str = os.path.join(".", "logs")
+    log_to: str = os.path.join(".", "logs", "contrib", "semseg")
 
 
 @beartype.beartype
@@ -68,9 +70,9 @@ class Visuals:
 @beartype.beartype
 @dataclasses.dataclass(frozen=True)
 class Validation:
-    ckpt_root: str = os.path.join(".", "checkpoints", "semseg")
+    ckpt_root: str = os.path.join(".", "checkpoints", "contrib", "semseg")
     """Root to all checkpoints to evaluate."""
-    dump_to: str = os.path.join(".", "logs", "semseg")
+    dump_to: str = os.path.join(".", "logs", "contrib", "semseg")
     """Directory to dump results to."""
     acts: saev.config.DataLoad = dataclasses.field(default_factory=saev.config.DataLoad)
     """Configuration for the saved ADE20K validation ViT activations."""
@@ -78,6 +80,8 @@ class Validation:
         default_factory=lambda: saev.config.Ade20kDataset(split="validation")
     )
     """Configuration for the ADE20K validation dataset."""
+    patch_size_px: tuple[int, int] = (14, 14)
+    """Patch size in pixels."""
     batch_size: int = 128
     """Batch size for calculating F1 scores."""
     n_workers: int = 32

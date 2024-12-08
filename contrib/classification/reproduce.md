@@ -15,10 +15,14 @@ To do these steps:
 
 ## Record ImageNet-1K activations
 
-## Train an SAE
+## Train an SAE on [CLS] Activations
 
 ```sh
-uv run python -m saev train --sweep configs/preprint/classification.toml --data.shard-root /local/scratch/stevens.994/cache/saev/ac89246f1934b45e2f0487298aebe36ad998b6bd252d880c0c9ec5de78d793c8/ --data.patches cls --data.layer -2 --sae.d-vit 768
+uv run python -m saev train \
+  --sweep configs/preprint/classification.toml \
+  --data.shard-root /local/scratch/$USER/cache/saev/ac89246f1934b45e2f0487298aebe36ad998b6bd252d880c0c9ec5de78d793c8/ \
+  --data.patches cls \
+  --sae.d-vit 768
 ```
 
 ## Visualize the SAE Features
