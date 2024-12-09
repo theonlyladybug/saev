@@ -11,9 +11,10 @@ import beartype
 import einops
 import numpy as np
 import torch
-import wandb
 from jaxtyping import Float
 from torch import Tensor
+
+import wandb
 
 from . import activations, config, helpers, nn
 
@@ -193,14 +194,14 @@ def train(
 
     global_step, n_patches_seen = 0, 0
 
-    for vit_acts, _, _ in helpers.progress(dataloader, every=cfg.log_every):
-        vit_acts = vit_acts.to(cfg.device, non_blocking=True)
+    for batch in helpers.progress(dataloader, every=cfg.log_every):
+        acts_BD = batch["act"].to(cfg.device, non_blocking=True)
         for sae in saes:
             sae.normalize_w_dec()
         # Forward passes
-        _, _, losses = zip(*(sae(vit_acts) for sae in saes))
+        _, _, losses = zip(*(sae(acts_BD) for sae in saes))
 
-        n_patches_seen += len(vit_acts)
+        n_patches_seen += len(acts_BD)
 
         with torch.no_grad():
             if (global_step + 1) % cfg.log_every == 0:
@@ -324,14 +325,12 @@ def evaluate(cfgs: list[config.Train], saes: torch.nn.ModuleList) -> list[EvalMe
     total_l1 = torch.zeros(len(cfgs))
     total_mse = torch.zeros(len(cfgs))
 
-    for vit_acts, _, _ in helpers.progress(
-        dataloader, desc="eval", every=cfg.log_every
-    ):
-        vit_acts = vit_acts.to(cfg.device, non_blocking=True)
+    for batch in helpers.progress(dataloader, desc="eval", every=cfg.log_every):
+        acts_BD = batch["act"].to(cfg.device, non_blocking=True)
         for i, sae in enumerate(saes):
-            _, f_x, loss = sae(vit_acts)
-            n_fired[i] += einops.reduce(f_x > 0, "batch d_sae -> d_sae", "sum").cpu()
-            values[i] += einops.reduce(f_x, "batch d_sae -> d_sae", "sum").cpu()
+            _, f_x_BS, loss = sae(acts_BD)
+            n_fired[i] += einops.reduce(f_x_BS > 0, "batch d_sae -> d_sae", "sum").cpu()
+            values[i] += einops.reduce(f_x_BS, "batch d_sae -> d_sae", "sum").cpu()
             total_l0[i] += loss.l0.cpu()
             total_l1[i] += loss.l1.cpu()
             total_mse[i] += loss.mse.cpu()

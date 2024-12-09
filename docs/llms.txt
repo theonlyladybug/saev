@@ -772,7 +772,7 @@ Functions
 Classes
 -------
 
-`Activations(data: saev.config.ImagenetDataset | saev.config.ImageFolderDataset | saev.config.Ade20kDataset = <factory>, dump_to: str = './shards', model_family: Literal['clip', 'siglip', 'dinov2'] = 'clip', model_ckpt: str = 'ViT-L-14/openai', vit_batch_size: int = 1024, n_workers: int = 8, d_vit: int = 1024, layers: list[int] = <factory>, n_patches_per_img: int = 256, cls_token: bool = True, n_patches_per_shard: int = 2400000, seed: int = 42, ssl: bool = True, device: str = 'cuda', slurm: bool = False, slurm_acct: str = 'PAS2136', log_to: str = './logs')`
+`Activations(data: saev.config.ImagenetDataset | saev.config.ImageFolderDataset | saev.config.Ade20kDataset = <factory>, dump_to: str = './shards', model_family: Literal['clip', 'siglip', 'dinov2', 'mae'] = 'clip', model_ckpt: str = 'ViT-L-14/openai', vit_batch_size: int = 1024, n_workers: int = 8, d_vit: int = 1024, layers: list[int] = <factory>, n_patches_per_img: int = 256, cls_token: bool = True, n_patches_per_shard: int = 2400000, seed: int = 42, ssl: bool = True, device: str = 'cuda', slurm: bool = False, slurm_acct: str = 'PAS2136', log_to: str = './logs')`
 :   Configuration for calculating and saving ViT activations.
 
     ### Class variables
@@ -801,7 +801,7 @@ Classes
     `model_ckpt: str`
     :   Specific model checkpoint.
 
-    `model_family: Literal['clip', 'siglip', 'dinov2']`
+    `model_family: Literal['clip', 'siglip', 'dinov2', 'mae']`
     :   Which model family.
 
     `n_patches_per_img: int`
@@ -1844,12 +1844,19 @@ Classes
     `n_classes: int`
     :
 
-Namespace contrib.mae
-=====================
+Module contrib.mae
+==================
 
 Sub-modules
 -----------
 * contrib.mae.modeling
+
+Functions
+---------
+
+`load_ckpt(ckpt: str, *, chunk_size_kb: int = 1024) ‑> contrib.mae.modeling.MaskedAutoencoder`
+:   Loads a pre-trained MAE ViT from disk.
+    If it's not on disk, downloads the checkpoint from huggingface and then loads it into the `MaskedAutoencoder` class.
 
 Module contrib.mae.modeling
 ===========================
@@ -1857,14 +1864,17 @@ Module contrib.mae.modeling
 Functions
 ---------
 
-`load_mae(ckpt: str, *, chunk_size_kb: int = 1024) ‑> contrib.mae.modeling.MaskedAutoencoder`
+`load_ckpt(ckpt: str, *, chunk_size_kb: int = 1024) ‑> contrib.mae.modeling.MaskedAutoencoder`
 :   Loads a pre-trained MAE ViT from disk.
     If it's not on disk, downloads the checkpoint from huggingface and then loads it into the `MaskedAutoencoder` class.
+
+`random_masking(x_BND: jaxtyping.Float[Tensor, 'batch n d'], mask_ratio: float, noise_BN: jaxtyping.Float[Tensor, 'batch n'] | None = None) ‑> tuple[jaxtyping.Float[Tensor, 'batch m d'], jaxtyping.Float[Tensor, 'batch n'], jaxtyping.Int[Tensor, 'batch n']]`
+:   Perform per-sample random masking by per-sample shuffling. Per-sample shuffling is done by argsorting random noise.
 
 Classes
 -------
 
-`Attention(*, d: int)`
+`Attention(*, d: int, n_heads: int)`
 :   Base class for all neural network modules.
     
     Your models should also subclass this class.
@@ -1904,48 +1914,13 @@ Classes
 
     ### Methods
 
-    `forward(self) ‑> Callable[..., Any]`
+    `forward(self, x_BND: jaxtyping.Float[Tensor, 'batch n d']) ‑> jaxtyping.Float[Tensor, 'batch n d']`
     :
 
-`Decoder(*, d_in: int, d: int, d_hidden: int, n_layers: int, patch_size_px: tuple[int, int], image_size_px: tuple[int, int], ln_eps: float)`
-:   Base class for all neural network modules.
-    
-    Your models should also subclass this class.
-    
-    Modules can also contain other Modules, allowing to nest them in
-    a tree structure. You can assign the submodules as regular attributes::
-    
-        import torch.nn as nn
-        import torch.nn.functional as F
-    
-        class Model(nn.Module):
-            def __init__(self) -> None:
-                super().__init__()
-                self.conv1 = nn.Conv2d(1, 20, 5)
-                self.conv2 = nn.Conv2d(20, 20, 5)
-    
-            def forward(self, x):
-                x = F.relu(self.conv1(x))
-                return F.relu(self.conv2(x))
-    
-    Submodules assigned in this way will be registered, and will have their
-    parameters converted too when you call :meth:`to`, etc.
-    
-    .. note::
-        As per the example above, an ``__init__()`` call to the parent class
-        must be made before assignment on the child.
-    
-    :ivar training: Boolean represents whether this module is in training or
-                    evaluation mode.
-    :vartype training: bool
-    
-    Initialize internal Module state, shared by both nn.Module and ScriptModule.
+    `split(self, x_BND: jaxtyping.Float[Tensor, 'batch n d']) ‑> jaxtyping.Float[Tensor, 'batch n_heads n d_head']`
+    :
 
-    ### Ancestors (in MRO)
-
-    * torch.nn.modules.module.Module
-
-`Embeddings(*, d: int, image_size_px: tuple[int, int], patch_size_px: tuple[int, int])`
+`Decoder(*, d_in: int, d: int, d_hidden: int, n_layers: int, n_heads: int, patch_size_px: tuple[int, int], image_size_px: tuple[int, int], ln_eps: float)`
 :   Base class for all neural network modules.
     
     Your models should also subclass this class.
@@ -1985,7 +1960,71 @@ Classes
 
     ### Methods
 
-    `forward(self, pixel_values: jaxtyping.Float[Tensor, 'batch 3 height width']) ‑> Callable[..., Any]`
+    `forward(self, x_BNE: jaxtyping.Float[Tensor, 'batch n d_in']) ‑> jaxtyping.Float[Tensor, 'batch 3 width height']`
+    :   Define the computation performed at every call.
+        
+        Should be overridden by all subclasses.
+        
+        .. note::
+            Although the recipe for forward pass needs to be defined within
+            this function, one should call the :class:`Module` instance afterwards
+            instead of this since the former takes care of running the
+            registered hooks while the latter silently ignores them.
+
+`Embeddings(*, d: int, image_size_px: tuple[int, int], patch_size_px: tuple[int, int], mask_ratio: float)`
+:   Base class for all neural network modules.
+    
+    Your models should also subclass this class.
+    
+    Modules can also contain other Modules, allowing to nest them in
+    a tree structure. You can assign the submodules as regular attributes::
+    
+        import torch.nn as nn
+        import torch.nn.functional as F
+    
+        class Model(nn.Module):
+            def __init__(self) -> None:
+                super().__init__()
+                self.conv1 = nn.Conv2d(1, 20, 5)
+                self.conv2 = nn.Conv2d(20, 20, 5)
+    
+            def forward(self, x):
+                x = F.relu(self.conv1(x))
+                return F.relu(self.conv2(x))
+    
+    Submodules assigned in this way will be registered, and will have their
+    parameters converted too when you call :meth:`to`, etc.
+    
+    .. note::
+        As per the example above, an ``__init__()`` call to the parent class
+        must be made before assignment on the child.
+    
+    :ivar training: Boolean represents whether this module is in training or
+                    evaluation mode.
+    :vartype training: bool
+    
+    Initialize internal Module state, shared by both nn.Module and ScriptModule.
+
+    ### Ancestors (in MRO)
+
+    * torch.nn.modules.module.Module
+
+    ### Class variables
+
+    `Output`
+    :   dict() -> new empty dictionary
+        dict(mapping) -> new dictionary initialized from a mapping object's
+            (key, value) pairs
+        dict(iterable) -> new dictionary initialized as if via:
+            d = {}
+            for k, v in iterable:
+                d[k] = v
+        dict(**kwargs) -> new dictionary initialized with the name=value pairs
+            in the keyword argument list.  For example:  dict(one=1, two=2)
+
+    ### Methods
+
+    `forward(self, x_BCWH: jaxtyping.Float[Tensor, 'batch 3 height width'], noise_BN: jaxtyping.Float[Tensor, 'batch n'] | None = None) ‑> contrib.mae.modeling.Embeddings.Output`
     :
 
 `Encoder(*, d: int, d_hidden: int, n_heads: int, n_layers: int, ln_eps: float)`
@@ -2028,7 +2067,7 @@ Classes
 
     ### Methods
 
-    `forward(self) ‑> Callable[..., Any]`
+    `forward(self, x_BND: jaxtyping.Float[Tensor, 'batch n d']) ‑> Callable[..., Any]`
     :
 
 `Feedforward(*, d: int, d_hidden: int)`
@@ -2069,7 +2108,12 @@ Classes
 
     * torch.nn.modules.module.Module
 
-`MaskedAutoencoder(*, d_encoder: int, d_hidden_encoder: int, n_heads_encoder: int, n_layers_encoder: int, d_decoder: int, d_hidden_decoder: int, n_heads_decoder: int, n_layers_decoder: int, image_size_px: tuple[int, int], patch_size_px: tuple[int, int], ln_eps: float)`
+    ### Methods
+
+    `forward(self, x_BND: jaxtyping.Float[Tensor, 'batch n d']) ‑> jaxtyping.Float[Tensor, 'batch n d']`
+    :
+
+`MaskedAutoencoder(*, d_encoder: int, d_hidden_encoder: int, n_heads_encoder: int, n_layers_encoder: int, d_decoder: int, d_hidden_decoder: int, n_heads_decoder: int, n_layers_decoder: int, image_size_px: tuple[int, int], patch_size_px: tuple[int, int], mask_ratio: float, ln_eps: float)`
 :   Base class for all neural network modules.
     
     Your models should also subclass this class.
@@ -2106,6 +2150,24 @@ Classes
     ### Ancestors (in MRO)
 
     * torch.nn.modules.module.Module
+
+    ### Class variables
+
+    `Output`
+    :   dict() -> new empty dictionary
+        dict(mapping) -> new dictionary initialized from a mapping object's
+            (key, value) pairs
+        dict(iterable) -> new dictionary initialized as if via:
+            d = {}
+            for k, v in iterable:
+                d[k] = v
+        dict(**kwargs) -> new dictionary initialized with the name=value pairs
+            in the keyword argument list.  For example:  dict(one=1, two=2)
+
+    ### Methods
+
+    `forward(self, x_B3WH: jaxtyping.Float[Tensor, 'batch 3 width height']) ‑> tuple[jaxtyping.Float[Tensor, 'batch ...'], jaxtyping.Float[Tensor, 'batch ...']]`
+    :
 
 `PatchEmbeddings(d: int, patch_size_px: tuple[int, int])`
 :   Base class for all neural network modules.
@@ -2147,10 +2209,10 @@ Classes
 
     ### Methods
 
-    `forward(self, pixels: jaxtyping.Int[Tensor, 'batch 3 height width']) ‑> Callable[..., Any]`
+    `forward(self, x_BCWH: jaxtyping.Float[Tensor, 'batch 3 width height']) ‑> jaxtyping.Float[Tensor, 'batch n_patches d']`
     :
 
-`TransformerBlock(*, d: int, d_hidden: int, ln_eps: float)`
+`TransformerBlock(*, d: int, d_hidden: int, n_heads: int, ln_eps: float)`
 :   Base class for all neural network modules.
     
     Your models should also subclass this class.
@@ -2193,7 +2255,7 @@ Classes
     `forward(self, x: jaxtyping.Float[Tensor, '...']) ‑> jaxtyping.Float[Tensor, '...']`
     :
 
-`VisionTransformer(*, d: int, d_hidden: int, n_heads: int, n_layers: int, image_size_px: tuple[int, int], patch_size_px: tuple[int, int], ln_eps: float)`
+`VisionTransformer(*, d: int, d_hidden: int, n_heads: int, n_layers: int, image_size_px: tuple[int, int], patch_size_px: tuple[int, int], mask_ratio: float, ln_eps: float)`
 :   Base class for all neural network modules.
     
     Your models should also subclass this class.
@@ -2230,6 +2292,19 @@ Classes
     ### Ancestors (in MRO)
 
     * torch.nn.modules.module.Module
+
+    ### Methods
+
+    `forward(self, x_BMD: jaxtyping.Float[Tensor, 'batch 3 width height'], noise_BN: jaxtyping.Float[Tensor, 'batch n'] | None = None) ‑> jaxtyping.Float[Tensor, 'batch ...']`
+    :   Define the computation performed at every call.
+        
+        Should be overridden by all subclasses.
+        
+        .. note::
+            Although the recipe for forward pass needs to be defined within
+            this function, one should call the :class:`Module` instance afterwards
+            instead of this since the former takes care of running the
+            registered hooks while the latter silently ignores them.
 
 Module contrib.semseg
 =====================

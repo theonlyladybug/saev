@@ -969,10 +969,11 @@ class MaskedAutoencoder(torch.nn.Module):
         super().__init__()
         assert cfg.model_family == &#34;mae&#34;
 
-        import mae
+        import contrib.mae
 
-        self.model = mae.load_model(cfg.model_ckpt)
-        self.recorder = VitRecorder(cfg).register(self.model.vit.encoder.layers)
+        self.model = contrib.mae.load_ckpt(cfg.model_ckpt)
+        self.model = self.model.vit
+        self.recorder = VitRecorder(cfg).register(self.model.encoder.layers)
 
     def forward(self, batch: Float[Tensor, &#34;batch 3 width height&#34;]):
         self.recorder.reset()

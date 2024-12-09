@@ -199,10 +199,11 @@ class MaskedAutoencoder(torch.nn.Module):
         super().__init__()
         assert cfg.model_family == "mae"
 
-        import mae
+        import contrib.mae
 
-        self.model = mae.load_model(cfg.model_ckpt)
-        self.recorder = VitRecorder(cfg).register(self.model.vit.encoder.layers)
+        self.model = contrib.mae.load_ckpt(cfg.model_ckpt)
+        self.model = self.model.vit
+        self.recorder = VitRecorder(cfg).register(self.model.encoder.layers)
 
     def forward(self, batch: Float[Tensor, "batch 3 width height"]):
         self.recorder.reset()
@@ -249,6 +250,17 @@ def make_img_transform(model_family: str, model_ckpt: str) -> collections.abc.Ca
         return v2.Compose([
             # TODO: I bet this should be 256, 256, which is causing localization issues in non-square images.
             v2.Resize(size=256),
+            v2.CenterCrop(size=(224, 224)),
+            v2.ToImage(),
+            v2.ToDtype(torch.float32, scale=True),
+            v2.Normalize(mean=[0.4850, 0.4560, 0.4060], std=[0.2290, 0.2240, 0.2250]),
+        ])
+    elif model_family == "mae":
+        from torchvision.transforms import v2
+
+        # Same values from the official script.
+        return v2.Compose([
+            v2.Resize(size=(256, 256)),
             v2.CenterCrop(size=(224, 224)),
             v2.ToImage(),
             v2.ToDtype(torch.float32, scale=True),
