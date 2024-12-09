@@ -1960,7 +1960,7 @@ Classes
 
     ### Methods
 
-    `forward(self, x_BNE: jaxtyping.Float[Tensor, 'batch n d_in']) ‑> jaxtyping.Float[Tensor, 'batch 3 width height']`
+    `forward(self, x_BMD: jaxtyping.Float[Tensor, 'batch m d_in'], ids_restore_BN: jaxtyping.Int[Tensor, 'batch n']) ‑> jaxtyping.Float[Tensor, 'batch n patch_pixels']`
     :   Define the computation performed at every call.
         
         Should be overridden by all subclasses.
@@ -2067,7 +2067,7 @@ Classes
 
     ### Methods
 
-    `forward(self, x_BND: jaxtyping.Float[Tensor, 'batch n d']) ‑> Callable[..., Any]`
+    `forward(self, x_BMD: jaxtyping.Float[Tensor, 'batch m d']) ‑> jaxtyping.Float[Tensor, 'batch m d']`
     :
 
 `Feedforward(*, d: int, d_hidden: int)`
@@ -2166,7 +2166,7 @@ Classes
 
     ### Methods
 
-    `forward(self, x_B3WH: jaxtyping.Float[Tensor, 'batch 3 width height']) ‑> tuple[jaxtyping.Float[Tensor, 'batch ...'], jaxtyping.Float[Tensor, 'batch ...']]`
+    `forward(self, x_B3WH: jaxtyping.Float[Tensor, 'batch 3 width height'], noise_BN: jaxtyping.Float[Tensor, 'batch n'] | None = None) ‑> contrib.mae.modeling.MaskedAutoencoder.Output`
     :
 
 `PatchEmbeddings(d: int, patch_size_px: tuple[int, int])`
@@ -2252,7 +2252,7 @@ Classes
 
     ### Methods
 
-    `forward(self, x: jaxtyping.Float[Tensor, '...']) ‑> jaxtyping.Float[Tensor, '...']`
+    `forward(self, x: jaxtyping.Float[Tensor, 'batch n d']) ‑> jaxtyping.Float[Tensor, 'batch n d']`
     :
 
 `VisionTransformer(*, d: int, d_hidden: int, n_heads: int, n_layers: int, image_size_px: tuple[int, int], patch_size_px: tuple[int, int], mask_ratio: float, ln_eps: float)`
@@ -2293,9 +2293,22 @@ Classes
 
     * torch.nn.modules.module.Module
 
+    ### Class variables
+
+    `Output`
+    :   dict() -> new empty dictionary
+        dict(mapping) -> new dictionary initialized from a mapping object's
+            (key, value) pairs
+        dict(iterable) -> new dictionary initialized as if via:
+            d = {}
+            for k, v in iterable:
+                d[k] = v
+        dict(**kwargs) -> new dictionary initialized with the name=value pairs
+            in the keyword argument list.  For example:  dict(one=1, two=2)
+
     ### Methods
 
-    `forward(self, x_BMD: jaxtyping.Float[Tensor, 'batch 3 width height'], noise_BN: jaxtyping.Float[Tensor, 'batch n'] | None = None) ‑> jaxtyping.Float[Tensor, 'batch ...']`
+    `forward(self, x_B3WH: jaxtyping.Float[Tensor, 'batch 3 width height'], noise_BN: jaxtyping.Float[Tensor, 'batch n'] | None = None) ‑> jaxtyping.Float[Tensor, 'batch ...']`
     :   Define the computation performed at every call.
         
         Should be overridden by all subclasses.

@@ -216,12 +216,7 @@ class Decoder(torch.nn.Module):
         )
 
         self.layers = torch.nn.ModuleList([
-            TransformerBlock(
-                d=d,
-                d_hidden=d_hidden,
-                n_heads=n_heads,
-                ln_eps=ln_eps,
-            )
+            TransformerBlock(d=d, d_hidden=d_hidden, n_heads=n_heads, ln_eps=ln_eps)
             for _ in range(n_layers)
         ])
 
@@ -229,10 +224,42 @@ class Decoder(torch.nn.Module):
         self.head = torch.nn.Linear(d, patch_w_px * patch_h_px * 3)
 
     def forward(
-        self, x_BNE: Float[Tensor, &#34;batch n d_in&#34;]
-    ) -&gt; Float[Tensor, &#34;batch 3 width height&#34;]:
-        # x_BND = self.embd(x_BNE)
-        breakpoint()</code></pre>
+        self,
+        x_BMD: Float[Tensor, &#34;batch m d_in&#34;],
+        ids_restore_BN: Int[Tensor, &#34;batch n&#34;],
+    ) -&gt; Float[Tensor, &#34;batch n patch_pixels&#34;]:
+        batch_size, m, _ = x_BMD.shape
+        _, n = ids_restore_BN.shape
+
+        # Linear projection from encoder dimension to decoder dimension
+        # CHECKED AGAINST REF---WORKS
+        x_BMD = self.embd(x_BMD)
+
+        _, _, d_decoder = x_BMD.shape
+
+        # Add the mask tokens back
+        n_mask_tokens = n + 1 - m
+        masks_BOD = self.mask_token.repeat(batch_size, n_mask_tokens, 1)
+        x_BND = torch.cat([x_BMD[:, 1:, :], masks_BOD], dim=1)  # no cls token
+
+        index_BND = ids_restore_BN[..., None].repeat(1, 1, d_decoder).to(x_BND.device)
+        x_BND = torch.gather(x_BND, dim=1, index=index_BND)
+
+        x_BND = torch.cat([x_BMD[:, :1, :], x_BND], dim=1)  # append cls token
+
+        # Add positional embeddings again.
+        x_BND = x_BND + self.pos_embd
+
+        for layer in self.layers:
+            x_BND = layer(x_BND)
+
+        x_BND = self.layernorm(x_BND)
+        logits_BNP = self.head(x_BND)
+
+        # Remove cls token
+        logits_BNP = logits_BNP[:, 1:, :]
+
+        return logits_BNP</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -241,7 +268,7 @@ class Decoder(torch.nn.Module):
 <h3>Methods</h3>
 <dl>
 <dt id="contrib.mae.modeling.Decoder.forward"><code class="name flex">
-<span>def <span class="ident">forward</span></span>(<span>self, x_BNE: jaxtyping.Float[Tensor, 'batch n d_in']) ‑> jaxtyping.Float[Tensor, 'batch 3 width height']</span>
+<span>def <span class="ident">forward</span></span>(<span>self,<br>x_BMD: jaxtyping.Float[Tensor, 'batch m d_in'],<br>ids_restore_BN: jaxtyping.Int[Tensor, 'batch n']) ‑> jaxtyping.Float[Tensor, 'batch n patch_pixels']</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Define the computation performed at every call.</p>
@@ -431,10 +458,10 @@ class Encoder(torch.nn.Module):
         ])
 
     @jaxtyped(typechecker=beartype.beartype)
-    def forward(self, x_BND: Float[Tensor, &#34;batch n d&#34;]):
+    def forward(self, x_BMD: Float[Tensor, &#34;batch m d&#34;]) -&gt; Float[Tensor, &#34;batch m d&#34;]:
         for layer in self.layers:
-            x_BND = layer(x_BND)
-        return x_BND</code></pre>
+            x_BMD = layer(x_BMD)
+        return x_BMD</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -443,7 +470,7 @@ class Encoder(torch.nn.Module):
 <h3>Methods</h3>
 <dl>
 <dt id="contrib.mae.modeling.Encoder.forward"><code class="name flex">
-<span>def <span class="ident">forward</span></span>(<span>self, x_BND: jaxtyping.Float[Tensor, 'batch n d']) ‑> Callable[..., Any]</span>
+<span>def <span class="ident">forward</span></span>(<span>self, x_BMD: jaxtyping.Float[Tensor, 'batch m d']) ‑> jaxtyping.Float[Tensor, 'batch m d']</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -597,12 +624,14 @@ class MaskedAutoencoder(torch.nn.Module):
         )
 
     def forward(
-        self, x_B3WH: Float[Tensor, &#34;batch 3 width height&#34;]
-    ) -&gt; tuple[Float[Tensor, &#34;batch ...&#34;], Float[Tensor, &#34;batch ...&#34;]]:
-        latents_BND = self.vit(x_B3WH)
-        decoded_BND = self.decoder(latents_BND)
+        self,
+        x_B3WH: Float[Tensor, &#34;batch 3 width height&#34;],
+        noise_BN: Float[Tensor, &#34;batch n&#34;] | None = None,
+    ) -&gt; Output:
+        encoded = self.vit(x_B3WH, noise_BN=noise_BN)
+        decoded_BND = self.decoder(encoded[&#34;x_BMD&#34;], encoded[&#34;ids_restore_BN&#34;])
 
-        return self.Output(latents=latents_BND, decoded=decoded_BND)</code></pre>
+        return self.Output(latents=encoded[&#34;x_BMD&#34;], decoded=decoded_BND)</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -628,7 +657,7 @@ dict(one=1, two=2)</p></div>
 <h3>Methods</h3>
 <dl>
 <dt id="contrib.mae.modeling.MaskedAutoencoder.forward"><code class="name flex">
-<span>def <span class="ident">forward</span></span>(<span>self, x_B3WH: jaxtyping.Float[Tensor, 'batch 3 width height']) ‑> tuple[jaxtyping.Float[Tensor, 'batch ...'], jaxtyping.Float[Tensor, 'batch ...']]</span>
+<span>def <span class="ident">forward</span></span>(<span>self,<br>x_B3WH: jaxtyping.Float[Tensor, 'batch 3 width height'],<br>noise_BN: jaxtyping.Float[Tensor, 'batch n'] | None = None) ‑> <a title="contrib.mae.modeling.MaskedAutoencoder.Output" href="#contrib.mae.modeling.MaskedAutoencoder.Output">MaskedAutoencoder.Output</a></span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -747,7 +776,7 @@ class TransformerBlock(torch.nn.Module):
         self.layernorm2 = torch.nn.LayerNorm(d, eps=ln_eps)
 
     @jaxtyped(typechecker=beartype.beartype)
-    def forward(self, x: Float[Tensor, &#34;...&#34;]) -&gt; Float[Tensor, &#34;...&#34;]:
+    def forward(self, x: Float[Tensor, &#34;batch n d&#34;]) -&gt; Float[Tensor, &#34;batch n d&#34;]:
         x_ = self.attention(self.layernorm1(x))
 
         x = x_ + x
@@ -762,7 +791,7 @@ class TransformerBlock(torch.nn.Module):
 <h3>Methods</h3>
 <dl>
 <dt id="contrib.mae.modeling.TransformerBlock.forward"><code class="name flex">
-<span>def <span class="ident">forward</span></span>(<span>self, x: jaxtyping.Float[Tensor, '...']) ‑> jaxtyping.Float[Tensor, '...']</span>
+<span>def <span class="ident">forward</span></span>(<span>self, x: jaxtyping.Float[Tensor, 'batch n d']) ‑> jaxtyping.Float[Tensor, 'batch n d']</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -808,6 +837,10 @@ evaluation mode.
 </summary>
 <pre><code class="python">@jaxtyped(typechecker=beartype.beartype)
 class VisionTransformer(torch.nn.Module):
+    class Output(typing.TypedDict):
+        x_BMD: Float[Tensor, &#34;batch m d&#34;]
+        ids_restore_BN: Int[Tensor, &#34;batch n&#34;]
+
     def __init__(
         self,
         *,
@@ -838,23 +871,40 @@ class VisionTransformer(torch.nn.Module):
 
     def forward(
         self,
-        x_BMD: Float[Tensor, &#34;batch 3 width height&#34;],
+        x_B3WH: Float[Tensor, &#34;batch 3 width height&#34;],
         noise_BN: Float[Tensor, &#34;batch n&#34;] | None = None,
     ) -&gt; Float[Tensor, &#34;batch ...&#34;]:
-        embedded = self.embeddings(x_BMD, noise_BN=noise_BN)
+        embedded = self.embeddings(x_B3WH, noise_BN=noise_BN)
         x_BMD = self.encoder(embedded[&#34;x_BMD&#34;])
         x_BMD = self.layernorm(x_BMD)
 
-        return x_BMD</code></pre>
+        return self.Output(x_BMD=x_BMD, ids_restore_BN=embedded[&#34;ids_restore_BN&#34;])</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
 <li>torch.nn.modules.module.Module</li>
 </ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="contrib.mae.modeling.VisionTransformer.Output"><code class="name">var <span class="ident">Output</span></code></dt>
+<dd>
+<div class="desc"><p>dict() -&gt; new empty dictionary
+dict(mapping) -&gt; new dictionary initialized from a mapping object's
+(key, value) pairs
+dict(iterable) -&gt; new dictionary initialized as if via:
+d = {}
+for k, v in iterable:
+d[k] = v
+dict(**kwargs) -&gt; new dictionary initialized with the name=value pairs
+in the keyword argument list.
+For example:
+dict(one=1, two=2)</p></div>
+</dd>
+</dl>
 <h3>Methods</h3>
 <dl>
 <dt id="contrib.mae.modeling.VisionTransformer.forward"><code class="name flex">
-<span>def <span class="ident">forward</span></span>(<span>self,<br>x_BMD: jaxtyping.Float[Tensor, 'batch 3 width height'],<br>noise_BN: jaxtyping.Float[Tensor, 'batch n'] | None = None) ‑> jaxtyping.Float[Tensor, 'batch ...']</span>
+<span>def <span class="ident">forward</span></span>(<span>self,<br>x_B3WH: jaxtyping.Float[Tensor, 'batch 3 width height'],<br>noise_BN: jaxtyping.Float[Tensor, 'batch n'] | None = None) ‑> jaxtyping.Float[Tensor, 'batch ...']</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Define the computation performed at every call.</p>
@@ -944,6 +994,7 @@ registered hooks while the latter silently ignores them.</p>
 <li>
 <h4><code><a title="contrib.mae.modeling.VisionTransformer" href="#contrib.mae.modeling.VisionTransformer">VisionTransformer</a></code></h4>
 <ul class="">
+<li><code><a title="contrib.mae.modeling.VisionTransformer.Output" href="#contrib.mae.modeling.VisionTransformer.Output">Output</a></code></li>
 <li><code><a title="contrib.mae.modeling.VisionTransformer.forward" href="#contrib.mae.modeling.VisionTransformer.forward">forward</a></code></li>
 </ul>
 </li>

@@ -57,12 +57,14 @@ class MaskedAutoencoder(torch.nn.Module):
         )
 
     def forward(
-        self, x_B3WH: Float[Tensor, "batch 3 width height"]
-    ) -> tuple[Float[Tensor, "batch ..."], Float[Tensor, "batch ..."]]:
-        latents_BND = self.vit(x_B3WH)
-        decoded_BND = self.decoder(latents_BND)
+        self,
+        x_B3WH: Float[Tensor, "batch 3 width height"],
+        noise_BN: Float[Tensor, "batch n"] | None = None,
+    ) -> Output:
+        encoded = self.vit(x_B3WH, noise_BN=noise_BN)
+        decoded_BND = self.decoder(encoded["x_BMD"], encoded["ids_restore_BN"])
 
-        return self.Output(latents=latents_BND, decoded=decoded_BND)
+        return self.Output(latents=encoded["x_BMD"], decoded=decoded_BND)
 
 
 configs = {
@@ -73,7 +75,7 @@ configs = {
         n_layers_encoder=12,
         d_decoder=512,
         d_hidden_decoder=2048,
-        n_heads_decoder=2,
+        n_heads_decoder=16,
         n_layers_decoder=8,
         image_size_px=(224, 224),
         patch_size_px=(16, 16),
@@ -186,6 +188,7 @@ def load_ckpt(ckpt: str, *, chunk_size_kb: int = 1024) -> MaskedAutoencoder:
 
     model = MaskedAutoencoder(**configs[ckpt])
     model.load_state_dict(updated_state_dict, strict=True)
+    model.eval()
     return model
 
 
@@ -229,6 +232,10 @@ def random_masking(
 
 @jaxtyped(typechecker=beartype.beartype)
 class VisionTransformer(torch.nn.Module):
+    class Output(typing.TypedDict):
+        x_BMD: Float[Tensor, "batch m d"]
+        ids_restore_BN: Int[Tensor, "batch n"]
+
     def __init__(
         self,
         *,
@@ -259,14 +266,14 @@ class VisionTransformer(torch.nn.Module):
 
     def forward(
         self,
-        x_BMD: Float[Tensor, "batch 3 width height"],
+        x_B3WH: Float[Tensor, "batch 3 width height"],
         noise_BN: Float[Tensor, "batch n"] | None = None,
     ) -> Float[Tensor, "batch ..."]:
-        embedded = self.embeddings(x_BMD, noise_BN=noise_BN)
+        embedded = self.embeddings(x_B3WH, noise_BN=noise_BN)
         x_BMD = self.encoder(embedded["x_BMD"])
         x_BMD = self.layernorm(x_BMD)
 
-        return x_BMD
+        return self.Output(x_BMD=x_BMD, ids_restore_BN=embedded["ids_restore_BN"])
 
 
 @jaxtyped(typechecker=beartype.beartype)
@@ -287,10 +294,10 @@ class Encoder(torch.nn.Module):
         ])
 
     @jaxtyped(typechecker=beartype.beartype)
-    def forward(self, x_BND: Float[Tensor, "batch n d"]):
+    def forward(self, x_BMD: Float[Tensor, "batch m d"]) -> Float[Tensor, "batch m d"]:
         for layer in self.layers:
-            x_BND = layer(x_BND)
-        return x_BND
+            x_BMD = layer(x_BMD)
+        return x_BMD
 
 
 @jaxtyped(typechecker=beartype.beartype)
@@ -303,7 +310,7 @@ class TransformerBlock(torch.nn.Module):
         self.layernorm2 = torch.nn.LayerNorm(d, eps=ln_eps)
 
     @jaxtyped(typechecker=beartype.beartype)
-    def forward(self, x: Float[Tensor, "..."]) -> Float[Tensor, "..."]:
+    def forward(self, x: Float[Tensor, "batch n d"]) -> Float[Tensor, "batch n d"]:
         x_ = self.attention(self.layernorm1(x))
 
         x = x_ + x
@@ -466,12 +473,7 @@ class Decoder(torch.nn.Module):
         )
 
         self.layers = torch.nn.ModuleList([
-            TransformerBlock(
-                d=d,
-                d_hidden=d_hidden,
-                n_heads=n_heads,
-                ln_eps=ln_eps,
-            )
+            TransformerBlock(d=d, d_hidden=d_hidden, n_heads=n_heads, ln_eps=ln_eps)
             for _ in range(n_layers)
         ])
 
@@ -479,19 +481,58 @@ class Decoder(torch.nn.Module):
         self.head = torch.nn.Linear(d, patch_w_px * patch_h_px * 3)
 
     def forward(
-        self, x_BNE: Float[Tensor, "batch n d_in"]
-    ) -> Float[Tensor, "batch 3 width height"]:
-        # x_BND = self.embd(x_BNE)
-        breakpoint()
+        self,
+        x_BMD: Float[Tensor, "batch m d_in"],
+        ids_restore_BN: Int[Tensor, "batch n"],
+    ) -> Float[Tensor, "batch n patch_pixels"]:
+        batch_size, m, _ = x_BMD.shape
+        _, n = ids_restore_BN.shape
+
+        # Linear projection from encoder dimension to decoder dimension
+        # CHECKED AGAINST REF---WORKS
+        x_BMD = self.embd(x_BMD)
+
+        _, _, d_decoder = x_BMD.shape
+
+        # Add the mask tokens back
+        n_mask_tokens = n + 1 - m
+        masks_BOD = self.mask_token.repeat(batch_size, n_mask_tokens, 1)
+        x_BND = torch.cat([x_BMD[:, 1:, :], masks_BOD], dim=1)  # no cls token
+
+        index_BND = ids_restore_BN[..., None].repeat(1, 1, d_decoder).to(x_BND.device)
+        x_BND = torch.gather(x_BND, dim=1, index=index_BND)
+
+        x_BND = torch.cat([x_BMD[:, :1, :], x_BND], dim=1)  # append cls token
+
+        # Add positional embeddings again.
+        x_BND = x_BND + self.pos_embd
+
+        for layer in self.layers:
+            x_BND = layer(x_BND)
+
+        x_BND = self.layernorm(x_BND)
+        logits_BNP = self.head(x_BND)
+
+        # Remove cls token
+        logits_BNP = logits_BNP[:, 1:, :]
+
+        return logits_BNP
 
 
 def _compare_to_ref_impl(ckpt: str, dataset_root: str):
+    """
+    Compare against HF's implementation with:
+
+    ```sh
+    uv run python -m contrib.mae.modeling --ckpt facebook/vit-mae-base --dataset-root /nfs/$USERS/datasets/flowers102/train/
+    ```
+    """
     import torchvision.datasets
     import transformers
     from torchvision.transforms import v2
 
-    ref_vit = transformers.AutoModel.from_pretrained(ckpt)
-    my_vit = load_ckpt(ckpt).vit
+    ref_model = transformers.ViTMAEForPreTraining.from_pretrained(ckpt)
+    my_model = load_ckpt(ckpt)
 
     # Same values from the official script.
     transform = v2.Compose([
@@ -505,15 +546,18 @@ def _compare_to_ref_impl(ckpt: str, dataset_root: str):
 
     batch_B3WH = torch.stack([dataset[i][0] for i in range(4)])
 
-    ref_vit.embeddings.random_masking
-
     torch.manual_seed(42)
     noise_BN = torch.rand(4, 196)
 
-    ref_out = ref_vit(batch_B3WH, noise=noise_BN)
-    my_out = my_vit(batch_B3WH, noise_BN=noise_BN)
+    ref_vit_out = ref_model.vit(batch_B3WH, noise=noise_BN)
+    my_vit_out = my_model.vit(batch_B3WH, noise_BN=noise_BN)
+    assert (ref_vit_out.last_hidden_state == my_vit_out["x_BMD"]).all()
+    assert (ref_vit_out["ids_restore"] == my_vit_out["ids_restore_BN"]).all()
 
-    assert (ref_out.last_hidden_state == my_out).all()
+    ref_out = ref_model(batch_B3WH, noise=noise_BN, output_hidden_states=True)
+    my_out = my_model(batch_B3WH, noise_BN=noise_BN)
+
+    assert (ref_out["logits"] == my_out["decoded"]).all()
 
 
 if __name__ == "__main__":
