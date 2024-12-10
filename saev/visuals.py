@@ -7,6 +7,7 @@ Variables suffixed with `_im` refer to entire images, and variables suffixed wit
 import collections.abc
 import dataclasses
 import logging
+import math
 import os
 import pickle
 import typing
@@ -136,16 +137,22 @@ def get_sae_acts(
     return sae_acts
 
 
+@jaxtyped(typechecker=beartype.beartype)
+@dataclasses.dataclass(frozen=True)
+class TopKImg:
+    ".. todo:: Document this class."
+
+    top_values: Float[Tensor, "d_sae k"]
+    top_i: Int[Tensor, "d_sae k"]
+    mean_values: Float[Tensor, " d_sae"]
+    sparsity: Float[Tensor, " d_sae"]
+    distributions: Float[Tensor, "m n"]
+    percentiles: Float[Tensor, " d_sae"]
+
+
 @beartype.beartype
 @torch.inference_mode()
-def get_topk_img(
-    cfg: config.Visuals,
-) -> tuple[
-    Float[Tensor, "d_sae k"],
-    Int[Tensor, "d_sae k"],
-    Float[Tensor, " d_sae"],
-    Float[Tensor, " d_sae"],
-]:
+def get_topk_img(cfg: config.Visuals) -> TopKImg:
     """
     Gets the top k images for each latent in the SAE.
     The top k images are for latent i are sorted by
@@ -159,7 +166,7 @@ def get_topk_img(
         cfg: Config.
 
     Returns:
-        .. todo:: Document this function.
+        A tuple of TopKImg and the first m features' activation distributions.
     """
     assert cfg.sort_by == "img"
     assert cfg.data.patches == "cls"
@@ -174,6 +181,10 @@ def get_topk_img(
     sparsity_S = torch.zeros((sae.cfg.d_sae,), device=cfg.device)
     mean_values_S = torch.zeros((sae.cfg.d_sae,), device=cfg.device)
 
+    distributions_MN = torch.zeros((cfg.m, len(dataset)), device="cpu")
+
+    estimator = PercentileEstimator(cfg.percentile, len(dataset))
+
     dataloader = torch.utils.data.DataLoader(
         dataset,
         batch_size=cfg.topk_batch_size,
@@ -184,15 +195,21 @@ def get_topk_img(
 
     logger.info("Loaded SAE and data.")
 
-    for vit_acts_BD, i_im_B, _ in helpers.progress(dataloader, desc="picking top-k"):
+    for batch in helpers.progress(dataloader, desc="picking top-k"):
+        vit_acts_BD = batch["act"]
         sae_acts_BS = get_sae_acts(vit_acts_BD, sae, cfg)
+
+        for sae_act_S in sae_acts_BS:
+            estimator.update(sae_act_S)
+
         sae_acts_SB = einops.rearrange(sae_acts_BS, "batch d_sae -> d_sae batch")
+        distributions_MN[:, batch["image_i"]] = sae_acts_SB[: cfg.m].to("cpu")
 
         mean_values_S += einops.reduce(sae_acts_SB, "d_sae batch -> d_sae", "sum")
         sparsity_S += einops.reduce((sae_acts_SB > 0), "d_sae batch -> d_sae", "sum")
 
         sae_acts_SK, k = torch.topk(sae_acts_SB, k=cfg.top_k, dim=1)
-        i_im_SK = i_im_B.to(cfg.device)[k]
+        i_im_SK = batch["image_i"].to(cfg.device)[k]
 
         all_values_im_2SK = torch.cat((top_values_im_SK, sae_acts_SK), axis=1)
 
@@ -202,19 +219,27 @@ def get_topk_img(
     mean_values_S /= sparsity_S
     sparsity_S /= len(dataset)
 
-    return top_values_im_SK, top_i_im_SK, mean_values_S, sparsity_S
+    breakpoint()
+
+    return TopKImg(
+        top_values_im_SK, top_i_im_SK, mean_values_S, sparsity_S, distributions_MN
+    )
+
+
+@jaxtyped(typechecker=beartype.beartype)
+@dataclasses.dataclass(frozen=True)
+class TopKPatch:
+    ".. todo:: Document this class."
+
+    top_values: Float[Tensor, "d_sae k n_patches_per_img"]
+    top_i: Int[Tensor, "d_sae k"]
+    mean_values: Float[Tensor, " d_sae"]
+    sparsity: Float[Tensor, " d_sae"]
 
 
 @beartype.beartype
 @torch.inference_mode()
-def get_topk_patch(
-    cfg: config.Visuals,
-) -> tuple[
-    Float[Tensor, "d_sae k n_patches_per_img"],
-    Int[Tensor, "d_sae k"],
-    Float[Tensor, " d_sae"],
-    Float[Tensor, " d_sae"],
-]:
+def get_topk_patch(cfg: config.Visuals) -> TopKPatch:
     """
     Gets the top k images for each latent in the SAE.
     The top k images are for latent i are sorted by
@@ -227,7 +252,7 @@ def get_topk_patch(
         cfg: Config.
 
     Returns:
-        .. todo:: Document this function.
+        A tuple of TopKPatch and m randomly sampled activation distributions.
     """
     assert cfg.sort_by == "patch"
     assert cfg.data.patches == "patches"
@@ -265,12 +290,12 @@ def get_topk_patch(
 
     logger.info("Loaded SAE and data.")
 
-    for vit_acts, i_im, _ in helpers.progress(dataloader, desc="picking top-k"):
-        sae_acts = get_sae_acts(vit_acts, sae, cfg).transpose(0, 1)
+    for batch in helpers.progress(dataloader, desc="picking top-k"):
+        sae_acts = get_sae_acts(batch["act"], sae, cfg).transpose(0, 1)
         mean_values += sae_acts.sum(dim=1)
         sparsity += (sae_acts > 0).sum(dim=1)
 
-        i_im = torch.sort(torch.unique(i_im)).values
+        i_im = torch.sort(torch.unique(batch["image_i"])).values
         values_p = sae_acts.view(
             sae.cfg.d_sae, len(i_im), dataset.metadata.n_patches_per_img
         )
@@ -294,7 +319,7 @@ def get_topk_patch(
     mean_values /= sparsity
     sparsity /= len(dataset)
 
-    return top_values_p, top_i_im, mean_values, sparsity
+    return TopKPatch(top_values_p, top_i_im, mean_values, sparsity)
 
 
 @beartype.beartype
@@ -305,18 +330,70 @@ def dump_activations(cfg: config.Visuals):
     That is, we keep track of each patch
     """
     if cfg.sort_by == "img":
-        top_values, top_img_i, mean_values, sparsity = get_topk_img(cfg)
+        topk = get_topk_img(cfg)
     elif cfg.sort_by == "patch":
-        top_values, top_img_i, mean_values, sparsity = get_topk_patch(cfg)
+        topk = get_topk_patch(cfg)
     else:
         typing.assert_never(cfg.sort_by)
 
     os.makedirs(cfg.root, exist_ok=True)
 
-    torch.save(top_values, cfg.top_values_fpath)
-    torch.save(top_img_i, cfg.top_img_i_fpath)
-    torch.save(mean_values, cfg.mean_values_fpath)
-    torch.save(sparsity, cfg.sparsity_fpath)
+    torch.save(topk.top_values, cfg.top_values_fpath)
+    torch.save(topk.top_i, cfg.top_img_i_fpath)
+    torch.save(topk.mean_values, cfg.mean_values_fpath)
+    torch.save(topk.sparsity, cfg.sparsity_fpath)
+    torch.save(topk.distributions, cfg.distributions_fpath)
+    torch.save(topk.percentiles, cfg.percentiles_fpath)
+
+
+@jaxtyped(typechecker=beartype.beartype)
+def plot_activation_distributions(
+    cfg: config.Visuals, distributions: Float[Tensor, "m n"]
+):
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    m, _ = distributions.shape
+
+    n_rows = int(math.sqrt(m))
+    n_cols = n_rows
+    fig, axes = plt.subplots(
+        figsize=(4 * n_cols, 4 * n_rows),
+        nrows=n_rows,
+        ncols=n_cols,
+        sharex=True,
+        sharey=True,
+    )
+
+    _, bins = np.histogram(np.log10(distributions[distributions > 0].numpy()), bins=100)
+
+    percentiles = [90, 95, 99, 100]
+    colors = ("red", "darkorange", "gold", "lime")
+
+    for dist, ax in zip(distributions, axes.reshape(-1)):
+        vals = np.log10(dist[dist > 0].numpy())
+
+        ax.hist(vals, bins=bins)
+        for i, (percentile, color) in enumerate(
+            zip(np.percentile(vals, percentiles), colors)
+        ):
+            ax.axvline(percentile, color=color, label=f"{percentiles[i]}th %-ile")
+
+        for i, (percentile, color) in enumerate(zip(percentiles, colors)):
+            estimator = PercentileEstimator(percentile, len(vals))
+            for v in vals:
+                estimator.update(v)
+            ax.axvline(
+                estimator.estimate,
+                color=color,
+                linestyle="--",
+                label=f"Est. {percentiles[i]}th %-ile",
+            )
+
+    ax.legend()
+
+    fig.tight_layout()
+    return fig
 
 
 @beartype.beartype
@@ -336,6 +413,8 @@ def main(cfg: config.Visuals):
         sparsity = safe_load(cfg.sparsity_fpath)
         mean_values = safe_load(cfg.mean_values_fpath)
         top_i = safe_load(cfg.top_img_i_fpath)
+        distributions = safe_load(cfg.distributions_fpath)
+        _ = safe_load(cfg.percentiles_fpath)
     except FileNotFoundError as err:
         logger.warning("Need to dump files: %s", err)
         dump_activations(cfg)
@@ -354,6 +433,11 @@ def main(cfg: config.Visuals):
         typing.assert_never(cfg.sort_by)
 
     logger.info("Loaded sorted data.")
+
+    os.makedirs(cfg.root, exist_ok=True)
+    fig_fpath = os.path.join(cfg.root, f"{cfg.m}_activation_distributions.png")
+    plot_activation_distributions(cfg, distributions).savefig(fig_fpath, dpi=300)
+    logger.info("Saved %d activation distributions to '%s'.", cfg.m, fig_fpath)
 
     dataset = activations.get_dataset(cfg.images, img_transform=None)
 
@@ -410,3 +494,77 @@ def main(cfg: config.Visuals):
         }
         with open(f"{neuron_dir}/metadata.pkl", "wb") as pickle_file:
             pickle.dump(metadata, pickle_file)
+
+
+@beartype.beartype
+class PercentileEstimator:
+    def __init__(
+        self,
+        percentile: float | int,
+        total: int,
+        lr: float = 1e-3,
+        shape: tuple[int, ...] = (),
+    ):
+        self.percentile = percentile
+        self.total = total
+        self.lr = lr
+
+        self._estimate = torch.zeros(shape)
+        self._step = 0
+
+    def update(self, x):
+        """
+        Update the estimator with a new value.
+
+        This method maintains the marker positions using the P2 algorithm rules.
+        When a new value arrives, it's placed in the appropriate position relative to existing markers, and marker positions are adjusted to maintain their desired percentile positions.
+
+        Arguments:
+            x: The new value to incorporate into the estimation
+        """
+        self._step += 1
+
+        step_size = self.lr * (self.total - self._step) / self.total
+
+        self._estimate += step_size * (
+            torch.sign(x - self._estimate) + 2 * self.percentile / 100 - 1.0
+        )
+
+    @property
+    def estimate(self):
+        return self._estimate
+
+
+@beartype.beartype
+def test_online_quantile_estimation(true: float, percentile: float):
+    import matplotlib.pyplot as plt
+    import numpy as np
+    import tqdm
+
+    rng = np.random.default_rng(seed=0)
+    n = 3_000_000
+    estimator = PercentileEstimator(percentile, n)
+
+    dist, preds = np.zeros(n), np.zeros(n)
+    for i in tqdm.tqdm(range(n), desc="Getting estimates."):
+        sampled = rng.normal(true)
+        estimator.update(sampled)
+        dist[i] = sampled
+        preds[i] = estimator.estimate
+
+    fig, ax = plt.subplots()
+    ax.plot(preds, label=f"Pred. {percentile * 100}th %-ile")
+    ax.axhline(
+        np.percentile(dist, percentile * 100),
+        label=f"True {percentile * 100}th %-ile",
+        color="tab:red",
+    )
+    ax.legend()
+    fig.tight_layout()
+    fig.savefig("online_median_normal.png")
+
+
+if __name__ == "__main__":
+    import tyro
+
+    tyro.cli(test_online_quantile_estimation)

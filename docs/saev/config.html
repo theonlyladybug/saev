@@ -642,7 +642,7 @@ class Train:
 </dd>
 <dt id="saev.config.Visuals"><code class="flex name class">
 <span>class <span class="ident">Visuals</span></span>
-<span>(</span><span>ckpt: str = './checkpoints/sae.pt',<br>data: <a title="saev.config.DataLoad" href="#saev.config.DataLoad">DataLoad</a> = &lt;factory&gt;,<br>images: <a title="saev.config.ImagenetDataset" href="#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.ImageFolderDataset" href="#saev.config.ImageFolderDataset">ImageFolderDataset</a> | <a title="saev.config.Ade20kDataset" href="#saev.config.Ade20kDataset">Ade20kDataset</a> = &lt;factory&gt;,<br>top_k: int = 128,<br>n_workers: int = 16,<br>topk_batch_size: int = 16384,<br>sae_batch_size: int = 16384,<br>epsilon: float = 1e-09,<br>sort_by: Literal['cls', 'img', 'patch'] = 'patch',<br>device: str = 'cuda',<br>dump_to: str = './data',<br>log_freq_range: tuple[float, float] = (-6.0, -2.0),<br>log_value_range: tuple[float, float] = (-1.0, 1.0),<br>include_latents: list[int] = &lt;factory&gt;)</span>
+<span>(</span><span>ckpt: str = './checkpoints/sae.pt',<br>data: <a title="saev.config.DataLoad" href="#saev.config.DataLoad">DataLoad</a> = &lt;factory&gt;,<br>images: <a title="saev.config.ImagenetDataset" href="#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.ImageFolderDataset" href="#saev.config.ImageFolderDataset">ImageFolderDataset</a> | <a title="saev.config.Ade20kDataset" href="#saev.config.Ade20kDataset">Ade20kDataset</a> = &lt;factory&gt;,<br>top_k: int = 128,<br>n_workers: int = 16,<br>topk_batch_size: int = 16384,<br>sae_batch_size: int = 16384,<br>epsilon: float = 1e-09,<br>sort_by: Literal['cls', 'img', 'patch'] = 'patch',<br>device: str = 'cuda',<br>dump_to: str = './data',<br>log_freq_range: tuple[float, float] = (-6.0, -2.0),<br>log_value_range: tuple[float, float] = (-1.0, 1.0),<br>include_latents: list[int] = &lt;factory&gt;,<br>m: int = 25,<br>percentile: int = 99)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Configuration for generating visuals from trained SAEs.</p></div>
@@ -683,6 +683,10 @@ class Visuals:
     &#34;&#34;&#34;Log10 frequency range for which to save images.&#34;&#34;&#34;
     include_latents: list[int] = dataclasses.field(default_factory=list)
     &#34;&#34;&#34;Latents to always include, no matter what.&#34;&#34;&#34;
+    m: int = 25
+    &#34;&#34;&#34;Number of features to save distributions for.&#34;&#34;&#34;
+    percentile: int = 99
+    &#34;&#34;&#34;Percentile to estimate for outlier detection.&#34;&#34;&#34;
 
     @property
     def root(self) -&gt; str:
@@ -706,7 +710,15 @@ class Visuals:
 
     @property
     def sparsity_fpath(self) -&gt; str:
-        return os.path.join(self.root, &#34;sparsity.pt&#34;)</code></pre>
+        return os.path.join(self.root, &#34;sparsity.pt&#34;)
+
+    @property
+    def distributions_fpath(self) -&gt; str:
+        return os.path.join(self.root, &#34;distributions.pt&#34;)
+
+    @property
+    def percentiles_fpath(self) -&gt; str:
+        return os.path.join(self.root, f&#34;percentiles_p{self.percentile}.pt&#34;)</code></pre>
 </details>
 <h3>Class variables</h3>
 <dl>
@@ -746,9 +758,17 @@ class Visuals:
 <dd>
 <div class="desc"><p>Log10 frequency range for which to save images.</p></div>
 </dd>
+<dt id="saev.config.Visuals.m"><code class="name">var <span class="ident">m</span> : int</code></dt>
+<dd>
+<div class="desc"><p>Number of features to save distributions for.</p></div>
+</dd>
 <dt id="saev.config.Visuals.n_workers"><code class="name">var <span class="ident">n_workers</span> : int</code></dt>
 <dd>
 <div class="desc"><p>Number of dataloader workers.</p></div>
+</dd>
+<dt id="saev.config.Visuals.percentile"><code class="name">var <span class="ident">percentile</span> : int</code></dt>
+<dd>
+<div class="desc"><p>Percentile to estimate for outlier detection.</p></div>
 </dd>
 <dt id="saev.config.Visuals.sae_batch_size"><code class="name">var <span class="ident">sae_batch_size</span> : int</code></dt>
 <dd>
@@ -769,6 +789,18 @@ class Visuals:
 </dl>
 <h3>Instance variables</h3>
 <dl>
+<dt id="saev.config.Visuals.distributions_fpath"><code class="name">prop <span class="ident">distributions_fpath</span> : str</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def distributions_fpath(self) -&gt; str:
+    return os.path.join(self.root, &#34;distributions.pt&#34;)</code></pre>
+</details>
+</dd>
 <dt id="saev.config.Visuals.mean_values_fpath"><code class="name">prop <span class="ident">mean_values_fpath</span> : str</code></dt>
 <dd>
 <div class="desc"></div>
@@ -779,6 +811,18 @@ class Visuals:
 <pre><code class="python">@property
 def mean_values_fpath(self) -&gt; str:
     return os.path.join(self.root, &#34;mean_values.pt&#34;)</code></pre>
+</details>
+</dd>
+<dt id="saev.config.Visuals.percentiles_fpath"><code class="name">prop <span class="ident">percentiles_fpath</span> : str</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def percentiles_fpath(self) -&gt; str:
+    return os.path.join(self.root, f&#34;percentiles_p{self.percentile}.pt&#34;)</code></pre>
 </details>
 </dd>
 <dt id="saev.config.Visuals.root"><code class="name">prop <span class="ident">root</span> : str</code></dt>
@@ -966,14 +1010,18 @@ def top_values_fpath(self) -&gt; str:
 <li><code><a title="saev.config.Visuals.ckpt" href="#saev.config.Visuals.ckpt">ckpt</a></code></li>
 <li><code><a title="saev.config.Visuals.data" href="#saev.config.Visuals.data">data</a></code></li>
 <li><code><a title="saev.config.Visuals.device" href="#saev.config.Visuals.device">device</a></code></li>
+<li><code><a title="saev.config.Visuals.distributions_fpath" href="#saev.config.Visuals.distributions_fpath">distributions_fpath</a></code></li>
 <li><code><a title="saev.config.Visuals.dump_to" href="#saev.config.Visuals.dump_to">dump_to</a></code></li>
 <li><code><a title="saev.config.Visuals.epsilon" href="#saev.config.Visuals.epsilon">epsilon</a></code></li>
 <li><code><a title="saev.config.Visuals.images" href="#saev.config.Visuals.images">images</a></code></li>
 <li><code><a title="saev.config.Visuals.include_latents" href="#saev.config.Visuals.include_latents">include_latents</a></code></li>
 <li><code><a title="saev.config.Visuals.log_freq_range" href="#saev.config.Visuals.log_freq_range">log_freq_range</a></code></li>
 <li><code><a title="saev.config.Visuals.log_value_range" href="#saev.config.Visuals.log_value_range">log_value_range</a></code></li>
+<li><code><a title="saev.config.Visuals.m" href="#saev.config.Visuals.m">m</a></code></li>
 <li><code><a title="saev.config.Visuals.mean_values_fpath" href="#saev.config.Visuals.mean_values_fpath">mean_values_fpath</a></code></li>
 <li><code><a title="saev.config.Visuals.n_workers" href="#saev.config.Visuals.n_workers">n_workers</a></code></li>
+<li><code><a title="saev.config.Visuals.percentile" href="#saev.config.Visuals.percentile">percentile</a></code></li>
+<li><code><a title="saev.config.Visuals.percentiles_fpath" href="#saev.config.Visuals.percentiles_fpath">percentiles_fpath</a></code></li>
 <li><code><a title="saev.config.Visuals.root" href="#saev.config.Visuals.root">root</a></code></li>
 <li><code><a title="saev.config.Visuals.sae_batch_size" href="#saev.config.Visuals.sae_batch_size">sae_batch_size</a></code></li>
 <li><code><a title="saev.config.Visuals.sort_by" href="#saev.config.Visuals.sort_by">sort_by</a></code></li>

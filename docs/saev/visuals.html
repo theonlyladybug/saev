@@ -102,7 +102,7 @@ That is, we keep track of each patch</p></div>
 </dl></div>
 </dd>
 <dt id="saev.visuals.get_topk_img"><code class="name flex">
-<span>def <span class="ident">get_topk_img</span></span>(<span>cfg: <a title="saev.config.Visuals" href="config.html#saev.config.Visuals">Visuals</a>) ‑> tuple[jaxtyping.Float[Tensor, 'd_sae k'], jaxtyping.Int[Tensor, 'd_sae k'], jaxtyping.Float[Tensor, 'd_sae'], jaxtyping.Float[Tensor, 'd_sae']]</span>
+<span>def <span class="ident">get_topk_img</span></span>(<span>cfg: <a title="saev.config.Visuals" href="config.html#saev.config.Visuals">Visuals</a>) ‑> <a title="saev.visuals.TopKImg" href="#saev.visuals.TopKImg">TopKImg</a></span>
 </code></dt>
 <dd>
 <div class="desc"><p>Gets the top k images for each latent in the SAE.
@@ -117,13 +117,10 @@ But we also will not have patch-level activations (a nice heatmap).</p>
 <dd>Config.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<div class="admonition todo">
-<p class="admonition-title">TODO</p>
-<p>Document this function.</p>
-</div></div>
+<p>A tuple of TopKImg and the first m features' activation distributions.</p></div>
 </dd>
 <dt id="saev.visuals.get_topk_patch"><code class="name flex">
-<span>def <span class="ident">get_topk_patch</span></span>(<span>cfg: <a title="saev.config.Visuals" href="config.html#saev.config.Visuals">Visuals</a>) ‑> tuple[jaxtyping.Float[Tensor, 'd_sae k n_patches_per_img'], jaxtyping.Int[Tensor, 'd_sae k'], jaxtyping.Float[Tensor, 'd_sae'], jaxtyping.Float[Tensor, 'd_sae']]</span>
+<span>def <span class="ident">get_topk_patch</span></span>(<span>cfg: <a title="saev.config.Visuals" href="config.html#saev.config.Visuals">Visuals</a>) ‑> <a title="saev.visuals.TopKPatch" href="#saev.visuals.TopKPatch">TopKPatch</a></span>
 </code></dt>
 <dd>
 <div class="desc"><p>Gets the top k images for each latent in the SAE.
@@ -137,10 +134,7 @@ The top k images are for latent i are sorted by</p>
 <dd>Config.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<div class="admonition todo">
-<p class="admonition-title">TODO</p>
-<p>Document this function.</p>
-</div></div>
+<p>A tuple of TopKPatch and m randomly sampled activation distributions.</p></div>
 </dd>
 <dt id="saev.visuals.main"><code class="name flex">
 <span>def <span class="ident">main</span></span>(<span>cfg: <a title="saev.config.Visuals" href="config.html#saev.config.Visuals">Visuals</a>)</span>
@@ -163,8 +157,20 @@ The top k images are for latent i are sorted by</p>
 <dd>
 <div class="desc"></div>
 </dd>
+<dt id="saev.visuals.plot_activation_distributions"><code class="name flex">
+<span>def <span class="ident">plot_activation_distributions</span></span>(<span>cfg: <a title="saev.config.Visuals" href="config.html#saev.config.Visuals">Visuals</a>,<br>distributions: jaxtyping.Float[Tensor, 'm n'])</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
 <dt id="saev.visuals.safe_load"><code class="name flex">
 <span>def <span class="ident">safe_load</span></span>(<span>path: str) ‑> object</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="saev.visuals.test_online_quantile_estimation"><code class="name flex">
+<span>def <span class="ident">test_online_quantile_estimation</span></span>(<span>true: float, percentile: float)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -207,6 +213,179 @@ class GridElement:
 </dd>
 </dl>
 </dd>
+<dt id="saev.visuals.PercentileEstimator"><code class="flex name class">
+<span>class <span class="ident">PercentileEstimator</span></span>
+<span>(</span><span>percentile: float | int,<br>total: int,<br>lr: float = 0.001,<br>shape: tuple[int, ...] = ())</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@beartype.beartype
+class PercentileEstimator:
+    def __init__(
+        self,
+        percentile: float | int,
+        total: int,
+        lr: float = 1e-3,
+        shape: tuple[int, ...] = (),
+    ):
+        self.percentile = percentile
+        self.total = total
+        self.lr = lr
+
+        self._estimate = torch.zeros(shape)
+        self._step = 0
+
+    def update(self, x):
+        &#34;&#34;&#34;
+        Update the estimator with a new value.
+
+        This method maintains the marker positions using the P2 algorithm rules.
+        When a new value arrives, it&#39;s placed in the appropriate position relative to existing markers, and marker positions are adjusted to maintain their desired percentile positions.
+
+        Arguments:
+            x: The new value to incorporate into the estimation
+        &#34;&#34;&#34;
+        self._step += 1
+
+        step_size = self.lr * (self.total - self._step) / self.total
+
+        self._estimate += step_size * (
+            torch.sign(x - self._estimate) + 2 * self.percentile / 100 - 1.0
+        )
+
+    @property
+    def estimate(self):
+        return self._estimate</code></pre>
+</details>
+<h3>Instance variables</h3>
+<dl>
+<dt id="saev.visuals.PercentileEstimator.estimate"><code class="name">prop <span class="ident">estimate</span></code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def estimate(self):
+    return self._estimate</code></pre>
+</details>
+</dd>
+</dl>
+<h3>Methods</h3>
+<dl>
+<dt id="saev.visuals.PercentileEstimator.update"><code class="name flex">
+<span>def <span class="ident">update</span></span>(<span>self, x)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Update the estimator with a new value.</p>
+<p>This method maintains the marker positions using the P2 algorithm rules.
+When a new value arrives, it's placed in the appropriate position relative to existing markers, and marker positions are adjusted to maintain their desired percentile positions.</p>
+<h2 id="arguments">Arguments</h2>
+<p>x: The new value to incorporate into the estimation</p></div>
+</dd>
+</dl>
+</dd>
+<dt id="saev.visuals.TopKImg"><code class="flex name class">
+<span>class <span class="ident">TopKImg</span></span>
+<span>(</span><span>top_values: jaxtyping.Float[Tensor, 'd_sae k'],<br>top_i: jaxtyping.Int[Tensor, 'd_sae k'],<br>mean_values: jaxtyping.Float[Tensor, 'd_sae'],<br>sparsity: jaxtyping.Float[Tensor, 'd_sae'],<br>distributions: jaxtyping.Float[Tensor, 'm n'],<br>percentiles: jaxtyping.Float[Tensor, 'd_sae'])</span>
+</code></dt>
+<dd>
+<div class="desc"><div class="admonition todo">
+<p class="admonition-title">TODO</p>
+<p>Document this class.</p>
+</div></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@jaxtyped(typechecker=beartype.beartype)
+@dataclasses.dataclass(frozen=True)
+class TopKImg:
+    &#34;.. todo:: Document this class.&#34;
+
+    top_values: Float[Tensor, &#34;d_sae k&#34;]
+    top_i: Int[Tensor, &#34;d_sae k&#34;]
+    mean_values: Float[Tensor, &#34; d_sae&#34;]
+    sparsity: Float[Tensor, &#34; d_sae&#34;]
+    distributions: Float[Tensor, &#34;m n&#34;]
+    percentiles: Float[Tensor, &#34; d_sae&#34;]</code></pre>
+</details>
+<h3>Class variables</h3>
+<dl>
+<dt id="saev.visuals.TopKImg.distributions"><code class="name">var <span class="ident">distributions</span> : jaxtyping.Float[Tensor, 'm n']</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="saev.visuals.TopKImg.mean_values"><code class="name">var <span class="ident">mean_values</span> : jaxtyping.Float[Tensor, 'd_sae']</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="saev.visuals.TopKImg.percentiles"><code class="name">var <span class="ident">percentiles</span> : jaxtyping.Float[Tensor, 'd_sae']</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="saev.visuals.TopKImg.sparsity"><code class="name">var <span class="ident">sparsity</span> : jaxtyping.Float[Tensor, 'd_sae']</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="saev.visuals.TopKImg.top_i"><code class="name">var <span class="ident">top_i</span> : jaxtyping.Int[Tensor, 'd_sae k']</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="saev.visuals.TopKImg.top_values"><code class="name">var <span class="ident">top_values</span> : jaxtyping.Float[Tensor, 'd_sae k']</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+</dd>
+<dt id="saev.visuals.TopKPatch"><code class="flex name class">
+<span>class <span class="ident">TopKPatch</span></span>
+<span>(</span><span>top_values: jaxtyping.Float[Tensor, 'd_sae k n_patches_per_img'],<br>top_i: jaxtyping.Int[Tensor, 'd_sae k'],<br>mean_values: jaxtyping.Float[Tensor, 'd_sae'],<br>sparsity: jaxtyping.Float[Tensor, 'd_sae'])</span>
+</code></dt>
+<dd>
+<div class="desc"><div class="admonition todo">
+<p class="admonition-title">TODO</p>
+<p>Document this class.</p>
+</div></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@jaxtyped(typechecker=beartype.beartype)
+@dataclasses.dataclass(frozen=True)
+class TopKPatch:
+    &#34;.. todo:: Document this class.&#34;
+
+    top_values: Float[Tensor, &#34;d_sae k n_patches_per_img&#34;]
+    top_i: Int[Tensor, &#34;d_sae k&#34;]
+    mean_values: Float[Tensor, &#34; d_sae&#34;]
+    sparsity: Float[Tensor, &#34; d_sae&#34;]</code></pre>
+</details>
+<h3>Class variables</h3>
+<dl>
+<dt id="saev.visuals.TopKPatch.mean_values"><code class="name">var <span class="ident">mean_values</span> : jaxtyping.Float[Tensor, 'd_sae']</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="saev.visuals.TopKPatch.sparsity"><code class="name">var <span class="ident">sparsity</span> : jaxtyping.Float[Tensor, 'd_sae']</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="saev.visuals.TopKPatch.top_i"><code class="name">var <span class="ident">top_i</span> : jaxtyping.Int[Tensor, 'd_sae k']</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="saev.visuals.TopKPatch.top_values"><code class="name">var <span class="ident">top_values</span> : jaxtyping.Float[Tensor, 'd_sae k n_patches_per_img']</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+</dd>
 </dl>
 </section>
 </article>
@@ -221,7 +400,7 @@ class GridElement:
 </ul>
 </li>
 <li><h3><a href="#header-functions">Functions</a></h3>
-<ul class="two-column">
+<ul class="">
 <li><code><a title="saev.visuals.batched_idx" href="#saev.visuals.batched_idx">batched_idx</a></code></li>
 <li><code><a title="saev.visuals.dump_activations" href="#saev.visuals.dump_activations">dump_activations</a></code></li>
 <li><code><a title="saev.visuals.gather_batched" href="#saev.visuals.gather_batched">gather_batched</a></code></li>
@@ -231,7 +410,9 @@ class GridElement:
 <li><code><a title="saev.visuals.get_topk_patch" href="#saev.visuals.get_topk_patch">get_topk_patch</a></code></li>
 <li><code><a title="saev.visuals.main" href="#saev.visuals.main">main</a></code></li>
 <li><code><a title="saev.visuals.make_img" href="#saev.visuals.make_img">make_img</a></code></li>
+<li><code><a title="saev.visuals.plot_activation_distributions" href="#saev.visuals.plot_activation_distributions">plot_activation_distributions</a></code></li>
 <li><code><a title="saev.visuals.safe_load" href="#saev.visuals.safe_load">safe_load</a></code></li>
+<li><code><a title="saev.visuals.test_online_quantile_estimation" href="#saev.visuals.test_online_quantile_estimation">test_online_quantile_estimation</a></code></li>
 </ul>
 </li>
 <li><h3><a href="#header-classes">Classes</a></h3>
@@ -242,6 +423,33 @@ class GridElement:
 <li><code><a title="saev.visuals.GridElement.img" href="#saev.visuals.GridElement.img">img</a></code></li>
 <li><code><a title="saev.visuals.GridElement.label" href="#saev.visuals.GridElement.label">label</a></code></li>
 <li><code><a title="saev.visuals.GridElement.patches" href="#saev.visuals.GridElement.patches">patches</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="saev.visuals.PercentileEstimator" href="#saev.visuals.PercentileEstimator">PercentileEstimator</a></code></h4>
+<ul class="">
+<li><code><a title="saev.visuals.PercentileEstimator.estimate" href="#saev.visuals.PercentileEstimator.estimate">estimate</a></code></li>
+<li><code><a title="saev.visuals.PercentileEstimator.update" href="#saev.visuals.PercentileEstimator.update">update</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="saev.visuals.TopKImg" href="#saev.visuals.TopKImg">TopKImg</a></code></h4>
+<ul class="two-column">
+<li><code><a title="saev.visuals.TopKImg.distributions" href="#saev.visuals.TopKImg.distributions">distributions</a></code></li>
+<li><code><a title="saev.visuals.TopKImg.mean_values" href="#saev.visuals.TopKImg.mean_values">mean_values</a></code></li>
+<li><code><a title="saev.visuals.TopKImg.percentiles" href="#saev.visuals.TopKImg.percentiles">percentiles</a></code></li>
+<li><code><a title="saev.visuals.TopKImg.sparsity" href="#saev.visuals.TopKImg.sparsity">sparsity</a></code></li>
+<li><code><a title="saev.visuals.TopKImg.top_i" href="#saev.visuals.TopKImg.top_i">top_i</a></code></li>
+<li><code><a title="saev.visuals.TopKImg.top_values" href="#saev.visuals.TopKImg.top_values">top_values</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="saev.visuals.TopKPatch" href="#saev.visuals.TopKPatch">TopKPatch</a></code></h4>
+<ul class="">
+<li><code><a title="saev.visuals.TopKPatch.mean_values" href="#saev.visuals.TopKPatch.mean_values">mean_values</a></code></li>
+<li><code><a title="saev.visuals.TopKPatch.sparsity" href="#saev.visuals.TopKPatch.sparsity">sparsity</a></code></li>
+<li><code><a title="saev.visuals.TopKPatch.top_i" href="#saev.visuals.TopKPatch.top_i">top_i</a></code></li>
+<li><code><a title="saev.visuals.TopKPatch.top_values" href="#saev.visuals.TopKPatch.top_values">top_values</a></code></li>
 </ul>
 </li>
 </ul>

@@ -253,6 +253,10 @@ class Visuals:
     """Log10 frequency range for which to save images."""
     include_latents: list[int] = dataclasses.field(default_factory=list)
     """Latents to always include, no matter what."""
+    m: int = 25
+    """Number of features to save distributions for."""
+    percentile: int = 99
+    """Percentile to estimate for outlier detection."""
 
     @property
     def root(self) -> str:
@@ -277,6 +281,14 @@ class Visuals:
     @property
     def sparsity_fpath(self) -> str:
         return os.path.join(self.root, "sparsity.pt")
+
+    @property
+    def distributions_fpath(self) -> str:
+        return os.path.join(self.root, "distributions.pt")
+
+    @property
+    def percentiles_fpath(self) -> str:
+        return os.path.join(self.root, f"percentiles_p{self.percentile}.pt")
 
 
 ##########

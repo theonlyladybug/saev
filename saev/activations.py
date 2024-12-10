@@ -285,7 +285,7 @@ class Dataset(torch.utils.data.Dataset):
         """Individual example."""
 
         act: Float[Tensor, " d_vit"]
-        img_i: int
+        image_i: int
         patch_i: int
 
     cfg: config.DataLoad
@@ -378,28 +378,28 @@ class Dataset(torch.utils.data.Dataset):
                 img_act = self.get_img_patches(i)
                 # Select layer's cls token.
                 act = img_act[self.layer_index, 0, :]
-                return self.Example(act=self.transform(act), img_i=i, patch_i=-1)
+                return self.Example(act=self.transform(act), image_i=i, patch_i=-1)
             case ("cls", "meanpool"):
                 img_act = self.get_img_patches(i)
                 # Select cls tokens from across all layers
                 cls_act = img_act[:, 0, :]
                 # Meanpool over the layers
                 act = cls_act.mean(axis=0)
-                return self.Example(act=self.transform(act), img_i=i, patch_i=-1)
+                return self.Example(act=self.transform(act), image_i=i, patch_i=-1)
             case ("meanpool", int()):
                 img_act = self.get_img_patches(i)
                 # Select layer's patches.
                 layer_act = img_act[self.layer_index, 1:, :]
                 # Meanpool over the patches
                 act = layer_act.mean(axis=0)
-                return self.Example(act=self.transform(act), img_i=i, patch_i=-1)
+                return self.Example(act=self.transform(act), image_i=i, patch_i=-1)
             case ("meanpool", "meanpool"):
                 img_act = self.get_img_patches(i)
                 # Select all layer's patches.
                 act = img_act[:, 1:, :]
                 # Meanpool over the layers and patches
                 act = act.mean(axis=(0, 1))
-                return self.Example(act=self.transform(act), img_i=i, patch_i=-1)
+                return self.Example(act=self.transform(act), image_i=i, patch_i=-1)
             case ("patches", int()):
                 n_imgs_per_shard = (
                     self.metadata.n_patches_per_shard
@@ -432,7 +432,7 @@ class Dataset(torch.utils.data.Dataset):
                 return self.Example(
                     act=self.transform(act),
                     # What image is this?
-                    img_i=i // self.metadata.n_patches_per_img,
+                    image_i=i // self.metadata.n_patches_per_img,
                     patch_i=i % self.metadata.n_patches_per_img,
                 )
             case _:
