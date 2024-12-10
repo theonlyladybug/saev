@@ -17,6 +17,7 @@ class MaskedAutoencoder(torch.nn.Module):
     class Output(typing.TypedDict):
         latents: Float[Tensor, "batch n d"]
         decoded: Float[Tensor, "batch n d"]
+        ids_restore: Int[Tensor, "batch n"]
 
     def __init__(
         self,
@@ -64,7 +65,11 @@ class MaskedAutoencoder(torch.nn.Module):
         encoded = self.vit(x_B3WH, noise_BN=noise_BN)
         decoded_BND = self.decoder(encoded["x_BMD"], encoded["ids_restore_BN"])
 
-        return self.Output(latents=encoded["x_BMD"], decoded=decoded_BND)
+        return self.Output(
+            latents=encoded["x_BMD"],
+            decoded=decoded_BND,
+            ids_restore=encoded["ids_restore_BN"],
+        )
 
 
 configs = {
