@@ -62,6 +62,12 @@ hljs.highlightAll();
 <dd>
 <div class="desc"></div>
 </dd>
+<dt id="contrib.semseg.training.count_patches"><code class="name flex">
+<span>def <span class="ident">count_patches</span></span>(<span>ade20k: <a title="saev.config.Ade20kDataset" href="../../saev/config.html#saev.config.Ade20kDataset">Ade20kDataset</a>,<br>patch_size_px: tuple[int, int] = (14, 14),<br>threshold: float = 0.9,<br>n_workers: int = 8)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Count the number of patches in the data that meets</p></div>
+</dd>
 <dt id="contrib.semseg.training.dump"><code class="name flex">
 <span>def <span class="ident">dump</span></span>(<span>cfg: <a title="contrib.semseg.config.Train" href="config.html#contrib.semseg.config.Train">Train</a>,<br>model: torch.nn.modules.module.Module,<br>*,<br>step: int | None = None)</span>
 </code></dt>
@@ -178,7 +184,7 @@ class Dataset(torch.utils.data.Dataset):
         for j, k in enumerate(range(start, end)):
             act = self.acts[k]
             assert act[&#34;patch_i&#34;] == j
-            assert act[&#34;img_i&#34;] == i
+            assert act[&#34;image_i&#34;] == i
             acts.append(act[&#34;act&#34;])
 
         n_patch_w = int(math.sqrt(self.acts.metadata.n_patches_per_img))
@@ -245,6 +251,7 @@ def d_vit(self) -&gt; int:
 <li><code><a title="contrib.semseg.training.batched_idx" href="#contrib.semseg.training.batched_idx">batched_idx</a></code></li>
 <li><code><a title="contrib.semseg.training.batched_upsample_and_pred" href="#contrib.semseg.training.batched_upsample_and_pred">batched_upsample_and_pred</a></code></li>
 <li><code><a title="contrib.semseg.training.check_cfgs" href="#contrib.semseg.training.check_cfgs">check_cfgs</a></code></li>
+<li><code><a title="contrib.semseg.training.count_patches" href="#contrib.semseg.training.count_patches">count_patches</a></code></li>
 <li><code><a title="contrib.semseg.training.dump" href="#contrib.semseg.training.dump">dump</a></code></li>
 <li><code><a title="contrib.semseg.training.get_class_ious" href="#contrib.semseg.training.get_class_ious">get_class_ious</a></code></li>
 <li><code><a title="contrib.semseg.training.get_dataloader" href="#contrib.semseg.training.get_dataloader">get_dataloader</a></code></li>

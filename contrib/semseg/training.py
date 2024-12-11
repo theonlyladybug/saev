@@ -16,6 +16,7 @@ from torchvision.transforms import v2
 
 import saev.activations
 import saev.config
+import saev.helpers
 import saev.training
 
 from . import config
@@ -338,7 +339,7 @@ class Dataset(torch.utils.data.Dataset):
         for j, k in enumerate(range(start, end)):
             act = self.acts[k]
             assert act["patch_i"] == j
-            assert act["img_i"] == i
+            assert act["image_i"] == i
             acts.append(act["act"])
 
         n_patch_w = int(math.sqrt(self.acts.metadata.n_patches_per_img))
@@ -476,3 +477,62 @@ def batched_idx(
     for start in range(0, total_size, batch_size):
         stop = min(start + batch_size, total_size)
         yield start, stop
+
+
+@beartype.beartype
+def count_patches(
+    ade20k: saev.config.Ade20kDataset,
+    patch_size_px: tuple[int, int] = (14, 14),
+    threshold: float = 0.9,
+    n_workers: int = 8,
+):
+    """
+    Count the number of patches in the data that meets
+    """
+    torch.use_deterministic_algorithms(True)
+
+    pw, ph = patch_size_px
+    to_array = v2.Compose([
+        v2.Resize(256, interpolation=v2.InterpolationMode.NEAREST),
+        v2.CenterCrop((224, 224)),
+        v2.ToImage(),
+    ])
+    dataset = saev.activations.Ade20k(
+        ade20k, img_transform=to_array, seg_transform=to_array
+    )
+    dataloader = torch.utils.data.DataLoader(
+        dataset,
+        batch_size=1024,
+        num_workers=n_workers,
+        shuffle=False,
+    )
+    n_class_patches = torch.zeros((n_classes,), dtype=int)
+    for batch in saev.helpers.progress(dataloader):
+        pixel_labels = einops.rearrange(
+            batch["segmentation"],
+            "batch () (w pw) (h ph) -> batch w h (pw ph)",
+            pw=pw,
+            ph=ph,
+        )
+        patch_labels = pixel_labels.mode(axis=-1).values
+        matches = (
+            einops.reduce(
+                (pixel_labels == patch_labels[..., None]).float(),
+                "batch w h patch -> batch w h",
+                "mean",
+            )
+            > threshold
+        )
+        n_class_patches.scatter_add_(
+            0, patch_labels.view(-1).to(int), matches.view(-1).to(int)
+        )
+
+    print(
+        f"Mean: {n_class_patches.float().mean().item():.1f}, max: {n_class_patches.max().item()}, min: {n_class_patches.min().item()}"
+    )
+
+
+if __name__ == "__main__":
+    import tyro
+
+    tyro.cli(count_patches)

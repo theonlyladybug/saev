@@ -942,3 +942,47 @@ I need a complete to-do list of every single item that needs to be done from an 
 Because there are a lot of different things to do.
 
 Use [facebook/vit-mae-base](https://huggingface.co/facebook/vit-mae-base) as an MAE.
+
+# 12/09/2024
+
+Studying models again!
+
+| WandB ID | Model | Dataset | Shard Root |
+|---|---|---|---|
+| a1a0vucf | CLIP | iNat21/train-mini | 50149a5a12c7 (strawberry1) |
+| gpnn7x3p | BioCLIP | iNat21/train-mini | 07aed612e3f7 (strawberry1) |
+
+## a1a0vucf - CLIP + iNat21
+
+* `24K/2`: Generic moth wings
+* `24K/3`: Laptop
+* `24K/6`: Mottled bird wings (TRAIT)
+* `24K/24`: Moth thorax (top view only)
+* `24K/32`: Top view of mushroom heads
+* `24K/40`: Protective equipment (life vest, rubber gloves, etc)
+* `24K/61`: Open animal mouths (very general)
+* `24K/1848`: moth heads
+
+## gpnn7x3p - BioCLIP + iNat21
+
+* `24K/7`: All birds of order "Caprimulgiformes".
+* `24K/29`: all sort of "long" things, like spider legs, grasses, long leaves, etc.
+* `24K/417`: all spiny thigs, like furry caterpillars, or the underside of mushrooms.
+* `24K/449`: Moths from "Lepidoptera Geometridae".
+* `24K/451`: Moths from "Lepidoptera Pieridae"
+* `24K/459`: Legs of insects AND a fish?
+* `24K/468`: Bowls that humming birds are sitting on.
+* `24K/473`: Spottled neck of birds (TRAIT)
+* `24K/480`: Mammal ears (TRAIT)
+* `24K/504`: Squirrel tails (but also a bird head).
+* `24K/508`: Moth wings/bird feathers
+* `24K/518`: MOth wings with white stripe (TRAIT)
+* `24K/4465`: Plant stems (TRAIT)
+* `24K/4467`: Leaves of plants from family Asteraceae (+ mislabeld arachnid)
+* `24K/4468`: Purple (petals, insect body)
+* `24K/4509`: Leaf midribs (part of leaf)
+
+In general, for both of these checkpoints, the features do not tend to look very monosemantic.
+I would expect checkpoints with a higher sparsity contraint, and thus lower eval/L0, to be more monosemantic.
+Claude agrees.
+So we will try that.

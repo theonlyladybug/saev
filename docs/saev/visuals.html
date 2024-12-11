@@ -253,6 +253,9 @@ class PercentileEstimator:
 
         step_size = self.lr * (self.total - self._step) / self.total
 
+        # Is a no-op if it&#39;s already on the same device.
+        self._estimate = self._estimate.to(x.device)
+
         self._estimate += step_size * (
             torch.sign(x - self._estimate) + 2 * self.percentile / 100 - 1.0
         )

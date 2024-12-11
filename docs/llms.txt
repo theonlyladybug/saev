@@ -992,7 +992,7 @@ Classes
     `wandb_project: str`
     :   WandB project name.
 
-`Visuals(ckpt: str = './checkpoints/sae.pt', data: saev.config.DataLoad = <factory>, images: saev.config.ImagenetDataset | saev.config.ImageFolderDataset | saev.config.Ade20kDataset = <factory>, top_k: int = 128, n_workers: int = 16, topk_batch_size: int = 16384, sae_batch_size: int = 16384, epsilon: float = 1e-09, sort_by: Literal['cls', 'img', 'patch'] = 'patch', device: str = 'cuda', dump_to: str = './data', log_freq_range: tuple[float, float] = (-6.0, -2.0), log_value_range: tuple[float, float] = (-1.0, 1.0), include_latents: list[int] = <factory>)`
+`Visuals(ckpt: str = './checkpoints/sae.pt', data: saev.config.DataLoad = <factory>, images: saev.config.ImagenetDataset | saev.config.ImageFolderDataset | saev.config.Ade20kDataset = <factory>, top_k: int = 128, n_workers: int = 16, topk_batch_size: int = 16384, sae_batch_size: int = 16384, epsilon: float = 1e-09, sort_by: Literal['cls', 'img', 'patch'] = 'patch', device: str = 'cuda', dump_to: str = './data', log_freq_range: tuple[float, float] = (-6.0, -2.0), log_value_range: tuple[float, float] = (-1.0, 1.0), include_latents: list[int] = <factory>, m: int = 25, percentile: int = 99)`
 :   Configuration for generating visuals from trained SAEs.
 
     ### Class variables
@@ -1024,8 +1024,14 @@ Classes
     `log_value_range: tuple[float, float]`
     :   Log10 frequency range for which to save images.
 
+    `m: int`
+    :   Number of features to save distributions for.
+
     `n_workers: int`
     :   Number of dataloader workers.
+
+    `percentile: int`
+    :   Percentile to estimate for outlier detection.
 
     `sae_batch_size: int`
     :   Batch size for SAE inference.
@@ -1041,7 +1047,13 @@ Classes
 
     ### Instance variables
 
+    `distributions_fpath: str`
+    :
+
     `mean_values_fpath: str`
+    :
+
+    `percentiles_fpath: str`
     :
 
     `root: str`
@@ -1450,7 +1462,7 @@ Functions
         sae: Sparse autoencder.
         cfg: Experimental config.
 
-`get_topk_img(cfg: saev.config.Visuals) ‑> tuple[jaxtyping.Float[Tensor, 'd_sae k'], jaxtyping.Int[Tensor, 'd_sae k'], jaxtyping.Float[Tensor, 'd_sae'], jaxtyping.Float[Tensor, 'd_sae']]`
+`get_topk_img(cfg: saev.config.Visuals) ‑> saev.visuals.TopKImg`
 :   Gets the top k images for each latent in the SAE.
     The top k images are for latent i are sorted by
     
@@ -1463,9 +1475,9 @@ Functions
         cfg: Config.
     
     Returns:
-        .. todo:: Document this function.
+        A tuple of TopKImg and the first m features' activation distributions.
 
-`get_topk_patch(cfg: saev.config.Visuals) ‑> tuple[jaxtyping.Float[Tensor, 'd_sae k n_patches_per_img'], jaxtyping.Int[Tensor, 'd_sae k'], jaxtyping.Float[Tensor, 'd_sae'], jaxtyping.Float[Tensor, 'd_sae']]`
+`get_topk_patch(cfg: saev.config.Visuals) ‑> saev.visuals.TopKPatch`
 :   Gets the top k images for each latent in the SAE.
     The top k images are for latent i are sorted by
     
@@ -1477,7 +1489,7 @@ Functions
         cfg: Config.
     
     Returns:
-        .. todo:: Document this function.
+        A tuple of TopKPatch and m randomly sampled activation distributions.
 
 `main(cfg: saev.config.Visuals)`
 :   .. todo:: document this function.
@@ -1490,7 +1502,13 @@ Functions
 `make_img(elem: saev.visuals.GridElement, *, upper: float | None = None) ‑> PIL.Image.Image`
 :   
 
+`plot_activation_distributions(cfg: saev.config.Visuals, distributions: jaxtyping.Float[Tensor, 'm n'])`
+:   
+
 `safe_load(path: str) ‑> object`
+:   
+
+`test_online_quantile_estimation(true: float, percentile: float)`
 :   
 
 Classes
@@ -1508,6 +1526,65 @@ Classes
     :
 
     `patches: jaxtyping.Float[Tensor, 'n_patches']`
+    :
+
+`PercentileEstimator(percentile: float | int, total: int, lr: float = 0.001, shape: tuple[int, ...] = ())`
+:   
+
+    ### Instance variables
+
+    `estimate`
+    :
+
+    ### Methods
+
+    `update(self, x)`
+    :   Update the estimator with a new value.
+        
+        This method maintains the marker positions using the P2 algorithm rules.
+        When a new value arrives, it's placed in the appropriate position relative to existing markers, and marker positions are adjusted to maintain their desired percentile positions.
+        
+        Arguments:
+            x: The new value to incorporate into the estimation
+
+`TopKImg(top_values: jaxtyping.Float[Tensor, 'd_sae k'], top_i: jaxtyping.Int[Tensor, 'd_sae k'], mean_values: jaxtyping.Float[Tensor, 'd_sae'], sparsity: jaxtyping.Float[Tensor, 'd_sae'], distributions: jaxtyping.Float[Tensor, 'm n'], percentiles: jaxtyping.Float[Tensor, 'd_sae'])`
+:   .. todo:: Document this class.
+
+    ### Class variables
+
+    `distributions: jaxtyping.Float[Tensor, 'm n']`
+    :
+
+    `mean_values: jaxtyping.Float[Tensor, 'd_sae']`
+    :
+
+    `percentiles: jaxtyping.Float[Tensor, 'd_sae']`
+    :
+
+    `sparsity: jaxtyping.Float[Tensor, 'd_sae']`
+    :
+
+    `top_i: jaxtyping.Int[Tensor, 'd_sae k']`
+    :
+
+    `top_values: jaxtyping.Float[Tensor, 'd_sae k']`
+    :
+
+`TopKPatch(top_values: jaxtyping.Float[Tensor, 'd_sae k n_patches_per_img'], top_i: jaxtyping.Int[Tensor, 'd_sae k'], mean_values: jaxtyping.Float[Tensor, 'd_sae'], sparsity: jaxtyping.Float[Tensor, 'd_sae'])`
+:   .. todo:: Document this class.
+
+    ### Class variables
+
+    `mean_values: jaxtyping.Float[Tensor, 'd_sae']`
+    :
+
+    `sparsity: jaxtyping.Float[Tensor, 'd_sae']`
+    :
+
+    `top_i: jaxtyping.Int[Tensor, 'd_sae k']`
+    :
+
+    `top_values: jaxtyping.Float[Tensor, 'd_sae k n_patches_per_img']`
     :
 
 Namespace contrib
@@ -1654,6 +1731,7 @@ Sub-modules
 * contrib.classification.download_caltech101
 * contrib.classification.download_flowers
 * contrib.classification.interactive
+* contrib.classification.plot_logits
 * contrib.classification.training
 
 Module contrib.classification.config
@@ -1777,6 +1855,44 @@ Classes
 Module contrib.classification.interactive
 =========================================
 
+Module contrib.classification.plot_logits
+=========================================
+Generates plots demonstrating SAE feature specificity in image classification.
+
+This module creates visualizations showing how different feature interventions affect class logits in a controlled manner.
+It plots the relationship between intervention magnitudes and their effects on class predictions, demonstrating that features are semantically meaningful and independent.
+
+The main plotting function generates a three-panel figure:
+- Left panel: Effect of feature A intervention on classes A, B and C
+- Middle panel: Effect of feature B intervention on classes A, B and C
+- Right panel: Effect of feature C intervention on classes A, B and C
+
+Classes
+-------
+
+`Config(magnitude_range: tuple[float, float] = (-10.0, 10.0), n_points: int = 50, figsize: tuple[float, float] = (18.0, 5.0), class_colors: dict[str, str] = <factory>, show_confidence: bool = True, dpi: int = 300)`
+:   Config(magnitude_range: tuple[float, float] = (-10.0, 10.0), n_points: int = 50, figsize: tuple[float, float] = (18.0, 5.0), class_colors: dict[str, str] = <factory>, show_confidence: bool = True, dpi: int = 300)
+
+    ### Class variables
+
+    `class_colors: dict[str, str]`
+    :   Color mapping for different classes. Uses hex color codes for consistency across plotting backends.
+
+    `dpi: int`
+    :   Dots per inch for saved figures. Higher values create larger files but better resolution.
+
+    `figsize: tuple[float, float]`
+    :   Figure dimensions in inches (width, height). Default size is optimized for a three-panel figure.
+
+    `magnitude_range: tuple[float, float]`
+    :   Range for intervention magnitudes, from minimum to maximum value. Usually kept within [-10, 10] following Anthropic's work. Values outside this range may create artifacts.
+
+    `n_points: int`
+    :   Number of evenly spaced points to sample within magnitude range. Higher values create smoother plots but increase computation time.
+
+    `show_confidence: bool`
+    :   Whether to show confidence intervals around trend lines.
+
 Module contrib.classification.training
 ======================================
 Train a linear probe on [CLS] activations from a ViT.
@@ -1849,6 +1965,7 @@ Module contrib.mae
 
 Sub-modules
 -----------
+* contrib.mae.example
 * contrib.mae.modeling
 
 Functions
@@ -1857,6 +1974,9 @@ Functions
 `load_ckpt(ckpt: str, *, chunk_size_kb: int = 1024) ‑> contrib.mae.modeling.MaskedAutoencoder`
 :   Loads a pre-trained MAE ViT from disk.
     If it's not on disk, downloads the checkpoint from huggingface and then loads it into the `MaskedAutoencoder` class.
+
+Module contrib.mae.example
+==========================
 
 Module contrib.mae.modeling
 ===========================
@@ -2589,6 +2709,9 @@ Functions
 
 `check_cfgs(cfgs: list[contrib.semseg.config.Train])`
 :   
+
+`count_patches(ade20k: saev.config.Ade20kDataset, patch_size_px: tuple[int, int] = (14, 14), threshold: float = 0.9, n_workers: int = 8)`
+:   Count the number of patches in the data that meets
 
 `dump(cfg: contrib.semseg.config.Train, model: torch.nn.modules.module.Module, *, step: int | None = None)`
 :   Save a model checkpoint to disk along with configuration, using the [trick from equinox](https://docs.kidger.site/equinox/examples/serialisation).

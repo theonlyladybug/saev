@@ -1,6 +1,10 @@
 # To Do
 
+A list of everything I need to do for a release.
+
 ## Code
+
+* [ ] Guh
 
 ## Preprint
 
@@ -30,7 +34,7 @@ All of these are just "draft" status.
 
 * [ ] Introduction
 * [ ] Background & Related Work
-* [ ] Method
+* [ ] Methodology
 * [ ] Experimental Results
 * [ ] Discussion
 
@@ -47,7 +51,7 @@ All of these are just "draft" status.
 
 ## Experiments - Understanding BioCLIP vs CLIP
 
-* [ ] Compute iNat21 train-mini activations for BioCLIP ViT-B/16
+* [x] Compute iNat21 train-mini activations for BioCLIP ViT-B/16
 * [x] Compute iNat21 train-mini activations for CLIP ViT-B/16
 * [ ] Train SAE on patch-level activations of iNat21 train-mini from BioCLIP ViT-B/14
 * [ ] Train SAE on patch-level activations of iNat21 train-mini from CLIP ViT-B/16
@@ -62,21 +66,25 @@ All of these are just "draft" status.
 * [x] Compute Caltech-101 train activations for CLIP ViT-B/16
 * [x] Compute Caltech-101 test activations for CLIP ViT-B/16
 * [x] Train linear probe for Caltech-101 classification
+* [x] Calculate 99th percentile of feature activation for each feature.
 * [x] Develop interactive Marimo dashboard
 * [x] Find something neat.
+* [ ] Calculate logit relationship
 
 ## Experiments - Image Segmentation Control
 
-* [x] Train SAE on patch-level activations of ImageNet-1K train from DINOv2 ViT-B/14
+* [ ] Train SAE on patch-level activations of ImageNet-1K train from DINOv2 ViT-B/14
 * [x] Compute ADE20K train activations for DINOv2 ViT-B/14
 * [x] Compute ADE20K validation activations for DINOv2 ViT-B/14
-* [ ] Train linear probe for ADE20K semantic segmentation
+* [x] Train linear probe for ADE20K semantic segmentation (`checkpoints/contrib/semseg/lr_0_001__wd_0_001/model_step8000.pt`)
+* [ ] What percentage of patches meet the 90% threshold?
 * [ ] Develop interactive Marimo dashboard
 * [ ] Find something neat.
+* [ ] Quantitative results
 
 ## Experiments - Image Generation Control
 
-* [ ] Compute ImageNet-1K train activations for MAE ViT-B/16 
+* [x] Compute ImageNet-1K train activations for MAE ViT-B/16 
 * [ ] Train SAE on patch-level activations of ImageNet-1K train from MAE ViT-B/16
 * [ ] Develop interactive Marimo dashboard
 * [ ] Find something neat.
@@ -87,4 +95,5 @@ All of these are just "draft" status.
 * [ ] Train SAE on patch-level activations of ImageNet-1K train from Moondream's vision encoder 
 * [ ] Develop interactive Marimo dashboard
 * [ ] Find something neat.
+
 

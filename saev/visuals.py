@@ -183,7 +183,9 @@ def get_topk_img(cfg: config.Visuals) -> TopKImg:
 
     distributions_MN = torch.zeros((cfg.m, len(dataset)), device="cpu")
 
-    estimator = PercentileEstimator(cfg.percentile, len(dataset))
+    estimator = PercentileEstimator(
+        cfg.percentile, len(dataset), shape=(sae.cfg.d_sae,)
+    )
 
     dataloader = torch.utils.data.DataLoader(
         dataset,
@@ -219,10 +221,13 @@ def get_topk_img(cfg: config.Visuals) -> TopKImg:
     mean_values_S /= sparsity_S
     sparsity_S /= len(dataset)
 
-    breakpoint()
-
     return TopKImg(
-        top_values_im_SK, top_i_im_SK, mean_values_S, sparsity_S, distributions_MN
+        top_values_im_SK,
+        top_i_im_SK,
+        mean_values_S,
+        sparsity_S,
+        distributions_MN,
+        estimator.estimate.cpu(),
     )
 
 
@@ -525,6 +530,9 @@ class PercentileEstimator:
         self._step += 1
 
         step_size = self.lr * (self.total - self._step) / self.total
+
+        # Is a no-op if it's already on the same device.
+        self._estimate = self._estimate.to(x.device)
 
         self._estimate += step_size * (
             torch.sign(x - self._estimate) + 2 * self.percentile / 100 - 1.0
