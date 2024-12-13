@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
 <meta name="generator" content="pdoc3 0.11.3">
-<title>contrib.semseg API documentation</title>
-<meta name="description" content="You can reproduce our semantic segmentation control experiments from our preprint by following these instructions …">
+<title>contrib.semseg.interactive API documentation</title>
+<meta name="description" content="">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/sanitize.min.css" integrity="sha512-y1dtMcuvtTMJc1yPgEqF0ZjQbhnc/bFhyvIyVNb9Zk5mIGtqVaAB1Ttl28su8AvFMOY0EwRbAe+HCLqj6W7/KA==" crossorigin>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/typography.min.css" integrity="sha512-Y1DYSb995BAfxobCkKepB1BqJJTPrOp3zPL74AWFugHHmmdcvO+C48WLrUOlhGMc0QG7AE3f7gmvvcrmX2fDoA==" crossorigin>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css" crossorigin>
@@ -24,83 +24,11 @@ hljs.highlightAll();
 <main>
 <article id="content">
 <header>
-<h1 class="title">Module <code>contrib.semseg</code></h1>
+<h1 class="title">Module <code>contrib.semseg.interactive</code></h1>
 </header>
 <section id="section-intro">
-<p>You can reproduce our semantic segmentation control experiments from our preprint by following these instructions.</p>
-<p>As an overview:</p>
-<ol>
-<li>Record ViT activations for ADE20K.</li>
-<li>Train an SAE on activations.</li>
-<li>Train a linear probe on semantic segmentation task using ADE20K.</li>
-<li>Establish baseline metrics for the linear probe.</li>
-<li>Automatically identify feature vectors in the SAE's <span><span class="MathJax_Preview">W_dec</span><script type="math/tex">W_dec</script></span> matrix for each class in ADE20K.</li>
-<li>Suppress those features in the vision transformer's activations before applying the linear probe.</li>
-<li>Record class-specific metrics before and after suppression.</li>
-</ol>
-<p>Details can be found below.</p>
-<h1 id="record-vit-activations-for-sae-and-linear-probe-training">Record ViT Activations for SAE and Linear Probe Training</h1>
-<h1 id="train-an-sae-on-vit-activations">Train an SAE on ViT Activations</h1>
-<h1 id="train-a-linear-probe-on-semantic-segmentation">Train a Linear Probe on Semantic Segmentation</h1>
-<p>Now train a linear probe on the activations.</p>
-<pre><code class="language-sh">uv run python -m contrib.semseg train \
-  --train-acts.shard-root /local/scratch/$USER/cache/saev/a860104bf29d6093dd18b8e2dccd2e7efdfcd9fac35dceb932795af05187cb9f/ \
-  --val-acts.shard-root /local/scratch/$USER/cache/saev/c6756186d1490ac69fab6f8efb883a1c59d44d0594d99397051bfe8e409ca91d/ \
-  --imgs.root /nfs/$USER/datasets/ade20k/ \
-  --sweep contrib/semseg/sweep.toml
-</code></pre>
-<h1 id="establish-linear-probe-baseline-metrics">Establish Linear Probe Baseline Metrics</h1>
-<pre><code class="language-sh">uv run python -m contrib.semseg validate \
-  --imgs.root /nfs/$USER/datasets/ade20k/ \
-  --acts.shard-root /local/scratch/$USER/cache/saev/51cf4f907e562213fff9cc094b0b5259e546f1f9f72633a725888e15f798bc30/
-</code></pre>
-<p>Then you can look in <code>./logs/contrib/semseg</code> for <code>hparam-sweeps.png</code> to see what learning rate/weight decay combination is best.</p>
-<h1 id="identify-class-specific-feature-vectors-in-the-sae">Identify Class-Specific Feature Vectors in the SAE</h1>
-<p>Given that you have an SAE trained on the DINOv2 ImageNet-1K training data</p>
-<pre><code class="language-sh">uv run python -m contrib.semseg visuals \
-  --sae-ckpt checkpoints/ercgckr1/sae.pt \
-  --acts.shard-root /local/scratch/$USER/cache/saev/a860104bf29d6093dd18b8e2dccd2e7efdfcd9fac35dceb932795af05187cb9f \
-  --imgs.root /nfs/$USER/datasets/ade20k
-</code></pre>
-<p>This will tell you to run a particular command in order to generate visuals for use with <code><a title="saev.interactive.features" href="../../saev/interactive/features.html">saev.interactive.features</a></code>.</p>
 </section>
 <section>
-<h2 class="section-title" id="header-submodules">Sub-modules</h2>
-<dl>
-<dt><code class="name"><a title="contrib.semseg.config" href="config.html">contrib.semseg.config</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt><code class="name"><a title="contrib.semseg.dashboard" href="dashboard.html">contrib.semseg.dashboard</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt><code class="name"><a title="contrib.semseg.dashboard2" href="dashboard2.html">contrib.semseg.dashboard2</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt><code class="name"><a title="contrib.semseg.interactive" href="interactive.html">contrib.semseg.interactive</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt><code class="name"><a title="contrib.semseg.manipulation" href="manipulation.html">contrib.semseg.manipulation</a></code></dt>
-<dd>
-<div class="desc"><p>Manipulate representations by increasing or decreasing the presence of a feature in a ViT activation, then use the linear probe for inference …</p></div>
-</dd>
-<dt><code class="name"><a title="contrib.semseg.training" href="training.html">contrib.semseg.training</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt><code class="name"><a title="contrib.semseg.validation" href="validation.html">contrib.semseg.validation</a></code></dt>
-<dd>
-<div class="desc"><p>Make some predictions for a bunch of checkpoints.
-See which checkpoints have the best validation loss, mean IoU, class-specific IoU, validation …</p></div>
-</dd>
-<dt><code class="name"><a title="contrib.semseg.visuals" href="visuals.html">contrib.semseg.visuals</a></code></dt>
-<dd>
-<div class="desc"><p>Propose features for manual verification.</p></div>
-</dd>
-</dl>
 </section>
 <section>
 </section>
@@ -111,30 +39,12 @@ See which checkpoints have the best validation loss, mean IoU, class-specific Io
 </article>
 <nav id="sidebar">
 <div class="toc">
-<ul>
-<li><a href="#record-vit-activations-for-sae-and-linear-probe-training">Record ViT Activations for SAE and Linear Probe Training</a></li>
-<li><a href="#train-an-sae-on-vit-activations">Train an SAE on ViT Activations</a></li>
-<li><a href="#train-a-linear-probe-on-semantic-segmentation">Train a Linear Probe on Semantic Segmentation</a></li>
-<li><a href="#establish-linear-probe-baseline-metrics">Establish Linear Probe Baseline Metrics</a></li>
-<li><a href="#identify-class-specific-feature-vectors-in-the-sae">Identify Class-Specific Feature Vectors in the SAE</a></li>
-</ul>
+<ul></ul>
 </div>
 <ul id="index">
 <li><h3>Super-module</h3>
 <ul>
-<li><code><a title="contrib" href="../index.html">contrib</a></code></li>
-</ul>
-</li>
-<li><h3><a href="#header-submodules">Sub-modules</a></h3>
-<ul>
-<li><code><a title="contrib.semseg.config" href="config.html">contrib.semseg.config</a></code></li>
-<li><code><a title="contrib.semseg.dashboard" href="dashboard.html">contrib.semseg.dashboard</a></code></li>
-<li><code><a title="contrib.semseg.dashboard2" href="dashboard2.html">contrib.semseg.dashboard2</a></code></li>
-<li><code><a title="contrib.semseg.interactive" href="interactive.html">contrib.semseg.interactive</a></code></li>
-<li><code><a title="contrib.semseg.manipulation" href="manipulation.html">contrib.semseg.manipulation</a></code></li>
-<li><code><a title="contrib.semseg.training" href="training.html">contrib.semseg.training</a></code></li>
-<li><code><a title="contrib.semseg.validation" href="validation.html">contrib.semseg.validation</a></code></li>
-<li><code><a title="contrib.semseg.visuals" href="visuals.html">contrib.semseg.visuals</a></code></li>
+<li><code><a title="contrib.semseg" href="index.html">contrib.semseg</a></code></li>
 </ul>
 </li>
 </ul>

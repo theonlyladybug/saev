@@ -10,6 +10,7 @@ import logging
 import math
 import os
 import pickle
+import random
 import typing
 
 import beartype
@@ -181,8 +182,7 @@ def get_topk_img(cfg: config.Visuals) -> TopKImg:
     sparsity_S = torch.zeros((sae.cfg.d_sae,), device=cfg.device)
     mean_values_S = torch.zeros((sae.cfg.d_sae,), device=cfg.device)
 
-    distributions_MN = torch.zeros((cfg.m, len(dataset)), device="cpu")
-
+    distributions_MN = torch.zeros((cfg.n_distributions, len(dataset)), device="cpu")
     estimator = PercentileEstimator(
         cfg.percentile, len(dataset), shape=(sae.cfg.d_sae,)
     )
@@ -205,7 +205,9 @@ def get_topk_img(cfg: config.Visuals) -> TopKImg:
             estimator.update(sae_act_S)
 
         sae_acts_SB = einops.rearrange(sae_acts_BS, "batch d_sae -> d_sae batch")
-        distributions_MN[:, batch["image_i"]] = sae_acts_SB[: cfg.m].to("cpu")
+        distributions_MN[:, batch["image_i"]] = sae_acts_SB[: cfg.n_distributions].to(
+            "cpu"
+        )
 
         mean_values_S += einops.reduce(sae_acts_SB, "d_sae batch -> d_sae", "sum")
         sparsity_S += einops.reduce((sae_acts_SB > 0), "d_sae batch -> d_sae", "sum")
@@ -240,6 +242,8 @@ class TopKPatch:
     top_i: Int[Tensor, "d_sae k"]
     mean_values: Float[Tensor, " d_sae"]
     sparsity: Float[Tensor, " d_sae"]
+    distributions: Float[Tensor, "m n"]
+    percentiles: Float[Tensor, " d_sae"]
 
 
 @beartype.beartype
@@ -274,8 +278,13 @@ def get_topk_patch(cfg: config.Visuals) -> TopKPatch:
         (sae.cfg.d_sae, cfg.top_k), dtype=torch.int, device=cfg.device
     )
 
-    sparsity = torch.zeros((sae.cfg.d_sae,), device=cfg.device)
-    mean_values = torch.zeros((sae.cfg.d_sae,), device=cfg.device)
+    sparsity_S = torch.zeros((sae.cfg.d_sae,), device=cfg.device)
+    mean_values_S = torch.zeros((sae.cfg.d_sae,), device=cfg.device)
+
+    distributions_MN = torch.zeros((cfg.n_distributions, len(dataset)), device="cpu")
+    estimator = PercentileEstimator(
+        cfg.percentile, len(dataset), shape=(sae.cfg.d_sae,)
+    )
 
     batch_size = (
         cfg.topk_batch_size
@@ -296,12 +305,22 @@ def get_topk_patch(cfg: config.Visuals) -> TopKPatch:
     logger.info("Loaded SAE and data.")
 
     for batch in helpers.progress(dataloader, desc="picking top-k"):
-        sae_acts = get_sae_acts(batch["act"], sae, cfg).transpose(0, 1)
-        mean_values += sae_acts.sum(dim=1)
-        sparsity += (sae_acts > 0).sum(dim=1)
+        vit_acts_BD = batch["act"]
+        sae_acts_BS = get_sae_acts(vit_acts_BD, sae, cfg)
+
+        for sae_act_S in sae_acts_BS:
+            estimator.update(sae_act_S)
+
+        sae_acts_SB = einops.rearrange(sae_acts_BS, "batch d_sae -> d_sae batch")
+        distributions_MN[:, batch["image_i"]] = sae_acts_SB[: cfg.n_distributions].to(
+            "cpu"
+        )
+
+        mean_values_S += einops.reduce(sae_acts_SB, "d_sae batch -> d_sae", "sum")
+        sparsity_S += einops.reduce((sae_acts_SB > 0), "d_sae batch -> d_sae", "sum")
 
         i_im = torch.sort(torch.unique(batch["image_i"])).values
-        values_p = sae_acts.view(
+        values_p = sae_acts_SB.view(
             sae.cfg.d_sae, len(i_im), dataset.metadata.n_patches_per_img
         )
 
@@ -309,7 +328,7 @@ def get_topk_patch(cfg: config.Visuals) -> TopKPatch:
         assert values_p.shape[1] == i_im.shape[0]
         assert len(i_im) == n_imgs_per_batch
 
-        _, k = torch.topk(sae_acts, k=cfg.top_k, dim=1)
+        _, k = torch.topk(sae_acts_SB, k=cfg.top_k, dim=1)
         k_im = k // dataset.metadata.n_patches_per_img
 
         values_p = gather_batched(values_p, k_im)
@@ -321,10 +340,17 @@ def get_topk_patch(cfg: config.Visuals) -> TopKPatch:
         top_values_p = gather_batched(all_values_p, k)
         top_i_im = torch.gather(torch.cat((top_i_im, i_im), axis=1), 1, k)
 
-    mean_values /= sparsity
-    sparsity /= len(dataset)
+    mean_values_S /= sparsity_S
+    sparsity_S /= len(dataset)
 
-    return TopKPatch(top_values_p, top_i_im, mean_values, sparsity)
+    return TopKPatch(
+        top_values_p,
+        top_i_im,
+        mean_values_S,
+        sparsity_S,
+        distributions_MN,
+        estimator.estimate.cpu(),
+    )
 
 
 @beartype.beartype
@@ -379,6 +405,10 @@ def plot_activation_distributions(
         vals = np.log10(dist[dist > 0].numpy())
 
         ax.hist(vals, bins=bins)
+
+        if vals.size == 0:
+            continue
+
         for i, (percentile, color) in enumerate(
             zip(np.percentile(vals, percentiles), colors)
         ):
@@ -456,9 +486,13 @@ def main(cfg: config.Visuals):
         & (torch.log10(mean_values) < max_log_value)
     )
 
-    neuron_i = cfg.include_latents + torch.arange(d_sae)[mask.cpu()].tolist()
+    neurons = cfg.include_latents
+    random_neurons = torch.arange(d_sae)[mask.cpu()].tolist()
+    random.seed(random_neurons)
+    random.shuffle(random_neurons)
+    neurons += random_neurons[: cfg.n_latest]
 
-    for i in helpers.progress(neuron_i, desc="saving visuals"):
+    for i in helpers.progress(neurons, desc="saving visuals"):
         neuron_dir = os.path.join(cfg.root, "neurons", str(i))
         os.makedirs(neuron_dir, exist_ok=True)
 
@@ -485,10 +519,10 @@ def main(cfg: config.Visuals):
         if top_values[i].numel() > 0:
             upper = top_values[i].max().item()
 
-        for i, elem in enumerate(elems):
+        for j, elem in enumerate(elems):
             img = make_img(elem, upper=upper)
-            img.save(os.path.join(neuron_dir, f"{i}.png"))
-            with open(os.path.join(neuron_dir, f"{i}.txt"), "w") as fd:
+            img.save(os.path.join(neuron_dir, f"{j}.png"))
+            with open(os.path.join(neuron_dir, f"{j}.txt"), "w") as fd:
                 fd.write(elem.label + "\n")
 
         # Metadata

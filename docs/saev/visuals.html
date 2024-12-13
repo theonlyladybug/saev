@@ -348,7 +348,7 @@ class TopKImg:
 </dd>
 <dt id="saev.visuals.TopKPatch"><code class="flex name class">
 <span>class <span class="ident">TopKPatch</span></span>
-<span>(</span><span>top_values: jaxtyping.Float[Tensor, 'd_sae k n_patches_per_img'],<br>top_i: jaxtyping.Int[Tensor, 'd_sae k'],<br>mean_values: jaxtyping.Float[Tensor, 'd_sae'],<br>sparsity: jaxtyping.Float[Tensor, 'd_sae'])</span>
+<span>(</span><span>top_values: jaxtyping.Float[Tensor, 'd_sae k n_patches_per_img'],<br>top_i: jaxtyping.Int[Tensor, 'd_sae k'],<br>mean_values: jaxtyping.Float[Tensor, 'd_sae'],<br>sparsity: jaxtyping.Float[Tensor, 'd_sae'],<br>distributions: jaxtyping.Float[Tensor, 'm n'],<br>percentiles: jaxtyping.Float[Tensor, 'd_sae'])</span>
 </code></dt>
 <dd>
 <div class="desc"><div class="admonition todo">
@@ -367,11 +367,21 @@ class TopKPatch:
     top_values: Float[Tensor, &#34;d_sae k n_patches_per_img&#34;]
     top_i: Int[Tensor, &#34;d_sae k&#34;]
     mean_values: Float[Tensor, &#34; d_sae&#34;]
-    sparsity: Float[Tensor, &#34; d_sae&#34;]</code></pre>
+    sparsity: Float[Tensor, &#34; d_sae&#34;]
+    distributions: Float[Tensor, &#34;m n&#34;]
+    percentiles: Float[Tensor, &#34; d_sae&#34;]</code></pre>
 </details>
 <h3>Class variables</h3>
 <dl>
+<dt id="saev.visuals.TopKPatch.distributions"><code class="name">var <span class="ident">distributions</span> : jaxtyping.Float[Tensor, 'm n']</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
 <dt id="saev.visuals.TopKPatch.mean_values"><code class="name">var <span class="ident">mean_values</span> : jaxtyping.Float[Tensor, 'd_sae']</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="saev.visuals.TopKPatch.percentiles"><code class="name">var <span class="ident">percentiles</span> : jaxtyping.Float[Tensor, 'd_sae']</code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
@@ -448,8 +458,10 @@ class TopKPatch:
 </li>
 <li>
 <h4><code><a title="saev.visuals.TopKPatch" href="#saev.visuals.TopKPatch">TopKPatch</a></code></h4>
-<ul class="">
+<ul class="two-column">
+<li><code><a title="saev.visuals.TopKPatch.distributions" href="#saev.visuals.TopKPatch.distributions">distributions</a></code></li>
 <li><code><a title="saev.visuals.TopKPatch.mean_values" href="#saev.visuals.TopKPatch.mean_values">mean_values</a></code></li>
+<li><code><a title="saev.visuals.TopKPatch.percentiles" href="#saev.visuals.TopKPatch.percentiles">percentiles</a></code></li>
 <li><code><a title="saev.visuals.TopKPatch.sparsity" href="#saev.visuals.TopKPatch.sparsity">sparsity</a></code></li>
 <li><code><a title="saev.visuals.TopKPatch.top_i" href="#saev.visuals.TopKPatch.top_i">top_i</a></code></li>
 <li><code><a title="saev.visuals.TopKPatch.top_values" href="#saev.visuals.TopKPatch.top_values">top_values</a></code></li>

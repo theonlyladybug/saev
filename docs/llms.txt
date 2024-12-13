@@ -992,7 +992,7 @@ Classes
     `wandb_project: str`
     :   WandB project name.
 
-`Visuals(ckpt: str = './checkpoints/sae.pt', data: saev.config.DataLoad = <factory>, images: saev.config.ImagenetDataset | saev.config.ImageFolderDataset | saev.config.Ade20kDataset = <factory>, top_k: int = 128, n_workers: int = 16, topk_batch_size: int = 16384, sae_batch_size: int = 16384, epsilon: float = 1e-09, sort_by: Literal['cls', 'img', 'patch'] = 'patch', device: str = 'cuda', dump_to: str = './data', log_freq_range: tuple[float, float] = (-6.0, -2.0), log_value_range: tuple[float, float] = (-1.0, 1.0), include_latents: list[int] = <factory>, m: int = 25, percentile: int = 99)`
+`Visuals(ckpt: str = './checkpoints/sae.pt', data: saev.config.DataLoad = <factory>, images: saev.config.ImagenetDataset | saev.config.ImageFolderDataset | saev.config.Ade20kDataset = <factory>, top_k: int = 128, n_workers: int = 16, topk_batch_size: int = 16384, sae_batch_size: int = 16384, epsilon: float = 1e-09, sort_by: Literal['cls', 'img', 'patch'] = 'patch', device: str = 'cuda', dump_to: str = './data', log_freq_range: tuple[float, float] = (-6.0, -2.0), log_value_range: tuple[float, float] = (-1.0, 1.0), include_latents: list[int] = <factory>, n_distributions: int = 25, percentile: int = 99, n_latents: int = 400, seed: int = 42)`
 :   Configuration for generating visuals from trained SAEs.
 
     ### Class variables
@@ -1024,8 +1024,11 @@ Classes
     `log_value_range: tuple[float, float]`
     :   Log10 frequency range for which to save images.
 
-    `m: int`
+    `n_distributions: int`
     :   Number of features to save distributions for.
+
+    `n_latents: int`
+    :   Maximum number of latents to save images for.
 
     `n_workers: int`
     :   Number of dataloader workers.
@@ -1035,6 +1038,9 @@ Classes
 
     `sae_batch_size: int`
     :   Batch size for SAE inference.
+
+    `seed: int`
+    :   Random seed.
 
     `sort_by: Literal['cls', 'img', 'patch']`
     :   How to find the top k images. 'cls' picks images where the SAE latents of the ViT's [CLS] token are maximized without any patch highligting. 'img' picks images that maximize the sum of an SAE latent over all patches in the image, highlighting the patches. 'patch' pickes images that maximize an SAE latent over all patches (not summed), highlighting the patches and only showing unique images.
@@ -1570,12 +1576,18 @@ Classes
     `top_values: jaxtyping.Float[Tensor, 'd_sae k']`
     :
 
-`TopKPatch(top_values: jaxtyping.Float[Tensor, 'd_sae k n_patches_per_img'], top_i: jaxtyping.Int[Tensor, 'd_sae k'], mean_values: jaxtyping.Float[Tensor, 'd_sae'], sparsity: jaxtyping.Float[Tensor, 'd_sae'])`
+`TopKPatch(top_values: jaxtyping.Float[Tensor, 'd_sae k n_patches_per_img'], top_i: jaxtyping.Int[Tensor, 'd_sae k'], mean_values: jaxtyping.Float[Tensor, 'd_sae'], sparsity: jaxtyping.Float[Tensor, 'd_sae'], distributions: jaxtyping.Float[Tensor, 'm n'], percentiles: jaxtyping.Float[Tensor, 'd_sae'])`
 :   .. todo:: Document this class.
 
     ### Class variables
 
+    `distributions: jaxtyping.Float[Tensor, 'm n']`
+    :
+
     `mean_values: jaxtyping.Float[Tensor, 'd_sae']`
+    :
+
+    `percentiles: jaxtyping.Float[Tensor, 'd_sae']`
     :
 
     `sparsity: jaxtyping.Float[Tensor, 'd_sae']`
@@ -2663,15 +2675,8 @@ Module contrib.semseg.dashboard
 Module contrib.semseg.dashboard2
 ================================
 
-Namespace contrib.semseg.interactive
-====================================
-
-Sub-modules
------------
-* contrib.semseg.interactive.feature_analysis
-
-Module contrib.semseg.interactive.feature_analysis
-==================================================
+Module contrib.semseg.interactive
+=================================
 
 Module contrib.semseg.manipulation
 ==================================

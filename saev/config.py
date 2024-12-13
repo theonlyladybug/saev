@@ -253,10 +253,14 @@ class Visuals:
     """Log10 frequency range for which to save images."""
     include_latents: list[int] = dataclasses.field(default_factory=list)
     """Latents to always include, no matter what."""
-    m: int = 25
+    n_distributions: int = 25
     """Number of features to save distributions for."""
     percentile: int = 99
     """Percentile to estimate for outlier detection."""
+    n_latents: int = 400
+    """Maximum number of latents to save images for."""
+    seed: int = 42
+    """Random seed."""
 
     @property
     def root(self) -> str:

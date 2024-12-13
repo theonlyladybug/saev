@@ -77,7 +77,7 @@ All of these are just "draft" status.
 * [x] Compute ADE20K train activations for DINOv2 ViT-B/14
 * [x] Compute ADE20K validation activations for DINOv2 ViT-B/14
 * [x] Train linear probe for ADE20K semantic segmentation (`checkpoints/contrib/semseg/lr_0_001__wd_0_001/model_step8000.pt`)
-* [ ] What percentage of patches meet the 90% threshold?
+* [x] What percentage of patches meet the 90% threshold?
 * [ ] Develop interactive Marimo dashboard
 * [ ] Find something neat.
 * [ ] Quantitative results
