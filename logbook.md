@@ -963,6 +963,9 @@ Studying models again!
 * `24K/61`: Open animal mouths (very general)
 * `24K/1848`: moth heads
 
+## rscsjxgd - CLIP + iNat21
+
+
 ## gpnn7x3p - BioCLIP + iNat21
 
 * `24K/7`: All birds of order "Caprimulgiformes".

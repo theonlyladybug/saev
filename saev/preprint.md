@@ -4,18 +4,23 @@ I'm writing a submission to ICML. The premise is that we apply sparse autoencode
 
 ## Outline
 
+We're trying to (informally) explain our position with the following metaphor:
+
+Scientific method: observation -> hypothesis -> experiment
+Interpretability methods: model behavior -> proposed explanation → ?
+SAEs complete the cycle: model behavior -> proposed explanation -> feature intervention
+
 1. Introduction
     1.1. Understanding requires intervention - we must test hypotheses through controlled experiments (scientific method)
     1.2. Current methods provide only understanding or only control, never both
     1.3 Understanding and controlling vision models requires three key capabilities: the ability to identify human-interpretable features (like 'fur' or 'wheels'), reliable ways to manipulate these features, and compatibility with existing models. 
     1.4 Current methods fail to meet all three requirements - they either discover features that can't be manipulated, enable manipulations that aren't interpretable, or require expensive model retraining.
-    1.5. SAEs from NLP provide unified solution: interpretable features that can be precisely controlled
+    1.5. SAEs from NLP provide unified solution: interpretable features that can be precisely controlled.
     1.6. Contributions: SAE for vision model, new understanding of differences in vision models, multiple control examples across tasks
 
 2. Background & Related Work
-    2.1. Foundation model interpretability
-    2.2. Model editing 
-    2.3. Sparse representations
+    2.1. Vision model interpretability
+    2.2. Model editing
     2.4. SAEs in language models
 
 3. Method
@@ -44,6 +49,17 @@ I'm writing a submission to ICML. The premise is that we apply sparse autoencode
     6.1. Limitations
     6.2. Societal implications
     6.3. Future work
+
+
+## List of Figures
+
+1. Hook figure: Full width explanatory figure that shows an overview of how we can use SAEs to interpret vision models and then intervene on that explanation and see how model predictions change. Status: visual outline
+2. CLIP vs DINOv2: Full width figure demonstrating that CLIP learns semntically abstract visual features like "human teeth" across different visual styles, while DINOv2 does not. Status: visual outline
+3. CLIP vs BioCLIP: Full width figure demonstrating some difference in CLIP and BioCLIP's learned features. Status: untouched.
+4. Semantic segmentation: Full width figure demonstrating that we can suppress features. Status: untouched
+5. Image-text matching: Full width figure demonstrating how you can manipulate fine-grained zero-shot classification with SAEs. Status: untouched
+6. Image generation: Full width figure. Status: untouched
+7. Image captioning: Full width figure. Status: untouched
 
 I also want to build some interactive dashboards and tools to demonstrate that this stuff works.
 

@@ -6,10 +6,10 @@ Variables suffixed with `_im` refer to entire images, and variables suffixed wit
 
 import collections.abc
 import dataclasses
+import json
 import logging
 import math
 import os
-import pickle
 import random
 import typing
 
@@ -470,9 +470,13 @@ def main(cfg: config.Visuals):
     logger.info("Loaded sorted data.")
 
     os.makedirs(cfg.root, exist_ok=True)
-    fig_fpath = os.path.join(cfg.root, f"{cfg.m}_activation_distributions.png")
+    fig_fpath = os.path.join(
+        cfg.root, f"{cfg.n_distributions}_activation_distributions.png"
+    )
     plot_activation_distributions(cfg, distributions).savefig(fig_fpath, dpi=300)
-    logger.info("Saved %d activation distributions to '%s'.", cfg.m, fig_fpath)
+    logger.info(
+        "Saved %d activation distributions to '%s'.", cfg.n_distributions, fig_fpath
+    )
 
     dataset = activations.get_dataset(cfg.images, img_transform=None)
 
@@ -488,9 +492,9 @@ def main(cfg: config.Visuals):
 
     neurons = cfg.include_latents
     random_neurons = torch.arange(d_sae)[mask.cpu()].tolist()
-    random.seed(random_neurons)
+    random.seed(cfg.seed)
     random.shuffle(random_neurons)
-    neurons += random_neurons[: cfg.n_latest]
+    neurons += random_neurons[: cfg.n_latents]
 
     for i in helpers.progress(neurons, desc="saving visuals"):
         neuron_dir = os.path.join(cfg.root, "neurons", str(i))
@@ -528,11 +532,11 @@ def main(cfg: config.Visuals):
         # Metadata
         metadata = {
             "neuron": i,
-            "log10 sparsity": torch.log10(sparsity)[i].item(),
-            "mean activation": mean_values[i].item(),
+            "log10_freq": torch.log10(sparsity[i]).item(),
+            "log10_value": torch.log10(mean_values[i]).item(),
         }
-        with open(f"{neuron_dir}/metadata.pkl", "wb") as pickle_file:
-            pickle.dump(metadata, pickle_file)
+        with open(f"{neuron_dir}/metadata.json", "w") as fd:
+            json.dump(metadata, fd)
 
 
 @beartype.beartype
