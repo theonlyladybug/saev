@@ -2,8 +2,7 @@ You can reproduce our semantic segmentation control experiments from our preprin
 
 As an overview:
 
-0. Record ViT activations for ADE20K.
-1. Train an SAE on activations.
+1. Record ViT activations for ADE20K.
 2. Train a linear probe on semantic segmentation task using ADE20K.
 3. Establish baseline metrics for the linear probe.
 4. Automatically identify feature vectors in the SAE's \(W_dec\) matrix for each class in ADE20K.
@@ -12,9 +11,7 @@ As an overview:
 
 Details can be found below.
 
-# Record ViT Activations for SAE and Linear Probe Training
-
-# Train an SAE on ViT Activations
+# Record ViT Activations for Linear Probe Training and SAE Inference
 
 # Train a Linear Probe on Semantic Segmentation
 
@@ -23,7 +20,9 @@ Now train a linear probe on the activations.
 ```sh
 uv run python -m contrib.semseg train \
   --train-acts.shard-root $TRAIN_SHARDS \
+  --train-acts.layer -1 \
   --val-acts.shard-root $VAL_SHARDS \
+  --val-acts.layer -1 \
   --imgs.root /nfs/$USER/datasets/ade20k/ \
   --sweep contrib/semseg/sweep.toml
 ```

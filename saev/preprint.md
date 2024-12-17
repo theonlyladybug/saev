@@ -34,16 +34,19 @@ SAEs complete the cycle: model behavior -> proposed explanation -> feature inter
     4.1. Pre-Training Modality Affects Learned Features - DINOv2 vs CLIP
     4.2. Pre-Training Distritbuion Affects Learned Features - CLIP vs BioCLIP
 
-5. Control Results
+5. Control Results - Task & Model Agnostic
     5.1. Image Classification Control
+        * Birds with interpretable traits
     5.2. Semantic Segmentation Control
         * Intro explaining? Unknown
         * Technical description of training linear semseg head on DINOv2 features.
         * Description of how we automatically find ADE20K class features in SAE latent space
         * Qualitative results (cherry picked examples, full-width figure)
         * Quantitative results (single-column table)
-    5.3. Image Generation Control
-    5.4. Vision-Language Control
+    5.3. Vision-Language Control
+        * Counting + removing objects
+        * Colors + changing colors
+        * Captioning (classification
 
 6. Discussion
     6.1. Limitations

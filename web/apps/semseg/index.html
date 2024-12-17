@@ -3,29 +3,12 @@
   <meta charset="UTF-8">
   <title>Neuron Explorer</title>
   <script src="dist/app.js"></script>
+  <link href="dist/main.css" rel="stylesheet"></link>
 </head>
 
 <body>
   <div id="app"></div>
   <script>var app = Elm.Main.init({node: document.getElementById('app')});</script>
-  <style>
-    #img-grid-wrapper {
-      position: relative;
-      display: inline-block;
-    }
-
-    #img-grid-overlay {
-      position: absolute;
-      display: grid;
-      grid-template-columns: repeat(16, 28px);
-      grid-template-rows: repeat(16, 28px);
-    }
-
-    .img-grid-cell {
-      width: 28px;
-      height: 28px;
-    }
-  </style>
 </body>
 </html>
 

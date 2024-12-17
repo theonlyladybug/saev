@@ -9,3 +9,4 @@ logs/
 .aider*
 .env
 .DS_Store
+tmp/

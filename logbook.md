@@ -989,3 +989,22 @@ In general, for both of these checkpoints, the features do not tend to look very
 I would expect checkpoints with a higher sparsity contraint, and thus lower eval/L0, to be more monosemantic.
 Claude agrees.
 So we will try that.
+
+
+# 12/17/2024
+
+As an example image, I want to manipulate sand in a beach.
+
+I have the image and patch details below:
+
+```json
+{
+  "image": 3122,
+  "patches": [202,203,204,205,206,207,217,218,219,220,221,222,223,231,232,233,234,235,236,237,238,239,245,246,247,248,249,250,251,252,253,254,255]
+}
+```
+
+Now I need to grab the top features from a particular checkpoint.
+Then I need to manipulate them and re-run the last layer of the neural network + the linear probe head.
+
+And I need to make this possible in a Gradio app.
