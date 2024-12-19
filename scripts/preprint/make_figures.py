@@ -112,8 +112,14 @@ def make_figure_semseg(
 
     img_arr = ade20k_dataset[example_i]["image"]
 
-    # Split into 28x28 pixel image patches and save patches `patchified_i` as ade20k_example{i}_patch{p} to out. AI!
-    # TODO
+    # Split into 28x28 pixel image patches and save patches `patchified_i` as ade20k_example{i}_patch{p} to out
+    patch_size = img_arr.shape[0] // 16  # 448 // 16 = 28 pixels per patch
+    for p in patchified_i:
+        row = (p // 16) * patch_size
+        col = (p % 16) * patch_size
+        patch = img_arr[row:row + patch_size, col:col + patch_size]
+        patch_img = Image.fromarray(patch.numpy())
+        patch_img.save(os.path.join(out, f"ade20k_example{example_i}_patch{p}.png"))
 
     # Save image with highlighted_i patches highlighted.
     bool_patches = [i in highlighted_i for i in range(256)]
