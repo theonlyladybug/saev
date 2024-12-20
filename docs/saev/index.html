@@ -118,8 +118,6 @@ You can see all the options with <code>uv run python -m saev visuals --help</cod
   --data.shard-root /local/scratch/$USER/cache/saev/ac89246f1934b45e2f0487298aebe36ad998b6bd252d880c0c9ec5de78d793c8 \
   --data.layer -2 \
   --data.patches patches \
-  --data.no-scale-mean \
-  --data.no-scale-norm \
   images:imagenet-dataset
 </code></pre>
 <p>This will record the top 128 patches, and then save the unique images among those top 128 patches for each feature in the trained SAE.

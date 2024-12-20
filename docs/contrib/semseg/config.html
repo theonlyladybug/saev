@@ -124,10 +124,10 @@ class Manipulation:
 </dd>
 <dt id="contrib.semseg.config.Train"><code class="flex name class">
 <span>class <span class="ident">Train</span></span>
-<span>(</span><span>learning_rate: float = 0.0001,<br>weight_decay: float = 0.001,<br>n_epochs: int = 400,<br>batch_size: int = 1024,<br>n_workers: int = 32,<br>train_acts: <a title="saev.config.DataLoad" href="../../saev/config.html#saev.config.DataLoad">DataLoad</a> = &lt;factory&gt;,<br>val_acts: <a title="saev.config.DataLoad" href="../../saev/config.html#saev.config.DataLoad">DataLoad</a> = &lt;factory&gt;,<br>imgs: <a title="saev.config.Ade20kDataset" href="../../saev/config.html#saev.config.Ade20kDataset">Ade20kDataset</a> = &lt;factory&gt;,<br>patch_size_px: tuple[int, int] = (14, 14),<br>eval_every: int = 100,<br>device: str = 'cuda',<br>ckpt_path: str = './checkpoints/contrib/semseg',<br>seed: int = 42,<br>log_to: str = './logs/contrib/semseg')</span>
+<span>(</span><span>learning_rate: float = 0.0001,<br>weight_decay: float = 0.001,<br>n_epochs: int = 400,<br>batch_size: int = 1024,<br>n_workers: int = 32,<br>imgs: <a title="saev.config.Ade20kDataset" href="../../saev/config.html#saev.config.Ade20kDataset">Ade20kDataset</a> = &lt;factory&gt;,<br>patch_size_px: tuple[int, int] = (14, 14),<br>eval_every: int = 100,<br>device: str = 'cuda',<br>ckpt_path: str = './checkpoints/contrib/semseg',<br>seed: int = 42,<br>log_to: str = './logs/contrib/semseg')</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Train(learning_rate: float = 0.0001, weight_decay: float = 0.001, n_epochs: int = 400, batch_size: int = 1024, n_workers: int = 32, train_acts: saev.config.DataLoad = <factory>, val_acts: saev.config.DataLoad = <factory>, imgs: saev.config.Ade20kDataset = <factory>, patch_size_px: tuple[int, int] = (14, 14), eval_every: int = 100, device: str = 'cuda', ckpt_path: str = './checkpoints/contrib/semseg', seed: int = 42, log_to: str = './logs/contrib/semseg')</p></div>
+<div class="desc"><p>Train(learning_rate: float = 0.0001, weight_decay: float = 0.001, n_epochs: int = 400, batch_size: int = 1024, n_workers: int = 32, imgs: saev.config.Ade20kDataset = <factory>, patch_size_px: tuple[int, int] = (14, 14), eval_every: int = 100, device: str = 'cuda', ckpt_path: str = './checkpoints/contrib/semseg', seed: int = 42, log_to: str = './logs/contrib/semseg')</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -145,14 +145,6 @@ class Train:
     &#34;&#34;&#34;Training batch size for linear layer.&#34;&#34;&#34;
     n_workers: int = 32
     &#34;&#34;&#34;Number of dataloader workers.&#34;&#34;&#34;
-    train_acts: saev.config.DataLoad = dataclasses.field(
-        default_factory=saev.config.DataLoad
-    )
-    &#34;&#34;&#34;Configuration for the saved ADE20K training ViT activations.&#34;&#34;&#34;
-    val_acts: saev.config.DataLoad = dataclasses.field(
-        default_factory=saev.config.DataLoad
-    )
-    &#34;&#34;&#34;Configuration for the saved ADE20K validation ViT activations.&#34;&#34;&#34;
     imgs: saev.config.Ade20kDataset = dataclasses.field(
         default_factory=saev.config.Ade20kDataset
     )
@@ -213,14 +205,6 @@ class Train:
 <dt id="contrib.semseg.config.Train.seed"><code class="name">var <span class="ident">seed</span> : int</code></dt>
 <dd>
 <div class="desc"><p>Random seed.</p></div>
-</dd>
-<dt id="contrib.semseg.config.Train.train_acts"><code class="name">var <span class="ident">train_acts</span> : <a title="saev.config.DataLoad" href="../../saev/config.html#saev.config.DataLoad">DataLoad</a></code></dt>
-<dd>
-<div class="desc"><p>Configuration for the saved ADE20K training ViT activations.</p></div>
-</dd>
-<dt id="contrib.semseg.config.Train.val_acts"><code class="name">var <span class="ident">val_acts</span> : <a title="saev.config.DataLoad" href="../../saev/config.html#saev.config.DataLoad">DataLoad</a></code></dt>
-<dd>
-<div class="desc"><p>Configuration for the saved ADE20K validation ViT activations.</p></div>
 </dd>
 <dt id="contrib.semseg.config.Train.weight_decay"><code class="name">var <span class="ident">weight_decay</span> : float</code></dt>
 <dd>
@@ -418,8 +402,6 @@ class Visuals:
 <li><code><a title="contrib.semseg.config.Train.n_workers" href="#contrib.semseg.config.Train.n_workers">n_workers</a></code></li>
 <li><code><a title="contrib.semseg.config.Train.patch_size_px" href="#contrib.semseg.config.Train.patch_size_px">patch_size_px</a></code></li>
 <li><code><a title="contrib.semseg.config.Train.seed" href="#contrib.semseg.config.Train.seed">seed</a></code></li>
-<li><code><a title="contrib.semseg.config.Train.train_acts" href="#contrib.semseg.config.Train.train_acts">train_acts</a></code></li>
-<li><code><a title="contrib.semseg.config.Train.val_acts" href="#contrib.semseg.config.Train.val_acts">val_acts</a></code></li>
 <li><code><a title="contrib.semseg.config.Train.weight_decay" href="#contrib.semseg.config.Train.weight_decay">weight_decay</a></code></li>
 </ul>
 </li>

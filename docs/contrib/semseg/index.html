@@ -31,7 +31,6 @@ hljs.highlightAll();
 <p>As an overview:</p>
 <ol>
 <li>Record ViT activations for ADE20K.</li>
-<li>Train an SAE on activations.</li>
 <li>Train a linear probe on semantic segmentation task using ADE20K.</li>
 <li>Establish baseline metrics for the linear probe.</li>
 <li>Automatically identify feature vectors in the SAE's <span><span class="MathJax_Preview">W_dec</span><script type="math/tex">W_dec</script></span> matrix for each class in ADE20K.</li>
@@ -39,26 +38,33 @@ hljs.highlightAll();
 <li>Record class-specific metrics before and after suppression.</li>
 </ol>
 <p>Details can be found below.</p>
-<h1 id="record-vit-activations-for-sae-and-linear-probe-training">Record ViT Activations for SAE and Linear Probe Training</h1>
-<h1 id="train-an-sae-on-vit-activations">Train an SAE on ViT Activations</h1>
+<h1 id="record-vit-activations-for-linear-probe-training-and-sae-inference">Record ViT Activations for Linear Probe Training and SAE Inference</h1>
 <h1 id="train-a-linear-probe-on-semantic-segmentation">Train a Linear Probe on Semantic Segmentation</h1>
 <p>Now train a linear probe on the activations.</p>
 <pre><code class="language-sh">uv run python -m contrib.semseg train \
   --train-acts.shard-root $TRAIN_SHARDS \
+  --train-acts.layer -1 \
   --val-acts.shard-root $VAL_SHARDS \
+  --val-acts.layer -1 \
   --imgs.root /nfs/$USER/datasets/ade20k/ \
   --sweep contrib/semseg/sweep.toml
 </code></pre>
 <h1 id="establish-linear-probe-baseline-metrics">Establish Linear Probe Baseline Metrics</h1>
 <pre><code class="language-sh">uv run python -m contrib.semseg validate \
   --imgs.root /nfs/$USER/datasets/ade20k/ \
-  --acts.shard-root $VAL_SHARDS
+  --acts.shard-root $VAL_SHARDS \
+  --acts.layer -1
 </code></pre>
 <p>Then you can look in <code>./logs/contrib/semseg</code> for <code>hparam-sweeps.png</code> to see what learning rate/weight decay combination is best.</p>
 </section>
 <section>
 <h2 class="section-title" id="header-submodules">Sub-modules</h2>
 <dl>
+<dt><code class="name"><a title="contrib.semseg.app" href="app.html">contrib.semseg.app</a></code></dt>
+<dd>
+<div class="desc"><p><a href="https://www.gradio.app/guides/environment-variables">https://www.gradio.app/guides/environment-variables</a>
+<a href="https://www.gradio.app/guides/querying-gradio-apps-with-curl">https://www.gradio.app/guides/querying-gradio-apps-with-curl</a></p></div>
+</dd>
 <dt><code class="name"><a title="contrib.semseg.config" href="config.html">contrib.semseg.config</a></code></dt>
 <dd>
 <div class="desc"></div>
@@ -104,8 +110,7 @@ See which checkpoints have the best validation loss, mean IoU, class-specific Io
 <nav id="sidebar">
 <div class="toc">
 <ul>
-<li><a href="#record-vit-activations-for-sae-and-linear-probe-training">Record ViT Activations for SAE and Linear Probe Training</a></li>
-<li><a href="#train-an-sae-on-vit-activations">Train an SAE on ViT Activations</a></li>
+<li><a href="#record-vit-activations-for-linear-probe-training-and-sae-inference">Record ViT Activations for Linear Probe Training and SAE Inference</a></li>
 <li><a href="#train-a-linear-probe-on-semantic-segmentation">Train a Linear Probe on Semantic Segmentation</a></li>
 <li><a href="#establish-linear-probe-baseline-metrics">Establish Linear Probe Baseline Metrics</a></li>
 </ul>
@@ -118,6 +123,7 @@ See which checkpoints have the best validation loss, mean IoU, class-specific Io
 </li>
 <li><h3><a href="#header-submodules">Sub-modules</a></h3>
 <ul>
+<li><code><a title="contrib.semseg.app" href="app.html">contrib.semseg.app</a></code></li>
 <li><code><a title="contrib.semseg.config" href="config.html">contrib.semseg.config</a></code></li>
 <li><code><a title="contrib.semseg.dashboard" href="dashboard.html">contrib.semseg.dashboard</a></code></li>
 <li><code><a title="contrib.semseg.dashboard2" href="dashboard2.html">contrib.semseg.dashboard2</a></code></li>
