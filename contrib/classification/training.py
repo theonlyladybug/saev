@@ -1,7 +1,5 @@
 """
-Train a linear probe on [CLS] activations from a ViT.
-
-This assumes the training and evaluation dataset are very small and can fit in GPU memory. If this is not true, look at contrib/semseg/training.py for some inspiration.
+Train a linear probe on mean patch activations from a ViT.
 """
 
 import collections

@@ -3,7 +3,6 @@
 # dependencies = [
 #     "beartype",
 #     "requests",
-#     "scipy",
 #     "tqdm",
 #     "tyro",
 # ]
@@ -50,7 +49,7 @@ class Args:
 
 
 def main(args: Args):
-    """Download NeWT."""
+    """Download Caltech 101."""
     os.makedirs(args.dir, exist_ok=True)
     chunk_size = int(args.chunk_size_kb * 1024)
     zip_path = os.path.join(args.dir, "caltech-101.zip")
