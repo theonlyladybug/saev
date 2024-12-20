@@ -2,6 +2,7 @@
 
 This document outlines some programming conventions that are not caught by automated tools.
 
+* File descriptors from `open()` are called `fd`.
 * Use types where possible, including `jaxtyping` hints.
 * Decorate functions with `beartype.beartype` unless they use a `jaxtyping` hint, in which case use `jaxtyped(typechecker=beartype.beartype)`.
 * Variables referring to a filepath should be suffixed with `_fpath`. Directories are `_dpath`.

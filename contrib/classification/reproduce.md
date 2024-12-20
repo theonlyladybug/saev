@@ -43,7 +43,7 @@ uv run python -m saev visuals \
 
 You can see some neat features in here by using `saev.interactive.features` with `marimo`.
 
-## Record Caltech-101 Activations
+## Record CUB-200-2011 Activations
 
 For each `$SPLIT` in "train" and "test":
 
