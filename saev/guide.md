@@ -112,8 +112,6 @@ uv run python -m saev visuals \
   --data.shard-root /local/scratch/$USER/cache/saev/ac89246f1934b45e2f0487298aebe36ad998b6bd252d880c0c9ec5de78d793c8 \
   --data.layer -2 \
   --data.patches patches \
-  --data.no-scale-mean \
-  --data.no-scale-norm \
   images:imagenet-dataset
 ```
 

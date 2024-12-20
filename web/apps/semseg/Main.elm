@@ -2,6 +2,7 @@ module Main exposing (..)
 
 import Array
 import Browser
+import Dict
 import Html
 import Html.Attributes
 import Html.Events
@@ -42,6 +43,7 @@ type Msg
     | GetRandomExample
     | SetExample Int
     | SetExampleInput String
+    | SetSlider Int String
 
 
 
@@ -61,11 +63,15 @@ type alias Model =
     , predLabelsUrl : Maybe String
     , predLabels : List Int
     , modifiedLabelsUrl : Maybe String
+    , modifiedLabels : List Int
 
     -- Progression
     , nPatchesExplored : Int
     , nPatchResets : Int
     , nImagesExplored : Int
+
+    -- UI
+    , sliders : Dict.Dict Int Float
     }
 
 
@@ -77,23 +83,36 @@ type alias SaeLatent =
 
 init : () -> ( Model, Cmd Msg )
 init _ =
+    let
+        example =
+            3122
+    in
     ( { err = Nothing
-      , exampleIndex = 0
+      , exampleIndex = example
       , hoveredPatchIndex = Nothing
       , selectedPatchIndices = Set.empty
       , saeLatents = []
       , imageUrl = Nothing
       , trueLabelsUrl = Nothing
       , predLabelsUrl = Nothing
-      , modifiedLabelsUrl = Nothing
       , predLabels = []
+      , modifiedLabelsUrl = Nothing
+      , modifiedLabels = []
 
       -- Progression
       , nPatchesExplored = 0
       , nPatchResets = 0
       , nImagesExplored = 0
+
+      -- UI
+      , sliders = Dict.empty
       }
-    , Random.generate SetExample randomExample
+    , Cmd.batch
+        [ getImageUrl example
+
+        -- , getTrueLabels example
+        , getPredLabels example
+        ]
     )
 
 
@@ -181,7 +200,16 @@ update msg model =
         ParsedSaeExamples result ->
             case result of
                 Ok results ->
-                    ( { model | saeLatents = parseSaeExampleResults results }, Cmd.none )
+                    let
+                        latents =
+                            parseSaeExampleResults results
+
+                        sliders =
+                            latents
+                                |> List.map (\latent -> ( latent.latent, 0.0 ))
+                                |> Dict.fromList
+                    in
+                    ( { model | saeLatents = latents, sliders = sliders }, Cmd.none )
 
                 Err err ->
                     ( { model | err = Just (D.errorToString err) }, Cmd.none )
@@ -227,9 +255,17 @@ update msg model =
                 Ok results ->
                     let
                         url =
-                            results |> List.filterMap segmentationResultToUrl |> List.head
+                            results
+                                |> List.filterMap segmentationResultToUrl
+                                |> List.head
+
+                        labels =
+                            results
+                                |> List.filterMap segmentationResultToLabels
+                                |> List.head
+                                |> Maybe.withDefault []
                     in
-                    ( { model | modifiedLabelsUrl = url }, Cmd.none )
+                    ( { model | modifiedLabelsUrl = url, modifiedLabels = labels }, Cmd.none )
 
                 Err err ->
                     ( { model | modifiedLabelsUrl = Nothing, err = Just (D.errorToString err) }, Cmd.none )
@@ -246,7 +282,8 @@ update msg model =
             ( { model | exampleIndex = i }
             , Cmd.batch
                 [ getImageUrl i
-                , getTrueLabels i
+
+                -- , getTrueLabels i
                 , getPredLabels i
                 ]
             )
@@ -257,7 +294,8 @@ update msg model =
                     ( { model | exampleIndex = i }
                     , Cmd.batch
                         [ getImageUrl i
-                        , getTrueLabels i
+
+                        -- , getTrueLabels i
                         , getPredLabels i
                         ]
                     )
@@ -273,6 +311,20 @@ update msg model =
               }
             , Random.generate SetExample randomExample
             )
+
+        SetSlider i str ->
+            case String.toFloat str of
+                Just f ->
+                    let
+                        sliders =
+                            Dict.insert i f model.sliders
+                    in
+                    ( { model | sliders = sliders }
+                    , getModifiedLabels model.exampleIndex sliders
+                    )
+
+                Nothing ->
+                    ( model, Cmd.none )
 
 
 httpErrToString : Http.Error -> String -> String
@@ -372,16 +424,27 @@ getPredLabelsResult id =
         }
 
 
-getModifiedLabels : Int -> Int -> Cmd Msg
-getModifiedLabels img latent =
+getModifiedLabels : Int -> Dict.Dict Int Float -> Cmd Msg
+getModifiedLabels img sliders =
+    let
+        ( latents, values ) =
+            sliders
+                |> Dict.toList
+                |> List.unzip
+                |> Tuple.mapBoth Array.fromList Array.fromList
+    in
     Http.post
         { url = "http://127.0.0.1:7860/gradio_api/call/get-modified-labels"
         , body =
             Http.jsonBody
                 (encodeArgs
                     [ E.int img
-                    , E.int latent
-                    , E.float -2
+                    , E.int (Array.get 0 latents |> Maybe.withDefault -1)
+                    , E.int (Array.get 1 latents |> Maybe.withDefault -1)
+                    , E.int (Array.get 2 latents |> Maybe.withDefault -1)
+                    , E.float (Array.get 0 values |> Maybe.withDefault 0.0)
+                    , E.float (Array.get 1 values |> Maybe.withDefault 0.0)
+                    , E.float (Array.get 2 values |> Maybe.withDefault 0.0)
                     ]
                 )
         , expect = Http.expectJson (GotEventId getModifiedLabelsResult) eventIdDecoder
@@ -572,14 +635,15 @@ view model =
                 [ viewGriddedImage model model.imageUrl "Input Image"
                 , viewAnimatedNeuralNetwork model
                 , viewGriddedImage model model.predLabelsUrl "Predicted Semantic Segmentation"
+                , viewGriddedImage model model.modifiedLabelsUrl "Modified Semantic Segmentation"
                 ]
             , viewControls model
             , Html.div
                 [ Html.Attributes.style "display" "flex"
                 , Html.Attributes.style "flex-direction" "row"
                 ]
-                [ viewSaeExamples model.selectedPatchIndices model.saeLatents
-                , viewLegend (Set.fromList model.predLabels)
+                [ viewSaeExamples model.selectedPatchIndices model.saeLatents model.sliders
+                , viewLegend (Set.fromList (model.predLabels ++ model.modifiedLabels))
                 ]
             , viewErr model.err
             ]
@@ -679,7 +743,7 @@ viewGridCell hovered selected self =
             (case hovered of
                 Just h ->
                     if h == self then
-                        [ "border-2 border-sky-500 border-dashed" ]
+                        [ "border-2 border-rose-600 border-dashed" ]
 
                     else
                         []
@@ -688,7 +752,7 @@ viewGridCell hovered selected self =
                     []
             )
                 ++ (if Set.member self selected then
-                        [ "bg-sky-500/50" ]
+                        [ "bg-rose-600/50" ]
 
                     else
                         []
@@ -755,7 +819,7 @@ viewClassIcon class =
             []
         , Html.span
             []
-            [ Html.text (classname ++ " (class " ++ String.fromInt (class + 1) ++ ")") ]
+            [ Html.text (classname ++ " (class " ++ String.fromInt class ++ ")") ]
         ]
 
 
@@ -777,21 +841,22 @@ viewImageSeg maybeUrl title =
             Html.div [] [ Html.text ("Loading '" ++ title ++ "'...") ]
 
 
-viewSaeExamples : Set.Set Int -> List SaeLatent -> Html.Html Msg
-viewSaeExamples selected latents =
+viewSaeExamples : Set.Set Int -> List SaeLatent -> Dict.Dict Int Float -> Html.Html Msg
+viewSaeExamples selected latents values =
     if List.length latents > 0 then
         Html.div []
             ([ Html.p []
-                [ Html.span [ Html.Attributes.style "color" "green" ] [ Html.text "These patches" ]
+                [ Html.span [ Html.Attributes.class "bg-rose-600 p-1 rounded" ] [ Html.text "These patches" ]
                 , Html.text " above are like "
-                , Html.span [ Html.Attributes.style "color" "rgb(218 180 133)" ] [ Html.text "these patches" ]
+                , Html.span [ Html.Attributes.class "plasma-gradient text-white p-1 rounded" ] [ Html.text "these patches" ]
                 , Html.text " below. (Not what you expected? Add more patches and get a larger "
                 , Html.a [ Html.Attributes.href "https://simple.wikipedia.org/wiki/Sampling_(statistics)", Html.Attributes.class "text-blue-500 underline" ] [ Html.text "sample size" ]
                 , Html.text ")"
                 ]
              ]
-                ++ List.map viewSaeLatentExamples latents
-             -- ++ viewSliders latents
+                ++ List.filterMap
+                    (\latent -> Maybe.map (\f -> viewSaeLatentExamples latent f) (Dict.get latent.latent values))
+                    latents
             )
 
     else if Set.size selected > 0 then
@@ -803,18 +868,34 @@ viewSaeExamples selected latents =
             [ Html.text "Click on the image above to explain model predictions." ]
 
 
-viewSaeLatentExamples : SaeLatent -> Html.Html Msg
-viewSaeLatentExamples latent =
+viewSaeLatentExamples : SaeLatent -> Float -> Html.Html Msg
+viewSaeLatentExamples latent value =
     Html.div
         [ Html.Attributes.class "flex flex-row gap-2 mt-2" ]
-        (List.map viewImage latent.urls)
+        (List.map viewImage latent.urls
+            ++ [ Html.div
+                    [ Html.Attributes.class "flex flex-col gap-2" ]
+                    [ Html.input
+                        [ Html.Attributes.type_ "range"
+                        , Html.Attributes.min "-10"
+                        , Html.Attributes.max "10"
+                        , Html.Attributes.value (String.fromFloat value)
+                        , Html.Events.onInput (SetSlider latent.latent)
+                        ]
+                        []
+                    , Html.p
+                        []
+                        [ Html.text ("Latent 24K/" ++ String.fromInt latent.latent ++ ": " ++ String.fromFloat value) ]
+                    ]
+               ]
+        )
 
 
 viewImage : String -> Html.Html Msg
 viewImage url =
     Html.img
         [ Html.Attributes.src url
-        , Html.Attributes.class "max-w-24 h-auto"
+        , Html.Attributes.class "max-w-36 h-auto"
         ]
         []
 
@@ -869,7 +950,16 @@ randomExample =
 
 colors : Array.Array ( Int, Int, Int )
 colors =
-    Array.fromList [ ( 51, 0, 0 ), ( 204, 0, 102 ), ( 0, 255, 0 ), ( 102, 51, 51 ), ( 153, 204, 51 ), ( 51, 51, 153 ), ( 102, 0, 51 ), ( 153, 153, 0 ), ( 51, 102, 204 ), ( 204, 255, 0 ), ( 204, 102, 0 ), ( 204, 255, 153 ), ( 102, 102, 255 ), ( 255, 204, 255 ), ( 51, 255, 0 ), ( 0, 102, 51 ), ( 102, 102, 0 ), ( 0, 0, 255 ), ( 255, 153, 204 ), ( 204, 204, 0 ), ( 0, 153, 153 ), ( 153, 102, 204 ), ( 255, 204, 0 ), ( 204, 204, 153 ), ( 255, 51, 0 ), ( 51, 51, 0 ), ( 153, 51, 51 ), ( 0, 0, 102 ), ( 102, 255, 204 ), ( 204, 51, 255 ), ( 255, 204, 204 ), ( 0, 0, 153 ), ( 0, 102, 153 ), ( 153, 0, 51 ), ( 51, 51, 102 ), ( 255, 153, 0 ), ( 204, 153, 0 ), ( 153, 102, 153 ), ( 51, 204, 204 ), ( 51, 51, 255 ), ( 153, 204, 102 ), ( 102, 204, 153 ), ( 153, 153, 204 ), ( 0, 51, 204 ), ( 204, 204, 102 ), ( 0, 51, 153 ), ( 0, 102, 0 ), ( 51, 0, 102 ), ( 153, 255, 0 ), ( 153, 255, 102 ), ( 102, 102, 51 ), ( 153, 0, 255 ), ( 204, 255, 102 ), ( 102, 0, 255 ), ( 255, 204, 153 ), ( 102, 51, 0 ), ( 102, 204, 102 ), ( 0, 102, 204 ), ( 51, 204, 0 ), ( 255, 102, 102 ), ( 153, 255, 204 ), ( 51, 204, 51 ), ( 0, 0, 0 ), ( 255, 0, 255 ), ( 153, 0, 153 ), ( 255, 204, 51 ), ( 51, 0, 51 ), ( 102, 204, 255 ), ( 153, 204, 153 ), ( 153, 102, 0 ), ( 102, 204, 204 ), ( 204, 204, 204 ), ( 255, 0, 0 ), ( 255, 255, 51 ), ( 0, 255, 102 ), ( 204, 153, 102 ), ( 204, 153, 153 ), ( 102, 51, 153 ), ( 51, 102, 0 ), ( 204, 51, 153 ), ( 153, 51, 255 ), ( 102, 0, 204 ), ( 204, 102, 153 ), ( 204, 0, 204 ), ( 102, 51, 102 ), ( 0, 153, 51 ), ( 153, 153, 51 ), ( 255, 102, 0 ), ( 255, 153, 153 ), ( 153, 0, 102 ), ( 51, 204, 255 ), ( 102, 255, 102 ), ( 255, 255, 204 ), ( 51, 51, 204 ), ( 153, 102, 51 ), ( 153, 153, 255 ), ( 51, 153, 0 ), ( 204, 0, 255 ), ( 102, 255, 0 ), ( 153, 102, 255 ), ( 204, 102, 255 ), ( 204, 0, 0 ), ( 102, 153, 255 ), ( 204, 102, 204 ), ( 204, 51, 102 ), ( 0, 255, 153 ), ( 153, 204, 204 ), ( 255, 0, 102 ), ( 102, 51, 204 ), ( 255, 51, 204 ), ( 51, 204, 153 ), ( 153, 153, 102 ), ( 153, 204, 0 ), ( 153, 102, 102 ), ( 204, 153, 255 ), ( 153, 0, 204 ), ( 102, 0, 0 ), ( 255, 51, 255 ), ( 0, 204, 153 ), ( 255, 153, 51 ), ( 0, 255, 204 ), ( 51, 102, 153 ), ( 255, 51, 51 ), ( 102, 255, 51 ), ( 0, 0, 204 ), ( 102, 255, 153 ), ( 0, 204, 255 ), ( 0, 102, 102 ), ( 102, 51, 255 ), ( 255, 0, 204 ), ( 51, 255, 153 ), ( 204, 0, 51 ), ( 153, 51, 204 ), ( 204, 102, 51 ), ( 255, 255, 0 ), ( 51, 51, 51 ), ( 0, 153, 0 ), ( 51, 255, 102 ), ( 51, 102, 255 ), ( 102, 153, 0 ), ( 102, 153, 204 ), ( 51, 0, 255 ), ( 102, 153, 153 ), ( 153, 51, 102 ), ( 204, 255, 51 ), ( 204, 204, 51 ), ( 0, 204, 51 ), ( 255, 102, 153 ), ( 204, 102, 102 ), ( 102, 0, 102 ), ( 51, 153, 204 ), ( 255, 255, 255 ), ( 0, 102, 255 ), ( 51, 102, 51 ), ( 204, 0, 153 ), ( 102, 153, 102 ), ( 102, 0, 153 ), ( 153, 255, 153 ), ( 0, 153, 102 ), ( 102, 204, 0 ), ( 0, 255, 51 ), ( 153, 204, 255 ), ( 153, 51, 153 ), ( 0, 51, 255 ), ( 51, 255, 51 ), ( 255, 102, 51 ), ( 102, 102, 204 ), ( 102, 153, 51 ), ( 0, 204, 0 ), ( 102, 204, 51 ), ( 255, 102, 255 ), ( 255, 204, 102 ), ( 102, 102, 102 ), ( 255, 102, 204 ), ( 51, 0, 153 ), ( 255, 0, 51 ), ( 102, 102, 153 ), ( 255, 153, 102 ), ( 204, 255, 204 ), ( 51, 0, 204 ), ( 0, 0, 51 ), ( 51, 255, 255 ), ( 204, 51, 0 ), ( 153, 51, 0 ), ( 51, 153, 102 ), ( 102, 255, 255 ), ( 255, 153, 255 ), ( 204, 255, 255 ), ( 204, 153, 204 ), ( 255, 0, 153 ), ( 51, 102, 102 ), ( 153, 255, 255 ), ( 255, 255, 153 ), ( 204, 51, 204 ), ( 153, 153, 153 ), ( 51, 153, 255 ), ( 51, 153, 51 ), ( 0, 153, 255 ), ( 0, 51, 51 ), ( 0, 51, 102 ), ( 153, 0, 0 ), ( 204, 51, 51 ), ( 0, 153, 204 ), ( 153, 255, 51 ), ( 255, 255, 102 ), ( 204, 204, 255 ), ( 0, 204, 102 ), ( 255, 51, 102 ), ( 0, 255, 255 ), ( 51, 153, 153 ), ( 51, 204, 102 ), ( 51, 255, 204 ), ( 255, 51, 153 ), ( 0, 51, 0 ), ( 0, 204, 204 ), ( 204, 153, 51 ) ]
+    [ ( 51, 0, 0 ), ( 204, 0, 102 ), ( 0, 255, 0 ), ( 102, 51, 51 ), ( 153, 204, 51 ), ( 51, 51, 153 ), ( 102, 0, 51 ), ( 153, 153, 0 ), ( 51, 102, 204 ), ( 204, 255, 0 ), ( 204, 102, 0 ), ( 204, 255, 153 ), ( 102, 102, 255 ), ( 255, 204, 255 ), ( 51, 255, 0 ), ( 0, 102, 51 ), ( 102, 102, 0 ), ( 0, 0, 255 ), ( 255, 153, 204 ), ( 204, 204, 0 ), ( 0, 153, 153 ), ( 153, 102, 204 ), ( 255, 204, 0 ), ( 204, 204, 153 ), ( 255, 51, 0 ), ( 51, 51, 0 ), ( 153, 51, 51 ), ( 0, 0, 102 ), ( 102, 255, 204 ), ( 204, 51, 255 ), ( 255, 204, 204 ), ( 0, 0, 153 ), ( 0, 102, 153 ), ( 153, 0, 51 ), ( 51, 51, 102 ), ( 255, 153, 0 ), ( 204, 153, 0 ), ( 153, 102, 153 ), ( 51, 204, 204 ), ( 51, 51, 255 ), ( 153, 204, 102 ), ( 102, 204, 153 ), ( 153, 153, 204 ), ( 0, 51, 204 ), ( 204, 204, 102 ), ( 0, 51, 153 ), ( 0, 102, 0 ), ( 51, 0, 102 ), ( 153, 255, 0 ), ( 153, 255, 102 ), ( 102, 102, 51 ), ( 153, 0, 255 ), ( 204, 255, 102 ), ( 102, 0, 255 ), ( 255, 204, 153 ), ( 102, 51, 0 ), ( 102, 204, 102 ), ( 0, 102, 204 ), ( 51, 204, 0 ), ( 255, 102, 102 ), ( 153, 255, 204 ), ( 51, 204, 51 ), ( 0, 0, 0 ), ( 255, 0, 255 ), ( 153, 0, 153 ), ( 255, 204, 51 ), ( 51, 0, 51 ), ( 102, 204, 255 ), ( 153, 204, 153 ), ( 153, 102, 0 ), ( 102, 204, 204 ), ( 204, 204, 204 ), ( 255, 0, 0 ), ( 255, 255, 51 ), ( 0, 255, 102 ), ( 204, 153, 102 ), ( 204, 153, 153 ), ( 102, 51, 153 ), ( 51, 102, 0 ), ( 204, 51, 153 ), ( 153, 51, 255 ), ( 102, 0, 204 ), ( 204, 102, 153 ), ( 204, 0, 204 ), ( 102, 51, 102 ), ( 0, 153, 51 ), ( 153, 153, 51 ), ( 255, 102, 0 ), ( 255, 153, 153 ), ( 153, 0, 102 ), ( 51, 204, 255 ), ( 102, 255, 102 ), ( 255, 255, 204 ), ( 51, 51, 204 ), ( 153, 102, 51 ), ( 153, 153, 255 ), ( 51, 153, 0 ), ( 204, 0, 255 ), ( 102, 255, 0 ), ( 153, 102, 255 ), ( 204, 102, 255 ), ( 204, 0, 0 ), ( 102, 153, 255 ), ( 204, 102, 204 ), ( 204, 51, 102 ), ( 0, 255, 153 ), ( 153, 204, 204 ), ( 255, 0, 102 ), ( 102, 51, 204 ), ( 255, 51, 204 ), ( 51, 204, 153 ), ( 153, 153, 102 ), ( 153, 204, 0 ), ( 153, 102, 102 ), ( 204, 153, 255 ), ( 153, 0, 204 ), ( 102, 0, 0 ), ( 255, 51, 255 ), ( 0, 204, 153 ), ( 255, 153, 51 ), ( 0, 255, 204 ), ( 51, 102, 153 ), ( 255, 51, 51 ), ( 102, 255, 51 ), ( 0, 0, 204 ), ( 102, 255, 153 ), ( 0, 204, 255 ), ( 0, 102, 102 ), ( 102, 51, 255 ), ( 255, 0, 204 ), ( 51, 255, 153 ), ( 204, 0, 51 ), ( 153, 51, 204 ), ( 204, 102, 51 ), ( 255, 255, 0 ), ( 51, 51, 51 ), ( 0, 153, 0 ), ( 51, 255, 102 ), ( 51, 102, 255 ), ( 102, 153, 0 ), ( 102, 153, 204 ), ( 51, 0, 255 ), ( 102, 153, 153 ), ( 153, 51, 102 ), ( 204, 255, 51 ), ( 204, 204, 51 ), ( 0, 204, 51 ), ( 255, 102, 153 ), ( 204, 102, 102 ), ( 102, 0, 102 ), ( 51, 153, 204 ), ( 255, 255, 255 ), ( 0, 102, 255 ), ( 51, 102, 51 ), ( 204, 0, 153 ), ( 102, 153, 102 ), ( 102, 0, 153 ), ( 153, 255, 153 ), ( 0, 153, 102 ), ( 102, 204, 0 ), ( 0, 255, 51 ), ( 153, 204, 255 ), ( 153, 51, 153 ), ( 0, 51, 255 ), ( 51, 255, 51 ), ( 255, 102, 51 ), ( 102, 102, 204 ), ( 102, 153, 51 ), ( 0, 204, 0 ), ( 102, 204, 51 ), ( 255, 102, 255 ), ( 255, 204, 102 ), ( 102, 102, 102 ), ( 255, 102, 204 ), ( 51, 0, 153 ), ( 255, 0, 51 ), ( 102, 102, 153 ), ( 255, 153, 102 ), ( 204, 255, 204 ), ( 51, 0, 204 ), ( 0, 0, 51 ), ( 51, 255, 255 ), ( 204, 51, 0 ), ( 153, 51, 0 ), ( 51, 153, 102 ), ( 102, 255, 255 ), ( 255, 153, 255 ), ( 204, 255, 255 ), ( 204, 153, 204 ), ( 255, 0, 153 ), ( 51, 102, 102 ), ( 153, 255, 255 ), ( 255, 255, 153 ), ( 204, 51, 204 ), ( 153, 153, 153 ), ( 51, 153, 255 ), ( 51, 153, 51 ), ( 0, 153, 255 ), ( 0, 51, 51 ), ( 0, 51, 102 ), ( 153, 0, 0 ), ( 204, 51, 51 ), ( 0, 153, 204 ), ( 153, 255, 51 ), ( 255, 255, 102 ), ( 204, 204, 255 ), ( 0, 204, 102 ), ( 255, 51, 102 ), ( 0, 255, 255 ), ( 51, 153, 153 ), ( 51, 204, 102 ), ( 51, 255, 204 ), ( 255, 51, 153 ), ( 0, 51, 0 ), ( 0, 204, 204 ), ( 204, 153, 51 ) ]
+        |> Array.fromList
+        -- Fixed colors for example 3122
+        |> Array.set 2 ( 201, 249, 255 )
+        |> Array.set 4 ( 151, 204, 4 )
+        |> Array.set 16 ( 54, 48, 32 )
+        |> Array.set 26 ( 45, 125, 210 )
+        |> Array.set 46 ( 238, 185, 2 )
+        |> Array.set 72 ( 76, 46, 5 )
+        |> Array.set 94 ( 12, 15, 10 )
 
 
 classnames : Array.Array (List String)
@@ -891,7 +981,7 @@ classnames =
         , [ "earth", "ground" ]
         , [ "door", "double door" ]
         , [ "table" ]
-        , [ "mountain", "mount" ]
+        , [ "mountain" ]
         , [ "plant", "flora" ]
         , [ "curtain", "drape" ]
         , [ "chair" ]

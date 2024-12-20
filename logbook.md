@@ -1008,3 +1008,53 @@ Now I need to grab the top features from a particular checkpoint.
 Then I need to manipulate them and re-run the last layer of the neural network + the linear probe head.
 
 And I need to make this possible in a Gradio app.
+
+
+# 12/19/2024
+
+## Raw Transcription of Tanya's Meeting Notes
+
+1 version of SAE - understanding model : input -> R^d
+
+1 version is just doing input -> semantic R^d
+Model composition is one example of this mapping
+
+Not just control, but more about what a model can do over a distribution of unknown tasks
+-> SAEs help understand learned representations and enables "true sensitivity analysis" in data-agnostic way
+
+Understanding model limits and potential by connecting representation space to interpretable features
+-> Explore application by enumerating dimensions of interpretable space -> downstream tasks mostly care about interpretable features <- what can we do in principle?
+
+Only care about interpretable control
+
+Human-AI partnership
+
+Control without interpretability is meaningless -> no idea about output
+If possible, we have to retrain (significant retraining)
+
+Pitch:
+
+Apply to new tasks, interpretable and trustworth all without re-training
+                                      ^ existing work is not trustworth because not controllable
+
+Use these three to prevent "where are the tables" from reviewers:
+
+* Rolnik, Beery -> Accuracy driven is not the right way to eval
+* Fei-Fei's interpretable AI - call to action
+* If humans make decisions, we eval on unknown task and compare to other metrics
+
+-> Compare pixel masking (phylo-nn)
+-> Cite with retraining tabular models from scratch
+-> OOD papers - motivate to new tasks
+
+Redwinged blackbird
+-> push features -> see class modifications (patch-level classification)
+no red wing -> then blackbird
+
+find qualitative traits that manipulate classifications
+
+connect interpretable features -> representation space
+
+counting + remove features for object
+         + colors?
+

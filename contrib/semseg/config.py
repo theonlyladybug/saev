@@ -19,14 +19,6 @@ class Train:
     """Training batch size for linear layer."""
     n_workers: int = 32
     """Number of dataloader workers."""
-    train_acts: saev.config.DataLoad = dataclasses.field(
-        default_factory=saev.config.DataLoad
-    )
-    """Configuration for the saved ADE20K training ViT activations."""
-    val_acts: saev.config.DataLoad = dataclasses.field(
-        default_factory=saev.config.DataLoad
-    )
-    """Configuration for the saved ADE20K validation ViT activations."""
     imgs: saev.config.Ade20kDataset = dataclasses.field(
         default_factory=saev.config.Ade20kDataset
     )

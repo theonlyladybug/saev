@@ -78,7 +78,7 @@ def add_highlights(img: Image.Image, patches: list[bool]) -> Image.Image:
 @beartype.beartype
 def make_figure_semseg(
     example_i: int = 3122,
-    patchified_i: list[int] = [1, 2, 3, 254, 255],
+    patchified_i: list[int] = [0, 1, 2, 3, 4, 5, 250, 251, 252, 253, 254, 255],
     highlighted_i: list[int] = default_highlighted_i,
     out: str = os.path.join(".", "logs", "figures"),
     ade20k: str = "/research/nfs_su_809/workspace/stevens.994/datasets/ade20k/",
@@ -113,12 +113,21 @@ def make_figure_semseg(
     img_arr = ade20k_dataset[example_i]["image"]
 
     # Split into 28x28 pixel image patches and save patches `patchified_i` as ade20k_example{i}_patch{p} to out
-    patch_size = img_arr.shape[0] // 16  # 448 // 16 = 28 pixels per patch
+    patch_size = 28
+    n_patch_per_side = 16
     for p in patchified_i:
-        row = (p // 16) * patch_size
-        col = (p % 16) * patch_size
-        patch = img_arr[row:row + patch_size, col:col + patch_size]
+        row = (p // n_patch_per_side) * patch_size
+        col = (p % n_patch_per_side) * patch_size
+        patch = img_arr[row : row + patch_size, col : col + patch_size]
         patch_img = Image.fromarray(patch.numpy())
+
+        # Highlight some patches
+        if p in highlighted_i:
+            overlay = Image.new("RGBA", patch_img.size, (0, 0, 0, 0))
+            draw = ImageDraw.Draw(overlay)
+            draw.rectangle([(0, 0), patch_img.size], fill=(225, 29, 72, 128))
+            patch_img = Image.alpha_composite(patch_img.convert("RGBA"), overlay)
+
         patch_img.save(os.path.join(out, f"ade20k_example{example_i}_patch{p}.png"))
 
     # Save image with highlighted_i patches highlighted.

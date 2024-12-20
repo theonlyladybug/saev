@@ -10,3 +10,4 @@ logs/
 .env
 .DS_Store
 tmp/
+.coverage

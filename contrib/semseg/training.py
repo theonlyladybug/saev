@@ -3,7 +3,6 @@ import dataclasses
 import io
 import json
 import logging
-import math
 import os.path
 import re
 
@@ -44,7 +43,9 @@ def main(cfgs: list[config.Train]):
     train_dataloader = get_dataloader(cfg, is_train=True)
     val_dataloader = get_dataloader(cfg, is_train=False)
 
-    models, params = make_models(cfgs, train_dataloader.dataset.d_vit)
+    vit = DinoV2()
+    vit = vit.to(cfg.device)
+    models, params = make_models(cfgs, vit.d_resid)
     models = models.to(cfg.device)
 
     optim = torch.optim.AdamW(
@@ -56,7 +57,16 @@ def main(cfgs: list[config.Train]):
     for epoch in range(cfg.n_epochs):
         models.train()
         for batch in train_dataloader:
-            acts_BWHD = batch["acts"].to(cfg.device)
+            imgs_BWHC = batch["image"].to(cfg.device)
+            with torch.inference_mode():
+                vit_acts = vit(imgs_BWHC)
+                acts_BWHD = einops.rearrange(
+                    vit_acts,
+                    "batch (width height) dim -> batch width height dim",
+                    width=16,
+                    height=16,
+                )
+
             patch_labels_BWH = batch["patch_labels"].to(cfg.device)
             patch_labels_MBWH = patch_labels_BWH.expand(len(cfgs), -1, -1, -1)
             logits_MBWHC = torch.stack([model(acts_BWHD) for model in models])
@@ -87,7 +97,16 @@ def main(cfgs: list[config.Train]):
             with torch.inference_mode():
                 pred_label_list, true_label_list = [], []
                 for batch in val_dataloader:
-                    acts_BWHD = batch["acts"].to(cfg.device, non_blocking=True)
+                    imgs_BWHC = batch["image"].to(cfg.device)
+                    with torch.inference_mode():
+                        vit_acts = vit(imgs_BWHC)
+                        acts_BWHD = einops.rearrange(
+                            vit_acts,
+                            "batch (width height) dim -> batch width height dim",
+                            width=16,
+                            height=16,
+                        )
+
                     pixel_labels_BWH = batch["pixel_labels"]
                     true_label_list.append(pixel_labels_BWH)
 
@@ -235,8 +254,6 @@ CANNOT_PARALLELIZE = set([
     "n_epochs",
     "batch_size",
     "n_workers",
-    "train_acts",
-    "val_acts",
     "imgs",
     "eval_every",
     "device",
@@ -280,21 +297,27 @@ def make_models(
     return torch.nn.ModuleList(models), param_groups
 
 
+@jaxtyped(typechecker=beartype.beartype)
+class DinoV2(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+
+        self.model = torch.hub.load("facebookresearch/dinov2", "dinov2_vitb14_reg")
+        self.d_resid = 768
+
+    def forward(self, batch: Float[Tensor, "batch 3 width height"]):
+        dct = self.model.forward_features(batch)
+
+        return dct["x_norm_patchtokens"]
+
+
 def get_dataloader(cfg: config.Train, *, is_train: bool):
     if is_train:
         shuffle = True
-        dataset = Dataset(
-            cfg.train_acts,
-            dataclasses.replace(cfg.imgs, split="training"),
-            cfg.patch_size_px,
-        )
+        dataset = Dataset(dataclasses.replace(cfg.imgs, split="training"))
     else:
         shuffle = False
-        dataset = Dataset(
-            cfg.val_acts,
-            dataclasses.replace(cfg.imgs, split="validation"),
-            cfg.patch_size_px,
-        )
+        dataset = Dataset(dataclasses.replace(cfg.imgs, split="validation"))
 
     return torch.utils.data.DataLoader(
         dataset,
@@ -307,48 +330,29 @@ def get_dataloader(cfg: config.Train, *, is_train: bool):
 
 @beartype.beartype
 class Dataset(torch.utils.data.Dataset):
-    def __init__(
-        self,
-        acts_cfg: saev.config.DataLoad,
-        imgs_cfg: saev.config.Ade20kDataset,
-        patch_size_px: tuple[int, int],
-    ):
-        self.acts = saev.activations.Dataset(acts_cfg)
-        to_array = v2.Compose([
-            v2.Resize(256, interpolation=v2.InterpolationMode.NEAREST),
+    def __init__(self, imgs_cfg: saev.config.Ade20kDataset):
+        img_transform = v2.Compose([
+            v2.Resize(size=(256, 256)),
+            v2.CenterCrop(size=(224, 224)),
+            v2.ToImage(),
+            v2.ToDtype(torch.float32, scale=True),
+            v2.Normalize(mean=[0.4850, 0.4560, 0.4060], std=[0.2290, 0.2240, 0.2250]),
+        ])
+        seg_transform = v2.Compose([
+            v2.Resize(size=(256, 256), interpolation=v2.InterpolationMode.NEAREST),
             v2.CenterCrop((224, 224)),
             v2.ToImage(),
         ])
-        self.imgs = saev.activations.Ade20k(
-            imgs_cfg, img_transform=to_array, seg_transform=to_array
+        self.samples = saev.activations.Ade20k(
+            imgs_cfg, img_transform=img_transform, seg_transform=seg_transform
         )
 
-        assert len(self.imgs) * self.acts.metadata.n_patches_per_img == len(self.acts)
-
-        self.patch_size_px = patch_size_px
-
-    @property
-    def d_vit(self) -> int:
-        return self.acts.metadata.d_vit
+        self.patch_size_px = (14, 14)
 
     def __getitem__(self, i: int) -> dict[str, object]:
-        # Get activations
-        acts = []
-        start = i * self.acts.metadata.n_patches_per_img
-        end = start + self.acts.metadata.n_patches_per_img
-        for j, k in enumerate(range(start, end)):
-            act = self.acts[k]
-            assert act["patch_i"] == j
-            assert act["image_i"] == i
-            acts.append(act["act"])
-
-        n_patch_w = int(math.sqrt(self.acts.metadata.n_patches_per_img))
-        n_patch_h = n_patch_w
-        acts = torch.stack(acts).reshape((n_patch_w, n_patch_h, self.d_vit))
-
         # Get patch and pixel level semantic labels.
-        img = self.imgs[i]
-        pixel_labels = img["segmentation"].squeeze()
+        sample = self.samples[i]
+        pixel_labels = sample["segmentation"].squeeze()
 
         pw, ph = self.patch_size_px
         patch_labels = (
@@ -359,13 +363,13 @@ class Dataset(torch.utils.data.Dataset):
 
         return {
             "index": i,
-            "acts": acts,
+            "image": sample["image"],
             "pixel_labels": pixel_labels,
             "patch_labels": patch_labels,
         }
 
     def __len__(self) -> int:
-        return len(self.imgs)
+        return len(self.samples)
 
 
 @jaxtyped(typechecker=beartype.beartype)

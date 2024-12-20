@@ -32,7 +32,8 @@ uv run python -m contrib.semseg train \
 ```sh
 uv run python -m contrib.semseg validate \
   --imgs.root /nfs/$USER/datasets/ade20k/ \
-  --acts.shard-root $VAL_SHARDS
+  --acts.shard-root $VAL_SHARDS \
+  --acts.layer -1
 ```
 
 Then you can look in `./logs/contrib/semseg` for `hparam-sweeps.png` to see what learning rate/weight decay combination is best.

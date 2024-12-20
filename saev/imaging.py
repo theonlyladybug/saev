@@ -15,6 +15,7 @@ def add_highlights(
     patches: Float[np.ndarray, " n_patches"],
     *,
     upper: float | None = None,
+    opacity: float = 0.9,
 ) -> Image.Image:
     if not len(patches):
         return img
@@ -40,7 +41,7 @@ def add_highlights(
                 (x_np * pw_px, y_np * ph_px),
                 (x_np * pw_px + pw_px, y_np * ph_px + ph_px),
             ],
-            fill=(*color, 128),
+            fill=(*color, int(opacity * val * 256)),
         )
 
     # Composite the original image and the overlay
