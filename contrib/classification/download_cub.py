@@ -70,7 +70,22 @@ def main(args: Args):
     print("Extracted data.")
 
     # Clean up and organize files for a torchvision.datasets.ImageFolder.
-    # 1.
+    # Some notes on dataset structure:
+    #
+    # * args.dir/CUB_200_2011/image_class_labels.txt has space-separated pairs of numbers, with the IMG_NUM first and the CLASS_NUM next.
+    # * args.dir/CUB_200_2011/images.txt has space-separated (number, string) pairs, where the number is the IMG_NUM above and the string is the relative path from args.dir/CUB_200_2011/images to the actual image.
+    # * args.dir/CUB_200_2011/classes.txt has space-separated (number, string) pairs, where the number is the CLASS_NUM above and the string is the classname.
+    # * args.dir/CUB_200_2011/classes.txt has space-separated (number, number) pairs, where the first number is the IMG_NUM above and the second number is either 0 or 1. 1 indicates train, 0 indicates test.
+    #
+    # The next block of code creates the train/test splits in args.dir/train and args.dir/test folders.
+
+    # Create output directories
+    train_dir = os.path.join(args.dir, "train")
+    test_dir = os.path.join(args.dir, "test")
+    os.makedirs(train_dir, exist_ok=True)
+    os.makedirs(test_dir, exist_ok=True)
+
+    # Fill out the rest of this code. AI!
 
 
 if __name__ == "__main__":
