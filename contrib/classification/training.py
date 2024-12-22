@@ -1,5 +1,5 @@
 """
-Train a linear probe on mean patch activations from a ViT.
+Train a linear probe on [CLS] activations from a ViT.
 """
 
 import collections
@@ -12,6 +12,7 @@ import os
 
 import altair as alt
 import beartype
+import einops
 import polars as pl
 import torch
 from jaxtyping import Float, Int, jaxtyped
@@ -22,6 +23,10 @@ import saev.activations
 from . import config
 
 logger = logging.getLogger(__name__)
+
+
+model_ckpt = "ViT-B-16/openai"
+d_repr = 768
 
 
 @beartype.beartype
@@ -39,51 +44,69 @@ def main(cfgs: list[config.Train]):
 
     os.makedirs(cfg.ckpt_path, exist_ok=True)
 
-    x_train_ND = load_acts(cfg.train_acts).to(cfg.device)
-    y_train_N = load_targets(cfg.train_imgs).to(cfg.device)
-    x_val_ND = load_acts(cfg.val_acts).to(cfg.device)
-    y_val_N = load_targets(cfg.val_imgs).to(cfg.device)
+    train_dataloader = get_dataloader(cfg, is_train=True)
+    val_dataloader = get_dataloader(cfg, is_train=False)
 
-    _, d_vit = x_train_ND.shape
-    n_classes = len(set(y_train_N.tolist()))
+    assert len(train_dataloader.dataset.classes) == len(val_dataloader.dataset.classes)
+    n_classes = len(train_dataloader.dataset.classes)
 
-    models, params = make_models(cfgs, d_vit, n_classes)
+    vit = saev.activations.Clip(model_ckpt)
+    vit = vit.to(cfg.device)
+
+    models, params = make_models(cfgs, n_classes)
     models = models.to(cfg.device)
     optim = torch.optim.AdamW(
         params, lr=cfg.learning_rate, weight_decay=cfg.weight_decay
     )
 
-    for step in range(cfg.n_steps):
+    global_step = 0
+    for epoch in range(cfg.n_epochs):
         models.train()
-        logits_MNC = torch.stack([model(x_train_ND) for model in models])
-        loss = torch.nn.functional.cross_entropy(
-            logits_MNC.view(-1, n_classes),
-            y_train_N.expand(len(cfgs), -1).reshape(-1),
-        )
-        loss.backward()
-        optim.step()
-        optim.zero_grad()
-
-        train_accs_M = (
-            (logits_MNC.argmax(axis=-1) == y_train_N.expand(len(cfgs), -1))
+        for batch in train_dataloader:
+            imgs_BWHC = batch["image"].to(cfg.device)
+            with torch.no_grad():
+                vit_acts = vit(imgs_BWHC)
+                acts_BD = vit_acts["cls"]
+            logits_MBC = torch.stack([model(acts_BD) for model in models])
+            targets_B = batch["target"].to(cfg.device)
+            loss = torch.nn.functional.cross_entropy(
+                logits_MBC.view(-1, n_classes),
+                targets_B.expand(len(cfgs), -1).reshape(-1),
+            )
+            loss.backward()
+            optim.step()
+            optim.zero_grad()
+            global_step += 1
+        train_acc_M = (
+            (logits_MBC.argmax(axis=-1) == targets_B.expand(len(cfgs), -1))
             .float()
             .mean(axis=1)
         )
 
         models.eval()
-        logits_MNC = torch.stack([model(x_val_ND) for model in models])
-        val_accs_M = (
-            (logits_MNC.argmax(axis=-1) == y_val_N.expand(len(cfgs), -1))
-            .float()
-            .mean(axis=1)
-        )
+        with torch.inference_mode():
+            pred_tgt_list, true_tgt_list = [], []
+            for batch in val_dataloader:
+                imgs_BWHC = batch["image"].to(cfg.device)
+                with torch.no_grad():
+                    vit_acts = vit(imgs_BWHC)
+                    acts_BD = vit_acts["cls"]
+                logits_MBC = torch.stack([model(acts_BD) for model in models])
+                pred_tgt_list.append(logits_MBC.argmax(axis=-1).cpu())
+                true_tgt_list.append(batch["target"])
+
+            pred_tgt_MN = torch.cat(pred_tgt_list, dim=1).int()
+            true_tgt_MN = torch.cat(true_tgt_list).int().expand(len(models), -1)
+            val_acc_M = einops.reduce(
+                (pred_tgt_MN == true_tgt_MN).float(), "models n -> models", "mean"
+            )
 
         logger.info(
-            "step: %d, mean train loss: %.5f, max train acc: %.3f%%, max val acc: %.3f%%",
-            step,
-            loss.item(),
-            train_accs_M.max().item() * 100,
-            val_accs_M.max().item() * 100,
+            "epoch: %d, step: %d, max train acc: %.5f, max val acc: %.3f",
+            epoch,
+            global_step,
+            train_acc_M.max().item() * 100,
+            val_acc_M.max().item() * 100,
         )
 
     for cfg, model in zip(cfgs, models):
@@ -92,15 +115,12 @@ def main(cfgs: list[config.Train]):
     os.makedirs(cfg.log_to, exist_ok=True)
 
     # Save CSV file
-    class_headers = load_class_headers(cfg.train_imgs)
     csv_fpath = os.path.join(cfg.log_to, "results.csv")
     with open(csv_fpath, "w") as fd:
         writer = csv.writer(fd)
-        writer.writerow(
-            ["learning_rate", "weight_decay", "train_acc", "val_acc"] + class_headers
-        )
+        writer.writerow(["learning_rate", "weight_decay", "train_acc", "val_acc"])
         for c, train_acc, val_acc in zip(
-            cfgs, train_accs_M.tolist(), val_accs_M.tolist()
+            cfgs, train_acc_M.tolist(), val_acc_M.tolist()
         ):
             writer.writerow([c.learning_rate, c.weight_decay, train_acc, val_acc])
 
@@ -241,12 +261,12 @@ def check_cfgs(cfgs: list[config.Train]):
 
 @beartype.beartype
 def make_models(
-    cfgs: list[config.Train], d_in: int, d_out: int
+    cfgs: list[config.Train], d_out: int
 ) -> tuple[torch.nn.ModuleList, list[dict[str, object]]]:
     param_groups = []
     models = []
     for cfg in cfgs:
-        model = torch.nn.Linear(d_in, d_out)
+        model = torch.nn.Linear(d_repr, d_out)
         models.append(model)
         # Use an empty LR because our first step is warmup.
         param_groups.append({
@@ -256,3 +276,27 @@ def make_models(
         })
 
     return torch.nn.ModuleList(models), param_groups
+
+
+def get_dataloader(cfg: config.Train, *, is_train: bool):
+    img_transform = saev.activations.make_img_transform("clip", model_ckpt)
+
+    if is_train:
+        shuffle = True
+
+        dataset = saev.activations.ImageFolder(
+            cfg.train_imgs.root, transform=img_transform
+        )
+    else:
+        shuffle = False
+        dataset = saev.activations.ImageFolder(
+            cfg.val_imgs.root, transform=img_transform
+        )
+
+    return torch.utils.data.DataLoader(
+        dataset,
+        batch_size=cfg.batch_size,
+        num_workers=cfg.n_workers,
+        shuffle=shuffle,
+        persistent_workers=(cfg.n_workers > 0),
+    )

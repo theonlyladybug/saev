@@ -12,7 +12,6 @@ import Json.Encode as E
 import Parser exposing ((|.), (|=))
 import Random
 import Set
-import Url.Builder
 
 
 main =
@@ -108,11 +107,7 @@ init _ =
       , sliders = Dict.empty
       }
     , Cmd.batch
-        [ getImageUrl example
-
-        -- , getTrueLabels example
-        , getPredLabels example
-        ]
+        [ getImageUrl example, getPredLabels example ]
     )
 
 

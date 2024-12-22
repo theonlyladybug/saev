@@ -17,6 +17,10 @@ fmt:
 clean:
     uv run python -c 'import datasets; print(datasets.load_dataset("ILSVRC/imagenet-1k").cleanup_cache_files())'
 
-build: fmt
+build-semgseg: fmt
     cd web && elm make apps/semseg/Main.elm --output apps/semseg/dist/app.js --debug
     cd web && tailwindcss --input apps/semseg/main.css --output apps/semseg/dist/main.css
+
+build-classification: fmt
+    cd web && elm make src/Classification.elm --output apps/classification/dist/app.js --debug
+    cd web && tailwindcss --input apps/classification/main.css --output apps/classification/dist/main.css

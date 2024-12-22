@@ -13,30 +13,20 @@ class Train:
     """Linear layer learning rate."""
     weight_decay: float = 1e-3
     """Weight decay  for AdamW."""
-    n_steps: int = 400
-    """Number of training steps for linear layer."""
-    batch_size: int = 1024
-    """Training batch size for linear layer."""
+    n_epochs: int = 20
+    """Number of training epochs for linear layer."""
+    batch_size: int = 512
+    """Training batch size."""
     n_workers: int = 32
     """Number of dataloader workers."""
-    train_acts: saev.config.DataLoad = dataclasses.field(
-        default_factory=lambda: saev.config.DataLoad(patches="cls")
-    )
-    """Configuration for the saved Flowers102 training ViT activations."""
-    val_acts: saev.config.DataLoad = dataclasses.field(
-        default_factory=lambda: saev.config.DataLoad(patches="cls")
-    )
-    """Configuration for the saved Flowers102 validation ViT activations."""
     train_imgs: saev.config.ImageFolderDataset = dataclasses.field(
         default_factory=saev.config.ImageFolderDataset
     )
-    """Configuration for the Flowers102 training images."""
+    """Configuration for the training images."""
     val_imgs: saev.config.ImageFolderDataset = dataclasses.field(
         default_factory=saev.config.ImageFolderDataset
     )
-    """Configuration for the Flowers102 validation images."""
-    eval_every: int = 100
-    """How many epochs between evaluations."""
+    """Configuration for the validation images."""
     device: str = "cuda"
     "Hardware to train on."
     ckpt_path: str = os.path.join(".", "checkpoints", "contrib", "classification")

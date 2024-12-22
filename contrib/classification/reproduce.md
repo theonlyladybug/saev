@@ -63,16 +63,12 @@ uv run python -m saev activations \
 ## Train a Linear Probe
 
 ```sh
-uv run python -m contrib.classification train \
+uv run python -m contrib.classification \
   --n-workers 32 \
-  --train-acts.shard-root /local/scratch/$USER/cache/saev/$TRAIN \
-  --train-acts.layer -1 \
-  --val-acts.shard-root /local/scratch/$USER/cache/saev/$TEST \
-  --val-acts.layer -1 \
-  --train-imgs.root /nfs/$USER/datasets/caltech-101/train \
-  --val-imgs.root /nfs/$USER/datasets/caltech-101/test \
+  --train-imgs.root /research/nfs_su_809/workspace/stevens.994/datasets/cub2011/train \
+  --val-imgs.root /research/nfs_su_809/workspace/stevens.994/datasets/cub2011/test/ \
   --sweep contrib/classification/sweep.toml
-```
+  ```
 
 Then look at `logs/contrib/classification/hparam-sweeps.png`. 
 It probably works for any of the learning rates above 1e-5 or so.
