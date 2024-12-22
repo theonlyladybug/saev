@@ -1,3 +1,5 @@
+import os.path
+
 import beartype
 import einops.layers.torch
 import gradio as gr
@@ -8,6 +10,7 @@ from torch import Tensor
 from torchvision.transforms import v2
 
 import saev.activations
+import saev.visuals
 
 from . import training
 
@@ -30,6 +33,11 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model_ckpt = "ViT-B-16/openai"
 """CLIP checkpoint."""
 
+sae_ckpt = "rscsjxgd"
+"""Which SAE checkpoint to use."""
+
+max_frequency = 1e-2
+"""Maximum frequency. Any feature that fires more than this is ignored."""
 
 ##########
 # Models #
@@ -101,6 +109,11 @@ clf_ckpt_fpath = "/home/stevens.994/projects/saev/checkpoints/contrib/classifica
 clf = training.load_model(clf_ckpt_fpath)
 clf = clf.to(device).eval()
 
+sae_ckpt_fpath = f"/home/stevens.994/projects/saev/checkpoints/{sae_ckpt}/sae.pt"
+sae = saev.nn.load(sae_ckpt_fpath)
+sae.to(device).eval()
+
+
 ############
 # Datasets #
 ############
@@ -130,6 +143,56 @@ vit_dataset = saev.activations.ImageFolder(
     "/research/nfs_su_809/workspace/stevens.994/datasets/cub2011/test",
     transform=saev.activations.make_img_transform("clip", model_ckpt),
 )
+
+examples_dataset = saev.activations.ImageFolder(
+    "/research/nfs_su_809/workspace/stevens.994/datasets/inat21/train_mini",
+    transform=v2.Compose([
+        v2.Resize(size=(512, 512)),
+        v2.CenterCrop(size=(448, 448)),
+    ]),
+)
+
+#############
+# Variables #
+#############
+
+
+@beartype.beartype
+def load_tensor(path: str) -> Tensor:
+    return torch.load(path, weights_only=True, map_location="cpu")
+
+
+ckpt_data_root = f"/research/nfs_su_809/workspace/stevens.994/saev/features/{sae_ckpt}-high-freq/sort_by_patch"
+
+top_img_i = load_tensor(os.path.join(ckpt_data_root, "top_img_i.pt"))
+top_values = load_tensor(os.path.join(ckpt_data_root, "top_values.pt"))
+sparsity = load_tensor(os.path.join(ckpt_data_root, "sparsity.pt"))
+
+mask = torch.ones((sae.cfg.d_sae), dtype=bool)
+mask = mask & (sparsity < max_frequency)
+
+
+@beartype.beartype
+def make_img(
+    elem: saev.visuals.GridElement, *, upper: float | None = None
+) -> Image.Image:
+    # Resize to 256x256 and crop to 224x224
+    resize_size_px = (512, 512)
+    resize_w_px, resize_h_px = resize_size_px
+    crop_size_px = (448, 448)
+    crop_w_px, crop_h_px = crop_size_px
+    crop_coords_px = (
+        (resize_w_px - crop_w_px) // 2,
+        (resize_h_px - crop_h_px) // 2,
+        (resize_w_px + crop_w_px) // 2,
+        (resize_h_px + crop_h_px) // 2,
+    )
+
+    img = elem.img.resize(resize_size_px).crop(crop_coords_px)
+    img = saev.imaging.add_highlights(
+        img, elem.patches.numpy(), upper=upper, opacity=0.5
+    )
+    return img
 
 
 #############
@@ -170,7 +233,7 @@ def get_sae_examples(
             if i_im in seen_i_im:
                 continue
 
-            example = in1k_dataset[i_im]
+            example = examples_dataset[i_im]
             elems.append(
                 saev.visuals.GridElement(example["image"], example["label"], values_p)
             )
@@ -244,7 +307,8 @@ with gr.Blocks() as demo:
         get_pred_dist,
         inputs=[image_number],
         outputs=[pred_dist],
-        api_name="get-pred-labels",
+        api_name="get-preds",
     )
 
-demo.launch()
+if __name__ == "__main__":
+    demo.launch()
