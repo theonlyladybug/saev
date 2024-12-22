@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
 <meta name="generator" content="pdoc3 0.11.3">
 <title>contrib.classification.training API documentation</title>
-<meta name="description" content="Train a linear probe on [CLS] activations from a ViT …">
+<meta name="description" content="Train a linear probe on [CLS] activations from a ViT.">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/sanitize.min.css" integrity="sha512-y1dtMcuvtTMJc1yPgEqF0ZjQbhnc/bFhyvIyVNb9Zk5mIGtqVaAB1Ttl28su8AvFMOY0EwRbAe+HCLqj6W7/KA==" crossorigin>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/typography.min.css" integrity="sha512-Y1DYSb995BAfxobCkKepB1BqJJTPrOp3zPL74AWFugHHmmdcvO+C48WLrUOlhGMc0QG7AE3f7gmvvcrmX2fDoA==" crossorigin>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css" crossorigin>
@@ -28,7 +28,6 @@ hljs.highlightAll();
 </header>
 <section id="section-intro">
 <p>Train a linear probe on [CLS] activations from a ViT.</p>
-<p>This assumes the training and evaluation dataset are very small and can fit in GPU memory. If this is not true, look at contrib/semseg/training.py for some inspiration.</p>
 </section>
 <section>
 </section>
@@ -48,6 +47,12 @@ hljs.highlightAll();
 </code></dt>
 <dd>
 <div class="desc"><p>Save a model checkpoint to disk along with configuration, using the <a href="https://docs.kidger.site/equinox/examples/serialisation">trick from equinox</a>.</p></div>
+</dd>
+<dt id="contrib.classification.training.get_dataloader"><code class="name flex">
+<span>def <span class="ident">get_dataloader</span></span>(<span>cfg: <a title="contrib.classification.config.Train" href="config.html#contrib.classification.config.Train">Train</a>,<br>*,<br>is_train: bool)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
 </dd>
 <dt id="contrib.classification.training.load_acts"><code class="name flex">
 <span>def <span class="ident">load_acts</span></span>(<span>cfg: <a title="saev.config.DataLoad" href="../../saev/config.html#saev.config.DataLoad">DataLoad</a>) ‑> jaxtyping.Float[Tensor, 'n d_vit']</span>
@@ -80,7 +85,7 @@ hljs.highlightAll();
 <div class="desc"></div>
 </dd>
 <dt id="contrib.classification.training.make_models"><code class="name flex">
-<span>def <span class="ident">make_models</span></span>(<span>cfgs: list[<a title="contrib.classification.config.Train" href="config.html#contrib.classification.config.Train">Train</a>],<br>d_in: int,<br>d_out: int) ‑> tuple[torch.nn.modules.container.ModuleList, list[dict[str, object]]]</span>
+<span>def <span class="ident">make_models</span></span>(<span>cfgs: list[<a title="contrib.classification.config.Train" href="config.html#contrib.classification.config.Train">Train</a>],<br>d_out: int) ‑> tuple[torch.nn.modules.container.ModuleList, list[dict[str, object]]]</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -196,6 +201,7 @@ def n_classes(self) -&gt; int:
 <ul class="two-column">
 <li><code><a title="contrib.classification.training.check_cfgs" href="#contrib.classification.training.check_cfgs">check_cfgs</a></code></li>
 <li><code><a title="contrib.classification.training.dump_model" href="#contrib.classification.training.dump_model">dump_model</a></code></li>
+<li><code><a title="contrib.classification.training.get_dataloader" href="#contrib.classification.training.get_dataloader">get_dataloader</a></code></li>
 <li><code><a title="contrib.classification.training.load_acts" href="#contrib.classification.training.load_acts">load_acts</a></code></li>
 <li><code><a title="contrib.classification.training.load_class_headers" href="#contrib.classification.training.load_class_headers">load_class_headers</a></code></li>
 <li><code><a title="contrib.classification.training.load_model" href="#contrib.classification.training.load_model">load_model</a></code></li>

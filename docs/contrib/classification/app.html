@@ -41,6 +41,10 @@ hljs.highlightAll();
 <dd>
 <div class="desc"><p>Hardware accelerator, if any.</p></div>
 </dd>
+<dt id="contrib.classification.app.max_frequency"><code class="name">var <span class="ident">max_frequency</span></code></dt>
+<dd>
+<div class="desc"><p>Maximum frequency. Any feature that fires more than this is ignored.</p></div>
+</dd>
 <dt id="contrib.classification.app.model_ckpt"><code class="name">var <span class="ident">model_ckpt</span></code></dt>
 <dd>
 <div class="desc"><p>CLIP checkpoint.</p></div>
@@ -52,6 +56,10 @@ hljs.highlightAll();
 <dt id="contrib.classification.app.n_sae_latents"><code class="name">var <span class="ident">n_sae_latents</span></code></dt>
 <dd>
 <div class="desc"><p>Number of SAE latents to show.</p></div>
+</dd>
+<dt id="contrib.classification.app.sae_ckpt"><code class="name">var <span class="ident">sae_ckpt</span></code></dt>
+<dd>
+<div class="desc"><p>Which SAE checkpoint to use.</p></div>
 </dd>
 </dl>
 </section>
@@ -75,6 +83,18 @@ hljs.highlightAll();
 </code></dt>
 <dd>
 <div class="desc"><p>Given a particular cell, returns some highlighted images showing what feature fires most on this cell.</p></div>
+</dd>
+<dt id="contrib.classification.app.load_tensor"><code class="name flex">
+<span>def <span class="ident">load_tensor</span></span>(<span>path: str) ‑> torch.Tensor</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="contrib.classification.app.make_img"><code class="name flex">
+<span>def <span class="ident">make_img</span></span>(<span>elem: <a title="saev.visuals.GridElement" href="../../saev/visuals.html#saev.visuals.GridElement">GridElement</a>,<br>*,<br>upper: float | None = None) ‑> PIL.Image.Image</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
 </dd>
 </dl>
 </section>
@@ -209,12 +229,14 @@ class SplitClip(torch.nn.Module):
 </ul>
 </li>
 <li><h3><a href="#header-variables">Global variables</a></h3>
-<ul class="">
+<ul class="two-column">
 <li><code><a title="contrib.classification.app.DEBUG" href="#contrib.classification.app.DEBUG">DEBUG</a></code></li>
 <li><code><a title="contrib.classification.app.device" href="#contrib.classification.app.device">device</a></code></li>
+<li><code><a title="contrib.classification.app.max_frequency" href="#contrib.classification.app.max_frequency">max_frequency</a></code></li>
 <li><code><a title="contrib.classification.app.model_ckpt" href="#contrib.classification.app.model_ckpt">model_ckpt</a></code></li>
 <li><code><a title="contrib.classification.app.n_sae_examples" href="#contrib.classification.app.n_sae_examples">n_sae_examples</a></code></li>
 <li><code><a title="contrib.classification.app.n_sae_latents" href="#contrib.classification.app.n_sae_latents">n_sae_latents</a></code></li>
+<li><code><a title="contrib.classification.app.sae_ckpt" href="#contrib.classification.app.sae_ckpt">sae_ckpt</a></code></li>
 </ul>
 </li>
 <li><h3><a href="#header-functions">Functions</a></h3>
@@ -222,6 +244,8 @@ class SplitClip(torch.nn.Module):
 <li><code><a title="contrib.classification.app.get_image" href="#contrib.classification.app.get_image">get_image</a></code></li>
 <li><code><a title="contrib.classification.app.get_pred_dist" href="#contrib.classification.app.get_pred_dist">get_pred_dist</a></code></li>
 <li><code><a title="contrib.classification.app.get_sae_examples" href="#contrib.classification.app.get_sae_examples">get_sae_examples</a></code></li>
+<li><code><a title="contrib.classification.app.load_tensor" href="#contrib.classification.app.load_tensor">load_tensor</a></code></li>
+<li><code><a title="contrib.classification.app.make_img" href="#contrib.classification.app.make_img">make_img</a></code></li>
 </ul>
 </li>
 <li><h3><a href="#header-classes">Classes</a></h3>

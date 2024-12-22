@@ -117,8 +117,6 @@ uv run python -m saev visuals \
   --data.shard-root /local/scratch/$USER/cache/saev/ac89246f1934b45e2f0487298aebe36ad998b6bd252d880c0c9ec5de78d793c8 \
   --data.layer -2 \
   --data.patches patches \
-  --data.no-scale-mean \
-  --data.no-scale-norm \
   images:imagenet-dataset
 ```
 
@@ -290,7 +288,7 @@ Classes
     `samples: list[saev.activations.Ade20k.Sample]`
     :
 
-`Clip(cfg: saev.config.Activations)`
+`Clip(model_ckpt: str)`
 :   Base class for all neural network modules.
     
     Your models should also subclass this class.
@@ -330,7 +328,7 @@ Classes
 
     ### Methods
 
-    `forward(self, batch: jaxtyping.Float[Tensor, 'batch 3 width height']) ‑> Callable[..., Any]`
+    `forward(self, batch: jaxtyping.Float[Tensor, 'batch 3 width height']) ‑> jaxtyping.Float[Tensor, 'batch patches dim']`
     :   Define the computation performed at every call.
         
         Should be overridden by all subclasses.
@@ -340,6 +338,12 @@ Classes
             this function, one should call the :class:`Module` instance afterwards
             instead of this since the former takes care of running the
             registered hooks while the latter silently ignores them.
+
+    `get_patches(self, cfg: saev.config.Activations) ‑> slice`
+    :
+
+    `get_residuals(self) ‑> list[torch.nn.modules.module.Module]`
+    :
 
 `Dataset(cfg: saev.config.DataLoad)`
 :   Dataset of activations from disk.
@@ -389,7 +393,7 @@ Classes
         
         So we divide by self.scalar which is the datasets (approximate) L2 mean before normalization divided by sqrt(d_vit).
 
-`DinoV2(cfg: saev.config.Activations)`
+`DinoV2(model_ckpt: str)`
 :   Base class for all neural network modules.
     
     Your models should also subclass this class.
@@ -429,7 +433,7 @@ Classes
 
     ### Methods
 
-    `forward(self, batch: jaxtyping.Float[Tensor, 'batch 3 width height']) ‑> Callable[..., Any]`
+    `forward(self, batch: jaxtyping.Float[Tensor, 'batch 3 width height']) ‑> jaxtyping.Float[Tensor, 'batch patches dim']`
     :   Define the computation performed at every call.
         
         Should be overridden by all subclasses.
@@ -439,6 +443,12 @@ Classes
             this function, one should call the :class:`Module` instance afterwards
             instead of this since the former takes care of running the
             registered hooks while the latter silently ignores them.
+
+    `get_patches(self, cfg: saev.config.Activations) ‑> slice`
+    :
+
+    `get_residuals(self) ‑> list[torch.nn.modules.module.Module]`
+    :
 
 `ImageFolder(root: str | pathlib.Path, transform: Callable | None = None, target_transform: Callable | None = None, loader: Callable[[str], Any] = <function default_loader>, is_valid_file: Callable[[str], bool] | None = None, allow_empty: bool = False)`
 :   A generic data loader where the images are arranged in this way by default: ::
@@ -502,7 +512,7 @@ Classes
     * torch.utils.data.dataset.Dataset
     * typing.Generic
 
-`MaskedAutoencoder(cfg: saev.config.Activations)`
+`MaskedAutoencoder(model_ckpt: str)`
 :   Base class for all neural network modules.
     
     Your models should also subclass this class.
@@ -542,7 +552,7 @@ Classes
 
     ### Methods
 
-    `forward(self, batch: jaxtyping.Float[Tensor, 'batch 3 width height']) ‑> Callable[..., Any]`
+    `forward(self, batch: jaxtyping.Float[Tensor, 'batch 3 width height']) ‑> jaxtyping.Float[Tensor, 'batch patches dim']`
     :   Define the computation performed at every call.
         
         Should be overridden by all subclasses.
@@ -552,6 +562,12 @@ Classes
             this function, one should call the :class:`Module` instance afterwards
             instead of this since the former takes care of running the
             registered hooks while the latter silently ignores them.
+
+    `get_patches(self, cfg: saev.config.Activations) ‑> slice`
+    :
+
+    `get_residuals(self) ‑> list[torch.nn.modules.module.Module]`
+    :
 
 `Metadata(model_family: str, model_ckpt: str, layers: tuple[int, ...], n_patches_per_img: int, cls_token: bool, d_vit: int, seed: int, n_imgs: int, n_patches_per_shard: int, data: str)`
 :   Metadata(model_family: str, model_ckpt: str, layers: tuple[int, ...], n_patches_per_img: int, cls_token: bool, d_vit: int, seed: int, n_imgs: int, n_patches_per_shard: int, data: str)
@@ -606,89 +622,7 @@ Classes
     `dump(self, fpath)`
     :
 
-`ShardWriter(cfg: saev.config.Activations)`
-:   ShardWriter is a stateful object that handles sharded activation writing to disk.
-
-    ### Class variables
-
-    `acts: jaxtyping.Float[ndarray, 'n_imgs_per_shard n_layers all_patches d_vit'] | None`
-    :
-
-    `acts_path: str`
-    :
-
-    `filled: int`
-    :
-
-    `root: str`
-    :
-
-    `shape: tuple[int, int, int, int]`
-    :
-
-    `shard: int`
-    :
-
-    ### Methods
-
-    `flush(self) ‑> None`
-    :
-
-    `next_shard(self) ‑> None`
-    :
-
-`Siglip(cfg: saev.config.Activations)`
-:   Base class for all neural network modules.
-    
-    Your models should also subclass this class.
-    
-    Modules can also contain other Modules, allowing to nest them in
-    a tree structure. You can assign the submodules as regular attributes::
-    
-        import torch.nn as nn
-        import torch.nn.functional as F
-    
-        class Model(nn.Module):
-            def __init__(self) -> None:
-                super().__init__()
-                self.conv1 = nn.Conv2d(1, 20, 5)
-                self.conv2 = nn.Conv2d(20, 20, 5)
-    
-            def forward(self, x):
-                x = F.relu(self.conv1(x))
-                return F.relu(self.conv2(x))
-    
-    Submodules assigned in this way will be registered, and will have their
-    parameters converted too when you call :meth:`to`, etc.
-    
-    .. note::
-        As per the example above, an ``__init__()`` call to the parent class
-        must be made before assignment on the child.
-    
-    :ivar training: Boolean represents whether this module is in training or
-                    evaluation mode.
-    :vartype training: bool
-    
-    Initialize internal Module state, shared by both nn.Module and ScriptModule.
-
-    ### Ancestors (in MRO)
-
-    * torch.nn.modules.module.Module
-
-    ### Methods
-
-    `forward(self, batch: jaxtyping.Float[Tensor, 'batch 3 width height']) ‑> Callable[..., Any]`
-    :   Define the computation performed at every call.
-        
-        Should be overridden by all subclasses.
-        
-        .. note::
-            Although the recipe for forward pass needs to be defined within
-            this function, one should call the :class:`Module` instance afterwards
-            instead of this since the former takes care of running the
-            registered hooks while the latter silently ignores them.
-
-`VitRecorder(cfg: saev.config.Activations, patches: slice = slice(None, None, None))`
+`Recorder(cfg: saev.config.Activations, vit: torch.nn.modules.module.Module)`
 :   Base class for all neural network modules.
     
     Your models should also subclass this class.
@@ -746,6 +680,145 @@ Classes
 
     `reset(self)`
     :
+
+`ShardWriter(cfg: saev.config.Activations)`
+:   ShardWriter is a stateful object that handles sharded activation writing to disk.
+
+    ### Class variables
+
+    `acts: jaxtyping.Float[ndarray, 'n_imgs_per_shard n_layers all_patches d_vit'] | None`
+    :
+
+    `acts_path: str`
+    :
+
+    `filled: int`
+    :
+
+    `root: str`
+    :
+
+    `shape: tuple[int, int, int, int]`
+    :
+
+    `shard: int`
+    :
+
+    ### Methods
+
+    `flush(self) ‑> None`
+    :
+
+    `next_shard(self) ‑> None`
+    :
+
+`Siglip(model_ckpt: str)`
+:   Base class for all neural network modules.
+    
+    Your models should also subclass this class.
+    
+    Modules can also contain other Modules, allowing to nest them in
+    a tree structure. You can assign the submodules as regular attributes::
+    
+        import torch.nn as nn
+        import torch.nn.functional as F
+    
+        class Model(nn.Module):
+            def __init__(self) -> None:
+                super().__init__()
+                self.conv1 = nn.Conv2d(1, 20, 5)
+                self.conv2 = nn.Conv2d(20, 20, 5)
+    
+            def forward(self, x):
+                x = F.relu(self.conv1(x))
+                return F.relu(self.conv2(x))
+    
+    Submodules assigned in this way will be registered, and will have their
+    parameters converted too when you call :meth:`to`, etc.
+    
+    .. note::
+        As per the example above, an ``__init__()`` call to the parent class
+        must be made before assignment on the child.
+    
+    :ivar training: Boolean represents whether this module is in training or
+                    evaluation mode.
+    :vartype training: bool
+    
+    Initialize internal Module state, shared by both nn.Module and ScriptModule.
+
+    ### Ancestors (in MRO)
+
+    * torch.nn.modules.module.Module
+
+    ### Methods
+
+    `forward(self, batch: jaxtyping.Float[Tensor, 'batch 3 width height']) ‑> jaxtyping.Float[Tensor, 'batch patches dim']`
+    :   Define the computation performed at every call.
+        
+        Should be overridden by all subclasses.
+        
+        .. note::
+            Although the recipe for forward pass needs to be defined within
+            this function, one should call the :class:`Module` instance afterwards
+            instead of this since the former takes care of running the
+            registered hooks while the latter silently ignores them.
+
+    `get_patches(self, cfg: saev.config.Activations) ‑> slice`
+    :
+
+    `get_residuals(self) ‑> list[torch.nn.modules.module.Module]`
+    :
+
+`WrappedVisionTransformer(cfg: saev.config.Activations)`
+:   Base class for all neural network modules.
+    
+    Your models should also subclass this class.
+    
+    Modules can also contain other Modules, allowing to nest them in
+    a tree structure. You can assign the submodules as regular attributes::
+    
+        import torch.nn as nn
+        import torch.nn.functional as F
+    
+        class Model(nn.Module):
+            def __init__(self) -> None:
+                super().__init__()
+                self.conv1 = nn.Conv2d(1, 20, 5)
+                self.conv2 = nn.Conv2d(20, 20, 5)
+    
+            def forward(self, x):
+                x = F.relu(self.conv1(x))
+                return F.relu(self.conv2(x))
+    
+    Submodules assigned in this way will be registered, and will have their
+    parameters converted too when you call :meth:`to`, etc.
+    
+    .. note::
+        As per the example above, an ``__init__()`` call to the parent class
+        must be made before assignment on the child.
+    
+    :ivar training: Boolean represents whether this module is in training or
+                    evaluation mode.
+    :vartype training: bool
+    
+    Initialize internal Module state, shared by both nn.Module and ScriptModule.
+
+    ### Ancestors (in MRO)
+
+    * torch.nn.modules.module.Module
+
+    ### Methods
+
+    `forward(self, batch: jaxtyping.Float[Tensor, 'batch 3 width height']) ‑> tuple[jaxtyping.Float[Tensor, 'batch patches dim'], jaxtyping.Float[Tensor, '...']]`
+    :   Define the computation performed at every call.
+        
+        Should be overridden by all subclasses.
+        
+        .. note::
+            Although the recipe for forward pass needs to be defined within
+            this function, one should call the :class:`Module` instance afterwards
+            instead of this since the former takes care of running the
+            registered hooks while the latter silently ignores them.
 
 Module saev.config
 ==================
@@ -1114,7 +1187,7 @@ Module saev.imaging
 Functions
 ---------
 
-`add_highlights(img: PIL.Image.Image, patches: jaxtyping.Float[ndarray, 'n_patches'], *, upper: float | None = None) ‑> PIL.Image.Image`
+`add_highlights(img: PIL.Image.Image, patches: jaxtyping.Float[ndarray, 'n_patches'], *, upper: float | None = None, opacity: float = 0.9) ‑> PIL.Image.Image`
 :
 
 Namespace saev.interactive
@@ -1616,9 +1689,9 @@ You can reproduce our classification control experiments from our preprint by fo
 
 The big overview (as described in our paper) is:
 
-1. Train an SAE on the ImageNet-1K [CLS] token activations from a CLIP ViT-B/16, from the 11th (second-to-last) layer.
+1. Train an SAE on the ImageNet-1K patch activations from a CLIP ViT-B/16, from the 11th (second-to-last) layer.
 2. Show that you get meaningful features, through visualizations.
-3. Train a linear probe on the [CLS] token activations from  a CLIP ViT-B/16, from the 11th layer, on the Caltech-101 dataset. We use an arbitrary random train/test split.
+3. Train a linear probe on the [CLS] token activations from  a CLIP ViT-B/16, from the 12th layer, on the Caltech-101 dataset. We use an arbitrary random train/test split.
 4. Show that we get good accuracy.
 5. Manipulate the activations using the proposed SAE features.
 6. Be amazed. :)
@@ -1627,28 +1700,27 @@ To do these steps:
 
 ## Record ImageNet-1K activations
 
-## Train an SAE on [CLS] Activations
+## Train an SAE on Activations
 
 ```sh
 uv run python -m saev train \
   --sweep configs/preprint/classification.toml \
   --data.shard-root /local/scratch/$USER/cache/saev/ac89246f1934b45e2f0487298aebe36ad998b6bd252d880c0c9ec5de78d793c8/ \
-  --data.patches cls \
+  --data.layer -2 \
   --sae.d-vit 768
 ```
 
 ## Visualize the SAE Features
 
-`bd97z80b` was the best checkpoint from my sweep.
+`` was the best checkpoint from my sweep.
 
 ```sh
 uv run python -m saev visuals \
   --ckpt checkpoints/bd97z80b/sae.pt \
   --dump-to /research/nfs_su_809/workspace/stevens.994/saev/features/bd97z80b \
-  --sort-byt cls \
+  --sort-by patch \
   --data.shard-root /local/scratch/stevens.994/cache/saev/ac89246f1934b45e2f0487298aebe36ad998b6bd252d880c0c9ec5de78d793c8/ \
   --data.layer -2 \
-  --data.patches cls \
   --log-freq-range -2.5 -1.5 \
   --log-value-range 0.0 1.0 \
   images:imagenet-dataset
@@ -1656,7 +1728,7 @@ uv run python -m saev visuals \
 
 You can see some neat features in here by using `saev.interactive.features` with `marimo`.
 
-## Record Caltech-101 Activations
+## Record CUB-200-2011 Activations
 
 For each `$SPLIT` in "train" and "test":
 
@@ -1666,7 +1738,7 @@ uv run python -m saev activations \
   --model-ckpt ViT-B-16/openai \
   --d-vit 768 \
   --n-patches-per-img 196 \
-  --layers -2 \
+  --layers -2 -1 \
   --dump-to /local/scratch/$USER/cache/saev \
   --n-patches-per-shard 2_4000_000 \
   data:image-folder-dataset \
@@ -1676,16 +1748,15 @@ uv run python -m saev activations \
 ## Train a Linear Probe
 
 ```sh
-uv run python -m contrib.classification train \
+uv run python -m contrib.classification \
   --n-workers 32 \
-  --train-acts.shard-root /local/scratch/$USER/cache/saev/$TRAIN \
-  --val-acts.shard-root /local/scratch/$USER/cache/saev/$TEST \
-  --train-imgs.root /nfs/$USER/datasets/flowers102/train \
-  --val-imgs.root /nfs/$USER/datasets/flowers102/val \
+  --train-imgs.root /research/nfs_su_809/workspace/stevens.994/datasets/cub2011/train \
+  --val-imgs.root /research/nfs_su_809/workspace/stevens.994/datasets/cub2011/test/ \
   --sweep contrib/classification/sweep.toml
-```
+  ```
 
-Then look at `logs/contrib/classification/hparam-sweeps.png`. It probably works for any of the learning rates above 1e-5 or so.
+Then look at `logs/contrib/classification/hparam-sweeps.png`. 
+It probably works for any of the learning rates above 1e-5 or so.
 
 ## Manipulate
 
@@ -1739,12 +1810,111 @@ I encourage you to look at other test images and manipulate the predictions!
 
 Sub-modules
 -----------
+* contrib.classification.app
 * contrib.classification.config
 * contrib.classification.download_caltech101
+* contrib.classification.download_cub
 * contrib.classification.download_flowers
 * contrib.classification.interactive
 * contrib.classification.plot_logits
 * contrib.classification.training
+
+Module contrib.classification.app
+=================================
+
+Variables
+---------
+
+`DEBUG`
+:   Whether we are debugging.
+
+`device`
+:   Hardware accelerator, if any.
+
+`max_frequency`
+:   Maximum frequency. Any feature that fires more than this is ignored.
+
+`model_ckpt`
+:   CLIP checkpoint.
+
+`n_sae_examples`
+:   Number of SAE examples per latent to show.
+
+`n_sae_latents`
+:   Number of SAE latents to show.
+
+`sae_ckpt`
+:   Which SAE checkpoint to use.
+
+Functions
+---------
+
+`get_image(image_i: int) ‑> PIL.Image.Image`
+:   
+
+`get_modified_dist(i: int, latent1: int, latent2: int, latent3: int, value1: float, value2: float, value3: float) ‑> list[PIL.Image.Image | list[int]]`
+:   
+
+`get_pred_dist(i: int) ‑> dict[str, float]`
+:   
+
+`get_sae_examples(image_i: int, patches: list[int]) ‑> list[None | PIL.Image.Image | int]`
+:   Given a particular cell, returns some highlighted images showing what feature fires most on this cell.
+
+`load_tensor(path: str) ‑> torch.Tensor`
+:   
+
+`make_img(elem: saev.visuals.GridElement, *, upper: float | None = None) ‑> PIL.Image.Image`
+:   
+
+Classes
+-------
+
+`SplitClip(*, n_end_layers: int)`
+:   Base class for all neural network modules.
+    
+    Your models should also subclass this class.
+    
+    Modules can also contain other Modules, allowing to nest them in
+    a tree structure. You can assign the submodules as regular attributes::
+    
+        import torch.nn as nn
+        import torch.nn.functional as F
+    
+        class Model(nn.Module):
+            def __init__(self) -> None:
+                super().__init__()
+                self.conv1 = nn.Conv2d(1, 20, 5)
+                self.conv2 = nn.Conv2d(20, 20, 5)
+    
+            def forward(self, x):
+                x = F.relu(self.conv1(x))
+                return F.relu(self.conv2(x))
+    
+    Submodules assigned in this way will be registered, and will have their
+    parameters converted too when you call :meth:`to`, etc.
+    
+    .. note::
+        As per the example above, an ``__init__()`` call to the parent class
+        must be made before assignment on the child.
+    
+    :ivar training: Boolean represents whether this module is in training or
+                    evaluation mode.
+    :vartype training: bool
+    
+    Initialize internal Module state, shared by both nn.Module and ScriptModule.
+
+    ### Ancestors (in MRO)
+
+    * torch.nn.modules.module.Module
+
+    ### Methods
+
+    `forward_end(self, x: jaxtyping.Float[Tensor, 'batch n_patches dim'])`
+    :
+
+    `forward_start(self, x: jaxtyping.Float[Tensor, 'batch channels width height'])`
+    :
 
 Module contrib.classification.config
 ====================================
@@ -1758,13 +1928,13 @@ Functions
 Classes
 -------
 
-`Train(learning_rate: float = 0.0001, weight_decay: float = 0.001, n_steps: int = 400, batch_size: int = 1024, n_workers: int = 32, train_acts: saev.config.DataLoad = <factory>, val_acts: saev.config.DataLoad = <factory>, train_imgs: saev.config.ImageFolderDataset = <factory>, val_imgs: saev.config.ImageFolderDataset = <factory>, eval_every: int = 100, device: str = 'cuda', ckpt_path: str = './checkpoints/contrib/classification', seed: int = 42, log_to: str = './logs/contrib/classification')`
-:   Train(learning_rate: float = 0.0001, weight_decay: float = 0.001, n_steps: int = 400, batch_size: int = 1024, n_workers: int = 32, train_acts: saev.config.DataLoad = <factory>, val_acts: saev.config.DataLoad = <factory>, train_imgs: saev.config.ImageFolderDataset = <factory>, val_imgs: saev.config.ImageFolderDataset = <factory>, eval_every: int = 100, device: str = 'cuda', ckpt_path: str = './checkpoints/contrib/classification', seed: int = 42, log_to: str = './logs/contrib/classification')
+`Train(learning_rate: float = 0.0001, weight_decay: float = 0.001, n_epochs: int = 20, batch_size: int = 512, n_workers: int = 32, train_imgs: saev.config.ImageFolderDataset = <factory>, val_imgs: saev.config.ImageFolderDataset = <factory>, device: str = 'cuda', ckpt_path: str = './checkpoints/contrib/classification', seed: int = 42, log_to: str = './logs/contrib/classification')`
+:   Train(learning_rate: float = 0.0001, weight_decay: float = 0.001, n_epochs: int = 20, batch_size: int = 512, n_workers: int = 32, train_imgs: saev.config.ImageFolderDataset = <factory>, val_imgs: saev.config.ImageFolderDataset = <factory>, device: str = 'cuda', ckpt_path: str = './checkpoints/contrib/classification', seed: int = 42, log_to: str = './logs/contrib/classification')
 
     ### Class variables
 
     `batch_size: int`
-    :   Training batch size for linear layer.
+    :   Training batch size.
 
     `ckpt_path: str`
     :
@@ -1772,17 +1942,14 @@ Classes
     `device: str`
     :   Hardware to train on.
 
-    `eval_every: int`
-    :   How many epochs between evaluations.
-
     `learning_rate: float`
     :   Linear layer learning rate.
 
     `log_to: str`
     :
 
-    `n_steps: int`
-    :   Number of training steps for linear layer.
+    `n_epochs: int`
+    :   Number of training epochs for linear layer.
 
     `n_workers: int`
     :   Number of dataloader workers.
@@ -1790,17 +1957,11 @@ Classes
     `seed: int`
     :   Random seed.
 
-    `train_acts: saev.config.DataLoad`
-    :   Configuration for the saved Flowers102 training ViT activations.
-
     `train_imgs: saev.config.ImageFolderDataset`
-    :   Configuration for the Flowers102 training images.
-
-    `val_acts: saev.config.DataLoad`
-    :   Configuration for the saved Flowers102 validation ViT activations.
+    :   Configuration for the training images.
 
     `val_imgs: saev.config.ImageFolderDataset`
-    :   Configuration for the Flowers102 validation images.
+    :   Configuration for the validation images.
 
     `weight_decay: float`
     :   Weight decay  for AdamW.
@@ -1817,7 +1978,7 @@ Functions
 ---------
 
 `main(args: contrib.classification.download_caltech101.Args)`
-:   Download NeWT.
+:   Download Caltech 101.
 
 Classes
 -------
@@ -1832,6 +1993,38 @@ Classes
 
     `dir: str`
     :   Where to save data.
+
+    `seed: int`
+    :   Random seed used to generate split.
+
+Module contrib.classification.download_cub
+==========================================
+
+Functions
+---------
+
+`main(args: contrib.classification.download_cub.Args)`
+:   Download CUB-200-2011.
+
+Classes
+-------
+
+`Args(dir: str = '.', chunk_size_kb: int = 1, seed: int = 42, download: bool = True, extract: bool = True)`
+:   Configure download options.
+
+    ### Class variables
+
+    `chunk_size_kb: int`
+    :   How many KB to download at a time before writing to file.
+
+    `dir: str`
+    :   Where to save data.
+
+    `download: bool`
+    :   Whether to download.
+
+    `extract: bool`
+    :   Whether to extract from .tgz file.
 
     `seed: int`
     :   Random seed used to generate split.
@@ -1909,8 +2102,6 @@ Module contrib.classification.training
 ======================================
 Train a linear probe on [CLS] activations from a ViT.
 
-This assumes the training and evaluation dataset are very small and can fit in GPU memory. If this is not true, look at contrib/semseg/training.py for some inspiration.
-
 Functions
 ---------
 
@@ -1919,6 +2110,9 @@ Functions
 
 `dump_model(cfg: contrib.classification.config.Train, model: torch.nn.modules.module.Module)`
 :   Save a model checkpoint to disk along with configuration, using the [trick from equinox](https://docs.kidger.site/equinox/examples/serialisation).
+
+`get_dataloader(cfg: contrib.classification.config.Train, *, is_train: bool)`
+:   
 
 `load_acts(cfg: saev.config.DataLoad) ‑> jaxtyping.Float[Tensor, 'n d_vit']`
 :   
@@ -1935,7 +2129,7 @@ Functions
 `main(cfgs: list[contrib.classification.config.Train])`
 :   
 
-`make_models(cfgs: list[contrib.classification.config.Train], d_in: int, d_out: int) ‑> tuple[torch.nn.modules.container.ModuleList, list[dict[str, object]]]`
+`make_models(cfgs: list[contrib.classification.config.Train], d_out: int) ‑> tuple[torch.nn.modules.container.ModuleList, list[dict[str, object]]]`
 :   
 
 Classes
@@ -2487,13 +2681,15 @@ uv run python -m contrib.semseg train \
 ```sh
 uv run python -m contrib.semseg validate \
   --imgs.root /nfs/$USER/datasets/ade20k/ \
-  --acts.shard-root $VAL_SHARDS
+  --acts.shard-root $VAL_SHARDS \
+  --acts.layer -1
 ```
 
 Then you can look in `./logs/contrib/semseg` for `hparam-sweeps.png` to see what learning rate/weight decay combination is best.
 
 Sub-modules
 -----------
+* contrib.semseg.app
 * contrib.semseg.config
 * contrib.semseg.dashboard
 * contrib.semseg.dashboard2
@@ -2502,6 +2698,120 @@ Sub-modules
 * contrib.semseg.training
 * contrib.semseg.validation
 * contrib.semseg.visuals
+
+Module contrib.semseg.app
+=========================
+https://www.gradio.app/guides/environment-variables
+https://www.gradio.app/guides/querying-gradio-apps-with-curl
+
+Variables
+---------
+
+`DEBUG`
+:   Whether we are debugging.
+
+`ckpt`
+:   Which SAE checkpoint to use.
+
+`device`
+:   Hardware accelerator, if any.
+
+`max_frequency`
+:   Maximum frequency. Any feature that fires more than this is ignored.
+
+`n_sae_examples`
+:   Number of SAE examples per latent to show.
+
+`n_sae_latents`
+:   Number of SAE latents to show.
+
+Functions
+---------
+
+`get_image(image_i: int) ‑> PIL.Image.Image`
+:   
+
+`get_modified_labels(i: int, latent1: int, latent2: int, latent3: int, value1: float, value2: float, value3: float) ‑> list[PIL.Image.Image | list[int]]`
+:   
+
+`get_pred_labels(i: int) ‑> list[PIL.Image.Image | list[int]]`
+:   
+
+`get_sae_examples(image_i: int, patches: list[int]) ‑> list[None | PIL.Image.Image | int]`
+:   Given a particular cell, returns some highlighted images showing what feature fires most on this cell.
+
+`get_true_labels(image_i: int) ‑> PIL.Image.Image`
+:   
+
+`load_tensor(path: str) ‑> torch.Tensor`
+:   
+
+`make_colors() ‑> jaxtyping.UInt8[ndarray, 'n 3']`
+:   
+
+`make_img(elem: saev.visuals.GridElement, *, upper: float | None = None) ‑> PIL.Image.Image`
+:   
+
+`map_range(x: float, domain: tuple[float | int, float | int], range: tuple[float | int, float | int])`
+:   
+
+`seg_to_img(map: jaxtyping.UInt8[Tensor, 'width height *channel']) ‑> PIL.Image.Image`
+:   
+
+`unscaled(x: float, max_obs: float) ‑> float`
+:   Scale from [-10, 10] to [10 * -max_obs, 10 * max_obs].
+
+`upsample(x_WH: jaxtyping.Int[Tensor, 'width_ps height_ps']) ‑> jaxtyping.UInt8[Tensor, 'width_px height_px']`
+:   
+
+Classes
+-------
+
+`RestOfDinoV2(*, n_end_layers: int)`
+:   Base class for all neural network modules.
+    
+    Your models should also subclass this class.
+    
+    Modules can also contain other Modules, allowing to nest them in
+    a tree structure. You can assign the submodules as regular attributes::
+    
+        import torch.nn as nn
+        import torch.nn.functional as F
+    
+        class Model(nn.Module):
+            def __init__(self) -> None:
+                super().__init__()
+                self.conv1 = nn.Conv2d(1, 20, 5)
+                self.conv2 = nn.Conv2d(20, 20, 5)
+    
+            def forward(self, x):
+                x = F.relu(self.conv1(x))
+                return F.relu(self.conv2(x))
+    
+    Submodules assigned in this way will be registered, and will have their
+    parameters converted too when you call :meth:`to`, etc.
+    
+    .. note::
+        As per the example above, an ``__init__()`` call to the parent class
+        must be made before assignment on the child.
+    
+    :ivar training: Boolean represents whether this module is in training or
+                    evaluation mode.
+    :vartype training: bool
+    
+    Initialize internal Module state, shared by both nn.Module and ScriptModule.
+
+    ### Ancestors (in MRO)
+
+    * torch.nn.modules.module.Module
+
+    ### Methods
+
+    `forward_end(self, x_BPD: jaxtyping.Float[Tensor, 'batch n_patches dim'])`
+    :
+
+    `forward_start(self, x: jaxtyping.Float[Tensor, 'batch channels width height'])`
+    :
 
 Module contrib.semseg.config
 ============================
@@ -2547,8 +2857,8 @@ Classes
     `sae_latents: list[int]`
     :   one or more SAE latents to manipulate.
 
-`Train(learning_rate: float = 0.0001, weight_decay: float = 0.001, n_epochs: int = 400, batch_size: int = 1024, n_workers: int = 32, train_acts: saev.config.DataLoad = <factory>, val_acts: saev.config.DataLoad = <factory>, imgs: saev.config.Ade20kDataset = <factory>, patch_size_px: tuple[int, int] = (14, 14), eval_every: int = 100, device: str = 'cuda', ckpt_path: str = './checkpoints/contrib/semseg', seed: int = 42, log_to: str = './logs/contrib/semseg')`
-:   Train(learning_rate: float = 0.0001, weight_decay: float = 0.001, n_epochs: int = 400, batch_size: int = 1024, n_workers: int = 32, train_acts: saev.config.DataLoad = <factory>, val_acts: saev.config.DataLoad = <factory>, imgs: saev.config.Ade20kDataset = <factory>, patch_size_px: tuple[int, int] = (14, 14), eval_every: int = 100, device: str = 'cuda', ckpt_path: str = './checkpoints/contrib/semseg', seed: int = 42, log_to: str = './logs/contrib/semseg')
+`Train(learning_rate: float = 0.0001, weight_decay: float = 0.001, n_epochs: int = 400, batch_size: int = 1024, n_workers: int = 32, imgs: saev.config.Ade20kDataset = <factory>, patch_size_px: tuple[int, int] = (14, 14), eval_every: int = 100, device: str = 'cuda', ckpt_path: str = './checkpoints/contrib/semseg', seed: int = 42, log_to: str = './logs/contrib/semseg')`
+:   Train(learning_rate: float = 0.0001, weight_decay: float = 0.001, n_epochs: int = 400, batch_size: int = 1024, n_workers: int = 32, imgs: saev.config.Ade20kDataset = <factory>, patch_size_px: tuple[int, int] = (14, 14), eval_every: int = 100, device: str = 'cuda', ckpt_path: str = './checkpoints/contrib/semseg', seed: int = 42, log_to: str = './logs/contrib/semseg')
 
     ### Class variables
 
@@ -2584,12 +2894,6 @@ Classes
 
     `seed: int`
     :   Random seed.
-
-    `train_acts: saev.config.DataLoad`
-    :   Configuration for the saved ADE20K training ViT activations.
-
-    `val_acts: saev.config.DataLoad`
-    :   Configuration for the saved ADE20K validation ViT activations.
 
     `weight_decay: float`
     :   Weight decay  for AdamW.
@@ -2740,7 +3044,7 @@ Functions
 Classes
 -------
 
-`Dataset(acts_cfg: saev.config.DataLoad, imgs_cfg: saev.config.Ade20kDataset, patch_size_px: tuple[int, int])`
+`Dataset(imgs_cfg: saev.config.Ade20kDataset)`
 :   An abstract class representing a :class:`Dataset`.
     
     All datasets that represent a map from keys to data samples should subclass
@@ -2763,10 +3067,56 @@ Classes
     * torch.utils.data.dataset.Dataset
     * typing.Generic
 
-    ### Instance variables
+`DinoV2()`
+:   Base class for all neural network modules.
+    
+    Your models should also subclass this class.
+    
+    Modules can also contain other Modules, allowing to nest them in
+    a tree structure. You can assign the submodules as regular attributes::
+    
+        import torch.nn as nn
+        import torch.nn.functional as F
+    
+        class Model(nn.Module):
+            def __init__(self) -> None:
+                super().__init__()
+                self.conv1 = nn.Conv2d(1, 20, 5)
+                self.conv2 = nn.Conv2d(20, 20, 5)
+    
+            def forward(self, x):
+                x = F.relu(self.conv1(x))
+                return F.relu(self.conv2(x))
+    
+    Submodules assigned in this way will be registered, and will have their
+    parameters converted too when you call :meth:`to`, etc.
+    
+    .. note::
+        As per the example above, an ``__init__()`` call to the parent class
+        must be made before assignment on the child.
+    
+    :ivar training: Boolean represents whether this module is in training or
+                    evaluation mode.
+    :vartype training: bool
+    
+    Initialize internal Module state, shared by both nn.Module and ScriptModule.
 
-    `d_vit: int`
-    :
+    ### Ancestors (in MRO)
+
+    * torch.nn.modules.module.Module
+
+    ### Methods
+
+    `forward(self, batch: jaxtyping.Float[Tensor, 'batch 3 width height']) ‑> Callable[..., Any]`
+    :   Define the computation performed at every call.
+        
+        Should be overridden by all subclasses.
+        
+        .. note::
+            Although the recipe for forward pass needs to be defined within
+            this function, one should call the :class:`Module` instance afterwards
+            instead of this since the former takes care of running the
+            registered hooks while the latter silently ignores them.
 
 Module contrib.semseg.validation
 ================================

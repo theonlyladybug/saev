@@ -31,70 +31,74 @@ hljs.highlightAll();
 <p>You can reproduce our classification control experiments from our preprint by following these instructions.</p>
 <p>The big overview (as described in our paper) is:</p>
 <ol>
-<li>Train an SAE on the ImageNet-1K [CLS] token activations from a CLIP ViT-B/16, from the 11th (second-to-last) layer.</li>
+<li>Train an SAE on the ImageNet-1K patch activations from a CLIP ViT-B/16, from the 11th (second-to-last) layer.</li>
 <li>Show that you get meaningful features, through visualizations.</li>
 <li>Train a linear probe on the [CLS] token activations from
-a CLIP ViT-B/16, from the 11th layer, on the Caltech-101 dataset. We use an arbitrary random train/test split.</li>
+a CLIP ViT-B/16, from the 12th layer, on the Caltech-101 dataset. We use an arbitrary random train/test split.</li>
 <li>Show that we get good accuracy.</li>
 <li>Manipulate the activations using the proposed SAE features.</li>
 <li>Be amazed. :)</li>
 </ol>
 <p>To do these steps:</p>
 <h2 id="record-imagenet-1k-activations">Record ImageNet-1K activations</h2>
-<h2 id="train-an-sae-on-cls-activations">Train an SAE on [CLS] Activations</h2>
+<h2 id="train-an-sae-on-activations">Train an SAE on Activations</h2>
 <pre><code class="language-sh">uv run python -m saev train \
   --sweep configs/preprint/classification.toml \
   --data.shard-root /local/scratch/$USER/cache/saev/ac89246f1934b45e2f0487298aebe36ad998b6bd252d880c0c9ec5de78d793c8/ \
-  --data.patches cls \
+  --data.layer -2 \
   --sae.d-vit 768
 </code></pre>
 <h2 id="visualize-the-sae-features">Visualize the SAE Features</h2>
-<p><code>bd97z80b</code> was the best checkpoint from my sweep.</p>
+<p>`` was the best checkpoint from my sweep.</p>
 <pre><code class="language-sh">uv run python -m saev visuals \
   --ckpt checkpoints/bd97z80b/sae.pt \
   --dump-to /research/nfs_su_809/workspace/stevens.994/saev/features/bd97z80b \
-  --sort-byt cls \
+  --sort-by patch \
   --data.shard-root /local/scratch/stevens.994/cache/saev/ac89246f1934b45e2f0487298aebe36ad998b6bd252d880c0c9ec5de78d793c8/ \
   --data.layer -2 \
-  --data.patches cls \
   --log-freq-range -2.5 -1.5 \
   --log-value-range 0.0 1.0 \
   images:imagenet-dataset
 </code></pre>
 <p>You can see some neat features in here by using <code><a title="saev.interactive.features" href="../../saev/interactive/features.html">saev.interactive.features</a></code> with <code>marimo</code>.</p>
-<h2 id="record-caltech-101-activations">Record Caltech-101 Activations</h2>
+<h2 id="record-cub-200-2011-activations">Record CUB-200-2011 Activations</h2>
 <p>For each <code>$SPLIT</code> in "train" and "test":</p>
 <pre><code class="language-sh">uv run python -m saev activations \
   --model-family clip \
   --model-ckpt ViT-B-16/openai \
   --d-vit 768 \
   --n-patches-per-img 196 \
-  --layers -2 \
+  --layers -2 -1 \
   --dump-to /local/scratch/$USER/cache/saev \
   --n-patches-per-shard 2_4000_000 \
   data:image-folder-dataset \
   --data.root /nfs/datasets/caltech-101/$SPLIT
 </code></pre>
 <h2 id="train-a-linear-probe">Train a Linear Probe</h2>
-<pre><code class="language-sh">uv run python -m contrib.classification train \
+<pre><code class="language-sh">uv run python -m contrib.classification \
   --n-workers 32 \
-  --train-acts.shard-root /local/scratch/$USER/cache/saev/$TRAIN \
-  --val-acts.shard-root /local/scratch/$USER/cache/saev/$TEST \
-  --train-imgs.root /nfs/$USER/datasets/flowers102/train \
-  --val-imgs.root /nfs/$USER/datasets/flowers102/val \
+  --train-imgs.root /research/nfs_su_809/workspace/stevens.994/datasets/cub2011/train \
+  --val-imgs.root /research/nfs_su_809/workspace/stevens.994/datasets/cub2011/test/ \
   --sweep contrib/classification/sweep.toml
-</code></pre>
-<p>Then look at <code>logs/contrib/classification/hparam-sweeps.png</code>. It probably works for any of the learning rates above 1e-5 or so.</p>
-<h2 id="manipulate">Manipulate</h2>
-<p>Now we will manipulate the inputs to the probe by using the directions proposed by the SAE trained on ImageNet-1K and observe the changes in the linear model's predictions.
-There are two ways to do this:</p>
-<ol>
-<li>The marimo dashboard, which requires that you run your own inference.</li>
-<li>The online dashboard, which is more polished but offers less control.</li>
-</ol>
-<p>Since you have gone through the effort of training all this stuff, you probably want more control and have the hardware for inference.</p>
-<p>Run the marimo dashboard with:</p>
-<pre><code class="language-sh">uv run marimo edit contrib/classification/interactive.py
+  ```
+
+Then look at `logs/contrib/classification/hparam-sweeps.png`. 
+It probably works for any of the learning rates above 1e-5 or so.
+
+## Manipulate
+
+Now we will manipulate the inputs to the probe by using the directions proposed by the SAE trained on ImageNet-1K and observe the changes in the linear model's predictions.
+There are two ways to do this:
+
+1. The marimo dashboard, which requires that you run your own inference.
+2. The online dashboard, which is more polished but offers less control.
+
+Since you have gone through the effort of training all this stuff, you probably want more control and have the hardware for inference.
+
+Run the marimo dashboard with:
+
+```sh
+uv run marimo edit contrib/classification/interactive.py
 </code></pre>
 <p>These screenshots show the kinds of findings you can uncover with this dashboard.</p>
 <p>First, when you open the dashboard and configure the options, you will eventually see something like this:</p>
@@ -123,6 +127,10 @@ If you do, the most likley classification is a lotus, which is popular in Japane
 <section>
 <h2 class="section-title" id="header-submodules">Sub-modules</h2>
 <dl>
+<dt><code class="name"><a title="contrib.classification.app" href="app.html">contrib.classification.app</a></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
 <dt><code class="name"><a title="contrib.classification.config" href="config.html">contrib.classification.config</a></code></dt>
 <dd>
 <div class="desc"></div>
@@ -130,6 +138,10 @@ If you do, the most likley classification is a lotus, which is popular in Japane
 <dt><code class="name"><a title="contrib.classification.download_caltech101" href="download_caltech101.html">contrib.classification.download_caltech101</a></code></dt>
 <dd>
 <div class="desc"><p>A script to download the Caltech101 dataset for use as an saev.activations.ImageFolderDataset …</p></div>
+</dd>
+<dt><code class="name"><a title="contrib.classification.download_cub" href="download_cub.html">contrib.classification.download_cub</a></code></dt>
+<dd>
+<div class="desc"></div>
 </dd>
 <dt><code class="name"><a title="contrib.classification.download_flowers" href="download_flowers.html">contrib.classification.download_flowers</a></code></dt>
 <dd>
@@ -139,9 +151,13 @@ If you do, the most likley classification is a lotus, which is popular in Japane
 <dd>
 <div class="desc"></div>
 </dd>
+<dt><code class="name"><a title="contrib.classification.plot_logits" href="plot_logits.html">contrib.classification.plot_logits</a></code></dt>
+<dd>
+<div class="desc"><p>Generates plots demonstrating SAE feature specificity in image classification …</p></div>
+</dd>
 <dt><code class="name"><a title="contrib.classification.training" href="training.html">contrib.classification.training</a></code></dt>
 <dd>
-<div class="desc"><p>Train a linear probe on [CLS] activations from a ViT …</p></div>
+<div class="desc"><p>Train a linear probe on [CLS] activations from a ViT.</p></div>
 </dd>
 </dl>
 </section>
@@ -157,11 +173,10 @@ If you do, the most likley classification is a lotus, which is popular in Japane
 <ul>
 <li><a href="#reproduce">Reproduce</a><ul>
 <li><a href="#record-imagenet-1k-activations">Record ImageNet-1K activations</a></li>
-<li><a href="#train-an-sae-on-cls-activations">Train an SAE on [CLS] Activations</a></li>
+<li><a href="#train-an-sae-on-activations">Train an SAE on Activations</a></li>
 <li><a href="#visualize-the-sae-features">Visualize the SAE Features</a></li>
-<li><a href="#record-caltech-101-activations">Record Caltech-101 Activations</a></li>
+<li><a href="#record-cub-200-2011-activations">Record CUB-200-2011 Activations</a></li>
 <li><a href="#train-a-linear-probe">Train a Linear Probe</a></li>
-<li><a href="#manipulate">Manipulate</a></li>
 </ul>
 </li>
 </ul>
@@ -174,10 +189,13 @@ If you do, the most likley classification is a lotus, which is popular in Japane
 </li>
 <li><h3><a href="#header-submodules">Sub-modules</a></h3>
 <ul>
+<li><code><a title="contrib.classification.app" href="app.html">contrib.classification.app</a></code></li>
 <li><code><a title="contrib.classification.config" href="config.html">contrib.classification.config</a></code></li>
 <li><code><a title="contrib.classification.download_caltech101" href="download_caltech101.html">contrib.classification.download_caltech101</a></code></li>
+<li><code><a title="contrib.classification.download_cub" href="download_cub.html">contrib.classification.download_cub</a></code></li>
 <li><code><a title="contrib.classification.download_flowers" href="download_flowers.html">contrib.classification.download_flowers</a></code></li>
 <li><code><a title="contrib.classification.interactive" href="interactive.html">contrib.classification.interactive</a></code></li>
+<li><code><a title="contrib.classification.plot_logits" href="plot_logits.html">contrib.classification.plot_logits</a></code></li>
 <li><code><a title="contrib.classification.training" href="training.html">contrib.classification.training</a></code></li>
 </ul>
 </li>

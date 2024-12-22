@@ -9,7 +9,6 @@ Conceptually, activations are either thought of as
 2. Multiple [n_imgs_per_shard, n_layers, (n_patches + 1), d_vit] tensors. This is a set of sharded activations.
 """
 
-import collections.abc
 import dataclasses
 import hashlib
 import json
@@ -17,6 +16,7 @@ import logging
 import math
 import os
 import typing
+from collections.abc import Callable
 
 import beartype
 import numpy as np
@@ -39,18 +39,16 @@ logger = logging.getLogger(__name__)
 
 
 @jaxtyped(typechecker=beartype.beartype)
-class VitRecorder(torch.nn.Module):
+class Recorder(torch.nn.Module):
     cfg: config.Activations
     _storage: Float[Tensor, "batch n_layers all_patches dim"] | None
     _i: int
 
-    def __init__(
-        self, cfg: config.Activations, patches: slice = slice(None, None, None)
-    ):
+    def __init__(self, cfg: config.Activations, vit: torch.nn.Module):
         super().__init__()
 
         self.cfg = cfg
-        self.patches = patches
+        self.patches = vit.get_patches(cfg)
         self._storage = None
         self._i = 0
         self.logger = logging.getLogger(
@@ -101,20 +99,33 @@ class VitRecorder(torch.nn.Module):
 
 
 @jaxtyped(typechecker=beartype.beartype)
-class Clip(torch.nn.Module):
+class WrappedVisionTransformer(torch.nn.Module):
     def __init__(self, cfg: config.Activations):
         super().__init__()
+        self.vit = make_vit(cfg)
+        self.recorder = Recorder(cfg, self.vit).register(self.vit.get_residuals())
 
-        assert cfg.model_family == "clip"
+    def forward(
+        self, batch: Float[Tensor, "batch 3 width height"]
+    ) -> tuple[Float[Tensor, "batch patches dim"], Float[Tensor, "..."]]:
+        self.recorder.reset()
+        result = self.vit(batch)
+        return result, self.recorder.activations
+
+
+@jaxtyped(typechecker=beartype.beartype)
+class Clip(torch.nn.Module):
+    def __init__(self, model_ckpt: str):
+        super().__init__()
 
         import open_clip
 
-        if cfg.model_ckpt.startswith("hf-hub:"):
+        if model_ckpt.startswith("hf-hub:"):
             clip, _ = open_clip.create_model_from_pretrained(
-                cfg.model_ckpt, cache_dir=helpers.get_cache_dir()
+                model_ckpt, cache_dir=helpers.get_cache_dir()
             )
         else:
-            arch, ckpt = cfg.model_ckpt.split("/")
+            arch, ckpt = model_ckpt.split("/")
             clip, _ = open_clip.create_model_from_pretrained(
                 arch, pretrained=ckpt, cache_dir=helpers.get_cache_dir()
             )
@@ -122,31 +133,36 @@ class Clip(torch.nn.Module):
         model = clip.visual
         model.proj = None
         model.output_tokens = True  # type: ignore
-        self.model = model
+        self.model = model.eval()
 
         assert not isinstance(self.model, open_clip.timm_model.TimmModel)
-        self.recorder = VitRecorder(cfg).register(self.model.transformer.resblocks)
 
-    def forward(self, batch: Float[Tensor, "batch 3 width height"]):
-        self.recorder.reset()
-        result = self.model(batch)
-        return result, self.recorder.activations
+    def get_residuals(self) -> list[torch.nn.Module]:
+        return self.model.transformer.resblocks
+
+    def get_patches(self, cfg: config.Activations) -> slice:
+        return slice(None, None, None)
+
+    def forward(
+        self, batch: Float[Tensor, "batch 3 width height"]
+    ) -> Float[Tensor, "batch patches dim"]:
+        cls, patches = self.model(batch)
+        return {"cls": cls, "patches": patches}
 
 
 @jaxtyped(typechecker=beartype.beartype)
 class Siglip(torch.nn.Module):
-    def __init__(self, cfg: config.Activations):
+    def __init__(self, model_ckpt: str):
         super().__init__()
-        assert cfg.model_family == "siglip"
 
         import open_clip
 
-        if cfg.model_ckpt.startswith("hf-hub:"):
+        if model_ckpt.startswith("hf-hub:"):
             clip, _ = open_clip.create_model_from_pretrained(
-                cfg.model_ckpt, cache_dir=helpers.get_cache_dir()
+                model_ckpt, cache_dir=helpers.get_cache_dir()
             )
         else:
-            arch, ckpt = cfg.model_ckpt.split("/")
+            arch, ckpt = model_ckpt.split("/")
             clip, _ = open_clip.create_model_from_pretrained(
                 arch, pretrained=ckpt, cache_dir=helpers.get_cache_dir()
             )
@@ -157,78 +173,88 @@ class Siglip(torch.nn.Module):
         self.model = model
 
         assert isinstance(self.model, open_clip.timm_model.TimmModel)
-        self.recorder = VitRecorder(cfg).register(self.model.trunk.blocks)
 
-    def forward(self, batch: Float[Tensor, "batch 3 width height"]):
-        self.recorder.reset()
+    def get_residuals(self) -> list[torch.nn.Module]:
+        return self.model.trunk.blocks
+
+    def get_patches(self, cfg: config.Activations) -> slice:
+        return slice(None, None, None)
+
+    def forward(
+        self, batch: Float[Tensor, "batch 3 width height"]
+    ) -> Float[Tensor, "batch patches dim"]:
         result = self.model(batch)
-        return result, self.recorder.activations
+        return result
 
 
 @jaxtyped(typechecker=beartype.beartype)
 class DinoV2(torch.nn.Module):
-    def __init__(self, cfg: config.Activations):
+    def __init__(self, model_ckpt: str):
         super().__init__()
 
-        assert cfg.model_family == "dinov2"
+        self.model = torch.hub.load("facebookresearch/dinov2", model_ckpt)
 
-        self.model = torch.hub.load("facebookresearch/dinov2", cfg.model_ckpt)
+    def get_residuals(self) -> list[torch.nn.Module]:
+        return self.model.blocks
 
+    def get_patches(self, cfg: config.Activations) -> slice:
         n_reg = self.model.num_register_tokens
         patches = torch.cat((
             torch.tensor([0]),  # CLS token
             torch.arange(n_reg + 1, n_reg + 1 + cfg.n_patches_per_img),  # patches
         ))
+        return patches
 
-        self.recorder = VitRecorder(cfg, patches).register(self.model.blocks)
-
-    def forward(self, batch: Float[Tensor, "batch 3 width height"]):
-        self.recorder.reset()
-
+    def forward(
+        self, batch: Float[Tensor, "batch 3 width height"]
+    ) -> Float[Tensor, "batch patches dim"]:
         dct = self.model.forward_features(batch)
 
         features = torch.cat(
             (dct["x_norm_clstoken"][:, None, :], dct["x_norm_patchtokens"]), axis=1
         )
-        return features, self.recorder.activations
+        return features
 
 
 @jaxtyped(typechecker=beartype.beartype)
 class MaskedAutoencoder(torch.nn.Module):
-    def __init__(self, cfg: config.Activations):
+    def __init__(self, model_ckpt: str):
         super().__init__()
-        assert cfg.model_family == "mae"
 
         import contrib.mae
 
-        self.model = contrib.mae.load_ckpt(cfg.model_ckpt)
+        self.model = contrib.mae.load_ckpt(model_ckpt)
         self.model = self.model.vit
-        self.recorder = VitRecorder(cfg).register(self.model.encoder.layers)
 
-    def forward(self, batch: Float[Tensor, "batch 3 width height"]):
-        self.recorder.reset()
+    def get_residuals(self) -> list[torch.nn.Module]:
+        return self.model.trunk.blocks
 
+    def get_patches(self, cfg: config.Activations) -> slice:
+        return slice(None, None, None)
+
+    def forward(
+        self, batch: Float[Tensor, "batch 3 width height"]
+    ) -> Float[Tensor, "batch patches dim"]:
         y = self.model(batch)
-
-        return y, self.recorder.activations
+        return y
 
 
 @beartype.beartype
 def make_vit(cfg: config.Activations):
     if cfg.model_family == "clip":
-        return Clip(cfg)
+        return Clip(cfg.model_ckpt)
     elif cfg.model_family == "siglip":
-        return Siglip(cfg)
+        return Siglip(cfg.model_ckpt)
     elif cfg.model_family == "dinov2":
-        return DinoV2(cfg)
+        return DinoV2(cfg.model_ckpt)
     elif cfg.model_family == "mae":
-        return MaskedAutoencoder(cfg)
+        return MaskedAutoencoder(cfg.model_ckpt)
     else:
         typing.assert_never(cfg.model_family)
 
 
 @beartype.beartype
-def make_img_transform(model_family: str, model_ckpt: str) -> collections.abc.Callable:
+def make_img_transform(model_family: str, model_ckpt: str) -> Callable:
     if model_family == "clip" or model_family == "siglip":
         import open_clip
 
@@ -591,7 +617,7 @@ def get_dataloader(cfg: config.Activations, *, img_transform=None):
 
 @beartype.beartype
 def get_default_dataloader(
-    cfg: config.Activations, *, img_transform: collections.abc.Callable
+    cfg: config.Activations, *, img_transform: Callable
 ) -> torch.utils.data.DataLoader:
     """
     Get a dataloader for a default map-style dataset.
@@ -686,8 +712,8 @@ class Ade20k(torch.utils.data.Dataset):
         self,
         cfg: config.Ade20kDataset,
         *,
-        img_transform: collections.abc.Callable | None = None,
-        seg_transform: collections.abc.Callable | None = lambda x: None,
+        img_transform: Callable | None = None,
+        seg_transform: Callable | None = lambda x: None,
     ):
         self.logger = logging.getLogger("ade20k")
         self.cfg = cfg
@@ -834,7 +860,7 @@ def worker_fn(cfg: config.Activations):
 
     logger = logging.getLogger("dump")
 
-    vit = make_vit(cfg)
+    vit = WrappedVisionTransformer(cfg)
     img_transform = make_img_transform(cfg.model_family, cfg.model_ckpt)
     dataloader = get_dataloader(cfg, img_transform=img_transform)
 

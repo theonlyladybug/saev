@@ -204,8 +204,8 @@ class Ade20k(torch.utils.data.Dataset):
         self,
         cfg: config.Ade20kDataset,
         *,
-        img_transform: collections.abc.Callable | None = None,
-        seg_transform: collections.abc.Callable | None = lambda x: None,
+        img_transform: Callable | None = None,
+        seg_transform: Callable | None = lambda x: None,
     ):
         self.logger = logging.getLogger(&#34;ade20k&#34;)
         self.cfg = cfg
@@ -307,7 +307,7 @@ class Ade20k(torch.utils.data.Dataset):
 </dd>
 <dt id="saev.activations.Clip"><code class="flex name class">
 <span>class <span class="ident">Clip</span></span>
-<span>(</span><span>cfg: <a title="saev.config.Activations" href="config.html#saev.config.Activations">Activations</a>)</span>
+<span>(</span><span>model_ckpt: str)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Base class for all neural network modules.</p>
@@ -344,19 +344,17 @@ evaluation mode.
 </summary>
 <pre><code class="python">@jaxtyped(typechecker=beartype.beartype)
 class Clip(torch.nn.Module):
-    def __init__(self, cfg: config.Activations):
+    def __init__(self, model_ckpt: str):
         super().__init__()
-
-        assert cfg.model_family == &#34;clip&#34;
 
         import open_clip
 
-        if cfg.model_ckpt.startswith(&#34;hf-hub:&#34;):
+        if model_ckpt.startswith(&#34;hf-hub:&#34;):
             clip, _ = open_clip.create_model_from_pretrained(
-                cfg.model_ckpt, cache_dir=helpers.get_cache_dir()
+                model_ckpt, cache_dir=helpers.get_cache_dir()
             )
         else:
-            arch, ckpt = cfg.model_ckpt.split(&#34;/&#34;)
+            arch, ckpt = model_ckpt.split(&#34;/&#34;)
             clip, _ = open_clip.create_model_from_pretrained(
                 arch, pretrained=ckpt, cache_dir=helpers.get_cache_dir()
             )
@@ -364,15 +362,21 @@ class Clip(torch.nn.Module):
         model = clip.visual
         model.proj = None
         model.output_tokens = True  # type: ignore
-        self.model = model
+        self.model = model.eval()
 
         assert not isinstance(self.model, open_clip.timm_model.TimmModel)
-        self.recorder = VitRecorder(cfg).register(self.model.transformer.resblocks)
 
-    def forward(self, batch: Float[Tensor, &#34;batch 3 width height&#34;]):
-        self.recorder.reset()
-        result = self.model(batch)
-        return result, self.recorder.activations</code></pre>
+    def get_residuals(self) -&gt; list[torch.nn.Module]:
+        return self.model.transformer.resblocks
+
+    def get_patches(self, cfg: config.Activations) -&gt; slice:
+        return slice(None, None, None)
+
+    def forward(
+        self, batch: Float[Tensor, &#34;batch 3 width height&#34;]
+    ) -&gt; Float[Tensor, &#34;batch patches dim&#34;]:
+        cls, patches = self.model(batch)
+        return {&#34;cls&#34;: cls, &#34;patches&#34;: patches}</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -381,7 +385,7 @@ class Clip(torch.nn.Module):
 <h3>Methods</h3>
 <dl>
 <dt id="saev.activations.Clip.forward"><code class="name flex">
-<span>def <span class="ident">forward</span></span>(<span>self, batch: jaxtyping.Float[Tensor, 'batch 3 width height']) ‑> Callable[..., Any]</span>
+<span>def <span class="ident">forward</span></span>(<span>self, batch: jaxtyping.Float[Tensor, 'batch 3 width height']) ‑> jaxtyping.Float[Tensor, 'batch patches dim']</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Define the computation performed at every call.</p>
@@ -393,6 +397,18 @@ this function, one should call the :class:<code>Module</code> instance afterward
 instead of this since the former takes care of running the
 registered hooks while the latter silently ignores them.</p>
 </div></div>
+</dd>
+<dt id="saev.activations.Clip.get_patches"><code class="name flex">
+<span>def <span class="ident">get_patches</span></span>(<span>self,<br>cfg: <a title="saev.config.Activations" href="config.html#saev.config.Activations">Activations</a>) ‑> slice</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="saev.activations.Clip.get_residuals"><code class="name flex">
+<span>def <span class="ident">get_residuals</span></span>(<span>self) ‑> list[torch.nn.modules.module.Module]</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
 </dd>
 </dl>
 </dd>
@@ -709,7 +725,7 @@ def d_vit(self) -&gt; int:
 </dd>
 <dt id="saev.activations.DinoV2"><code class="flex name class">
 <span>class <span class="ident">DinoV2</span></span>
-<span>(</span><span>cfg: <a title="saev.config.Activations" href="config.html#saev.config.Activations">Activations</a>)</span>
+<span>(</span><span>model_ckpt: str)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Base class for all neural network modules.</p>
@@ -746,30 +762,31 @@ evaluation mode.
 </summary>
 <pre><code class="python">@jaxtyped(typechecker=beartype.beartype)
 class DinoV2(torch.nn.Module):
-    def __init__(self, cfg: config.Activations):
+    def __init__(self, model_ckpt: str):
         super().__init__()
 
-        assert cfg.model_family == &#34;dinov2&#34;
+        self.model = torch.hub.load(&#34;facebookresearch/dinov2&#34;, model_ckpt)
 
-        self.model = torch.hub.load(&#34;facebookresearch/dinov2&#34;, cfg.model_ckpt)
+    def get_residuals(self) -&gt; list[torch.nn.Module]:
+        return self.model.blocks
 
+    def get_patches(self, cfg: config.Activations) -&gt; slice:
         n_reg = self.model.num_register_tokens
         patches = torch.cat((
             torch.tensor([0]),  # CLS token
             torch.arange(n_reg + 1, n_reg + 1 + cfg.n_patches_per_img),  # patches
         ))
+        return patches
 
-        self.recorder = VitRecorder(cfg, patches).register(self.model.blocks)
-
-    def forward(self, batch: Float[Tensor, &#34;batch 3 width height&#34;]):
-        self.recorder.reset()
-
+    def forward(
+        self, batch: Float[Tensor, &#34;batch 3 width height&#34;]
+    ) -&gt; Float[Tensor, &#34;batch patches dim&#34;]:
         dct = self.model.forward_features(batch)
 
         features = torch.cat(
             (dct[&#34;x_norm_clstoken&#34;][:, None, :], dct[&#34;x_norm_patchtokens&#34;]), axis=1
         )
-        return features, self.recorder.activations</code></pre>
+        return features</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -778,7 +795,7 @@ class DinoV2(torch.nn.Module):
 <h3>Methods</h3>
 <dl>
 <dt id="saev.activations.DinoV2.forward"><code class="name flex">
-<span>def <span class="ident">forward</span></span>(<span>self, batch: jaxtyping.Float[Tensor, 'batch 3 width height']) ‑> Callable[..., Any]</span>
+<span>def <span class="ident">forward</span></span>(<span>self, batch: jaxtyping.Float[Tensor, 'batch 3 width height']) ‑> jaxtyping.Float[Tensor, 'batch patches dim']</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Define the computation performed at every call.</p>
@@ -790,6 +807,18 @@ this function, one should call the :class:<code>Module</code> instance afterward
 instead of this since the former takes care of running the
 registered hooks while the latter silently ignores them.</p>
 </div></div>
+</dd>
+<dt id="saev.activations.DinoV2.get_patches"><code class="name flex">
+<span>def <span class="ident">get_patches</span></span>(<span>self,<br>cfg: <a title="saev.config.Activations" href="config.html#saev.config.Activations">Activations</a>) ‑> slice</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="saev.activations.DinoV2.get_residuals"><code class="name flex">
+<span>def <span class="ident">get_residuals</span></span>(<span>self) ‑> list[torch.nn.modules.module.Module]</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
 </dd>
 </dl>
 </dd>
@@ -928,7 +957,7 @@ class Imagenet(torch.utils.data.Dataset):
 </dd>
 <dt id="saev.activations.MaskedAutoencoder"><code class="flex name class">
 <span>class <span class="ident">MaskedAutoencoder</span></span>
-<span>(</span><span>cfg: <a title="saev.config.Activations" href="config.html#saev.config.Activations">Activations</a>)</span>
+<span>(</span><span>model_ckpt: str)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Base class for all neural network modules.</p>
@@ -965,22 +994,25 @@ evaluation mode.
 </summary>
 <pre><code class="python">@jaxtyped(typechecker=beartype.beartype)
 class MaskedAutoencoder(torch.nn.Module):
-    def __init__(self, cfg: config.Activations):
+    def __init__(self, model_ckpt: str):
         super().__init__()
-        assert cfg.model_family == &#34;mae&#34;
 
         import contrib.mae
 
-        self.model = contrib.mae.load_ckpt(cfg.model_ckpt)
+        self.model = contrib.mae.load_ckpt(model_ckpt)
         self.model = self.model.vit
-        self.recorder = VitRecorder(cfg).register(self.model.encoder.layers)
 
-    def forward(self, batch: Float[Tensor, &#34;batch 3 width height&#34;]):
-        self.recorder.reset()
+    def get_residuals(self) -&gt; list[torch.nn.Module]:
+        return self.model.trunk.blocks
 
+    def get_patches(self, cfg: config.Activations) -&gt; slice:
+        return slice(None, None, None)
+
+    def forward(
+        self, batch: Float[Tensor, &#34;batch 3 width height&#34;]
+    ) -&gt; Float[Tensor, &#34;batch patches dim&#34;]:
         y = self.model(batch)
-
-        return y, self.recorder.activations</code></pre>
+        return y</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -989,7 +1021,7 @@ class MaskedAutoencoder(torch.nn.Module):
 <h3>Methods</h3>
 <dl>
 <dt id="saev.activations.MaskedAutoencoder.forward"><code class="name flex">
-<span>def <span class="ident">forward</span></span>(<span>self, batch: jaxtyping.Float[Tensor, 'batch 3 width height']) ‑> Callable[..., Any]</span>
+<span>def <span class="ident">forward</span></span>(<span>self, batch: jaxtyping.Float[Tensor, 'batch 3 width height']) ‑> jaxtyping.Float[Tensor, 'batch patches dim']</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Define the computation performed at every call.</p>
@@ -1001,6 +1033,18 @@ this function, one should call the :class:<code>Module</code> instance afterward
 instead of this since the former takes care of running the
 registered hooks while the latter silently ignores them.</p>
 </div></div>
+</dd>
+<dt id="saev.activations.MaskedAutoencoder.get_patches"><code class="name flex">
+<span>def <span class="ident">get_patches</span></span>(<span>self,<br>cfg: <a title="saev.config.Activations" href="config.html#saev.config.Activations">Activations</a>) ‑> slice</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="saev.activations.MaskedAutoencoder.get_residuals"><code class="name flex">
+<span>def <span class="ident">get_residuals</span></span>(<span>self) ‑> list[torch.nn.modules.module.Module]</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
 </dd>
 </dl>
 </dd>
@@ -1137,6 +1181,152 @@ def hash(self) -&gt; str:
 <dl>
 <dt id="saev.activations.Metadata.dump"><code class="name flex">
 <span>def <span class="ident">dump</span></span>(<span>self, fpath)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+</dd>
+<dt id="saev.activations.Recorder"><code class="flex name class">
+<span>class <span class="ident">Recorder</span></span>
+<span>(</span><span>cfg: <a title="saev.config.Activations" href="config.html#saev.config.Activations">Activations</a>,<br>vit: torch.nn.modules.module.Module)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Base class for all neural network modules.</p>
+<p>Your models should also subclass this class.</p>
+<p>Modules can also contain other Modules, allowing to nest them in
+a tree structure. You can assign the submodules as regular attributes::</p>
+<pre><code>import torch.nn as nn
+import torch.nn.functional as F
+
+class Model(nn.Module):
+    def __init__(self) -&gt; None:
+        super().__init__()
+        self.conv1 = nn.Conv2d(1, 20, 5)
+        self.conv2 = nn.Conv2d(20, 20, 5)
+
+    def forward(self, x):
+        x = F.relu(self.conv1(x))
+        return F.relu(self.conv2(x))
+</code></pre>
+<p>Submodules assigned in this way will be registered, and will have their
+parameters converted too when you call :meth:<code>to</code>, etc.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>As per the example above, an <code>__init__()</code> call to the parent class
+must be made before assignment on the child.</p>
+</div>
+<p>:ivar training: Boolean represents whether this module is in training or
+evaluation mode.
+:vartype training: bool</p>
+<p>Initialize internal Module state, shared by both nn.Module and ScriptModule.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@jaxtyped(typechecker=beartype.beartype)
+class Recorder(torch.nn.Module):
+    cfg: config.Activations
+    _storage: Float[Tensor, &#34;batch n_layers all_patches dim&#34;] | None
+    _i: int
+
+    def __init__(self, cfg: config.Activations, vit: torch.nn.Module):
+        super().__init__()
+
+        self.cfg = cfg
+        self.patches = vit.get_patches(cfg)
+        self._storage = None
+        self._i = 0
+        self.logger = logging.getLogger(
+            f&#34;recorder({cfg.model_family}:{cfg.model_ckpt})&#34;
+        )
+
+    def register(self, modules: list[torch.nn.Module]):
+        for i in self.cfg.layers:
+            modules[i].register_forward_hook(self.hook)
+        return self
+
+    def hook(
+        self, module, args: tuple, output: Float[Tensor, &#34;batch n_layers dim&#34;]
+    ) -&gt; None:
+        if self._storage is None:
+            batch, _, dim = output.shape
+            self._storage = self._empty_storage(batch, dim, output.device)
+
+        if self._storage[:, self._i, 0, :].shape != output[:, 0, :].shape:
+            batch, _, dim = output.shape
+
+            old_batch, _, _, old_dim = self._storage.shape
+            msg = &#34;Output shape does not match storage shape: (batch) %d != %d or (dim) %d != %d&#34;
+            self.logger.warning(msg, old_batch, batch, old_dim, dim)
+
+            self._storage = self._empty_storage(batch, dim, output.device)
+
+        self._storage[:, self._i] = output[:, self.patches, :].detach()
+        self._i += 1
+
+    def _empty_storage(self, batch: int, dim: int, device: torch.device):
+        n_patches_per_img = self.cfg.n_patches_per_img
+        if self.cfg.cls_token:
+            n_patches_per_img += 1
+
+        return torch.zeros(
+            (batch, len(self.cfg.layers), n_patches_per_img, dim), device=device
+        )
+
+    def reset(self):
+        self._i = 0
+
+    @property
+    def activations(self) -&gt; Float[Tensor, &#34;batch n_layers all_patches dim&#34;]:
+        if self._storage is None:
+            raise RuntimeError(&#34;First call model()&#34;)
+        return self._storage.cpu()</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>torch.nn.modules.module.Module</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="saev.activations.Recorder.cfg"><code class="name">var <span class="ident">cfg</span> : <a title="saev.config.Activations" href="config.html#saev.config.Activations">Activations</a></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+<h3>Instance variables</h3>
+<dl>
+<dt id="saev.activations.Recorder.activations"><code class="name">prop <span class="ident">activations</span> : jaxtyping.Float[Tensor, 'batch n_layers all_patches dim']</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def activations(self) -&gt; Float[Tensor, &#34;batch n_layers all_patches dim&#34;]:
+    if self._storage is None:
+        raise RuntimeError(&#34;First call model()&#34;)
+    return self._storage.cpu()</code></pre>
+</details>
+</dd>
+</dl>
+<h3>Methods</h3>
+<dl>
+<dt id="saev.activations.Recorder.hook"><code class="name flex">
+<span>def <span class="ident">hook</span></span>(<span>self, module, args: tuple, output: jaxtyping.Float[Tensor, 'batch n_layers dim']) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="saev.activations.Recorder.register"><code class="name flex">
+<span>def <span class="ident">register</span></span>(<span>self, modules: list[torch.nn.modules.module.Module])</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="saev.activations.Recorder.reset"><code class="name flex">
+<span>def <span class="ident">reset</span></span>(<span>self)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -1280,7 +1470,7 @@ class ShardWriter:
 </dd>
 <dt id="saev.activations.Siglip"><code class="flex name class">
 <span>class <span class="ident">Siglip</span></span>
-<span>(</span><span>cfg: <a title="saev.config.Activations" href="config.html#saev.config.Activations">Activations</a>)</span>
+<span>(</span><span>model_ckpt: str)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Base class for all neural network modules.</p>
@@ -1317,18 +1507,17 @@ evaluation mode.
 </summary>
 <pre><code class="python">@jaxtyped(typechecker=beartype.beartype)
 class Siglip(torch.nn.Module):
-    def __init__(self, cfg: config.Activations):
+    def __init__(self, model_ckpt: str):
         super().__init__()
-        assert cfg.model_family == &#34;siglip&#34;
 
         import open_clip
 
-        if cfg.model_ckpt.startswith(&#34;hf-hub:&#34;):
+        if model_ckpt.startswith(&#34;hf-hub:&#34;):
             clip, _ = open_clip.create_model_from_pretrained(
-                cfg.model_ckpt, cache_dir=helpers.get_cache_dir()
+                model_ckpt, cache_dir=helpers.get_cache_dir()
             )
         else:
-            arch, ckpt = cfg.model_ckpt.split(&#34;/&#34;)
+            arch, ckpt = model_ckpt.split(&#34;/&#34;)
             clip, _ = open_clip.create_model_from_pretrained(
                 arch, pretrained=ckpt, cache_dir=helpers.get_cache_dir()
             )
@@ -1339,12 +1528,18 @@ class Siglip(torch.nn.Module):
         self.model = model
 
         assert isinstance(self.model, open_clip.timm_model.TimmModel)
-        self.recorder = VitRecorder(cfg).register(self.model.trunk.blocks)
 
-    def forward(self, batch: Float[Tensor, &#34;batch 3 width height&#34;]):
-        self.recorder.reset()
+    def get_residuals(self) -&gt; list[torch.nn.Module]:
+        return self.model.trunk.blocks
+
+    def get_patches(self, cfg: config.Activations) -&gt; slice:
+        return slice(None, None, None)
+
+    def forward(
+        self, batch: Float[Tensor, &#34;batch 3 width height&#34;]
+    ) -&gt; Float[Tensor, &#34;batch patches dim&#34;]:
         result = self.model(batch)
-        return result, self.recorder.activations</code></pre>
+        return result</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -1353,7 +1548,7 @@ class Siglip(torch.nn.Module):
 <h3>Methods</h3>
 <dl>
 <dt id="saev.activations.Siglip.forward"><code class="name flex">
-<span>def <span class="ident">forward</span></span>(<span>self, batch: jaxtyping.Float[Tensor, 'batch 3 width height']) ‑> Callable[..., Any]</span>
+<span>def <span class="ident">forward</span></span>(<span>self, batch: jaxtyping.Float[Tensor, 'batch 3 width height']) ‑> jaxtyping.Float[Tensor, 'batch patches dim']</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Define the computation performed at every call.</p>
@@ -1366,11 +1561,23 @@ instead of this since the former takes care of running the
 registered hooks while the latter silently ignores them.</p>
 </div></div>
 </dd>
+<dt id="saev.activations.Siglip.get_patches"><code class="name flex">
+<span>def <span class="ident">get_patches</span></span>(<span>self,<br>cfg: <a title="saev.config.Activations" href="config.html#saev.config.Activations">Activations</a>) ‑> slice</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="saev.activations.Siglip.get_residuals"><code class="name flex">
+<span>def <span class="ident">get_residuals</span></span>(<span>self) ‑> list[torch.nn.modules.module.Module]</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
 </dl>
 </dd>
-<dt id="saev.activations.VitRecorder"><code class="flex name class">
-<span>class <span class="ident">VitRecorder</span></span>
-<span>(</span><span>cfg: <a title="saev.config.Activations" href="config.html#saev.config.Activations">Activations</a>,<br>patches: slice = slice(None, None, None))</span>
+<dt id="saev.activations.WrappedVisionTransformer"><code class="flex name class">
+<span>class <span class="ident">WrappedVisionTransformer</span></span>
+<span>(</span><span>cfg: <a title="saev.config.Activations" href="config.html#saev.config.Activations">Activations</a>)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Base class for all neural network modules.</p>
@@ -1406,113 +1613,38 @@ evaluation mode.
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@jaxtyped(typechecker=beartype.beartype)
-class VitRecorder(torch.nn.Module):
-    cfg: config.Activations
-    _storage: Float[Tensor, &#34;batch n_layers all_patches dim&#34;] | None
-    _i: int
-
-    def __init__(
-        self, cfg: config.Activations, patches: slice = slice(None, None, None)
-    ):
+class WrappedVisionTransformer(torch.nn.Module):
+    def __init__(self, cfg: config.Activations):
         super().__init__()
+        self.vit = make_vit(cfg)
+        self.recorder = Recorder(cfg, self.vit).register(self.vit.get_residuals())
 
-        self.cfg = cfg
-        self.patches = patches
-        self._storage = None
-        self._i = 0
-        self.logger = logging.getLogger(
-            f&#34;recorder({cfg.model_family}:{cfg.model_ckpt})&#34;
-        )
-
-    def register(self, modules: list[torch.nn.Module]):
-        for i in self.cfg.layers:
-            modules[i].register_forward_hook(self.hook)
-        return self
-
-    def hook(
-        self, module, args: tuple, output: Float[Tensor, &#34;batch n_layers dim&#34;]
-    ) -&gt; None:
-        if self._storage is None:
-            batch, _, dim = output.shape
-            self._storage = self._empty_storage(batch, dim, output.device)
-
-        if self._storage[:, self._i, 0, :].shape != output[:, 0, :].shape:
-            batch, _, dim = output.shape
-
-            old_batch, _, _, old_dim = self._storage.shape
-            msg = &#34;Output shape does not match storage shape: (batch) %d != %d or (dim) %d != %d&#34;
-            self.logger.warning(msg, old_batch, batch, old_dim, dim)
-
-            self._storage = self._empty_storage(batch, dim, output.device)
-
-        self._storage[:, self._i] = output[:, self.patches, :].detach()
-        self._i += 1
-
-    def _empty_storage(self, batch: int, dim: int, device: torch.device):
-        n_patches_per_img = self.cfg.n_patches_per_img
-        if self.cfg.cls_token:
-            n_patches_per_img += 1
-
-        return torch.zeros(
-            (batch, len(self.cfg.layers), n_patches_per_img, dim), device=device
-        )
-
-    def reset(self):
-        self._i = 0
-
-    @property
-    def activations(self) -&gt; Float[Tensor, &#34;batch n_layers all_patches dim&#34;]:
-        if self._storage is None:
-            raise RuntimeError(&#34;First call model()&#34;)
-        return self._storage.cpu()</code></pre>
+    def forward(
+        self, batch: Float[Tensor, &#34;batch 3 width height&#34;]
+    ) -&gt; tuple[Float[Tensor, &#34;batch patches dim&#34;], Float[Tensor, &#34;...&#34;]]:
+        self.recorder.reset()
+        result = self.vit(batch)
+        return result, self.recorder.activations</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
 <li>torch.nn.modules.module.Module</li>
 </ul>
-<h3>Class variables</h3>
-<dl>
-<dt id="saev.activations.VitRecorder.cfg"><code class="name">var <span class="ident">cfg</span> : <a title="saev.config.Activations" href="config.html#saev.config.Activations">Activations</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-</dl>
-<h3>Instance variables</h3>
-<dl>
-<dt id="saev.activations.VitRecorder.activations"><code class="name">prop <span class="ident">activations</span> : jaxtyping.Float[Tensor, 'batch n_layers all_patches dim']</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@property
-def activations(self) -&gt; Float[Tensor, &#34;batch n_layers all_patches dim&#34;]:
-    if self._storage is None:
-        raise RuntimeError(&#34;First call model()&#34;)
-    return self._storage.cpu()</code></pre>
-</details>
-</dd>
-</dl>
 <h3>Methods</h3>
 <dl>
-<dt id="saev.activations.VitRecorder.hook"><code class="name flex">
-<span>def <span class="ident">hook</span></span>(<span>self, module, args: tuple, output: jaxtyping.Float[Tensor, 'batch n_layers dim']) ‑> None</span>
+<dt id="saev.activations.WrappedVisionTransformer.forward"><code class="name flex">
+<span>def <span class="ident">forward</span></span>(<span>self, batch: jaxtyping.Float[Tensor, 'batch 3 width height']) ‑> tuple[jaxtyping.Float[Tensor, 'batch patches dim'], jaxtyping.Float[Tensor, '...']]</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
-</dd>
-<dt id="saev.activations.VitRecorder.register"><code class="name flex">
-<span>def <span class="ident">register</span></span>(<span>self, modules: list[torch.nn.modules.module.Module])</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt id="saev.activations.VitRecorder.reset"><code class="name flex">
-<span>def <span class="ident">reset</span></span>(<span>self)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
+<div class="desc"><p>Define the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the :class:<code>Module</code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div></div>
 </dd>
 </dl>
 </dd>
@@ -1558,6 +1690,8 @@ def activations(self) -&gt; Float[Tensor, &#34;batch n_layers all_patches dim&#3
 <h4><code><a title="saev.activations.Clip" href="#saev.activations.Clip">Clip</a></code></h4>
 <ul class="">
 <li><code><a title="saev.activations.Clip.forward" href="#saev.activations.Clip.forward">forward</a></code></li>
+<li><code><a title="saev.activations.Clip.get_patches" href="#saev.activations.Clip.get_patches">get_patches</a></code></li>
+<li><code><a title="saev.activations.Clip.get_residuals" href="#saev.activations.Clip.get_residuals">get_residuals</a></code></li>
 </ul>
 </li>
 <li>
@@ -1579,6 +1713,8 @@ def activations(self) -&gt; Float[Tensor, &#34;batch n_layers all_patches dim&#3
 <h4><code><a title="saev.activations.DinoV2" href="#saev.activations.DinoV2">DinoV2</a></code></h4>
 <ul class="">
 <li><code><a title="saev.activations.DinoV2.forward" href="#saev.activations.DinoV2.forward">forward</a></code></li>
+<li><code><a title="saev.activations.DinoV2.get_patches" href="#saev.activations.DinoV2.get_patches">get_patches</a></code></li>
+<li><code><a title="saev.activations.DinoV2.get_residuals" href="#saev.activations.DinoV2.get_residuals">get_residuals</a></code></li>
 </ul>
 </li>
 <li>
@@ -1591,6 +1727,8 @@ def activations(self) -&gt; Float[Tensor, &#34;batch n_layers all_patches dim&#3
 <h4><code><a title="saev.activations.MaskedAutoencoder" href="#saev.activations.MaskedAutoencoder">MaskedAutoencoder</a></code></h4>
 <ul class="">
 <li><code><a title="saev.activations.MaskedAutoencoder.forward" href="#saev.activations.MaskedAutoencoder.forward">forward</a></code></li>
+<li><code><a title="saev.activations.MaskedAutoencoder.get_patches" href="#saev.activations.MaskedAutoencoder.get_patches">get_patches</a></code></li>
+<li><code><a title="saev.activations.MaskedAutoencoder.get_residuals" href="#saev.activations.MaskedAutoencoder.get_residuals">get_residuals</a></code></li>
 </ul>
 </li>
 <li>
@@ -1613,6 +1751,16 @@ def activations(self) -&gt; Float[Tensor, &#34;batch n_layers all_patches dim&#3
 </ul>
 </li>
 <li>
+<h4><code><a title="saev.activations.Recorder" href="#saev.activations.Recorder">Recorder</a></code></h4>
+<ul class="">
+<li><code><a title="saev.activations.Recorder.activations" href="#saev.activations.Recorder.activations">activations</a></code></li>
+<li><code><a title="saev.activations.Recorder.cfg" href="#saev.activations.Recorder.cfg">cfg</a></code></li>
+<li><code><a title="saev.activations.Recorder.hook" href="#saev.activations.Recorder.hook">hook</a></code></li>
+<li><code><a title="saev.activations.Recorder.register" href="#saev.activations.Recorder.register">register</a></code></li>
+<li><code><a title="saev.activations.Recorder.reset" href="#saev.activations.Recorder.reset">reset</a></code></li>
+</ul>
+</li>
+<li>
 <h4><code><a title="saev.activations.ShardWriter" href="#saev.activations.ShardWriter">ShardWriter</a></code></h4>
 <ul class="two-column">
 <li><code><a title="saev.activations.ShardWriter.acts" href="#saev.activations.ShardWriter.acts">acts</a></code></li>
@@ -1629,16 +1777,14 @@ def activations(self) -&gt; Float[Tensor, &#34;batch n_layers all_patches dim&#3
 <h4><code><a title="saev.activations.Siglip" href="#saev.activations.Siglip">Siglip</a></code></h4>
 <ul class="">
 <li><code><a title="saev.activations.Siglip.forward" href="#saev.activations.Siglip.forward">forward</a></code></li>
+<li><code><a title="saev.activations.Siglip.get_patches" href="#saev.activations.Siglip.get_patches">get_patches</a></code></li>
+<li><code><a title="saev.activations.Siglip.get_residuals" href="#saev.activations.Siglip.get_residuals">get_residuals</a></code></li>
 </ul>
 </li>
 <li>
-<h4><code><a title="saev.activations.VitRecorder" href="#saev.activations.VitRecorder">VitRecorder</a></code></h4>
+<h4><code><a title="saev.activations.WrappedVisionTransformer" href="#saev.activations.WrappedVisionTransformer">WrappedVisionTransformer</a></code></h4>
 <ul class="">
-<li><code><a title="saev.activations.VitRecorder.activations" href="#saev.activations.VitRecorder.activations">activations</a></code></li>
-<li><code><a title="saev.activations.VitRecorder.cfg" href="#saev.activations.VitRecorder.cfg">cfg</a></code></li>
-<li><code><a title="saev.activations.VitRecorder.hook" href="#saev.activations.VitRecorder.hook">hook</a></code></li>
-<li><code><a title="saev.activations.VitRecorder.register" href="#saev.activations.VitRecorder.register">register</a></code></li>
-<li><code><a title="saev.activations.VitRecorder.reset" href="#saev.activations.VitRecorder.reset">reset</a></code></li>
+<li><code><a title="saev.activations.WrappedVisionTransformer.forward" href="#saev.activations.WrappedVisionTransformer.forward">forward</a></code></li>
 </ul>
 </li>
 </ul>
