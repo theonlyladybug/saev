@@ -204,8 +204,14 @@ def make_figure_classification(
         color_map[cat]
         for cat in sorted(probs_after.keys(), key=probs_after.get, reverse=True)
     ]
-    # If max_ylim is less than 0, set it to be the smallest multiple of 10 that is larger than all values in probs_after and probs_before * 100. AI!
-    max_ylim
+    if max_ylim < 0:
+        # Find max probability across both dicts and convert to percentage
+        max_prob = max(
+            max(probs_before.values()) * 100,
+            max(probs_after.values()) * 100
+        )
+        # Round up to next multiple of 10
+        max_ylim = math.ceil(max_prob / 10) * 10
 
     fig, ax = barchart(probs_before, colors_before)
     fig.savefig(os.path.join(out, "probs_before.png"))
