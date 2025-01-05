@@ -180,7 +180,13 @@ def make_figure_classification(
         "#b3b3b3",
     ]
 
-    # Set up colors_before and colors_after so that the same strings in probs_before and probs_after have the same colors. Different strings should have new colors. AI!
+    # Create color mapping for all unique categories
+    all_categories = sorted(set(probs_before.keys()) | set(probs_after.keys()))
+    color_map = {cat: bar_colors[i % len(bar_colors)] for i, cat in enumerate(all_categories)}
+    
+    # Map colors to categories in each dict
+    colors_before = [color_map[cat] for cat in sorted(probs_before.keys(), key=probs_before.get, reverse=True)]
+    colors_after = [color_map[cat] for cat in sorted(probs_after.keys(), key=probs_after.get, reverse=True)]
 
     fig, ax = barchart(probs_before, colors_before)
     fig, ax = barchart(probs_after, colors_after)
