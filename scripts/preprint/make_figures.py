@@ -167,8 +167,17 @@ def barchart(data: dict[str, float], colors: list[str]):
 def make_figure_classification(
     probs_before: dict[str, float],
     probs_after: dict[str, float],
-    out: str = os.path.join(".", "logs", "figures"),
+    out: str = os.path.join(".", "logs", "figures", "classification"),
+    max_ylim: int = -1,
 ):
+    probs_before = {
+        key.replace("\\n", "\n"): value for key, value in probs_before.items()
+    }
+    probs_after = {
+        key.replace("\\n", "\n"): value for key, value in probs_after.items()
+    }
+    os.makedirs(out, exist_ok=True)
+
     bar_colors = [
         "#66c2a5",
         "#fc8d62",
@@ -182,15 +191,26 @@ def make_figure_classification(
 
     # Create color mapping for all unique categories
     all_categories = sorted(set(probs_before.keys()) | set(probs_after.keys()))
-    color_map = {cat: bar_colors[i % len(bar_colors)] for i, cat in enumerate(all_categories)}
-    
+    color_map = {
+        cat: bar_colors[i % len(bar_colors)] for i, cat in enumerate(all_categories)
+    }
+
     # Map colors to categories in each dict
-    colors_before = [color_map[cat] for cat in sorted(probs_before.keys(), key=probs_before.get, reverse=True)]
-    colors_after = [color_map[cat] for cat in sorted(probs_after.keys(), key=probs_after.get, reverse=True)]
+    colors_before = [
+        color_map[cat]
+        for cat in sorted(probs_before.keys(), key=probs_before.get, reverse=True)
+    ]
+    colors_after = [
+        color_map[cat]
+        for cat in sorted(probs_after.keys(), key=probs_after.get, reverse=True)
+    ]
+    # If max_ylim is less than 0, set it to be the smallest multiple of 10 that is larger than all values in probs_after and probs_before * 100. AI!
+    max_ylim
 
     fig, ax = barchart(probs_before, colors_before)
+    fig.savefig(os.path.join(out, "probs_before.png"))
     fig, ax = barchart(probs_after, colors_after)
-    breakpoint()
+    fig.savefig(os.path.join(out, "probs_after.png"))
 
 
 if __name__ == "__main__":
