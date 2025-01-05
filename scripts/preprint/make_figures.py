@@ -2,12 +2,10 @@ import math
 import os
 
 import beartype
-import einops.layers.torch
 import tyro
 from PIL import Image, ImageDraw
-from torchvision.transforms import v2
 
-default_highlighted_i = [
+default_highlighted_i_semseg = [
     202,
     203,
     204,
@@ -79,7 +77,7 @@ def add_highlights(img: Image.Image, patches: list[bool]) -> Image.Image:
 def make_figure_semseg(
     example_i: int = 3122,
     patchified_i: list[int] = [0, 1, 2, 3, 4, 5, 250, 251, 252, 253, 254, 255],
-    highlighted_i: list[int] = default_highlighted_i,
+    highlighted_i: list[int] = default_highlighted_i_semseg,
     out: str = os.path.join(".", "logs", "figures"),
     ade20k: str = "/research/nfs_su_809/workspace/stevens.994/datasets/ade20k/",
 ):
@@ -96,6 +94,8 @@ def make_figure_semseg(
 
     import saev.activations
     import saev.config
+    import einops.layers.torch
+    from torchvision.transforms import v2
 
     to_array = v2.Compose([
         v2.Resize(512, interpolation=v2.InterpolationMode.NEAREST),
@@ -136,8 +136,59 @@ def make_figure_semseg(
     highlighted_img.save(os.path.join(out, f"ade20k_highlighted_img{example_i}.png"))
 
 
+@beartype.beartype
+def barchart(data: dict[str, float], colors: list[str]):
+    import matplotlib.pyplot as plt
+
+    data = sorted(data.items(), key=lambda pair: pair[1], reverse=True)
+    categories = [label for label, value in data]
+    values = [value * 100 for label, value in data]
+
+    fig, ax = plt.subplots(figsize=(8, 6))
+    ax.bar(categories, values, color=colors[: len(values)])
+
+    # Customize the plot
+    ax.set_ylabel("Probability (%)", fontsize=12)
+    ax.set_ylim(0, 100)
+    ax.tick_params(axis="both", which="major", labelsize=12)
+    ax.set_axisbelow(True)
+
+    # Remove top and right spines
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+
+    # Adjust layout
+    fig.tight_layout()
+
+    return fig, ax
+
+
+@beartype.beartype
+def make_figure_classification(
+    probs_before: dict[str, float],
+    probs_after: dict[str, float],
+    out: str = os.path.join(".", "logs", "figures"),
+):
+    bar_colors = [
+        "#66c2a5",
+        "#fc8d62",
+        "#8da0cb",
+        "#e78ac3",
+        "#a6d854",
+        "#ffd92f",
+        "#e5c494",
+        "#b3b3b3",
+    ]
+
+    # Set up colors_before and colors_after so that the same strings in probs_before and probs_after have the same colors. Different strings should have new colors. AI!
+
+    fig, ax = barchart(probs_before, colors_before)
+    fig, ax = barchart(probs_after, colors_after)
+    breakpoint()
+
+
 if __name__ == "__main__":
     tyro.extras.subcommand_cli_from_dict({
         "semseg": make_figure_semseg,
-        "no-op": lambda: print("no op"),
+        "classification": make_figure_classification,
     })
