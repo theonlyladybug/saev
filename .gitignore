@@ -11,3 +11,4 @@ logs/
 .DS_Store
 tmp/
 .coverage
+saev.egg-info/

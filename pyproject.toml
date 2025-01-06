@@ -27,10 +27,14 @@ dependencies = [
     "webdataset>=0.2.100",
 ]
 
+[tool.setuptools]
+packages = ["saev"]
+
 [tool.ruff.lint]
 ignore = ["F722"]
 
 [tool.uv]
+package = true
 dev-dependencies = [
     "hypothesis>=6.119.0",
     "hypothesis-torch>=0.8.4",
@@ -38,6 +42,7 @@ dev-dependencies = [
     "pytest>=8.3.3",
     "pytest-xdist>=3.6.1",
     "pytest-cov>=6.0.0",
+    "gradio>=3.36.1",
 ]
 
 [tool.pytest.ini_options]
