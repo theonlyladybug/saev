@@ -119,21 +119,52 @@ decodeOneHelper maybe =
 -- PARSER
 
 
+consumeDataLine : Parser.Parser ()
+consumeDataLine =
+    Parser.succeed ()
+        |. Parser.keyword "data"
+        |. Parser.symbol ":"
+        |. Parser.spaces
+        |. Parser.chompUntilEndOr "\n"
+        |. Parser.spaces
+
+
 eventDataParser : Parser.Parser String
 eventDataParser =
+    let
+        handleEvent eventType =
+            case eventType of
+                "complete" ->
+                    Parser.succeed identity
+                        |. Parser.keyword "data"
+                        |. Parser.symbol ":"
+                        |. Parser.spaces
+                        |= restParser
+                        |. Parser.spaces
+                        |. Parser.end
+
+                "heartbeat" ->
+                    Parser.succeed ()
+                        |. consumeDataLine
+                        |. eventDataParser
+
+                "generating" ->
+                    Parser.succeed ()
+                        |. consumeDataLine
+                        |. eventDataParser
+
+                "error" ->
+                    Parser.problem "Received error event"
+
+                _ ->
+                    Parser.problem ("Unknown event type: " ++ eventType)
+    in
     Parser.succeed identity
         |. Parser.keyword "event"
         |. Parser.symbol ":"
         |. Parser.spaces
-        -- If this keyword is "complete", continue with the existing parser. If it is "heartbeat", consume a "data: ...", and continue looking for one of the keywords. If it is "generating", consume a "data: ..." and continue looking for keywords. If it is "error" then the parse should fail. AI!
-        |. Parser.keyword "complete"
-        |. Parser.spaces
-        |. Parser.keyword "data"
-        |. Parser.symbol ":"
-        |. Parser.spaces
-        |= restParser
-        |. Parser.spaces
-        |. Parser.end
+        |= (Parser.getChompedString (Parser.chompWhile (\c -> c /= '\n'))
+                |> Parser.andThen handleEvent)
 
 
 restParser : Parser.Parser String
