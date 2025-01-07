@@ -1,7 +1,11 @@
+-- Add https://tailwindcss.com/blog/automatic-class-sorting-with-prettier to elm-format.
+
+
 module Classification exposing (..)
 
 import Array
 import Browser
+import Browser.Navigation
 import Dict
 import Gradio
 import Html
@@ -10,15 +14,23 @@ import Html.Events
 import Http
 import Json.Decode as D
 import Json.Encode as E
+import Random
+import RequestManager
 import Set
+import Url
+import Url.Builder
+import Url.Parser exposing ((</>), (<?>))
+import Url.Parser.Query
 
 
 main =
-    Browser.document
+    Browser.application
         { init = init
         , view = view
         , update = update
         , subscriptions = \model -> Sub.none
+        , onUrlRequest = onUrlRequest
+        , onUrlChange = onUrlChange
         }
 
 
@@ -27,14 +39,21 @@ main =
 
 
 type Msg
-    = HoverPatch Int
+    = NoOp
+    | SetUrl Int
+    | SetExample Int
+    | GetRandomExample
+    | HoverPatch Int
     | ResetHoveredPatch
     | ToggleSelectedPatch Int
-    | GotImageUrl (Result Gradio.Error (Maybe String))
-    | GotPred (Result Gradio.Error (Dict.Dict String Float))
-    | GotModified (Result Gradio.Error (Dict.Dict String Float))
-    | GotSaeExamples (Result Gradio.Error (List SaeExampleResult))
     | SetSlider Int String
+    | ExamineClass Int
+      -- API responses
+    | GotInputExample RequestManager.Id (Result Gradio.Error Example)
+    | GotOriginalPredictions RequestManager.Id (Result Gradio.Error (Array.Array Float))
+    | GotModifiedPredictions RequestManager.Id (Result Gradio.Error (Array.Array Float))
+    | GotSaeExamples RequestManager.Id (Result Gradio.Error (List SaeExampleResult))
+    | GotClassExample RequestManager.Id Int (Result Gradio.Error Example)
 
 
 
@@ -43,21 +62,39 @@ type Msg
 
 type alias Model =
     { err : Maybe String
-    , exampleIndex : Int
-    , imageUrl : Maybe String
+    , inputExampleIndex : Int
+    , inputExample : Maybe Example
     , hoveredPatchIndex : Maybe Int
     , selectedPatchIndices : Set.Set Int
     , saeLatents : List SaeLatent
     , sliders : Dict.Dict Int Float
+    , examinedClass : Maybe Int
+    , classExamples : List Example
 
     -- ML stuff
-    , preds : Dict.Dict String Float
-    , modified : Dict.Dict String Float
+    , originalPredictions : Array.Array Float
+    , modifiedPredictions : Array.Array Float
 
     -- Progression
     , nPatchesExplored : Int
     , nPatchResets : Int
     , nImagesExplored : Int
+
+    -- Browser
+    , key : Browser.Navigation.Key
+
+    -- APIs
+    , inputExampleRequestId : RequestManager.Id
+    , originalPredictionsRequestId : RequestManager.Id
+    , modifiedPredictionsRequestId : RequestManager.Id
+    , classExampleRequestId : RequestManager.Id
+    , saeExamplesRequestId : RequestManager.Id
+    }
+
+
+type alias Example =
+    { url : String
+    , target : Int
     }
 
 
@@ -67,31 +104,55 @@ type alias SaeLatent =
     }
 
 
-init : () -> ( Model, Cmd Msg )
-init _ =
+init : () -> Url.Url -> Browser.Navigation.Key -> ( Model, Cmd Msg )
+init _ url key =
     let
         example =
-            0
+            case Url.Parser.parse urlParser url of
+                Just parsed ->
+                    case parsed.example of
+                        Just i ->
+                            i
+
+                        Nothing ->
+                            0
+
+                Nothing ->
+                    0
+
+        model =
+            { err = Nothing
+            , inputExampleIndex = example
+            , inputExample = Nothing
+            , hoveredPatchIndex = Nothing
+            , selectedPatchIndices = Set.empty
+            , saeLatents = []
+            , sliders = Dict.empty
+            , examinedClass = Nothing
+            , classExamples = []
+
+            -- ML
+            , originalPredictions = Array.empty
+            , modifiedPredictions = Array.empty
+
+            -- Progression
+            , nPatchesExplored = 0
+            , nPatchResets = 0
+            , nImagesExplored = 0
+
+            -- Browser
+            , key = key
+
+            -- APIs
+            , inputExampleRequestId = RequestManager.init
+            , originalPredictionsRequestId = RequestManager.init
+            , modifiedPredictionsRequestId = RequestManager.init
+            , classExampleRequestId = RequestManager.init
+            , saeExamplesRequestId = RequestManager.init
+            }
     in
-    ( { err = Nothing
-      , exampleIndex = example
-      , imageUrl = Nothing
-      , hoveredPatchIndex = Nothing
-      , selectedPatchIndices = Set.empty
-      , saeLatents = []
-      , sliders = Dict.empty
-
-      -- ML
-      , preds = Dict.empty
-      , modified = Dict.empty
-
-      -- Progression
-      , nPatchesExplored = 0
-      , nPatchResets = 0
-      , nImagesExplored = 0
-      }
-    , Cmd.batch
-        [ getImageUrl example, getPred example ]
+    ( model
+    , Cmd.batch [ getInputExample model.inputExampleRequestId example, getOriginalPredictions model.originalPredictionsRequestId example ]
     )
 
 
@@ -102,35 +163,86 @@ init _ =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
+        NoOp ->
+            ( model, Cmd.none )
+
+        SetUrl i ->
+            let
+                url =
+                    Url.Builder.relative [] [ Url.Builder.int "example" i ]
+            in
+            ( model, Browser.Navigation.pushUrl model.key url )
+
+        SetExample i ->
+            let
+                example =
+                    modBy nImages i
+
+                inputExampleNextId =
+                    RequestManager.next model.inputExampleRequestId
+
+                originalPredictionsNextId =
+                    RequestManager.next model.originalPredictionsRequestId
+            in
+            ( { model
+                | inputExampleIndex = example
+                , selectedPatchIndices = Set.empty
+                , saeLatents = []
+                , originalPredictions = Array.empty
+                , modifiedPredictions = Array.empty
+                , inputExampleRequestId = inputExampleNextId
+                , originalPredictionsRequestId = originalPredictionsNextId
+              }
+            , Cmd.batch
+                [ getInputExample inputExampleNextId example
+                , getOriginalPredictions originalPredictionsNextId example
+                ]
+            )
+
+        GetRandomExample ->
+            ( model, Random.generate SetUrl randomExample )
+
         HoverPatch i ->
             ( { model | hoveredPatchIndex = Just i }, Cmd.none )
 
         ResetHoveredPatch ->
             ( { model | hoveredPatchIndex = Nothing }, Cmd.none )
 
-        GotImageUrl result ->
-            case result of
-                Ok url ->
-                    ( { model | imageUrl = url }, Cmd.none )
+        GotInputExample id result ->
+            if RequestManager.isStale id model.inputExampleRequestId then
+                ( model, Cmd.none )
 
-                Err err ->
-                    ( { model | imageUrl = Nothing, err = Just (explainGradioError err) }, Cmd.none )
+            else
+                case result of
+                    Ok example ->
+                        ( { model | inputExample = Just example }, Cmd.none )
 
-        GotPred result ->
-            case result of
-                Ok preds ->
-                    ( { model | preds = preds }, Cmd.none )
+                    Err err ->
+                        ( { model | inputExample = Nothing, err = Just (explainGradioError err) }, Cmd.none )
 
-                Err err ->
-                    ( { model | preds = Dict.empty, err = Just (explainGradioError err) }, Cmd.none )
+        GotOriginalPredictions id result ->
+            if RequestManager.isStale id model.originalPredictionsRequestId then
+                ( model, Cmd.none )
 
-        GotModified result ->
-            case result of
-                Ok preds ->
-                    ( { model | modified = preds }, Cmd.none )
+            else
+                case result of
+                    Ok preds ->
+                        ( { model | originalPredictions = preds }, Cmd.none )
 
-                Err err ->
-                    ( { model | modified = Dict.empty, err = Just (explainGradioError err) }, Cmd.none )
+                    Err err ->
+                        ( { model | originalPredictions = Array.empty, err = Just (explainGradioError err) }, Cmd.none )
+
+        GotModifiedPredictions id result ->
+            if RequestManager.isStale id model.modifiedPredictionsRequestId then
+                ( model, Cmd.none )
+
+            else
+                case result of
+                    Ok modified ->
+                        ( { model | modifiedPredictions = modified }, Cmd.none )
+
+                    Err err ->
+                        ( { model | modifiedPredictions = Array.empty, err = Just (explainGradioError err) }, Cmd.none )
 
         ToggleSelectedPatch i ->
             let
@@ -150,37 +262,45 @@ update msg model =
                         , model.nPatchesExplored + 1
                         , model.nPatchResets
                         )
+
+                saeExamplesNextId =
+                    RequestManager.next model.saeExamplesRequestId
             in
             ( { model
                 | selectedPatchIndices = patchIndices
                 , nPatchesExplored = nPatchesExplored
                 , nPatchResets = nPatchResets
+                , saeExamplesRequestId = saeExamplesNextId
               }
-            , getSaeExamples model.exampleIndex patchIndices
+            , getSaeExamples saeExamplesNextId model.inputExampleIndex patchIndices
             )
 
-        GotSaeExamples result ->
-            case result of
-                Ok results ->
-                    let
-                        latents =
-                            parseSaeExampleResults results
+        GotSaeExamples id result ->
+            if RequestManager.isStale id model.saeExamplesRequestId then
+                ( model, Cmd.none )
 
-                        sliders =
-                            latents
-                                |> List.map (\latent -> ( latent.latent, 0.0 ))
-                                |> Dict.fromList
-                    in
-                    ( { model
-                        | saeLatents = latents
-                        , sliders = sliders
-                        , err = Nothing
-                      }
-                    , Cmd.none
-                    )
+            else
+                case result of
+                    Ok results ->
+                        let
+                            latents =
+                                parseSaeExampleResults results
 
-                Err err ->
-                    ( { model | err = Just (explainGradioError err) }, Cmd.none )
+                            sliders =
+                                latents
+                                    |> List.map (\latent -> ( latent.latent, 0.0 ))
+                                    |> Dict.fromList
+                        in
+                        ( { model
+                            | saeLatents = latents
+                            , sliders = sliders
+                            , err = Nothing
+                          }
+                        , Cmd.none
+                        )
+
+                    Err err ->
+                        ( { model | err = Just (explainGradioError err) }, Cmd.none )
 
         SetSlider i str ->
             case String.toFloat str of
@@ -188,13 +308,108 @@ update msg model =
                     let
                         sliders =
                             Dict.insert i f model.sliders
+
+                        modifiedPredictionsNextId =
+                            RequestManager.next model.modifiedPredictionsRequestId
                     in
-                    ( { model | sliders = sliders }
-                    , getModifiedLabels model.exampleIndex sliders
+                    ( { model
+                        | sliders = sliders
+                        , modifiedPredictionsRequestId = modifiedPredictionsNextId
+                      }
+                    , getModifiedPredictions
+                        modifiedPredictionsNextId
+                        model.inputExampleIndex
+                        model.selectedPatchIndices
+                        sliders
                     )
 
                 Nothing ->
                     ( model, Cmd.none )
+
+        ExamineClass class ->
+            let
+                -- We actually want all the requests to have the same ID because they all represent the same "logical" request.
+                id =
+                    RequestManager.next model.classExampleRequestId
+            in
+            ( { model | examinedClass = Just class, classExampleRequestId = id }
+            , getRandomClassExample id class
+                |> List.repeat 9
+                |> Cmd.batch
+            )
+
+        GotClassExample id class result ->
+            if RequestManager.isStale id model.classExampleRequestId then
+                ( model, Cmd.none )
+
+            else
+                case ( result, model.examinedClass ) of
+                    ( Ok example, Just existing ) ->
+                        let
+                            examples =
+                                example
+                                    :: model.classExamples
+                                    |> List.filter (\ex -> ex.target == existing)
+                        in
+                        ( { model
+                            | classExamples = examples
+                            , err = Nothing
+                          }
+                        , Cmd.none
+                        )
+
+                    ( Ok example, Nothing ) ->
+                        let
+                            examples =
+                                example
+                                    :: model.classExamples
+                                    |> List.filter (\ex -> ex.target == class)
+                        in
+                        ( { model
+                            | classExamples = examples
+                            , examinedClass = Just class
+                            , err = Nothing
+                          }
+                        , Cmd.none
+                        )
+
+                    ( Err err, _ ) ->
+                        ( { model | err = Just (explainGradioError err) }, Cmd.none )
+
+
+onUrlRequest : Browser.UrlRequest -> Msg
+onUrlRequest request =
+    NoOp
+
+
+onUrlChange : Url.Url -> Msg
+onUrlChange url =
+    case Url.Parser.parse urlParser url of
+        Just parsed ->
+            case parsed.example of
+                Just i ->
+                    SetExample i
+
+                Nothing ->
+                    SetExample 0
+
+        Nothing ->
+            SetExample 0
+
+
+type alias QueryParams =
+    { example : Maybe Int
+    }
+
+
+urlParser : Url.Parser.Parser (QueryParams -> a) a
+urlParser =
+    -- Need to change this when I deploy it.
+    Url.Parser.s "web"
+        </> Url.Parser.s "apps"
+        </> Url.Parser.s "classification"
+        <?> Url.Parser.Query.int "example"
+        |> Url.Parser.map QueryParams
 
 
 
@@ -217,27 +432,27 @@ explainGradioError err =
             "Error in the API: " ++ msg
 
 
-getImageUrl : Int -> Cmd Msg
-getImageUrl img =
+getInputExample : RequestManager.Id -> Int -> Cmd Msg
+getInputExample id img =
     Gradio.get "get-image"
         [ E.int img ]
-        (D.list imgUrlDecoder |> D.map List.head)
-        GotImageUrl
+        (D.map2 Example
+            (D.index 0 imgUrlDecoder)
+            (D.index 1 D.int)
+        )
+        (GotInputExample id)
 
 
-getPred : Int -> Cmd Msg
-getPred img =
+getOriginalPredictions : RequestManager.Id -> Int -> Cmd Msg
+getOriginalPredictions id img =
     Gradio.get "get-preds"
         [ E.int img ]
-        (D.list labelsDecoder
-            |> D.map List.head
-            |> D.map (Maybe.withDefault Dict.empty)
-        )
-        GotPred
+        (Gradio.decodeOne labelsDecoder)
+        (GotOriginalPredictions id)
 
 
-getModifiedLabels : Int -> Dict.Dict Int Float -> Cmd Msg
-getModifiedLabels img sliders =
+getModifiedPredictions : RequestManager.Id -> Int -> Set.Set Int -> Dict.Dict Int Float -> Cmd Msg
+getModifiedPredictions id img patches sliders =
     let
         ( latents, values ) =
             sliders
@@ -247,6 +462,7 @@ getModifiedLabels img sliders =
 
         args =
             [ E.int img
+            , E.list E.int (Set.toList patches)
             , E.int (Array.get 0 latents |> Maybe.withDefault -1)
             , E.int (Array.get 1 latents |> Maybe.withDefault -1)
             , E.int (Array.get 2 latents |> Maybe.withDefault -1)
@@ -256,35 +472,36 @@ getModifiedLabels img sliders =
             ]
     in
     Gradio.get "get-modified"
-        [ E.int img ]
+        args
         (D.list labelsDecoder
             |> D.map List.head
-            |> D.map (Maybe.withDefault Dict.empty)
+            |> D.map (Maybe.withDefault Array.empty)
         )
-        GotModified
+        (GotModifiedPredictions id)
 
 
-labelsDecoder : D.Decoder (Dict.Dict String Float)
+labelsDecoder : D.Decoder (Array.Array Float)
 labelsDecoder =
     D.field "confidences"
         (D.list
             (D.map2 Tuple.pair
-                (D.field "label" D.string)
                 (D.field "confidence" D.float)
+                (D.field "label" D.int)
             )
-            |> D.map Dict.fromList
+            |> D.andThen (List.sortBy Tuple.second >> List.map Tuple.first >> D.succeed)
+            |> D.map Array.fromList
         )
 
 
-getSaeExamples : Int -> Set.Set Int -> Cmd Msg
-getSaeExamples img patches =
+getSaeExamples : RequestManager.Id -> Int -> Set.Set Int -> Cmd Msg
+getSaeExamples id img patches =
     Gradio.get
         "get-sae-examples"
         [ E.int img
         , Set.toList patches |> E.list E.int
         ]
         (D.list saeExampleResultDecoder)
-        GotSaeExamples
+        (GotSaeExamples id)
 
 
 type SaeExampleResult
@@ -309,6 +526,19 @@ imgUrlDecoder =
         |> D.map (String.replace "gra/gradio_api" "gradio_api")
         |> D.map (String.replace "gradio_ap/gradio_api" "gradio_api")
         |> D.map (String.replace "gradio_api/ca/gradio_api" "gradio_api")
+        |> D.map (String.replace "gradio_api/call/gradio_api" "gradio_api")
+
+
+getRandomClassExample : RequestManager.Id -> Int -> Cmd Msg
+getRandomClassExample id class =
+    Gradio.get
+        "get-random-class-image"
+        [ E.int class ]
+        (D.map2 Example
+            (D.index 0 imgUrlDecoder)
+            (D.succeed class)
+        )
+        (GotClassExample id class)
 
 
 
@@ -321,112 +551,173 @@ view model =
     , body =
         [ Html.header [] []
         , Html.main_
-            []
+            [ Html.Attributes.class "w-full min-h-screen p-1 md:p-2 lg:p-4 bg-gray-50 space-y-4" ]
             [ Html.div
-                [ Html.Attributes.class "flex flex-row items-center" ]
-                [ viewGriddedImage model.hoveredPatchIndex model.selectedPatchIndices model.imageUrl "Input Image"
-                , viewPreds model.preds
-                , viewPreds model.modified
+                [ Html.Attributes.class "border border-gray-200 bg-white rounded-lg p-4 space-y-4" ]
+                [ viewErr model.err
+                , Html.div
+                    [ Html.Attributes.class "flex flex-row gap-2 items-stretch" ]
+                    [ Html.div
+                        [ Html.Attributes.class "w-[224px] md:w-[336px]" ]
+                        [ viewGriddedImage
+                            model.hoveredPatchIndex
+                            model.selectedPatchIndices
+                            (Maybe.map .url model.inputExample)
+                        , Html.div
+                            [ Html.Attributes.class "flex flex-row gap-2" ]
+                            [ viewButton (SetUrl (model.inputExampleIndex - 1)) "Previous"
+                            , viewButton GetRandomExample "Random"
+                            , viewButton (SetUrl (model.inputExampleIndex + 1)) "Next"
+                            ]
+                        , Html.div
+                            [ Html.Attributes.class "p-1 md:p-2 lg:p-4" ]
+                            [ Html.p
+                                [ Html.Attributes.class "font-bold text-gray-800" ]
+                                [ Html.text
+                                    ((model.inputExample
+                                        |> Maybe.map .target
+                                        |> Maybe.withDefault -1
+                                        |> viewTargetClass
+                                     )
+                                        ++ " (Example #"
+                                        ++ String.fromInt model.inputExampleIndex
+                                        ++ ")"
+                                    )
+                                ]
+                            , Html.p
+                                [ Html.Attributes.class "italic text-gray-600" ]
+                                [ Html.text "Click on the image above to explain model predictions." ]
+                            ]
+                        ]
+                    , viewProbs "Prediction" model.originalPredictions
+                    , viewProbs "After Modification" model.modifiedPredictions
+                    ]
+                , Html.div [ Html.Attributes.class "border-t border-gray-200" ] []
+                , Html.div
+                    [ Html.Attributes.class "flex flex-row justify-between" ]
+                    [ viewSaeExamples model.selectedPatchIndices model.saeLatents model.sliders
+                    , viewClassExamples model.examinedClass model.classExamples
+                    ]
                 ]
-            , Html.div
-                [ Html.Attributes.style "display" "flex"
-                , Html.Attributes.style "flex-direction" "row"
-                ]
-                [ viewSaeExamples model.selectedPatchIndices model.saeLatents model.sliders
-                ]
-            , viewErr model.err
             ]
         ]
     }
 
 
-viewGriddedImage : Maybe Int -> Set.Set Int -> Maybe String -> String -> Html.Html Msg
-viewGriddedImage hovered selected maybeUrl caption =
+viewGriddedImage : Maybe Int -> Set.Set Int -> Maybe String -> Html.Html Msg
+viewGriddedImage hovered selected maybeUrl =
     case maybeUrl of
         Nothing ->
-            Html.div [] [ Html.text "Loading..." ]
+            Html.div
+                [ Html.Attributes.class "" ]
+                [ Html.h3
+                    []
+                    [ Html.text "Loading..." ]
+                ]
 
         Just url ->
-            Html.div []
+            Html.div
+                [ Html.Attributes.class "relative inline-block" ]
                 [ Html.div
-                    [ Html.Attributes.class "relative inline-block" ]
-                    [ Html.div
-                        [ Html.Attributes.class "absolute grid grid-rows-[repeat(14,_16px)] grid-cols-[repeat(14,_16px)] md:grid-rows-[repeat(14,_24px)] md:grid-cols-[repeat(14,_24px)]" ]
-                        (List.map
-                            (viewGridCell hovered selected)
-                            (List.range 0 195)
-                        )
-                    , Html.img
-                        [ Html.Attributes.class "block w-[224px] h-[224px] md:w-[336px] md:h-[336px]"
-                        , Html.Attributes.src url
-                        ]
-                        []
+                    [ Html.Attributes.class "absolute grid grid-rows-[repeat(14,_16px)] grid-cols-[repeat(14,_16px)] md:grid-rows-[repeat(14,_24px)] md:grid-cols-[repeat(14,_24px)]" ]
+                    (List.map
+                        (viewGridCell hovered selected)
+                        (List.range 0 195)
+                    )
+                , Html.img
+                    [ Html.Attributes.class "block w-[224px] h-[224px] md:w-[336px] md:h-[336px]"
+                    , Html.Attributes.src url
                     ]
-                , Html.p
                     []
-                    [ Html.text caption ]
                 ]
 
 
 viewGridCell : Maybe Int -> Set.Set Int -> Int -> Html.Html Msg
 viewGridCell hovered selected self =
     let
-        classes =
+        class =
             (case hovered of
                 Just h ->
                     if h == self then
-                        [ "border-2 border-rose-600 border-dashed" ]
+                        "border-2 border-rose-600 border-dashed "
 
                     else
-                        []
+                        ""
 
                 Nothing ->
-                    []
+                    ""
             )
                 ++ (if Set.member self selected then
-                        [ "bg-rose-600/50" ]
+                        "bg-rose-600/50 "
 
                     else
-                        []
+                        ""
                    )
     in
     Html.div
-        ([ Html.Attributes.class "w-[16px] h-[16px] md:w-[24px] md:h-[24px]"
-         , Html.Events.onMouseEnter (HoverPatch self)
-         , Html.Events.onMouseLeave ResetHoveredPatch
-         , Html.Events.onClick (ToggleSelectedPatch self)
-         ]
-            ++ List.map Html.Attributes.class classes
-        )
+        [ Html.Attributes.class "w-[16px] h-[16px] md:w-[24px] md:h-[24px]"
+        , Html.Attributes.class class
+        , Html.Events.onMouseEnter (HoverPatch self)
+        , Html.Events.onMouseLeave ResetHoveredPatch
+        , Html.Events.onClick (ToggleSelectedPatch self)
+        ]
         []
 
 
-viewPreds : Dict.Dict String Float -> Html.Html Msg
-viewPreds preds =
+viewProbs : String -> Array.Array Float -> Html.Html Msg
+viewProbs title probs =
     let
-        top5 =
-            Dict.toList preds |> List.sortBy Tuple.second |> List.reverse |> List.take 5
+        top =
+            probs
+                |> Array.toIndexedList
+                |> List.sortBy Tuple.second
+                |> List.reverse
+                |> List.take 6
     in
     Html.div
-        []
-        (List.map (uncurry viewPred) top5)
+        [ Html.Attributes.class "p-4 flex flex-col justify-around flex-1" ]
+        (Html.h3
+            [ Html.Attributes.class "font-bold text-gray-800" ]
+            [ Html.text title ]
+            :: List.map (uncurry viewProb) top
+        )
 
 
-viewPred : String -> Float -> Html.Html Msg
-viewPred label score =
+viewProb : Int -> Float -> Html.Html Msg
+viewProb target prob =
     Html.div
-        []
-        [ Html.span [] [ Html.text label ]
-        , Html.span [] [ Html.text (String.fromFloat score) ]
+        [ Html.Attributes.class "cursor-pointer hover:underline"
+        , Html.Events.onClick (ExamineClass target)
+        ]
+        [ Html.meter
+            [ Html.Attributes.class "inline-block w-full"
+            , Html.Attributes.min "0"
+            , Html.Attributes.max "100"
+            , Html.Attributes.value (prob * 100 |> String.fromFloat)
+            ]
+            []
+        , Html.div
+            [ Html.Attributes.class "flex justify-between"
+            ]
+            [ Html.span
+                [ Html.Attributes.class "text-gray-700" ]
+                [ Html.text (viewTargetClass target) ]
+            , Html.span
+                [ Html.Attributes.class "text-gray-900" ]
+                [ Html.text ((prob * 100 |> round |> String.fromInt) ++ "%") ]
+            ]
         ]
 
 
 viewSaeExamples : Set.Set Int -> List SaeLatent -> Dict.Dict Int Float -> Html.Html Msg
 viewSaeExamples selected latents values =
     if List.length latents > 0 then
-        Html.div []
-            ([ Html.p []
-                [ Html.span [ Html.Attributes.class "bg-rose-600 p-1 rounded" ] [ Html.text "These patches" ]
+        Html.div [ Html.Attributes.class "p-1 md:px-2 lg:px-4" ]
+            ([ Html.h3
+                [ Html.Attributes.class "font-bold" ]
+                [ Html.text "Similar Examples" ]
+             , Html.p []
+                [ Html.span [ Html.Attributes.class "bg-rose-600 text-white p-1 rounded" ] [ Html.text "These patches" ]
                 , Html.text " above are like "
                 , Html.span [ Html.Attributes.class "bg-rose-600 text-white p-1 rounded" ] [ Html.text "these patches" ]
                 , Html.text " below. (Not what you expected? Add more patches and get a larger "
@@ -444,8 +735,7 @@ viewSaeExamples selected latents values =
             [ Html.text "Loading similar patches..." ]
 
     else
-        Html.p []
-            [ Html.text "Click on the image above to explain model predictions." ]
+        Html.div [] []
 
 
 viewSaeLatentExamples : SaeLatent -> Float -> Html.Html Msg
@@ -457,8 +747,8 @@ viewSaeLatentExamples latent value =
                     [ Html.Attributes.class "flex flex-col gap-2" ]
                     [ Html.input
                         [ Html.Attributes.type_ "range"
-                        , Html.Attributes.min "-10"
-                        , Html.Attributes.max "10"
+                        , Html.Attributes.min "-20"
+                        , Html.Attributes.max "20"
                         , Html.Attributes.value (String.fromFloat value)
                         , Html.Events.onInput (SetSlider latent.latent)
                         ]
@@ -484,10 +774,53 @@ viewErr : Maybe String -> Html.Html Msg
 viewErr err =
     case err of
         Just msg ->
-            Html.p [] [ Html.text msg ]
+            Html.div
+                [ Html.Attributes.class "relative rounded-lg border border-red-200 bg-red-50 p-4" ]
+                [ Html.button
+                    []
+                    []
+                , Html.h3
+                    [ Html.Attributes.class "font-bold text-red-800" ]
+                    [ Html.text "Error" ]
+                , Html.p
+                    [ Html.Attributes.class "text-red-700" ]
+                    [ Html.text msg ]
+                ]
 
         Nothing ->
             Html.span [] []
+
+
+viewClassExamples : Maybe Int -> List Example -> Html.Html Msg
+viewClassExamples maybeClass examples =
+    case maybeClass of
+        Just class ->
+            Html.div
+                [ Html.Attributes.class "" ]
+                [ Html.h3
+                    [ Html.Attributes.class "font-bold" ]
+                    [ class |> viewTargetClass |> Html.text ]
+                , Html.div
+                    [ Html.Attributes.class "max-w-xl grid grid-cols-3 gap-2" ]
+                    (examples |> List.reverse |> List.take 9 |> List.map (.url >> viewImage))
+                ]
+
+        Nothing ->
+            Html.div [] []
+
+
+viewButton : Msg -> String -> Html.Html Msg
+viewButton onClick title =
+    Html.button
+        [ Html.Events.onClick onClick
+        , Html.Attributes.class "flex-1 rounded-lg px-2 py-1 transition-colors"
+        , Html.Attributes.class "border border-sky-300 hover:border-sky-400"
+        , Html.Attributes.class "bg-sky-100 hover:bg-sky-200"
+        , Html.Attributes.class "text-gray-700 hover:text-gray-900"
+        , Html.Attributes.class "focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2"
+        , Html.Attributes.class "active:bg-gray-300"
+        ]
+        [ Html.text title ]
 
 
 
@@ -541,9 +874,31 @@ parseSaeExampleResultsHelper unparsed urls parsed =
                 parsed
 
 
+viewTargetClass : Int -> String
+viewTargetClass target =
+    Array.get target classNames
+        |> Maybe.withDefault ("Unknown target: " ++ String.fromInt target)
+
+
 
 -- CONSTANTS
 
 
+nImages =
+    5794
+
+
 nSaeExamplesPerLatent =
     4
+
+
+randomExample : Random.Generator Int
+randomExample =
+    Random.int 0 (nImages - 1)
+
+
+classNames : Array.Array String
+classNames =
+    [ "Acadian_Flycatcher", "American_Crow", "American_Goldfinch", "American_Pipit", "American_Redstart", "American_Three_toed_Woodpecker", "Anna_Hummingbird", "Artic_Tern", "Baird_Sparrow", "Baltimore_Oriole", "Bank_Swallow", "Barn_Swallow", "Bay_breasted_Warbler", "Belted_Kingfisher", "Bewick_Wren", "Black_Tern", "Black_and_white_Warbler", "Black_billed_Cuckoo", "Black_capped_Vireo", "Black_footed_Albatross", "Black_throated_Blue_Warbler", "Black_throated_Sparrow", "Blue_Grosbeak", "Blue_Jay", "Blue_headed_Vireo", "Blue_winged_Warbler", "Boat_tailed_Grackle", "Bobolink", "Bohemian_Waxwing", "Brandt_Cormorant", "Brewer_Blackbird", "Brewer_Sparrow", "Bronzed_Cowbird", "Brown_Creeper", "Brown_Pelican", "Brown_Thrasher", "Cactus_Wren", "California_Gull", "Canada_Warbler", "Cape_Glossy_Starling", "Cape_May_Warbler", "Cardinal", "Carolina_Wren", "Caspian_Tern", "Cedar_Waxwing", "Cerulean_Warbler", "Chestnut_sided_Warbler", "Chipping_Sparrow", "Chuck_will_Widow", "Clark_Nutcracker", "Clay_colored_Sparrow", "Cliff_Swallow", "Common_Raven", "Common_Tern", "Common_Yellowthroat", "Crested_Auklet", "Dark_eyed_Junco", "Downy_Woodpecker", "Eared_Grebe", "Eastern_Towhee", "Elegant_Tern", "European_Goldfinch", "Evening_Grosbeak", "Field_Sparrow", "Fish_Crow", "Florida_Jay", "Forsters_Tern", "Fox_Sparrow", "Frigatebird", "Gadwall", "Geococcyx", "Glaucous_winged_Gull", "Golden_winged_Warbler", "Grasshopper_Sparrow", "Gray_Catbird", "Gray_Kingbird", "Gray_crowned_Rosy_Finch", "Great_Crested_Flycatcher", "Great_Grey_Shrike", "Green_Jay", "Green_Kingfisher", "Green_Violetear", "Green_tailed_Towhee", "Groove_billed_Ani", "Harris_Sparrow", "Heermann_Gull", "Henslow_Sparrow", "Herring_Gull", "Hooded_Merganser", "Hooded_Oriole", "Hooded_Warbler", "Horned_Grebe", "Horned_Lark", "Horned_Puffin", "House_Sparrow", "House_Wren", "Indigo_Bunting", "Ivory_Gull", "Kentucky_Warbler", "Laysan_Albatross", "Lazuli_Bunting", "Le_Conte_Sparrow", "Least_Auklet", "Least_Flycatcher", "Least_Tern", "Lincoln_Sparrow", "Loggerhead_Shrike", "Long_tailed_Jaeger", "Louisiana_Waterthrush", "Magnolia_Warbler", "Mallard", "Mangrove_Cuckoo", "Marsh_Wren", "Mockingbird", "Mourning_Warbler", "Myrtle_Warbler", "Nashville_Warbler", "Nelson_Sharp_tailed_Sparrow", "Nighthawk", "Northern_Flicker", "Northern_Fulmar", "Northern_Waterthrush", "Olive_sided_Flycatcher", "Orange_crowned_Warbler", "Orchard_Oriole", "Ovenbird", "Pacific_Loon", "Painted_Bunting", "Palm_Warbler", "Parakeet_Auklet", "Pelagic_Cormorant", "Philadelphia_Vireo", "Pied_Kingfisher", "Pied_billed_Grebe", "Pigeon_Guillemot", "Pileated_Woodpecker", "Pine_Grosbeak", "Pine_Warbler", "Pomarine_Jaeger", "Prairie_Warbler", "Prothonotary_Warbler", "Purple_Finch", "Red_bellied_Woodpecker", "Red_breasted_Merganser", "Red_cockaded_Woodpecker", "Red_eyed_Vireo", "Red_faced_Cormorant", "Red_headed_Woodpecker", "Red_legged_Kittiwake", "Red_winged_Blackbird", "Rhinoceros_Auklet", "Ring_billed_Gull", "Ringed_Kingfisher", "Rock_Wren", "Rose_breasted_Grosbeak", "Ruby_throated_Hummingbird", "Rufous_Hummingbird", "Rusty_Blackbird", "Sage_Thrasher", "Savannah_Sparrow", "Sayornis", "Scarlet_Tanager", "Scissor_tailed_Flycatcher", "Scott_Oriole", "Seaside_Sparrow", "Shiny_Cowbird", "Slaty_backed_Gull", "Song_Sparrow", "Sooty_Albatross", "Spotted_Catbird", "Summer_Tanager", "Swainson_Warbler", "Tennessee_Warbler", "Tree_Sparrow", "Tree_Swallow", "Tropical_Kingbird", "Vermilion_Flycatcher", "Vesper_Sparrow", "Warbling_Vireo", "Western_Grebe", "Western_Gull", "Western_Meadowlark", "Western_Wood_Pewee", "Whip_poor_Will", "White_Pelican", "White_breasted_Kingfisher", "White_breasted_Nuthatch", "White_crowned_Sparrow", "White_eyed_Vireo", "White_necked_Raven", "White_throated_Sparrow", "Wilson_Warbler", "Winter_Wren", "Worm_eating_Warbler", "Yellow_Warbler", "Yellow_bellied_Flycatcher", "Yellow_billed_Cuckoo", "Yellow_breasted_Chat", "Yellow_headed_Blackbird", "Yellow_throated_Vireo" ]
+        |> List.map (String.replace "_" " ")
+        |> Array.fromList
