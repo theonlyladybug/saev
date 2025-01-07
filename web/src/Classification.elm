@@ -53,7 +53,7 @@ type Msg
     | GotOriginalPredictions Requests.Id (Result Gradio.Error (List Float))
     | GotModifiedPredictions Requests.Id (Result Gradio.Error (List Float))
     | GotSaeExamples Requests.Id (Result Gradio.Error (List SaeExampleResult))
-    | GotClassExample Requests.Id Int (Result Gradio.Error Example)
+    | GotClassExample Requests.Id (Result Gradio.Error Example)
 
 
 
@@ -67,7 +67,7 @@ type alias Model =
     , inputExample : LoadingState Example
     , hoveredPatchIndex : Maybe Int
     , selectedPatchIndices : Set.Set Int
-    , saeLatents : LoadingState (List SaeLatent)
+    , saeExamples : LoadingState (List SaeExample)
     , sliders : Dict.Dict Int Float
     , examinedClass : ExaminedClass
 
@@ -102,20 +102,20 @@ type ExaminedClass
 
 type alias Example =
     { url : String
-    , target : Int
+    , class : Int
     }
 
 
-type alias SaeLatent =
+type alias SaeExample =
     { latent : Int
-    , examples : List Example
+    , urls : List String
     }
 
 
 init : () -> Url.Url -> Browser.Navigation.Key -> ( Model, Cmd Msg )
 init _ url key =
     let
-        example =
+        index =
             case Url.Parser.parse urlParser url of
                 Just parsed ->
                     case parsed.example of
@@ -131,17 +131,16 @@ init _ url key =
         model =
             { -- Browser
               key = key
-            , inputExampleIndex = example
-            , inputExample = Nothing
+            , inputExampleIndex = index
+            , inputExample = Loading
             , hoveredPatchIndex = Nothing
             , selectedPatchIndices = Set.empty
-            , saeLatents = []
+            , saeExamples = Initial
             , sliders = Dict.empty
-            , examinedClass = Nothing
-            , classExamples = []
+            , examinedClass = NotExamining
 
             -- ML
-            , originalPredictions = Initial
+            , originalPredictions = Loading
             , modifiedPredictions = Initial
 
             -- APIs
@@ -155,7 +154,10 @@ init _ url key =
             }
     in
     ( model
-    , Cmd.batch [ getInputExample model.inputExampleRequestId example, getOriginalPredictions model.originalPredictionsRequestId example ]
+    , Cmd.batch
+        [ getInputExample model.gradio model.inputExampleRequestId index
+        , getOriginalPredictions model.gradio model.originalPredictionsRequestId index
+        ]
     )
 
 
@@ -189,21 +191,22 @@ update msg model =
             in
             ( { model
                 | inputExampleIndex = example
+                , inputExample = Loading
                 , selectedPatchIndices = Set.empty
-                , saeLatents = Initial
-                , originalPredictions = Initial
+                , saeExamples = Initial
+                , originalPredictions = Loading
                 , modifiedPredictions = Initial
                 , inputExampleRequestId = inputExampleNextId
                 , originalPredictionsRequestId = originalPredictionsNextId
               }
             , Cmd.batch
-                [ getInputExample inputExampleNextId example
-                , getOriginalPredictions originalPredictionsNextId example
+                [ getInputExample model.gradio inputExampleNextId example
+                , getOriginalPredictions model.gradio originalPredictionsNextId example
                 ]
             )
 
         GetRandomExample ->
-            ( model, Random.generate SetUrl randomExample )
+            ( { model | examinedClass = NotExamining }, Random.generate SetUrl randomExample )
 
         HoverPatch i ->
             ( { model | hoveredPatchIndex = Just i }, Cmd.none )
@@ -270,8 +273,9 @@ update msg model =
             ( { model
                 | selectedPatchIndices = patchIndices
                 , saeExamplesRequestId = saeExamplesNextId
+                , saeExamples = Loading
               }
-            , getSaeExamples saeExamplesNextId model.inputExampleIndex patchIndices
+            , getSaeExamples model.gradio saeExamplesNextId model.inputExampleIndex patchIndices
             )
 
         GotSaeExamples id result ->
@@ -291,14 +295,14 @@ update msg model =
                                     |> Dict.fromList
                         in
                         ( { model
-                            | saeLatents = Loaded latents
+                            | saeExamples = Loaded latents
                             , sliders = sliders
                           }
                         , Cmd.none
                         )
 
                     Err err ->
-                        ( { model | saeLatents = Failed (explainGradioError err) }, Cmd.none )
+                        ( { model | saeExamples = Failed (explainGradioError err) }, Cmd.none )
 
         SetSlider i str ->
             case String.toFloat str of
@@ -313,8 +317,9 @@ update msg model =
                     ( { model
                         | sliders = sliders
                         , modifiedPredictionsRequestId = modifiedPredictionsNextId
+                        , modifiedPredictions = Loading
                       }
-                    , getModifiedPredictions
+                    , getModifiedPredictions model.gradio
                         modifiedPredictionsNextId
                         model.inputExampleIndex
                         model.selectedPatchIndices
@@ -330,49 +335,114 @@ update msg model =
                 id =
                     Requests.next model.classExampleRequestId
             in
-            ( { model | examinedClass = Just class, classExampleRequestId = id }
-            , getRandomClassExample id class
+            ( { model
+                | examinedClass = Examining { class = class, examples = Loading }
+                , classExampleRequestId = id
+              }
+            , getRandomClassExample model.gradio id class
                 |> List.repeat 9
                 |> Cmd.batch
             )
 
-        GotClassExample id class result ->
+        GotClassExample id result ->
             if Requests.isStale id model.classExampleRequestId then
                 ( model, Cmd.none )
 
             else
                 case ( result, model.examinedClass ) of
-                    ( Ok example, Just existing ) ->
-                        let
-                            examples =
-                                example
-                                    :: model.classExamples
-                                    |> List.filter (\ex -> ex.target == existing)
-                        in
+                    ( Ok example, NotExamining ) ->
                         ( { model
-                            | classExamples = examples
-                            , err = Nothing
+                            | examinedClass =
+                                Examining
+                                    { class = example.class
+                                    , examples = Loaded [ example ]
+                                    }
                           }
                         , Cmd.none
                         )
 
-                    ( Ok example, Nothing ) ->
-                        let
-                            examples =
-                                example
-                                    :: model.classExamples
-                                    |> List.filter (\ex -> ex.target == class)
-                        in
-                        ( { model
-                            | classExamples = examples
-                            , examinedClass = Just class
-                            , err = Nothing
-                          }
-                        , Cmd.none
-                        )
+                    ( Ok example, Examining { class, examples } ) ->
+                        case examples of
+                            Initial ->
+                                let
+                                    newExamples =
+                                        if example.class == class then
+                                            [ example ]
+
+                                        else
+                                            []
+                                in
+                                ( { model
+                                    | examinedClass =
+                                        Examining
+                                            { class = class
+                                            , examples = Loaded newExamples
+                                            }
+                                  }
+                                , Cmd.none
+                                )
+
+                            Loading ->
+                                let
+                                    newExamples =
+                                        if example.class == class then
+                                            [ example ]
+
+                                        else
+                                            []
+                                in
+                                ( { model
+                                    | examinedClass =
+                                        Examining
+                                            { class = class
+                                            , examples = Loaded newExamples
+                                            }
+                                  }
+                                , Cmd.none
+                                )
+
+                            Loaded examplesLoaded ->
+                                let
+                                    newExamples =
+                                        example
+                                            :: examplesLoaded
+                                            |> List.filter (\ex -> ex.class == class)
+                                in
+                                ( { model
+                                    | examinedClass = Examining { class = class, examples = Loaded newExamples }
+                                  }
+                                , Cmd.none
+                                )
+
+                            Failed _ ->
+                                let
+                                    newExamples =
+                                        if example.class == class then
+                                            [ example ]
+
+                                        else
+                                            []
+                                in
+                                ( { model
+                                    | examinedClass =
+                                        Examining
+                                            { class = class
+                                            , examples = Loaded newExamples
+                                            }
+                                  }
+                                , Cmd.none
+                                )
 
                     ( Err err, _ ) ->
-                        ( { model | err = Just (explainGradioError err) }, Cmd.none )
+                        ( { model
+                            | examinedClass =
+                                Examining
+                                    { class = -1
+                                    , examples = Failed (explainGradioError err)
+                                    }
+                          }
+                        , Cmd.none
+                        )
 
 
 onUrlRequest : Browser.UrlRequest -> Msg
@@ -430,9 +500,10 @@ explainGradioError err =
             "Error in the API: " ++ msg
 
 
-getInputExample : Requests.Id -> Int -> Cmd Msg
-getInputExample id img =
-    Gradio.get "get-image"
+getInputExample : Gradio.Config -> Requests.Id -> Int -> Cmd Msg
+getInputExample cfg id img =
+    Gradio.get cfg
+        "get-image"
         [ E.int img ]
         (D.map2 Example
             (D.index 0 imgUrlDecoder)
@@ -441,16 +512,17 @@ getInputExample id img =
         (GotInputExample id)
 
 
-getOriginalPredictions : Requests.Id -> Int -> Cmd Msg
-getOriginalPredictions id img =
-    Gradio.get "get-preds"
+getOriginalPredictions : Gradio.Config -> Requests.Id -> Int -> Cmd Msg
+getOriginalPredictions cfg id img =
+    Gradio.get cfg
+        "get-preds"
         [ E.int img ]
         (Gradio.decodeOne labelsDecoder)
         (GotOriginalPredictions id)
 
 
-getModifiedPredictions : Requests.Id -> Int -> Set.Set Int -> Dict.Dict Int Float -> Cmd Msg
-getModifiedPredictions id img patches sliders =
+getModifiedPredictions : Gradio.Config -> Requests.Id -> Int -> Set.Set Int -> Dict.Dict Int Float -> Cmd Msg
+getModifiedPredictions cfg id img patches sliders =
     let
         ( latents, values ) =
             sliders
@@ -469,16 +541,17 @@ getModifiedPredictions id img patches sliders =
             , E.float (Array.get 2 values |> Maybe.withDefault 0.0)
             ]
     in
-    Gradio.get "get-modified"
+    Gradio.get cfg
+        "get-modified"
         args
         (D.list labelsDecoder
             |> D.map List.head
-            |> D.map (Maybe.withDefault Array.empty)
+            |> D.map (Maybe.withDefault [])
         )
         (GotModifiedPredictions id)
 
 
-labelsDecoder : D.Decoder (Array.Array Float)
+labelsDecoder : D.Decoder (List Float)
 labelsDecoder =
     D.field "confidences"
         (D.list
@@ -487,13 +560,12 @@ labelsDecoder =
                 (D.field "label" D.int)
             )
             |> D.andThen (List.sortBy Tuple.second >> List.map Tuple.first >> D.succeed)
-            |> D.map Array.fromList
         )
 
 
-getSaeExamples : Requests.Id -> Int -> Set.Set Int -> Cmd Msg
-getSaeExamples id img patches =
-    Gradio.get
+getSaeExamples : Gradio.Config -> Requests.Id -> Int -> Set.Set Int -> Cmd Msg
+getSaeExamples cfg id img patches =
+    Gradio.get cfg
         "get-sae-examples"
         [ E.int img
         , Set.toList patches |> E.list E.int
@@ -527,16 +599,16 @@ imgUrlDecoder =
         |> D.map (String.replace "gradio_api/call/gradio_api" "gradio_api")
 
 
-getRandomClassExample : Requests.Id -> Int -> Cmd Msg
-getRandomClassExample id class =
-    Gradio.get
+getRandomClassExample : Gradio.Config -> Requests.Id -> Int -> Cmd Msg
+getRandomClassExample cfg id class =
+    Gradio.get cfg
         "get-random-class-image"
         [ E.int class ]
         (D.map2 Example
             (D.index 0 imgUrlDecoder)
             (D.succeed class)
         )
-        (GotClassExample id class)
+        (GotClassExample id)
 
 
 
@@ -545,6 +617,15 @@ getRandomClassExample id class =
 
 view : Model -> Browser.Document Msg
 view model =
+    let
+        callToAction =
+            case model.saeExamples of
+                Loaded _ ->
+                    "Drag one or more sliders below."
+
+                _ ->
+                    ""
+    in
     { title = "Image Classification"
     , body =
         [ Html.header [] []
@@ -555,13 +636,17 @@ view model =
                 [ Html.div
                     [ Html.Attributes.class "flex flex-row gap-2 items-stretch" ]
                     [ viewInputExample model
-                    , viewProbs "Prediction" model.originalPredictions
-                    , viewProbs "After Modification" model.modifiedPredictions
+                    , viewProbs "Prediction"
+                        "Wait just a second."
+                        model.originalPredictions
+                    , viewProbs "After Modification"
+                        callToAction
+                        model.modifiedPredictions
                     ]
                 , Html.div [ Html.Attributes.class "border-t border-gray-200" ] []
                 , Html.div
                     [ Html.Attributes.class "flex flex-row justify-between" ]
-                    [ viewSaeExamples model.selectedPatchIndices model.saeLatents model.sliders
+                    [ viewSaeExamples model.saeExamples model.sliders
                     , viewClassExamples model.examinedClass
                     ]
                 ]
@@ -578,6 +663,11 @@ viewInputExample model =
                 []
                 [ Html.text "Initial state. You shouldn't see this for long..." ]
 
+        Loading ->
+            Html.p
+                []
+                [ Html.text "Loading example..." ]
+
         Loaded example ->
             Html.div
                 [ Html.Attributes.class "w-[224px] md:w-[336px]" ]
@@ -592,21 +682,21 @@ viewInputExample model =
                     , viewButton (SetUrl (model.inputExampleIndex + 1)) "Next"
                     ]
                 , Html.div
-                    [ Html.Attributes.class "p-1 md:p-2 lg:p-4" ]
+                    [ Html.Attributes.class "py-1 md:py-2 lg:py-4" ]
                     [ Html.p
                         [ Html.Attributes.class "font-bold text-gray-800" ]
                         [ Html.text
-                            (viewTargetClass example.target
+                            (viewClass example.class
                                 ++ " (Example #"
                                 ++ String.fromInt model.inputExampleIndex
                                 ++ ")"
                             )
                         ]
-                    , Html.p
-                        [ Html.Attributes.class "italic text-gray-600" ]
-                        [ Html.text "Click on the image above to explain model predictions." ]
                     ]
                 ]
+
+        Failed err ->
+            viewErr err
 
 
 viewGriddedImage : Maybe Int -> Set.Set Int -> String -> Html.Html Msg
@@ -659,25 +749,44 @@ viewGridCell hovered selected self =
         []
 
 
-viewProbs : String -> LoadingState (List Float) -> Html.Html Msg
-viewProbs title loadingProbs =
-    case loadingProbs of
-        Loaded probs ->
-            let
-                top =
-                    probs
-                        |> List.indexedMap Tuple.pair
-                        |> List.sortBy Tuple.second
-                        |> List.reverse
-                        |> List.take 6
-            in
-            Html.div
-                [ Html.Attributes.class "p-4 flex flex-col justify-around flex-1" ]
-                (Html.h3
-                    [ Html.Attributes.class "font-bold text-gray-800" ]
-                    [ Html.text title ]
-                    :: List.map (uncurry viewProb) top
-                )
+viewProbs : String -> String -> LoadingState (List Float) -> Html.Html Msg
+viewProbs title callToAction loadingProbs =
+    let
+        content =
+            case loadingProbs of
+                Initial ->
+                    Html.p
+                        [ Html.Attributes.class "italic text-gray-600" ]
+                        [ Html.text callToAction ]
+
+                Loading ->
+                    Html.p
+                        []
+                        [ Html.text "Loading..." ]
+
+                Loaded probs ->
+                    let
+                        top =
+                            probs
+                                |> List.indexedMap Tuple.pair
+                                |> List.sortBy Tuple.second
+                                |> List.reverse
+                                |> List.take 6
+                    in
+                    Html.div
+                        []
+                        (List.map (uncurry viewProb) top)
+
+                Failed err ->
+                    viewErr err
+    in
+    Html.div
+        [ Html.Attributes.class "pt-1 md:pt-2 lg:pt-4 flex-1" ]
+        [ Html.h3
+            [ Html.Attributes.class "font-bold text-gray-800" ]
+            [ Html.text title ]
+        , content
+        ]
 
 
 viewProb : Int -> Float -> Html.Html Msg
@@ -698,7 +807,7 @@ viewProb target prob =
             ]
             [ Html.span
                 [ Html.Attributes.class "text-gray-700" ]
-                [ Html.text (viewTargetClass target) ]
+                [ Html.text (viewClass target) ]
             , Html.span
                 [ Html.Attributes.class "text-gray-900" ]
                 [ Html.text ((prob * 100 |> round |> String.fromInt) ++ "%") ]
@@ -706,40 +815,46 @@ viewProb target prob =
         ]
 
 
-viewSaeExamples : Set.Set Int -> LoadingState (List SaeLatent) -> Dict.Dict Int Float -> Html.Html Msg
-viewSaeExamples selected latents values =
-    if List.length latents > 0 then
-        Html.div [ Html.Attributes.class "p-1 md:px-2 lg:px-4" ]
-            ([ Html.h3
-                [ Html.Attributes.class "font-bold" ]
-                [ Html.text "Similar Examples" ]
-             , Html.p []
-                [ Html.span [ Html.Attributes.class "bg-rose-600 text-white p-1 rounded" ] [ Html.text "These patches" ]
-                , Html.text " above are like "
-                , Html.span [ Html.Attributes.class "bg-rose-600 text-white p-1 rounded" ] [ Html.text "these patches" ]
-                , Html.text " below. (Not what you expected? Add more patches and get a larger "
-                , Html.a [ Html.Attributes.href "https://simple.wikipedia.org/wiki/Sampling_(statistics)", Html.Attributes.class "text-blue-500 underline" ] [ Html.text "sample size" ]
-                , Html.text ")"
-                ]
-             ]
-                ++ List.filterMap
-                    (\latent -> Maybe.map (\f -> viewSaeLatentExamples latent f) (Dict.get latent.latent values))
-                    latents
-            )
+viewSaeExamples : LoadingState (List SaeExample) -> Dict.Dict Int Float -> Html.Html Msg
+viewSaeExamples examplesLoading values =
+    case examplesLoading of
+        Initial ->
+            Html.p
+                [ Html.Attributes.class "italic text-gray-600" ]
+                [ Html.text "Click on the image above to find similar image patches using a sparse autoencoder (SAE)." ]
 
-    else if Set.size selected > 0 then
-        Html.p []
-            [ Html.text "Loading similar patches..." ]
+        Loading ->
+            Html.p []
+                [ Html.text "Loading similar patches..." ]
 
-    else
-        Html.div [] []
+        Loaded examples ->
+            Html.div [ Html.Attributes.class "p-1 md:px-2 lg:px-4" ]
+                ([ Html.h3
+                    [ Html.Attributes.class "font-bold" ]
+                    [ Html.text "Similar Examples" ]
+                 , Html.p []
+                    [ Html.span [ Html.Attributes.class "bg-rose-600 text-white p-1 rounded" ] [ Html.text "These patches" ]
+                    , Html.text " above are like "
+                    , Html.span [ Html.Attributes.class "bg-rose-600 text-white p-1 rounded" ] [ Html.text "these patches" ]
+                    , Html.text " below. (Not what you expected? Add more patches and get a larger "
+                    , Html.a [ Html.Attributes.href "https://simple.wikipedia.org/wiki/Sampling_(statistics)", Html.Attributes.class "text-blue-500 underline" ] [ Html.text "sample size" ]
+                    , Html.text ")"
+                    ]
+                 ]
+                    ++ List.filterMap
+                        (\example -> Maybe.map (\f -> viewSaeExample example f) (Dict.get example.latent values))
+                        examples
+                )
+
+        Failed err ->
+            viewErr err
 
 
-viewSaeLatentExamples : SaeLatent -> Float -> Html.Html Msg
-viewSaeLatentExamples latent value =
+viewSaeExample : SaeExample -> Float -> Html.Html Msg
+viewSaeExample example value =
     Html.div
         [ Html.Attributes.class "flex flex-row gap-2 mt-2" ]
-        (List.map viewImage latent.urls
+        (List.map viewImage example.urls
             ++ [ Html.div
                     [ Html.Attributes.class "flex flex-col gap-2" ]
                     [ Html.input
@@ -747,12 +862,12 @@ viewSaeLatentExamples latent value =
                         , Html.Attributes.min "-20"
                         , Html.Attributes.max "20"
                         , Html.Attributes.value (String.fromFloat value)
-                        , Html.Events.onInput (SetSlider latent.latent)
+                        , Html.Events.onInput (SetSlider example.latent)
                         ]
                         []
                     , Html.p
                         []
-                        [ Html.text ("Latent 24K/" ++ String.fromInt latent.latent ++ ": " ++ String.fromFloat value) ]
+                        [ Html.text ("Latent 24K/" ++ String.fromInt example.latent ++ ": " ++ String.fromFloat value) ]
                     ]
                ]
         )
@@ -802,7 +917,7 @@ viewClassExamples examined =
                         [ Html.Attributes.class "" ]
                         [ Html.h3
                             [ Html.Attributes.class "font-bold" ]
-                            [ class |> viewTargetClass |> Html.text ]
+                            [ class |> viewClass |> Html.text ]
                         , Html.div
                             [ Html.Attributes.class "max-w-xl grid grid-cols-3 gap-2" ]
                             (examplesLoaded |> List.reverse |> List.take 9 |> List.map (.url >> viewImage))
@@ -835,7 +950,7 @@ uncurry f ( a, b ) =
     f a b
 
 
-parseSaeExampleResults : List SaeExampleResult -> List SaeLatent
+parseSaeExampleResults : List SaeExampleResult -> List SaeExample
 parseSaeExampleResults results =
     let
         ( _, _, parsed ) =
@@ -844,7 +959,7 @@ parseSaeExampleResults results =
     parsed
 
 
-parseSaeExampleResultsHelper : List SaeExampleResult -> List (Maybe String) -> List SaeLatent -> ( List SaeExampleResult, List (Maybe String), List SaeLatent )
+parseSaeExampleResultsHelper : List SaeExampleResult -> List (Maybe String) -> List SaeExample -> ( List SaeExampleResult, List (Maybe String), List SaeExample )
 parseSaeExampleResultsHelper unparsed urls parsed =
     case unparsed of
         [] ->
@@ -877,10 +992,10 @@ parseSaeExampleResultsHelper unparsed urls parsed =
                 parsed
 
 
-viewTargetClass : Int -> String
-viewTargetClass target =
-    Array.get target classNames
-        |> Maybe.withDefault ("Unknown target: " ++ String.fromInt target)
+viewClass : Int -> String
+viewClass class =
+    Array.get class classNames
+        |> Maybe.withDefault ("Unknown class: " ++ String.fromInt class)
 
 
 

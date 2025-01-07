@@ -5258,6 +5258,69 @@ var _Parser_findSubString = F5(function(smallString, offset, row, col, bigString
 
 	return _Utils_Tuple3(newOffset, row, col);
 });
+
+
+function _Url_percentEncode(string)
+{
+	return encodeURIComponent(string);
+}
+
+function _Url_percentDecode(string)
+{
+	try
+	{
+		return $elm$core$Maybe$Just(decodeURIComponent(string));
+	}
+	catch (e)
+	{
+		return $elm$core$Maybe$Nothing;
+	}
+}
+
+
+function _Time_now(millisToPosix)
+{
+	return _Scheduler_binding(function(callback)
+	{
+		callback(_Scheduler_succeed(millisToPosix(Date.now())));
+	});
+}
+
+var _Time_setInterval = F2(function(interval, task)
+{
+	return _Scheduler_binding(function(callback)
+	{
+		var id = setInterval(function() { _Scheduler_rawSpawn(task); }, interval);
+		return function() { clearInterval(id); };
+	});
+});
+
+function _Time_here()
+{
+	return _Scheduler_binding(function(callback)
+	{
+		callback(_Scheduler_succeed(
+			A2($elm$time$Time$customZone, -(new Date().getTimezoneOffset()), _List_Nil)
+		));
+	});
+}
+
+
+function _Time_getZoneName()
+{
+	return _Scheduler_binding(function(callback)
+	{
+		try
+		{
+			var name = $elm$time$Time$Name(Intl.DateTimeFormat().resolvedOptions().timeZone);
+		}
+		catch (e)
+		{
+			var name = $elm$time$Time$Offset(new Date().getTimezoneOffset());
+		}
+		callback(_Scheduler_succeed(name));
+	});
+}
 var $elm$core$Basics$EQ = {$: 'EQ'};
 var $elm$core$Basics$GT = {$: 'GT'};
 var $elm$core$Basics$LT = {$: 'LT'};
@@ -10858,14 +10921,22 @@ var $elm$core$Basics$never = function (_v0) {
 		continue never;
 	}
 };
-var $elm$browser$Browser$document = _Browser_document;
+var $elm$browser$Browser$application = _Browser_application;
+var $author$project$Classification$Initial = {$: 'Initial'};
+var $author$project$Classification$Loading = {$: 'Loading'};
+var $author$project$Classification$NotExamining = {$: 'NotExamining'};
 var $elm$core$Set$Set_elm_builtin = function (a) {
 	return {$: 'Set_elm_builtin', a: a};
 };
 var $elm$core$Set$empty = $elm$core$Set$Set_elm_builtin($elm$core$Dict$empty);
-var $author$project$Classification$GotImageUrl = function (a) {
-	return {$: 'GotImageUrl', a: a};
-};
+var $author$project$Classification$Example = F2(
+	function (url, _class) {
+		return {_class: _class, url: url};
+	});
+var $author$project$Classification$GotInputExample = F2(
+	function (a, b) {
+		return {$: 'GotInputExample', a: a, b: b};
+	});
 var $elm$core$Task$onError = _Scheduler_onError;
 var $elm$core$Task$attempt = F2(
 	function (resultToMessage, task) {
@@ -10894,6 +10965,25 @@ var $elm$core$Result$andThen = F2(
 			var msg = result.a;
 			return $elm$core$Result$Err(msg);
 		}
+	});
+var $elm$url$Url$Builder$toQueryPair = function (_v0) {
+	var key = _v0.a;
+	var value = _v0.b;
+	return key + ('=' + value);
+};
+var $elm$url$Url$Builder$toQuery = function (parameters) {
+	if (!parameters.b) {
+		return '';
+	} else {
+		return '?' + A2(
+			$elm$core$String$join,
+			'&',
+			A2($elm$core$List$map, $elm$url$Url$Builder$toQueryPair, parameters));
+	}
+};
+var $elm$url$Url$Builder$crossOrigin = F3(
+	function (prePath, pathSegments, parameters) {
+		return prePath + ('/' + (A2($elm$core$String$join, '/', pathSegments) + $elm$url$Url$Builder$toQuery(parameters)));
 	});
 var $elm$http$Http$BadStatus_ = F2(
 	function (a, b) {
@@ -10971,7 +11061,6 @@ var $author$project$Gradio$jsonResolver = F2(
 			A2($elm$core$Basics$composeR, $elm$json$Json$Decode$errorToString, $author$project$Gradio$JsonError),
 			A2($elm$json$Json$Decode$decodeString, decoder, body));
 	});
-var $author$project$Gradio$origin = 'http://127.0.0.1:7860/gradio_api/call/';
 var $author$project$Gradio$ParsingError = function (a) {
 	return {$: 'ParsingError', a: a};
 };
@@ -11023,6 +11112,12 @@ var $author$project$Gradio$deadEndsToString = function (deadEnds) {
 			$elm$core$List$intersperse,
 			'; ',
 			A2($elm$core$List$map, $author$project$Gradio$deadEndToString, deadEnds)));
+};
+var $elm$parser$Parser$Done = function (a) {
+	return {$: 'Done', a: a};
+};
+var $elm$parser$Parser$Loop = function (a) {
+	return {$: 'Loop', a: a};
 };
 var $elm$parser$Parser$ExpectingEnd = {$: 'ExpectingEnd'};
 var $elm$parser$Parser$Advanced$Bad = F2(
@@ -11151,6 +11246,49 @@ var $elm$parser$Parser$keyword = function (kwd) {
 			kwd,
 			$elm$parser$Parser$ExpectingKeyword(kwd)));
 };
+var $elm$parser$Parser$Advanced$Append = F2(
+	function (a, b) {
+		return {$: 'Append', a: a, b: b};
+	});
+var $elm$parser$Parser$Advanced$oneOfHelp = F3(
+	function (s0, bag, parsers) {
+		oneOfHelp:
+		while (true) {
+			if (!parsers.b) {
+				return A2($elm$parser$Parser$Advanced$Bad, false, bag);
+			} else {
+				var parse = parsers.a.a;
+				var remainingParsers = parsers.b;
+				var _v1 = parse(s0);
+				if (_v1.$ === 'Good') {
+					var step = _v1;
+					return step;
+				} else {
+					var step = _v1;
+					var p = step.a;
+					var x = step.b;
+					if (p) {
+						return step;
+					} else {
+						var $temp$s0 = s0,
+							$temp$bag = A2($elm$parser$Parser$Advanced$Append, bag, x),
+							$temp$parsers = remainingParsers;
+						s0 = $temp$s0;
+						bag = $temp$bag;
+						parsers = $temp$parsers;
+						continue oneOfHelp;
+					}
+				}
+			}
+		}
+	});
+var $elm$parser$Parser$Advanced$oneOf = function (parsers) {
+	return $elm$parser$Parser$Advanced$Parser(
+		function (s) {
+			return A3($elm$parser$Parser$Advanced$oneOfHelp, s, $elm$parser$Parser$Advanced$Empty, parsers);
+		});
+};
+var $elm$parser$Parser$oneOf = $elm$parser$Parser$Advanced$oneOf;
 var $elm$parser$Parser$Advanced$chompUntilEndOr = function (str) {
 	return $elm$parser$Parser$Advanced$Parser(
 		function (s) {
@@ -11296,15 +11434,23 @@ var $elm$parser$Parser$symbol = function (str) {
 			str,
 			$elm$parser$Parser$ExpectingSymbol(str)));
 };
-var $author$project$Gradio$eventDataParser = A2(
-	$elm$parser$Parser$keeper,
-	A2(
-		$elm$parser$Parser$ignorer,
+var $author$project$Gradio$eventParserHelper = function (_v0) {
+	return A2(
+		$elm$parser$Parser$keeper,
 		A2(
 			$elm$parser$Parser$ignorer,
 			A2(
 				$elm$parser$Parser$ignorer,
 				A2(
+					$elm$parser$Parser$ignorer,
+					$elm$parser$Parser$succeed($elm$core$Basics$identity),
+					$elm$parser$Parser$keyword('event')),
+				$elm$parser$Parser$symbol(':')),
+			$elm$parser$Parser$spaces),
+		$elm$parser$Parser$oneOf(
+			_List_fromArray(
+				[
+					A2(
 					$elm$parser$Parser$ignorer,
 					A2(
 						$elm$parser$Parser$ignorer,
@@ -11314,19 +11460,138 @@ var $author$project$Gradio$eventDataParser = A2(
 								$elm$parser$Parser$ignorer,
 								A2(
 									$elm$parser$Parser$ignorer,
-									$elm$parser$Parser$succeed($elm$core$Basics$identity),
-									$elm$parser$Parser$keyword('event')),
+									A2(
+										$elm$parser$Parser$ignorer,
+										A2(
+											$elm$parser$Parser$ignorer,
+											$elm$parser$Parser$succeed(
+												$elm$parser$Parser$Loop(_Utils_Tuple0)),
+											$elm$parser$Parser$keyword('heartbeat')),
+										$elm$parser$Parser$spaces),
+									$elm$parser$Parser$keyword('data')),
 								$elm$parser$Parser$symbol(':')),
 							$elm$parser$Parser$spaces),
-						$elm$parser$Parser$keyword('complete')),
+						$elm$parser$Parser$keyword('null')),
 					$elm$parser$Parser$spaces),
-				$elm$parser$Parser$keyword('data')),
-			$elm$parser$Parser$symbol(':')),
-		$elm$parser$Parser$spaces),
-	A2(
-		$elm$parser$Parser$ignorer,
-		A2($elm$parser$Parser$ignorer, $author$project$Gradio$restParser, $elm$parser$Parser$spaces),
-		$elm$parser$Parser$end));
+					A2(
+					$elm$parser$Parser$keeper,
+					A2(
+						$elm$parser$Parser$ignorer,
+						A2(
+							$elm$parser$Parser$ignorer,
+							A2(
+								$elm$parser$Parser$ignorer,
+								A2(
+									$elm$parser$Parser$ignorer,
+									A2(
+										$elm$parser$Parser$ignorer,
+										$elm$parser$Parser$succeed(
+											function (rest) {
+												return $elm$parser$Parser$Done(rest);
+											}),
+										$elm$parser$Parser$keyword('complete')),
+									$elm$parser$Parser$spaces),
+								$elm$parser$Parser$keyword('data')),
+							$elm$parser$Parser$symbol(':')),
+						$elm$parser$Parser$spaces),
+					A2(
+						$elm$parser$Parser$ignorer,
+						A2($elm$parser$Parser$ignorer, $author$project$Gradio$restParser, $elm$parser$Parser$spaces),
+						$elm$parser$Parser$end))
+				])));
+};
+var $elm$parser$Parser$Advanced$loopHelp = F4(
+	function (p, state, callback, s0) {
+		loopHelp:
+		while (true) {
+			var _v0 = callback(state);
+			var parse = _v0.a;
+			var _v1 = parse(s0);
+			if (_v1.$ === 'Good') {
+				var p1 = _v1.a;
+				var step = _v1.b;
+				var s1 = _v1.c;
+				if (step.$ === 'Loop') {
+					var newState = step.a;
+					var $temp$p = p || p1,
+						$temp$state = newState,
+						$temp$callback = callback,
+						$temp$s0 = s1;
+					p = $temp$p;
+					state = $temp$state;
+					callback = $temp$callback;
+					s0 = $temp$s0;
+					continue loopHelp;
+				} else {
+					var result = step.a;
+					return A3($elm$parser$Parser$Advanced$Good, p || p1, result, s1);
+				}
+			} else {
+				var p1 = _v1.a;
+				var x = _v1.b;
+				return A2($elm$parser$Parser$Advanced$Bad, p || p1, x);
+			}
+		}
+	});
+var $elm$parser$Parser$Advanced$loop = F2(
+	function (state, callback) {
+		return $elm$parser$Parser$Advanced$Parser(
+			function (s) {
+				return A4($elm$parser$Parser$Advanced$loopHelp, false, state, callback, s);
+			});
+	});
+var $elm$parser$Parser$Advanced$map = F2(
+	function (func, _v0) {
+		var parse = _v0.a;
+		return $elm$parser$Parser$Advanced$Parser(
+			function (s0) {
+				var _v1 = parse(s0);
+				if (_v1.$ === 'Good') {
+					var p = _v1.a;
+					var a = _v1.b;
+					var s1 = _v1.c;
+					return A3(
+						$elm$parser$Parser$Advanced$Good,
+						p,
+						func(a),
+						s1);
+				} else {
+					var p = _v1.a;
+					var x = _v1.b;
+					return A2($elm$parser$Parser$Advanced$Bad, p, x);
+				}
+			});
+	});
+var $elm$parser$Parser$map = $elm$parser$Parser$Advanced$map;
+var $elm$parser$Parser$Advanced$Done = function (a) {
+	return {$: 'Done', a: a};
+};
+var $elm$parser$Parser$Advanced$Loop = function (a) {
+	return {$: 'Loop', a: a};
+};
+var $elm$parser$Parser$toAdvancedStep = function (step) {
+	if (step.$ === 'Loop') {
+		var s = step.a;
+		return $elm$parser$Parser$Advanced$Loop(s);
+	} else {
+		var a = step.a;
+		return $elm$parser$Parser$Advanced$Done(a);
+	}
+};
+var $elm$parser$Parser$loop = F2(
+	function (state, callback) {
+		return A2(
+			$elm$parser$Parser$Advanced$loop,
+			state,
+			function (s) {
+				return A2(
+					$elm$parser$Parser$map,
+					$elm$parser$Parser$toAdvancedStep,
+					callback(s));
+			});
+	});
+var $author$project$Gradio$eventParser = A2($elm$parser$Parser$loop, _Utils_Tuple0, $author$project$Gradio$eventParserHelper);
+var $elm$core$Debug$log = _Debug_log;
 var $elm$parser$Parser$DeadEnd = F3(
 	function (row, col, problem) {
 		return {col: col, problem: problem, row: row};
@@ -11390,7 +11655,10 @@ var $author$project$Gradio$parsingResolver = function (raw) {
 	return A2(
 		$elm$core$Result$mapError,
 		A2($elm$core$Basics$composeR, $author$project$Gradio$deadEndsToString, $author$project$Gradio$ParsingError),
-		A2($elm$parser$Parser$run, $author$project$Gradio$eventDataParser, raw));
+		A2(
+			$elm$parser$Parser$run,
+			$author$project$Gradio$eventParser,
+			A2($elm$core$Debug$log, 'raw response', raw)));
 };
 var $elm$http$Http$stringResolver = A2(_Http_expect, '', $elm$core$Basics$identity);
 var $elm$core$Task$fail = _Scheduler_fail;
@@ -11410,8 +11678,8 @@ var $elm$http$Http$task = function (r) {
 		$elm$http$Http$resultToTask,
 		{allowCookiesFromOtherDomains: false, body: r.body, expect: r.resolver, headers: r.headers, method: r.method, timeout: r.timeout, tracker: $elm$core$Maybe$Nothing, url: r.url});
 };
-var $author$project$Gradio$finish = F3(
-	function (path, decoder, id) {
+var $author$project$Gradio$finish = F4(
+	function (cfg, path, decoder, eventId) {
 		return $elm$http$Http$task(
 			{
 				body: $elm$http$Http$emptyBody,
@@ -11427,7 +11695,12 @@ var $author$project$Gradio$finish = F3(
 							$elm$core$Result$andThen(
 								$author$project$Gradio$jsonResolver(decoder))))),
 				timeout: $elm$core$Maybe$Nothing,
-				url: $author$project$Gradio$origin + (path + ('/' + id))
+				url: A3(
+					$elm$url$Url$Builder$crossOrigin,
+					cfg.host,
+					_List_fromArray(
+						['gradio_api', 'call', path, eventId]),
+					_List_Nil)
 			});
 	});
 var $author$project$Gradio$encodeArgs = function (args) {
@@ -11446,8 +11719,8 @@ var $elm$http$Http$jsonBody = function (value) {
 		'application/json',
 		A2($elm$json$Json$Encode$encode, 0, value));
 };
-var $author$project$Gradio$start = F2(
-	function (path, args) {
+var $author$project$Gradio$start = F3(
+	function (cfg, path, args) {
 		return $elm$http$Http$task(
 			{
 				body: $elm$http$Http$jsonBody(
@@ -11461,28 +11734,24 @@ var $author$project$Gradio$start = F2(
 						$elm$core$Result$andThen(
 							$author$project$Gradio$jsonResolver($author$project$Gradio$eventIdDecoder)))),
 				timeout: $elm$core$Maybe$Nothing,
-				url: _Utils_ap($author$project$Gradio$origin, path)
+				url: A3(
+					$elm$url$Url$Builder$crossOrigin,
+					cfg.host,
+					_List_fromArray(
+						['gradio_api', 'call', path]),
+					_List_Nil)
 			});
 	});
-var $author$project$Gradio$get = F4(
-	function (path, args, decoder, msg) {
+var $author$project$Gradio$get = F5(
+	function (cfg, path, args, decoder, msg) {
 		return A2(
 			$elm$core$Task$attempt,
 			msg,
 			A2(
 				$elm$core$Task$andThen,
-				A2($author$project$Gradio$finish, path, decoder),
-				A2($author$project$Gradio$start, path, args)));
+				A3($author$project$Gradio$finish, cfg, path, decoder),
+				A3($author$project$Gradio$start, cfg, path, args)));
 	});
-var $elm$core$List$head = function (list) {
-	if (list.b) {
-		var x = list.a;
-		var xs = list.b;
-		return $elm$core$Maybe$Just(x);
-	} else {
-		return $elm$core$Maybe$Nothing;
-	}
-};
 var $elm$core$String$replace = F3(
 	function (before, after, string) {
 		return A2(
@@ -11492,81 +11761,455 @@ var $elm$core$String$replace = F3(
 	});
 var $author$project$Classification$imgUrlDecoder = A2(
 	$elm$json$Json$Decode$map,
-	A2($elm$core$String$replace, 'gradio_api/ca/gradio_api', 'gradio_api'),
+	A2($elm$core$String$replace, 'gradio_api/call/gradio_api', 'gradio_api'),
 	A2(
 		$elm$json$Json$Decode$map,
-		A2($elm$core$String$replace, 'gradio_ap/gradio_api', 'gradio_api'),
+		A2($elm$core$String$replace, 'gradio_api/ca/gradio_api', 'gradio_api'),
 		A2(
 			$elm$json$Json$Decode$map,
-			A2($elm$core$String$replace, 'gra/gradio_api', 'gradio_api'),
+			A2($elm$core$String$replace, 'gradio_ap/gradio_api', 'gradio_api'),
 			A2(
 				$elm$json$Json$Decode$map,
-				A2($elm$core$String$replace, 'gradio_api/gradio_api', 'gradio_api'),
-				A2($elm$json$Json$Decode$field, 'url', $elm$json$Json$Decode$string)))));
+				A2($elm$core$String$replace, 'gra/gradio_api', 'gradio_api'),
+				A2(
+					$elm$json$Json$Decode$map,
+					A2($elm$core$String$replace, 'gradio_api/gradio_api', 'gradio_api'),
+					A2($elm$json$Json$Decode$field, 'url', $elm$json$Json$Decode$string))))));
+var $elm$json$Json$Decode$index = _Json_decodeIndex;
 var $elm$json$Json$Encode$int = _Json_wrap;
-var $author$project$Classification$getImageUrl = function (img) {
-	return A4(
-		$author$project$Gradio$get,
-		'get-image',
-		_List_fromArray(
-			[
-				$elm$json$Json$Encode$int(img)
-			]),
+var $author$project$Classification$getInputExample = F3(
+	function (cfg, id, img) {
+		return A5(
+			$author$project$Gradio$get,
+			cfg,
+			'get-image',
+			_List_fromArray(
+				[
+					$elm$json$Json$Encode$int(img)
+				]),
+			A3(
+				$elm$json$Json$Decode$map2,
+				$author$project$Classification$Example,
+				A2($elm$json$Json$Decode$index, 0, $author$project$Classification$imgUrlDecoder),
+				A2($elm$json$Json$Decode$index, 1, $elm$json$Json$Decode$int)),
+			$author$project$Classification$GotInputExample(id));
+	});
+var $author$project$Classification$GotOriginalPredictions = F2(
+	function (a, b) {
+		return {$: 'GotOriginalPredictions', a: a, b: b};
+	});
+var $elm$json$Json$Decode$andThen = _Json_andThen;
+var $elm$json$Json$Decode$fail = _Json_fail;
+var $author$project$Gradio$decodeOneHelper = function (maybe) {
+	if (maybe.$ === 'Just') {
+		var something = maybe.a;
+		return $elm$json$Json$Decode$succeed(something);
+	} else {
+		return $elm$json$Json$Decode$fail('No result');
+	}
+};
+var $elm$core$List$head = function (list) {
+	if (list.b) {
+		var x = list.a;
+		var xs = list.b;
+		return $elm$core$Maybe$Just(x);
+	} else {
+		return $elm$core$Maybe$Nothing;
+	}
+};
+var $author$project$Gradio$decodeOne = function (decoder) {
+	return A2(
+		$elm$json$Json$Decode$andThen,
+		$author$project$Gradio$decodeOneHelper,
 		A2(
 			$elm$json$Json$Decode$map,
 			$elm$core$List$head,
-			$elm$json$Json$Decode$list($author$project$Classification$imgUrlDecoder)),
-		$author$project$Classification$GotImageUrl);
-};
-var $author$project$Classification$GotPred = function (a) {
-	return {$: 'GotPred', a: a};
+			$elm$json$Json$Decode$list(decoder)));
 };
 var $elm$core$Tuple$pair = F2(
 	function (a, b) {
 		return _Utils_Tuple2(a, b);
 	});
+var $elm$core$List$sortBy = _List_sortBy;
 var $author$project$Classification$labelsDecoder = A2(
 	$elm$json$Json$Decode$field,
 	'confidences',
 	A2(
-		$elm$json$Json$Decode$map,
-		$elm$core$Dict$fromList,
+		$elm$json$Json$Decode$andThen,
+		A2(
+			$elm$core$Basics$composeR,
+			$elm$core$List$sortBy($elm$core$Tuple$second),
+			A2(
+				$elm$core$Basics$composeR,
+				$elm$core$List$map($elm$core$Tuple$first),
+				$elm$json$Json$Decode$succeed)),
 		$elm$json$Json$Decode$list(
 			A3(
 				$elm$json$Json$Decode$map2,
 				$elm$core$Tuple$pair,
-				A2($elm$json$Json$Decode$field, 'label', $elm$json$Json$Decode$string),
-				A2($elm$json$Json$Decode$field, 'confidence', $elm$json$Json$Decode$float)))));
-var $author$project$Classification$getPred = function (img) {
-	return A4(
-		$author$project$Gradio$get,
-		'get-preds',
-		_List_fromArray(
-			[
-				$elm$json$Json$Encode$int(img)
-			]),
-		A2(
-			$elm$json$Json$Decode$map,
-			$elm$core$Maybe$withDefault($elm$core$Dict$empty),
-			A2(
-				$elm$json$Json$Decode$map,
-				$elm$core$List$head,
-				$elm$json$Json$Decode$list($author$project$Classification$labelsDecoder))),
-		$author$project$Classification$GotPred);
-};
-var $author$project$Classification$init = function (_v0) {
-	var example = 0;
-	return _Utils_Tuple2(
-		{err: $elm$core$Maybe$Nothing, exampleIndex: example, hoveredPatchIndex: $elm$core$Maybe$Nothing, imageUrl: $elm$core$Maybe$Nothing, modified: $elm$core$Dict$empty, nImagesExplored: 0, nPatchResets: 0, nPatchesExplored: 0, preds: $elm$core$Dict$empty, saeLatents: _List_Nil, selectedPatchIndices: $elm$core$Set$empty, sliders: $elm$core$Dict$empty},
-		$elm$core$Platform$Cmd$batch(
+				A2($elm$json$Json$Decode$field, 'confidence', $elm$json$Json$Decode$float),
+				A2($elm$json$Json$Decode$field, 'label', $elm$json$Json$Decode$int)))));
+var $author$project$Classification$getOriginalPredictions = F3(
+	function (cfg, id, img) {
+		return A5(
+			$author$project$Gradio$get,
+			cfg,
+			'get-preds',
 			_List_fromArray(
 				[
-					$author$project$Classification$getImageUrl(example),
-					$author$project$Classification$getPred(example)
-				])));
+					$elm$json$Json$Encode$int(img)
+				]),
+			$author$project$Gradio$decodeOne($author$project$Classification$labelsDecoder),
+			$author$project$Classification$GotOriginalPredictions(id));
+	});
+var $author$project$Requests$Id = function (a) {
+	return {$: 'Id', a: a};
 };
+var $author$project$Requests$init = $author$project$Requests$Id(0);
+var $elm$url$Url$Parser$State = F5(
+	function (visited, unvisited, params, frag, value) {
+		return {frag: frag, params: params, unvisited: unvisited, value: value, visited: visited};
+	});
+var $elm$url$Url$Parser$getFirstMatch = function (states) {
+	getFirstMatch:
+	while (true) {
+		if (!states.b) {
+			return $elm$core$Maybe$Nothing;
+		} else {
+			var state = states.a;
+			var rest = states.b;
+			var _v1 = state.unvisited;
+			if (!_v1.b) {
+				return $elm$core$Maybe$Just(state.value);
+			} else {
+				if ((_v1.a === '') && (!_v1.b.b)) {
+					return $elm$core$Maybe$Just(state.value);
+				} else {
+					var $temp$states = rest;
+					states = $temp$states;
+					continue getFirstMatch;
+				}
+			}
+		}
+	}
+};
+var $elm$url$Url$Parser$removeFinalEmpty = function (segments) {
+	if (!segments.b) {
+		return _List_Nil;
+	} else {
+		if ((segments.a === '') && (!segments.b.b)) {
+			return _List_Nil;
+		} else {
+			var segment = segments.a;
+			var rest = segments.b;
+			return A2(
+				$elm$core$List$cons,
+				segment,
+				$elm$url$Url$Parser$removeFinalEmpty(rest));
+		}
+	}
+};
+var $elm$url$Url$Parser$preparePath = function (path) {
+	var _v0 = A2($elm$core$String$split, '/', path);
+	if (_v0.b && (_v0.a === '')) {
+		var segments = _v0.b;
+		return $elm$url$Url$Parser$removeFinalEmpty(segments);
+	} else {
+		var segments = _v0;
+		return $elm$url$Url$Parser$removeFinalEmpty(segments);
+	}
+};
+var $elm$url$Url$Parser$addToParametersHelp = F2(
+	function (value, maybeList) {
+		if (maybeList.$ === 'Nothing') {
+			return $elm$core$Maybe$Just(
+				_List_fromArray(
+					[value]));
+		} else {
+			var list = maybeList.a;
+			return $elm$core$Maybe$Just(
+				A2($elm$core$List$cons, value, list));
+		}
+	});
+var $elm$url$Url$percentDecode = _Url_percentDecode;
+var $elm$url$Url$Parser$addParam = F2(
+	function (segment, dict) {
+		var _v0 = A2($elm$core$String$split, '=', segment);
+		if ((_v0.b && _v0.b.b) && (!_v0.b.b.b)) {
+			var rawKey = _v0.a;
+			var _v1 = _v0.b;
+			var rawValue = _v1.a;
+			var _v2 = $elm$url$Url$percentDecode(rawKey);
+			if (_v2.$ === 'Nothing') {
+				return dict;
+			} else {
+				var key = _v2.a;
+				var _v3 = $elm$url$Url$percentDecode(rawValue);
+				if (_v3.$ === 'Nothing') {
+					return dict;
+				} else {
+					var value = _v3.a;
+					return A3(
+						$elm$core$Dict$update,
+						key,
+						$elm$url$Url$Parser$addToParametersHelp(value),
+						dict);
+				}
+			}
+		} else {
+			return dict;
+		}
+	});
+var $elm$url$Url$Parser$prepareQuery = function (maybeQuery) {
+	if (maybeQuery.$ === 'Nothing') {
+		return $elm$core$Dict$empty;
+	} else {
+		var qry = maybeQuery.a;
+		return A3(
+			$elm$core$List$foldr,
+			$elm$url$Url$Parser$addParam,
+			$elm$core$Dict$empty,
+			A2($elm$core$String$split, '&', qry));
+	}
+};
+var $elm$url$Url$Parser$parse = F2(
+	function (_v0, url) {
+		var parser = _v0.a;
+		return $elm$url$Url$Parser$getFirstMatch(
+			parser(
+				A5(
+					$elm$url$Url$Parser$State,
+					_List_Nil,
+					$elm$url$Url$Parser$preparePath(url.path),
+					$elm$url$Url$Parser$prepareQuery(url.query),
+					url.fragment,
+					$elm$core$Basics$identity)));
+	});
+var $author$project$Classification$QueryParams = function (example) {
+	return {example: example};
+};
+var $elm$url$Url$Parser$Internal$Parser = function (a) {
+	return {$: 'Parser', a: a};
+};
+var $elm$url$Url$Parser$Query$custom = F2(
+	function (key, func) {
+		return $elm$url$Url$Parser$Internal$Parser(
+			function (dict) {
+				return func(
+					A2(
+						$elm$core$Maybe$withDefault,
+						_List_Nil,
+						A2($elm$core$Dict$get, key, dict)));
+			});
+	});
+var $elm$url$Url$Parser$Query$int = function (key) {
+	return A2(
+		$elm$url$Url$Parser$Query$custom,
+		key,
+		function (stringList) {
+			if (stringList.b && (!stringList.b.b)) {
+				var str = stringList.a;
+				return $elm$core$String$toInt(str);
+			} else {
+				return $elm$core$Maybe$Nothing;
+			}
+		});
+};
+var $elm$url$Url$Parser$Parser = function (a) {
+	return {$: 'Parser', a: a};
+};
+var $elm$url$Url$Parser$mapState = F2(
+	function (func, _v0) {
+		var visited = _v0.visited;
+		var unvisited = _v0.unvisited;
+		var params = _v0.params;
+		var frag = _v0.frag;
+		var value = _v0.value;
+		return A5(
+			$elm$url$Url$Parser$State,
+			visited,
+			unvisited,
+			params,
+			frag,
+			func(value));
+	});
+var $elm$url$Url$Parser$map = F2(
+	function (subValue, _v0) {
+		var parseArg = _v0.a;
+		return $elm$url$Url$Parser$Parser(
+			function (_v1) {
+				var visited = _v1.visited;
+				var unvisited = _v1.unvisited;
+				var params = _v1.params;
+				var frag = _v1.frag;
+				var value = _v1.value;
+				return A2(
+					$elm$core$List$map,
+					$elm$url$Url$Parser$mapState(value),
+					parseArg(
+						A5($elm$url$Url$Parser$State, visited, unvisited, params, frag, subValue)));
+			});
+	});
+var $elm$url$Url$Parser$query = function (_v0) {
+	var queryParser = _v0.a;
+	return $elm$url$Url$Parser$Parser(
+		function (_v1) {
+			var visited = _v1.visited;
+			var unvisited = _v1.unvisited;
+			var params = _v1.params;
+			var frag = _v1.frag;
+			var value = _v1.value;
+			return _List_fromArray(
+				[
+					A5(
+					$elm$url$Url$Parser$State,
+					visited,
+					unvisited,
+					params,
+					frag,
+					value(
+						queryParser(params)))
+				]);
+		});
+};
+var $elm$url$Url$Parser$slash = F2(
+	function (_v0, _v1) {
+		var parseBefore = _v0.a;
+		var parseAfter = _v1.a;
+		return $elm$url$Url$Parser$Parser(
+			function (state) {
+				return A2(
+					$elm$core$List$concatMap,
+					parseAfter,
+					parseBefore(state));
+			});
+	});
+var $elm$url$Url$Parser$questionMark = F2(
+	function (parser, queryParser) {
+		return A2(
+			$elm$url$Url$Parser$slash,
+			parser,
+			$elm$url$Url$Parser$query(queryParser));
+	});
+var $elm$url$Url$Parser$s = function (str) {
+	return $elm$url$Url$Parser$Parser(
+		function (_v0) {
+			var visited = _v0.visited;
+			var unvisited = _v0.unvisited;
+			var params = _v0.params;
+			var frag = _v0.frag;
+			var value = _v0.value;
+			if (!unvisited.b) {
+				return _List_Nil;
+			} else {
+				var next = unvisited.a;
+				var rest = unvisited.b;
+				return _Utils_eq(next, str) ? _List_fromArray(
+					[
+						A5(
+						$elm$url$Url$Parser$State,
+						A2($elm$core$List$cons, next, visited),
+						rest,
+						params,
+						frag,
+						value)
+					]) : _List_Nil;
+			}
+		});
+};
+var $author$project$Classification$urlParser = A2(
+	$elm$url$Url$Parser$map,
+	$author$project$Classification$QueryParams,
+	A2(
+		$elm$url$Url$Parser$slash,
+		$elm$url$Url$Parser$s('web'),
+		A2(
+			$elm$url$Url$Parser$slash,
+			$elm$url$Url$Parser$s('apps'),
+			A2(
+				$elm$url$Url$Parser$questionMark,
+				$elm$url$Url$Parser$s('classification'),
+				$elm$url$Url$Parser$Query$int('example')))));
+var $author$project$Classification$init = F3(
+	function (_v0, url, key) {
+		var index = function () {
+			var _v1 = A2($elm$url$Url$Parser$parse, $author$project$Classification$urlParser, url);
+			if (_v1.$ === 'Just') {
+				var parsed = _v1.a;
+				var _v2 = parsed.example;
+				if (_v2.$ === 'Just') {
+					var i = _v2.a;
+					return i;
+				} else {
+					return 0;
+				}
+			} else {
+				return 0;
+			}
+		}();
+		var model = {
+			classExampleRequestId: $author$project$Requests$init,
+			examinedClass: $author$project$Classification$NotExamining,
+			gradio: {host: 'https://samuelstevens-saev-image-classification.hf.space'},
+			hoveredPatchIndex: $elm$core$Maybe$Nothing,
+			inputExample: $author$project$Classification$Loading,
+			inputExampleIndex: index,
+			inputExampleRequestId: $author$project$Requests$init,
+			key: key,
+			modifiedPredictions: $author$project$Classification$Initial,
+			modifiedPredictionsRequestId: $author$project$Requests$init,
+			originalPredictions: $author$project$Classification$Loading,
+			originalPredictionsRequestId: $author$project$Requests$init,
+			saeExamples: $author$project$Classification$Initial,
+			saeExamplesRequestId: $author$project$Requests$init,
+			selectedPatchIndices: $elm$core$Set$empty,
+			sliders: $elm$core$Dict$empty
+		};
+		return _Utils_Tuple2(
+			model,
+			$elm$core$Platform$Cmd$batch(
+				_List_fromArray(
+					[
+						A3($author$project$Classification$getInputExample, model.gradio, model.inputExampleRequestId, index),
+						A3($author$project$Classification$getOriginalPredictions, model.gradio, model.originalPredictionsRequestId, index)
+					])));
+	});
 var $elm$core$Platform$Sub$batch = _Platform_batch;
 var $elm$core$Platform$Sub$none = $elm$core$Platform$Sub$batch(_List_Nil);
+var $author$project$Classification$SetExample = function (a) {
+	return {$: 'SetExample', a: a};
+};
+var $author$project$Classification$onUrlChange = function (url) {
+	var _v0 = A2($elm$url$Url$Parser$parse, $author$project$Classification$urlParser, url);
+	if (_v0.$ === 'Just') {
+		var parsed = _v0.a;
+		var _v1 = parsed.example;
+		if (_v1.$ === 'Just') {
+			var i = _v1.a;
+			return $author$project$Classification$SetExample(i);
+		} else {
+			return $author$project$Classification$SetExample(0);
+		}
+	} else {
+		return $author$project$Classification$SetExample(0);
+	}
+};
+var $author$project$Classification$NoOp = {$: 'NoOp'};
+var $author$project$Classification$onUrlRequest = function (request) {
+	return $author$project$Classification$NoOp;
+};
+var $author$project$Classification$Examining = function (a) {
+	return {$: 'Examining', a: a};
+};
+var $author$project$Classification$Failed = function (a) {
+	return {$: 'Failed', a: a};
+};
+var $author$project$Classification$Loaded = function (a) {
+	return {$: 'Loaded', a: a};
+};
+var $author$project$Classification$SetUrl = function (a) {
+	return {$: 'SetUrl', a: a};
+};
 var $author$project$Classification$explainGradioError = function (err) {
 	switch (err.$) {
 		case 'NetworkError':
@@ -11583,9 +12226,127 @@ var $author$project$Classification$explainGradioError = function (err) {
 			return 'Error in the API: ' + msg;
 	}
 };
-var $author$project$Classification$GotModified = function (a) {
-	return {$: 'GotModified', a: a};
+var $elm$core$List$filter = F2(
+	function (isGood, list) {
+		return A3(
+			$elm$core$List$foldr,
+			F2(
+				function (x, xs) {
+					return isGood(x) ? A2($elm$core$List$cons, x, xs) : xs;
+				}),
+			_List_Nil,
+			list);
+	});
+var $elm$random$Random$Generate = function (a) {
+	return {$: 'Generate', a: a};
 };
+var $elm$random$Random$Seed = F2(
+	function (a, b) {
+		return {$: 'Seed', a: a, b: b};
+	});
+var $elm$random$Random$next = function (_v0) {
+	var state0 = _v0.a;
+	var incr = _v0.b;
+	return A2($elm$random$Random$Seed, ((state0 * 1664525) + incr) >>> 0, incr);
+};
+var $elm$random$Random$initialSeed = function (x) {
+	var _v0 = $elm$random$Random$next(
+		A2($elm$random$Random$Seed, 0, 1013904223));
+	var state1 = _v0.a;
+	var incr = _v0.b;
+	var state2 = (state1 + x) >>> 0;
+	return $elm$random$Random$next(
+		A2($elm$random$Random$Seed, state2, incr));
+};
+var $elm$time$Time$Name = function (a) {
+	return {$: 'Name', a: a};
+};
+var $elm$time$Time$Offset = function (a) {
+	return {$: 'Offset', a: a};
+};
+var $elm$time$Time$Zone = F2(
+	function (a, b) {
+		return {$: 'Zone', a: a, b: b};
+	});
+var $elm$time$Time$customZone = $elm$time$Time$Zone;
+var $elm$time$Time$Posix = function (a) {
+	return {$: 'Posix', a: a};
+};
+var $elm$time$Time$millisToPosix = $elm$time$Time$Posix;
+var $elm$time$Time$now = _Time_now($elm$time$Time$millisToPosix);
+var $elm$time$Time$posixToMillis = function (_v0) {
+	var millis = _v0.a;
+	return millis;
+};
+var $elm$random$Random$init = A2(
+	$elm$core$Task$andThen,
+	function (time) {
+		return $elm$core$Task$succeed(
+			$elm$random$Random$initialSeed(
+				$elm$time$Time$posixToMillis(time)));
+	},
+	$elm$time$Time$now);
+var $elm$random$Random$step = F2(
+	function (_v0, seed) {
+		var generator = _v0.a;
+		return generator(seed);
+	});
+var $elm$random$Random$onEffects = F3(
+	function (router, commands, seed) {
+		if (!commands.b) {
+			return $elm$core$Task$succeed(seed);
+		} else {
+			var generator = commands.a.a;
+			var rest = commands.b;
+			var _v1 = A2($elm$random$Random$step, generator, seed);
+			var value = _v1.a;
+			var newSeed = _v1.b;
+			return A2(
+				$elm$core$Task$andThen,
+				function (_v2) {
+					return A3($elm$random$Random$onEffects, router, rest, newSeed);
+				},
+				A2($elm$core$Platform$sendToApp, router, value));
+		}
+	});
+var $elm$random$Random$onSelfMsg = F3(
+	function (_v0, _v1, seed) {
+		return $elm$core$Task$succeed(seed);
+	});
+var $elm$random$Random$Generator = function (a) {
+	return {$: 'Generator', a: a};
+};
+var $elm$random$Random$map = F2(
+	function (func, _v0) {
+		var genA = _v0.a;
+		return $elm$random$Random$Generator(
+			function (seed0) {
+				var _v1 = genA(seed0);
+				var a = _v1.a;
+				var seed1 = _v1.b;
+				return _Utils_Tuple2(
+					func(a),
+					seed1);
+			});
+	});
+var $elm$random$Random$cmdMap = F2(
+	function (func, _v0) {
+		var generator = _v0.a;
+		return $elm$random$Random$Generate(
+			A2($elm$random$Random$map, func, generator));
+	});
+_Platform_effectManagers['Random'] = _Platform_createManager($elm$random$Random$init, $elm$random$Random$onEffects, $elm$random$Random$onSelfMsg, $elm$random$Random$cmdMap);
+var $elm$random$Random$command = _Platform_leaf('Random');
+var $elm$random$Random$generate = F2(
+	function (tagger, generator) {
+		return $elm$random$Random$command(
+			$elm$random$Random$Generate(
+				A2($elm$random$Random$map, tagger, generator)));
+	});
+var $author$project$Classification$GotModifiedPredictions = F2(
+	function (a, b) {
+		return {$: 'GotModifiedPredictions', a: a, b: b};
+	});
 var $elm$json$Json$Encode$float = _Json_wrap;
 var $elm$core$Tuple$mapBoth = F3(
 	function (funcA, funcB, _v0) {
@@ -11612,8 +12373,8 @@ var $elm$core$List$unzip = function (pairs) {
 		_Utils_Tuple2(_List_Nil, _List_Nil),
 		pairs);
 };
-var $author$project$Classification$getModifiedLabels = F2(
-	function (img, sliders) {
+var $author$project$Classification$getModifiedPredictions = F5(
+	function (cfg, id, img, patches, sliders) {
 		var _v0 = A3(
 			$elm$core$Tuple$mapBoth,
 			$elm$core$Array$fromList,
@@ -11625,6 +12386,10 @@ var $author$project$Classification$getModifiedLabels = F2(
 		var args = _List_fromArray(
 			[
 				$elm$json$Json$Encode$int(img),
+				A2(
+				$elm$json$Json$Encode$list,
+				$elm$json$Json$Encode$int,
+				$elm$core$Set$toList(patches)),
 				$elm$json$Json$Encode$int(
 				A2(
 					$elm$core$Maybe$withDefault,
@@ -11656,25 +12421,45 @@ var $author$project$Classification$getModifiedLabels = F2(
 					0.0,
 					A2($elm$core$Array$get, 2, values)))
 			]);
-		return A4(
+		return A5(
 			$author$project$Gradio$get,
+			cfg,
 			'get-modified',
-			_List_fromArray(
-				[
-					$elm$json$Json$Encode$int(img)
-				]),
+			args,
 			A2(
 				$elm$json$Json$Decode$map,
-				$elm$core$Maybe$withDefault($elm$core$Dict$empty),
+				$elm$core$Maybe$withDefault(_List_Nil),
 				A2(
 					$elm$json$Json$Decode$map,
 					$elm$core$List$head,
 					$elm$json$Json$Decode$list($author$project$Classification$labelsDecoder))),
-			$author$project$Classification$GotModified);
+			$author$project$Classification$GotModifiedPredictions(id));
 	});
-var $author$project$Classification$GotSaeExamples = function (a) {
-	return {$: 'GotSaeExamples', a: a};
-};
+var $author$project$Classification$GotClassExample = F2(
+	function (a, b) {
+		return {$: 'GotClassExample', a: a, b: b};
+	});
+var $author$project$Classification$getRandomClassExample = F3(
+	function (cfg, id, _class) {
+		return A5(
+			$author$project$Gradio$get,
+			cfg,
+			'get-random-class-image',
+			_List_fromArray(
+				[
+					$elm$json$Json$Encode$int(_class)
+				]),
+			A3(
+				$elm$json$Json$Decode$map2,
+				$author$project$Classification$Example,
+				A2($elm$json$Json$Decode$index, 0, $author$project$Classification$imgUrlDecoder),
+				$elm$json$Json$Decode$succeed(_class)),
+			$author$project$Classification$GotClassExample(id));
+	});
+var $author$project$Classification$GotSaeExamples = F2(
+	function (a, b) {
+		return {$: 'GotSaeExamples', a: a, b: b};
+	});
 var $author$project$Classification$SaeExampleLatent = function (a) {
 	return {$: 'SaeExampleLatent', a: a};
 };
@@ -11691,10 +12476,11 @@ var $author$project$Classification$saeExampleResultDecoder = $elm$json$Json$Deco
 			A2($elm$json$Json$Decode$map, $author$project$Classification$SaeExampleLatent, $elm$json$Json$Decode$int),
 			$elm$json$Json$Decode$null($author$project$Classification$SaeExampleMissing)
 		]));
-var $author$project$Classification$getSaeExamples = F2(
-	function (img, patches) {
-		return A4(
+var $author$project$Classification$getSaeExamples = F4(
+	function (cfg, id, img, patches) {
+		return A5(
 			$author$project$Gradio$get,
+			cfg,
 			'get-sae-examples',
 			_List_fromArray(
 				[
@@ -11705,13 +12491,31 @@ var $author$project$Classification$getSaeExamples = F2(
 					$elm$core$Set$toList(patches))
 				]),
 			$elm$json$Json$Decode$list($author$project$Classification$saeExampleResultDecoder),
-			$author$project$Classification$GotSaeExamples);
+			$author$project$Classification$GotSaeExamples(id));
 	});
 var $elm$core$Set$insert = F2(
 	function (key, _v0) {
 		var dict = _v0.a;
 		return $elm$core$Set$Set_elm_builtin(
 			A3($elm$core$Dict$insert, key, _Utils_Tuple0, dict));
+	});
+var $elm$url$Url$Builder$QueryParameter = F2(
+	function (a, b) {
+		return {$: 'QueryParameter', a: a, b: b};
+	});
+var $elm$url$Url$percentEncode = _Url_percentEncode;
+var $elm$url$Url$Builder$int = F2(
+	function (key, value) {
+		return A2(
+			$elm$url$Url$Builder$QueryParameter,
+			$elm$url$Url$percentEncode(key),
+			$elm$core$String$fromInt(value));
+	});
+var $author$project$Requests$isStale = F2(
+	function (_v0, _v1) {
+		var id = _v0.a;
+		var last = _v1.a;
+		return _Utils_cmp(id, last) < 0;
 	});
 var $elm$core$Dict$member = F2(
 	function (key, dict) {
@@ -11727,6 +12531,12 @@ var $elm$core$Set$member = F2(
 		var dict = _v0.a;
 		return A2($elm$core$Dict$member, key, dict);
 	});
+var $elm$core$Basics$modBy = _Basics_modBy;
+var $author$project$Classification$nImages = 5794;
+var $author$project$Requests$next = function (_v0) {
+	var id = _v0.a;
+	return $author$project$Requests$Id(id + 1);
+};
 var $author$project$Classification$nSaeExamplesPerLatent = 4;
 var $elm$core$List$takeReverse = F3(
 	function (n, list, kept) {
@@ -11920,20 +12730,118 @@ var $author$project$Classification$parseSaeExampleResults = function (results) {
 	var parsed = _v0.c;
 	return parsed;
 };
+var $elm$browser$Browser$Navigation$pushUrl = _Browser_pushUrl;
+var $elm$core$Bitwise$xor = _Bitwise_xor;
+var $elm$random$Random$peel = function (_v0) {
+	var state = _v0.a;
+	var word = (state ^ (state >>> ((state >>> 28) + 4))) * 277803737;
+	return ((word >>> 22) ^ word) >>> 0;
+};
+var $elm$random$Random$int = F2(
+	function (a, b) {
+		return $elm$random$Random$Generator(
+			function (seed0) {
+				var _v0 = (_Utils_cmp(a, b) < 0) ? _Utils_Tuple2(a, b) : _Utils_Tuple2(b, a);
+				var lo = _v0.a;
+				var hi = _v0.b;
+				var range = (hi - lo) + 1;
+				if (!((range - 1) & range)) {
+					return _Utils_Tuple2(
+						(((range - 1) & $elm$random$Random$peel(seed0)) >>> 0) + lo,
+						$elm$random$Random$next(seed0));
+				} else {
+					var threshhold = (((-range) >>> 0) % range) >>> 0;
+					var accountForBias = function (seed) {
+						accountForBias:
+						while (true) {
+							var x = $elm$random$Random$peel(seed);
+							var seedN = $elm$random$Random$next(seed);
+							if (_Utils_cmp(x, threshhold) < 0) {
+								var $temp$seed = seedN;
+								seed = $temp$seed;
+								continue accountForBias;
+							} else {
+								return _Utils_Tuple2((x % range) + lo, seedN);
+							}
+						}
+					};
+					return accountForBias(seed0);
+				}
+			});
+	});
+var $author$project$Classification$randomExample = A2($elm$random$Random$int, 0, $author$project$Classification$nImages - 1);
+var $elm$url$Url$Builder$relative = F2(
+	function (pathSegments, parameters) {
+		return _Utils_ap(
+			A2($elm$core$String$join, '/', pathSegments),
+			$elm$url$Url$Builder$toQuery(parameters));
+	});
 var $elm$core$Set$remove = F2(
 	function (key, _v0) {
 		var dict = _v0.a;
 		return $elm$core$Set$Set_elm_builtin(
 			A2($elm$core$Dict$remove, key, dict));
 	});
-var $elm$core$Set$size = function (_v0) {
-	var dict = _v0.a;
-	return $elm$core$Dict$size(dict);
-};
+var $elm$core$List$repeatHelp = F3(
+	function (result, n, value) {
+		repeatHelp:
+		while (true) {
+			if (n <= 0) {
+				return result;
+			} else {
+				var $temp$result = A2($elm$core$List$cons, value, result),
+					$temp$n = n - 1,
+					$temp$value = value;
+				result = $temp$result;
+				n = $temp$n;
+				value = $temp$value;
+				continue repeatHelp;
+			}
+		}
+	});
+var $elm$core$List$repeat = F2(
+	function (n, value) {
+		return A3($elm$core$List$repeatHelp, _List_Nil, n, value);
+	});
 var $elm$core$String$toFloat = _String_toFloat;
 var $author$project$Classification$update = F2(
 	function (msg, model) {
 		switch (msg.$) {
+			case 'NoOp':
+				return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
+			case 'SetUrl':
+				var i = msg.a;
+				var url = A2(
+					$elm$url$Url$Builder$relative,
+					_List_Nil,
+					_List_fromArray(
+						[
+							A2($elm$url$Url$Builder$int, 'example', i)
+						]));
+				return _Utils_Tuple2(
+					model,
+					A2($elm$browser$Browser$Navigation$pushUrl, model.key, url));
+			case 'SetExample':
+				var i = msg.a;
+				var originalPredictionsNextId = $author$project$Requests$next(model.originalPredictionsRequestId);
+				var inputExampleNextId = $author$project$Requests$next(model.inputExampleRequestId);
+				var example = A2($elm$core$Basics$modBy, $author$project$Classification$nImages, i);
+				return _Utils_Tuple2(
+					_Utils_update(
+						model,
+						{inputExample: $author$project$Classification$Loading, inputExampleIndex: example, inputExampleRequestId: inputExampleNextId, modifiedPredictions: $author$project$Classification$Initial, originalPredictions: $author$project$Classification$Loading, originalPredictionsRequestId: originalPredictionsNextId, saeExamples: $author$project$Classification$Initial, selectedPatchIndices: $elm$core$Set$empty}),
+					$elm$core$Platform$Cmd$batch(
+						_List_fromArray(
+							[
+								A3($author$project$Classification$getInputExample, model.gradio, inputExampleNextId, example),
+								A3($author$project$Classification$getOriginalPredictions, model.gradio, originalPredictionsNextId, example)
+							])));
+			case 'GetRandomExample':
+				return _Utils_Tuple2(
+					_Utils_update(
+						model,
+						{examinedClass: $author$project$Classification$NotExamining}),
+					A2($elm$random$Random$generate, $author$project$Classification$SetUrl, $author$project$Classification$randomExample));
 			case 'HoverPatch':
 				var i = msg.a;
 				return _Utils_Tuple2(
@@ -11949,146 +12857,320 @@ var $author$project$Classification$update = F2(
 						model,
 						{hoveredPatchIndex: $elm$core$Maybe$Nothing}),
 					$elm$core$Platform$Cmd$none);
-			case 'GotImageUrl':
-				var result = msg.a;
-				if (result.$ === 'Ok') {
-					var url = result.a;
-					return _Utils_Tuple2(
-						_Utils_update(
-							model,
-							{imageUrl: url}),
-						$elm$core$Platform$Cmd$none);
+			case 'GotInputExample':
+				var id = msg.a;
+				var result = msg.b;
+				if (A2($author$project$Requests$isStale, id, model.inputExampleRequestId)) {
+					return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
 				} else {
-					var err = result.a;
-					return _Utils_Tuple2(
-						_Utils_update(
-							model,
-							{
-								err: $elm$core$Maybe$Just(
-									$author$project$Classification$explainGradioError(err)),
-								imageUrl: $elm$core$Maybe$Nothing
-							}),
-						$elm$core$Platform$Cmd$none);
+					if (result.$ === 'Ok') {
+						var example = result.a;
+						return _Utils_Tuple2(
+							_Utils_update(
+								model,
+								{
+									inputExample: $author$project$Classification$Loaded(example)
+								}),
+							$elm$core$Platform$Cmd$none);
+					} else {
+						var err = result.a;
+						return _Utils_Tuple2(
+							_Utils_update(
+								model,
+								{
+									inputExample: $author$project$Classification$Failed(
+										$author$project$Classification$explainGradioError(err))
+								}),
+							$elm$core$Platform$Cmd$none);
+					}
 				}
-			case 'GotPred':
-				var result = msg.a;
-				if (result.$ === 'Ok') {
-					var preds = result.a;
-					return _Utils_Tuple2(
-						_Utils_update(
-							model,
-							{preds: preds}),
-						$elm$core$Platform$Cmd$none);
+			case 'GotOriginalPredictions':
+				var id = msg.a;
+				var result = msg.b;
+				if (A2($author$project$Requests$isStale, id, model.originalPredictionsRequestId)) {
+					return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
 				} else {
-					var err = result.a;
-					return _Utils_Tuple2(
-						_Utils_update(
-							model,
-							{
-								err: $elm$core$Maybe$Just(
-									$author$project$Classification$explainGradioError(err)),
-								preds: $elm$core$Dict$empty
-							}),
-						$elm$core$Platform$Cmd$none);
+					if (result.$ === 'Ok') {
+						var preds = result.a;
+						return _Utils_Tuple2(
+							_Utils_update(
+								model,
+								{
+									originalPredictions: $author$project$Classification$Loaded(preds)
+								}),
+							$elm$core$Platform$Cmd$none);
+					} else {
+						var err = result.a;
+						return _Utils_Tuple2(
+							_Utils_update(
+								model,
+								{
+									originalPredictions: $author$project$Classification$Failed(
+										$author$project$Classification$explainGradioError(err))
+								}),
+							$elm$core$Platform$Cmd$none);
+					}
 				}
-			case 'GotModified':
-				var result = msg.a;
-				if (result.$ === 'Ok') {
-					var preds = result.a;
-					return _Utils_Tuple2(
-						_Utils_update(
-							model,
-							{modified: preds}),
-						$elm$core$Platform$Cmd$none);
+			case 'GotModifiedPredictions':
+				var id = msg.a;
+				var result = msg.b;
+				if (A2($author$project$Requests$isStale, id, model.modifiedPredictionsRequestId)) {
+					return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
 				} else {
-					var err = result.a;
-					return _Utils_Tuple2(
-						_Utils_update(
-							model,
-							{
-								err: $elm$core$Maybe$Just(
-									$author$project$Classification$explainGradioError(err)),
-								modified: $elm$core$Dict$empty
-							}),
-						$elm$core$Platform$Cmd$none);
+					if (result.$ === 'Ok') {
+						var modified = result.a;
+						return _Utils_Tuple2(
+							_Utils_update(
+								model,
+								{
+									modifiedPredictions: $author$project$Classification$Loaded(modified)
+								}),
+							$elm$core$Platform$Cmd$none);
+					} else {
+						var err = result.a;
+						return _Utils_Tuple2(
+							_Utils_update(
+								model,
+								{
+									modifiedPredictions: $author$project$Classification$Failed(
+										$author$project$Classification$explainGradioError(err))
+								}),
+							$elm$core$Platform$Cmd$none);
+					}
 				}
 			case 'ToggleSelectedPatch':
 				var i = msg.a;
-				var _v4 = A2($elm$core$Set$member, i, model.selectedPatchIndices) ? _Utils_Tuple3(
-					A2($elm$core$Set$remove, i, model.selectedPatchIndices),
-					model.nPatchesExplored,
-					($elm$core$Set$size(model.selectedPatchIndices) === 1) ? (model.nPatchResets + 1) : model.nPatchResets) : _Utils_Tuple3(
-					A2($elm$core$Set$insert, i, model.selectedPatchIndices),
-					model.nPatchesExplored + 1,
-					model.nPatchResets);
-				var patchIndices = _v4.a;
-				var nPatchesExplored = _v4.b;
-				var nPatchResets = _v4.c;
+				var saeExamplesNextId = $author$project$Requests$next(model.saeExamplesRequestId);
+				var patchIndices = A2($elm$core$Set$member, i, model.selectedPatchIndices) ? A2($elm$core$Set$remove, i, model.selectedPatchIndices) : A2($elm$core$Set$insert, i, model.selectedPatchIndices);
 				return _Utils_Tuple2(
 					_Utils_update(
 						model,
-						{nPatchResets: nPatchResets, nPatchesExplored: nPatchesExplored, selectedPatchIndices: patchIndices}),
-					A2($author$project$Classification$getSaeExamples, model.exampleIndex, patchIndices));
+						{saeExamples: $author$project$Classification$Loading, saeExamplesRequestId: saeExamplesNextId, selectedPatchIndices: patchIndices}),
+					A4($author$project$Classification$getSaeExamples, model.gradio, saeExamplesNextId, model.inputExampleIndex, patchIndices));
 			case 'GotSaeExamples':
-				var result = msg.a;
-				if (result.$ === 'Ok') {
-					var results = result.a;
-					var latents = $author$project$Classification$parseSaeExampleResults(results);
-					var sliders = $elm$core$Dict$fromList(
-						A2(
-							$elm$core$List$map,
-							function (latent) {
-								return _Utils_Tuple2(latent.latent, 0.0);
-							},
-							latents));
-					return _Utils_Tuple2(
-						_Utils_update(
-							model,
-							{err: $elm$core$Maybe$Nothing, saeLatents: latents, sliders: sliders}),
-						$elm$core$Platform$Cmd$none);
+				var id = msg.a;
+				var result = msg.b;
+				if (A2($author$project$Requests$isStale, id, model.saeExamplesRequestId)) {
+					return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
 				} else {
-					var err = result.a;
-					return _Utils_Tuple2(
-						_Utils_update(
-							model,
-							{
-								err: $elm$core$Maybe$Just(
-									$author$project$Classification$explainGradioError(err))
-							}),
-						$elm$core$Platform$Cmd$none);
+					if (result.$ === 'Ok') {
+						var results = result.a;
+						var latents = $author$project$Classification$parseSaeExampleResults(results);
+						var sliders = $elm$core$Dict$fromList(
+							A2(
+								$elm$core$List$map,
+								function (latent) {
+									return _Utils_Tuple2(latent.latent, 0.0);
+								},
+								latents));
+						return _Utils_Tuple2(
+							_Utils_update(
+								model,
+								{
+									saeExamples: $author$project$Classification$Loaded(latents),
+									sliders: sliders
+								}),
+							$elm$core$Platform$Cmd$none);
+					} else {
+						var err = result.a;
+						return _Utils_Tuple2(
+							_Utils_update(
+								model,
+								{
+									saeExamples: $author$project$Classification$Failed(
+										$author$project$Classification$explainGradioError(err))
+								}),
+							$elm$core$Platform$Cmd$none);
+					}
 				}
-			default:
+			case 'SetSlider':
 				var i = msg.a;
 				var str = msg.b;
-				var _v6 = $elm$core$String$toFloat(str);
-				if (_v6.$ === 'Just') {
-					var f = _v6.a;
+				var _v5 = $elm$core$String$toFloat(str);
+				if (_v5.$ === 'Just') {
+					var f = _v5.a;
 					var sliders = A3($elm$core$Dict$insert, i, f, model.sliders);
+					var modifiedPredictionsNextId = $author$project$Requests$next(model.modifiedPredictionsRequestId);
 					return _Utils_Tuple2(
 						_Utils_update(
 							model,
-							{sliders: sliders}),
-						A2($author$project$Classification$getModifiedLabels, model.exampleIndex, sliders));
+							{modifiedPredictions: $author$project$Classification$Loading, modifiedPredictionsRequestId: modifiedPredictionsNextId, sliders: sliders}),
+						A5($author$project$Classification$getModifiedPredictions, model.gradio, modifiedPredictionsNextId, model.inputExampleIndex, model.selectedPatchIndices, sliders));
 				} else {
 					return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
+				}
+			case 'ExamineClass':
+				var _class = msg.a;
+				var id = $author$project$Requests$next(model.classExampleRequestId);
+				return _Utils_Tuple2(
+					_Utils_update(
+						model,
+						{
+							classExampleRequestId: id,
+							examinedClass: $author$project$Classification$Examining(
+								{_class: _class, examples: $author$project$Classification$Loading})
+						}),
+					$elm$core$Platform$Cmd$batch(
+						A2(
+							$elm$core$List$repeat,
+							9,
+							A3($author$project$Classification$getRandomClassExample, model.gradio, id, _class))));
+			default:
+				var id = msg.a;
+				var result = msg.b;
+				if (A2($author$project$Requests$isStale, id, model.classExampleRequestId)) {
+					return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
+				} else {
+					var _v6 = _Utils_Tuple2(result, model.examinedClass);
+					if (_v6.a.$ === 'Ok') {
+						if (_v6.b.$ === 'NotExamining') {
+							var example = _v6.a.a;
+							var _v7 = _v6.b;
+							return _Utils_Tuple2(
+								_Utils_update(
+									model,
+									{
+										examinedClass: $author$project$Classification$Examining(
+											{
+												_class: example._class,
+												examples: $author$project$Classification$Loaded(
+													_List_fromArray(
+														[example]))
+											})
+									}),
+								$elm$core$Platform$Cmd$none);
+						} else {
+							var example = _v6.a.a;
+							var _class = _v6.b.a._class;
+							var examples = _v6.b.a.examples;
+							switch (examples.$) {
+								case 'Initial':
+									var newExamples = _Utils_eq(example._class, _class) ? _List_fromArray(
+										[example]) : _List_Nil;
+									return _Utils_Tuple2(
+										_Utils_update(
+											model,
+											{
+												examinedClass: $author$project$Classification$Examining(
+													{
+														_class: _class,
+														examples: $author$project$Classification$Loaded(newExamples)
+													})
+											}),
+										$elm$core$Platform$Cmd$none);
+								case 'Loading':
+									var newExamples = _Utils_eq(example._class, _class) ? _List_fromArray(
+										[example]) : _List_Nil;
+									return _Utils_Tuple2(
+										_Utils_update(
+											model,
+											{
+												examinedClass: $author$project$Classification$Examining(
+													{
+														_class: _class,
+														examples: $author$project$Classification$Loaded(newExamples)
+													})
+											}),
+										$elm$core$Platform$Cmd$none);
+								case 'Loaded':
+									var examplesLoaded = examples.a;
+									var newExamples = A2(
+										$elm$core$List$filter,
+										function (ex) {
+											return _Utils_eq(ex._class, _class);
+										},
+										A2($elm$core$List$cons, example, examplesLoaded));
+									return _Utils_Tuple2(
+										_Utils_update(
+											model,
+											{
+												examinedClass: $author$project$Classification$Examining(
+													{
+														_class: _class,
+														examples: $author$project$Classification$Loaded(newExamples)
+													})
+											}),
+										$elm$core$Platform$Cmd$none);
+								default:
+									var newExamples = _Utils_eq(example._class, _class) ? _List_fromArray(
+										[example]) : _List_Nil;
+									return _Utils_Tuple2(
+										_Utils_update(
+											model,
+											{
+												examinedClass: $author$project$Classification$Examining(
+													{
+														_class: _class,
+														examples: $author$project$Classification$Loaded(newExamples)
+													})
+											}),
+										$elm$core$Platform$Cmd$none);
+							}
+						}
+					} else {
+						var err = _v6.a.a;
+						return _Utils_Tuple2(
+							_Utils_update(
+								model,
+								{
+									examinedClass: $author$project$Classification$Examining(
+										{
+											_class: -1,
+											examples: $author$project$Classification$Failed(
+												$author$project$Classification$explainGradioError(err))
+										})
+								}),
+							$elm$core$Platform$Cmd$none);
+					}
 				}
 		}
 	});
 var $elm$html$Html$header = _VirtualDom_node('header');
 var $elm$html$Html$main_ = _VirtualDom_node('main');
+var $elm$html$Html$h3 = _VirtualDom_node('h3');
+var $author$project$Classification$classNames = $elm$core$Array$fromList(
+	A2(
+		$elm$core$List$map,
+		A2($elm$core$String$replace, '_', ' '),
+		_List_fromArray(
+			['Acadian_Flycatcher', 'American_Crow', 'American_Goldfinch', 'American_Pipit', 'American_Redstart', 'American_Three_toed_Woodpecker', 'Anna_Hummingbird', 'Artic_Tern', 'Baird_Sparrow', 'Baltimore_Oriole', 'Bank_Swallow', 'Barn_Swallow', 'Bay_breasted_Warbler', 'Belted_Kingfisher', 'Bewick_Wren', 'Black_Tern', 'Black_and_white_Warbler', 'Black_billed_Cuckoo', 'Black_capped_Vireo', 'Black_footed_Albatross', 'Black_throated_Blue_Warbler', 'Black_throated_Sparrow', 'Blue_Grosbeak', 'Blue_Jay', 'Blue_headed_Vireo', 'Blue_winged_Warbler', 'Boat_tailed_Grackle', 'Bobolink', 'Bohemian_Waxwing', 'Brandt_Cormorant', 'Brewer_Blackbird', 'Brewer_Sparrow', 'Bronzed_Cowbird', 'Brown_Creeper', 'Brown_Pelican', 'Brown_Thrasher', 'Cactus_Wren', 'California_Gull', 'Canada_Warbler', 'Cape_Glossy_Starling', 'Cape_May_Warbler', 'Cardinal', 'Carolina_Wren', 'Caspian_Tern', 'Cedar_Waxwing', 'Cerulean_Warbler', 'Chestnut_sided_Warbler', 'Chipping_Sparrow', 'Chuck_will_Widow', 'Clark_Nutcracker', 'Clay_colored_Sparrow', 'Cliff_Swallow', 'Common_Raven', 'Common_Tern', 'Common_Yellowthroat', 'Crested_Auklet', 'Dark_eyed_Junco', 'Downy_Woodpecker', 'Eared_Grebe', 'Eastern_Towhee', 'Elegant_Tern', 'European_Goldfinch', 'Evening_Grosbeak', 'Field_Sparrow', 'Fish_Crow', 'Florida_Jay', 'Forsters_Tern', 'Fox_Sparrow', 'Frigatebird', 'Gadwall', 'Geococcyx', 'Glaucous_winged_Gull', 'Golden_winged_Warbler', 'Grasshopper_Sparrow', 'Gray_Catbird', 'Gray_Kingbird', 'Gray_crowned_Rosy_Finch', 'Great_Crested_Flycatcher', 'Great_Grey_Shrike', 'Green_Jay', 'Green_Kingfisher', 'Green_Violetear', 'Green_tailed_Towhee', 'Groove_billed_Ani', 'Harris_Sparrow', 'Heermann_Gull', 'Henslow_Sparrow', 'Herring_Gull', 'Hooded_Merganser', 'Hooded_Oriole', 'Hooded_Warbler', 'Horned_Grebe', 'Horned_Lark', 'Horned_Puffin', 'House_Sparrow', 'House_Wren', 'Indigo_Bunting', 'Ivory_Gull', 'Kentucky_Warbler', 'Laysan_Albatross', 'Lazuli_Bunting', 'Le_Conte_Sparrow', 'Least_Auklet', 'Least_Flycatcher', 'Least_Tern', 'Lincoln_Sparrow', 'Loggerhead_Shrike', 'Long_tailed_Jaeger', 'Louisiana_Waterthrush', 'Magnolia_Warbler', 'Mallard', 'Mangrove_Cuckoo', 'Marsh_Wren', 'Mockingbird', 'Mourning_Warbler', 'Myrtle_Warbler', 'Nashville_Warbler', 'Nelson_Sharp_tailed_Sparrow', 'Nighthawk', 'Northern_Flicker', 'Northern_Fulmar', 'Northern_Waterthrush', 'Olive_sided_Flycatcher', 'Orange_crowned_Warbler', 'Orchard_Oriole', 'Ovenbird', 'Pacific_Loon', 'Painted_Bunting', 'Palm_Warbler', 'Parakeet_Auklet', 'Pelagic_Cormorant', 'Philadelphia_Vireo', 'Pied_Kingfisher', 'Pied_billed_Grebe', 'Pigeon_Guillemot', 'Pileated_Woodpecker', 'Pine_Grosbeak', 'Pine_Warbler', 'Pomarine_Jaeger', 'Prairie_Warbler', 'Prothonotary_Warbler', 'Purple_Finch', 'Red_bellied_Woodpecker', 'Red_breasted_Merganser', 'Red_cockaded_Woodpecker', 'Red_eyed_Vireo', 'Red_faced_Cormorant', 'Red_headed_Woodpecker', 'Red_legged_Kittiwake', 'Red_winged_Blackbird', 'Rhinoceros_Auklet', 'Ring_billed_Gull', 'Ringed_Kingfisher', 'Rock_Wren', 'Rose_breasted_Grosbeak', 'Ruby_throated_Hummingbird', 'Rufous_Hummingbird', 'Rusty_Blackbird', 'Sage_Thrasher', 'Savannah_Sparrow', 'Sayornis', 'Scarlet_Tanager', 'Scissor_tailed_Flycatcher', 'Scott_Oriole', 'Seaside_Sparrow', 'Shiny_Cowbird', 'Slaty_backed_Gull', 'Song_Sparrow', 'Sooty_Albatross', 'Spotted_Catbird', 'Summer_Tanager', 'Swainson_Warbler', 'Tennessee_Warbler', 'Tree_Sparrow', 'Tree_Swallow', 'Tropical_Kingbird', 'Vermilion_Flycatcher', 'Vesper_Sparrow', 'Warbling_Vireo', 'Western_Grebe', 'Western_Gull', 'Western_Meadowlark', 'Western_Wood_Pewee', 'Whip_poor_Will', 'White_Pelican', 'White_breasted_Kingfisher', 'White_breasted_Nuthatch', 'White_crowned_Sparrow', 'White_eyed_Vireo', 'White_necked_Raven', 'White_throated_Sparrow', 'Wilson_Warbler', 'Winter_Wren', 'Worm_eating_Warbler', 'Yellow_Warbler', 'Yellow_bellied_Flycatcher', 'Yellow_billed_Cuckoo', 'Yellow_breasted_Chat', 'Yellow_headed_Blackbird', 'Yellow_throated_Vireo'])));
+var $author$project$Classification$viewClass = function (_class) {
+	return A2(
+		$elm$core$Maybe$withDefault,
+		'Unknown class: ' + $elm$core$String$fromInt(_class),
+		A2($elm$core$Array$get, _class, $author$project$Classification$classNames));
+};
 var $author$project$Classification$viewErr = function (err) {
-	if (err.$ === 'Just') {
-		var msg = err.a;
-		return A2(
-			$elm$html$Html$p,
-			_List_Nil,
-			_List_fromArray(
-				[
-					$elm$html$Html$text(msg)
-				]));
-	} else {
-		return A2($elm$html$Html$span, _List_Nil, _List_Nil);
-	}
+	return A2(
+		$elm$html$Html$div,
+		_List_fromArray(
+			[
+				$elm$html$Html$Attributes$class('relative rounded-lg border border-red-200 bg-red-50 p-4')
+			]),
+		_List_fromArray(
+			[
+				A2($elm$html$Html$button, _List_Nil, _List_Nil),
+				A2(
+				$elm$html$Html$h3,
+				_List_fromArray(
+					[
+						$elm$html$Html$Attributes$class('font-bold text-red-800')
+					]),
+				_List_fromArray(
+					[
+						$elm$html$Html$text('Error')
+					])),
+				A2(
+				$elm$html$Html$p,
+				_List_fromArray(
+					[
+						$elm$html$Html$Attributes$class('text-red-700')
+					]),
+				_List_fromArray(
+					[
+						$elm$html$Html$text(err)
+					]))
+			]));
 };
 var $elm$html$Html$img = _VirtualDom_node('img');
 var $elm$html$Html$Attributes$src = function (url) {
@@ -12097,6 +13179,93 @@ var $elm$html$Html$Attributes$src = function (url) {
 		'src',
 		_VirtualDom_noJavaScriptOrHtmlUri(url));
 };
+var $author$project$Classification$viewImage = function (url) {
+	return A2(
+		$elm$html$Html$img,
+		_List_fromArray(
+			[
+				$elm$html$Html$Attributes$src(url),
+				$elm$html$Html$Attributes$class('max-w-36 h-auto')
+			]),
+		_List_Nil);
+};
+var $author$project$Classification$viewClassExamples = function (examined) {
+	if (examined.$ === 'NotExamining') {
+		return A2($elm$html$Html$div, _List_Nil, _List_Nil);
+	} else {
+		var _class = examined.a._class;
+		var examples = examined.a.examples;
+		switch (examples.$) {
+			case 'Initial':
+				return A2($elm$html$Html$div, _List_Nil, _List_Nil);
+			case 'Loading':
+				return A2($elm$html$Html$div, _List_Nil, _List_Nil);
+			case 'Loaded':
+				var examplesLoaded = examples.a;
+				return A2(
+					$elm$html$Html$div,
+					_List_fromArray(
+						[
+							$elm$html$Html$Attributes$class('')
+						]),
+					_List_fromArray(
+						[
+							A2(
+							$elm$html$Html$h3,
+							_List_fromArray(
+								[
+									$elm$html$Html$Attributes$class('font-bold')
+								]),
+							_List_fromArray(
+								[
+									$elm$html$Html$text(
+									$author$project$Classification$viewClass(_class))
+								])),
+							A2(
+							$elm$html$Html$div,
+							_List_fromArray(
+								[
+									$elm$html$Html$Attributes$class('max-w-xl grid grid-cols-3 gap-2')
+								]),
+							A2(
+								$elm$core$List$map,
+								A2(
+									$elm$core$Basics$composeR,
+									function ($) {
+										return $.url;
+									},
+									$author$project$Classification$viewImage),
+								A2(
+									$elm$core$List$take,
+									9,
+									$elm$core$List$reverse(examplesLoaded))))
+						]));
+			default:
+				var err = examples.a;
+				return $author$project$Classification$viewErr(err);
+		}
+	}
+};
+var $author$project$Classification$GetRandomExample = {$: 'GetRandomExample'};
+var $author$project$Classification$viewButton = F2(
+	function (onClick, title) {
+		return A2(
+			$elm$html$Html$button,
+			_List_fromArray(
+				[
+					$elm$html$Html$Events$onClick(onClick),
+					$elm$html$Html$Attributes$class('flex-1 rounded-lg px-2 py-1 transition-colors'),
+					$elm$html$Html$Attributes$class('border border-sky-300 hover:border-sky-400'),
+					$elm$html$Html$Attributes$class('bg-sky-100 hover:bg-sky-200'),
+					$elm$html$Html$Attributes$class('text-gray-700 hover:text-gray-900'),
+					$elm$html$Html$Attributes$class('focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2'),
+					$elm$html$Html$Attributes$class('active:bg-gray-300')
+				]),
+			_List_fromArray(
+				[
+					$elm$html$Html$text(title)
+				]));
+	});
 var $author$project$Classification$HoverPatch = function (a) {
 	return {$: 'HoverPatch', a: a};
 };
@@ -12118,135 +13287,268 @@ var $elm$html$Html$Events$onMouseLeave = function (msg) {
 };
 var $author$project$Classification$viewGridCell = F3(
 	function (hovered, selected, self) {
-		var classes = _Utils_ap(
+		var _class = _Utils_ap(
 			function () {
 				if (hovered.$ === 'Just') {
 					var h = hovered.a;
-					return _Utils_eq(h, self) ? _List_fromArray(
-						['border-2 border-rose-600 border-dashed']) : _List_Nil;
+					return _Utils_eq(h, self) ? 'border-2 border-rose-600 border-dashed ' : '';
 				} else {
-					return _List_Nil;
+					return '';
 				}
 			}(),
-			A2($elm$core$Set$member, self, selected) ? _List_fromArray(
-				['bg-rose-600/50']) : _List_Nil);
+			A2($elm$core$Set$member, self, selected) ? 'bg-rose-600/50 ' : '');
 		return A2(
 			$elm$html$Html$div,
-			_Utils_ap(
-				_List_fromArray(
-					[
-						$elm$html$Html$Attributes$class('w-[16px] h-[16px] md:w-[24px] md:h-[24px]'),
-						$elm$html$Html$Events$onMouseEnter(
-						$author$project$Classification$HoverPatch(self)),
-						$elm$html$Html$Events$onMouseLeave($author$project$Classification$ResetHoveredPatch),
-						$elm$html$Html$Events$onClick(
-						$author$project$Classification$ToggleSelectedPatch(self))
-					]),
-				A2($elm$core$List$map, $elm$html$Html$Attributes$class, classes)),
+			_List_fromArray(
+				[
+					$elm$html$Html$Attributes$class('w-[16px] h-[16px] md:w-[24px] md:h-[24px]'),
+					$elm$html$Html$Attributes$class(_class),
+					$elm$html$Html$Events$onMouseEnter(
+					$author$project$Classification$HoverPatch(self)),
+					$elm$html$Html$Events$onMouseLeave($author$project$Classification$ResetHoveredPatch),
+					$elm$html$Html$Events$onClick(
+					$author$project$Classification$ToggleSelectedPatch(self))
+				]),
 			_List_Nil);
 	});
-var $author$project$Classification$viewGriddedImage = F4(
-	function (hovered, selected, maybeUrl, caption) {
-		if (maybeUrl.$ === 'Nothing') {
+var $author$project$Classification$viewGriddedImage = F3(
+	function (hovered, selected, url) {
+		return A2(
+			$elm$html$Html$div,
+			_List_fromArray(
+				[
+					$elm$html$Html$Attributes$class('relative inline-block')
+				]),
+			_List_fromArray(
+				[
+					A2(
+					$elm$html$Html$div,
+					_List_fromArray(
+						[
+							$elm$html$Html$Attributes$class('absolute grid grid-rows-[repeat(14,_16px)] grid-cols-[repeat(14,_16px)] md:grid-rows-[repeat(14,_24px)] md:grid-cols-[repeat(14,_24px)]')
+						]),
+					A2(
+						$elm$core$List$map,
+						A2($author$project$Classification$viewGridCell, hovered, selected),
+						A2($elm$core$List$range, 0, 195))),
+					A2(
+					$elm$html$Html$img,
+					_List_fromArray(
+						[
+							$elm$html$Html$Attributes$class('block w-[224px] h-[224px] md:w-[336px] md:h-[336px]'),
+							$elm$html$Html$Attributes$src(url)
+						]),
+					_List_Nil)
+				]));
+	});
+var $author$project$Classification$viewInputExample = function (model) {
+	var _v0 = model.inputExample;
+	switch (_v0.$) {
+		case 'Initial':
 			return A2(
-				$elm$html$Html$div,
+				$elm$html$Html$p,
 				_List_Nil,
 				_List_fromArray(
 					[
-						$elm$html$Html$text('Loading...')
+						$elm$html$Html$text('Initial state. You shouldn\'t see this for long...')
 					]));
-		} else {
-			var url = maybeUrl.a;
+		case 'Loading':
 			return A2(
-				$elm$html$Html$div,
+				$elm$html$Html$p,
 				_List_Nil,
 				_List_fromArray(
 					[
+						$elm$html$Html$text('Loading example...')
+					]));
+		case 'Loaded':
+			var example = _v0.a;
+			return A2(
+				$elm$html$Html$div,
+				_List_fromArray(
+					[
+						$elm$html$Html$Attributes$class('w-[224px] md:w-[336px]')
+					]),
+				_List_fromArray(
+					[
+						A3($author$project$Classification$viewGriddedImage, model.hoveredPatchIndex, model.selectedPatchIndices, example.url),
 						A2(
 						$elm$html$Html$div,
 						_List_fromArray(
 							[
-								$elm$html$Html$Attributes$class('relative inline-block')
+								$elm$html$Html$Attributes$class('flex flex-row gap-2')
 							]),
 						_List_fromArray(
 							[
 								A2(
-								$elm$html$Html$div,
-								_List_fromArray(
-									[
-										$elm$html$Html$Attributes$class('absolute grid grid-rows-[repeat(14,_16px)] grid-cols-[repeat(14,_16px)] md:grid-rows-[repeat(14,_24px)] md:grid-cols-[repeat(14,_24px)]')
-									]),
+								$author$project$Classification$viewButton,
+								$author$project$Classification$SetUrl(model.inputExampleIndex - 1),
+								'Previous'),
+								A2($author$project$Classification$viewButton, $author$project$Classification$GetRandomExample, 'Random'),
 								A2(
-									$elm$core$List$map,
-									A2($author$project$Classification$viewGridCell, hovered, selected),
-									A2($elm$core$List$range, 0, 195))),
-								A2(
-								$elm$html$Html$img,
-								_List_fromArray(
-									[
-										$elm$html$Html$Attributes$class('block w-[224px] h-[224px] md:w-[336px] md:h-[336px]'),
-										$elm$html$Html$Attributes$src(url)
-									]),
-								_List_Nil)
+								$author$project$Classification$viewButton,
+								$author$project$Classification$SetUrl(model.inputExampleIndex + 1),
+								'Next')
 							])),
 						A2(
-						$elm$html$Html$p,
-						_List_Nil,
+						$elm$html$Html$div,
 						_List_fromArray(
 							[
-								$elm$html$Html$text(caption)
+								$elm$html$Html$Attributes$class('py-1 md:py-2 lg:py-4')
+							]),
+						_List_fromArray(
+							[
+								A2(
+								$elm$html$Html$p,
+								_List_fromArray(
+									[
+										$elm$html$Html$Attributes$class('font-bold text-gray-800')
+									]),
+								_List_fromArray(
+									[
+										$elm$html$Html$text(
+										$author$project$Classification$viewClass(example._class) + (' (Example #' + ($elm$core$String$fromInt(model.inputExampleIndex) + ')')))
+									]))
 							]))
 					]));
-		}
-	});
-var $elm$core$List$sortBy = _List_sortBy;
+		default:
+			var err = _v0.a;
+			return $author$project$Classification$viewErr(err);
+	}
+};
 var $author$project$Classification$uncurry = F2(
 	function (f, _v0) {
 		var a = _v0.a;
 		var b = _v0.b;
 		return A2(f, a, b);
 	});
-var $author$project$Classification$viewPred = F2(
-	function (label, score) {
+var $author$project$Classification$ExamineClass = function (a) {
+	return {$: 'ExamineClass', a: a};
+};
+var $elm$html$Html$meter = _VirtualDom_node('meter');
+var $elm$core$Basics$round = _Basics_round;
+var $author$project$Classification$viewProb = F2(
+	function (target, prob) {
 		return A2(
 			$elm$html$Html$div,
-			_List_Nil,
+			_List_fromArray(
+				[
+					$elm$html$Html$Attributes$class('cursor-pointer hover:underline'),
+					$elm$html$Html$Events$onClick(
+					$author$project$Classification$ExamineClass(target))
+				]),
 			_List_fromArray(
 				[
 					A2(
-					$elm$html$Html$span,
-					_List_Nil,
+					$elm$html$Html$meter,
 					_List_fromArray(
 						[
-							$elm$html$Html$text(label)
-						])),
+							$elm$html$Html$Attributes$class('inline-block w-full'),
+							$elm$html$Html$Attributes$min('0'),
+							$elm$html$Html$Attributes$max('100'),
+							$elm$html$Html$Attributes$value(
+							$elm$core$String$fromFloat(prob * 100))
+						]),
+					_List_Nil),
 					A2(
-					$elm$html$Html$span,
-					_List_Nil,
+					$elm$html$Html$div,
 					_List_fromArray(
 						[
-							$elm$html$Html$text(
-							$elm$core$String$fromFloat(score))
+							$elm$html$Html$Attributes$class('flex justify-between')
+						]),
+					_List_fromArray(
+						[
+							A2(
+							$elm$html$Html$span,
+							_List_fromArray(
+								[
+									$elm$html$Html$Attributes$class('text-gray-700')
+								]),
+							_List_fromArray(
+								[
+									$elm$html$Html$text(
+									$author$project$Classification$viewClass(target))
+								])),
+							A2(
+							$elm$html$Html$span,
+							_List_fromArray(
+								[
+									$elm$html$Html$Attributes$class('text-gray-900')
+								]),
+							_List_fromArray(
+								[
+									$elm$html$Html$text(
+									$elm$core$String$fromInt(
+										$elm$core$Basics$round(prob * 100)) + '%')
+								]))
 						]))
 				]));
 	});
-var $author$project$Classification$viewPreds = function (preds) {
-	var top5 = A2(
-		$elm$core$List$take,
-		5,
-		$elm$core$List$reverse(
-			A2(
-				$elm$core$List$sortBy,
-				$elm$core$Tuple$second,
-				$elm$core$Dict$toList(preds))));
-	return A2(
-		$elm$html$Html$div,
-		_List_Nil,
-		A2(
-			$elm$core$List$map,
-			$author$project$Classification$uncurry($author$project$Classification$viewPred),
-			top5));
-};
+var $author$project$Classification$viewProbs = F3(
+	function (title, callToAction, loadingProbs) {
+		var content = function () {
+			switch (loadingProbs.$) {
+				case 'Initial':
+					return A2(
+						$elm$html$Html$p,
+						_List_fromArray(
+							[
+								$elm$html$Html$Attributes$class('italic text-gray-600')
+							]),
+						_List_fromArray(
+							[
+								$elm$html$Html$text(callToAction)
+							]));
+				case 'Loading':
+					return A2(
+						$elm$html$Html$p,
+						_List_Nil,
+						_List_fromArray(
+							[
+								$elm$html$Html$text('Loading...')
+							]));
+				case 'Loaded':
+					var probs = loadingProbs.a;
+					var top = A2(
+						$elm$core$List$take,
+						6,
+						$elm$core$List$reverse(
+							A2(
+								$elm$core$List$sortBy,
+								$elm$core$Tuple$second,
+								A2($elm$core$List$indexedMap, $elm$core$Tuple$pair, probs))));
+					return A2(
+						$elm$html$Html$div,
+						_List_Nil,
+						A2(
+							$elm$core$List$map,
+							$author$project$Classification$uncurry($author$project$Classification$viewProb),
+							top));
+				default:
+					var err = loadingProbs.a;
+					return $author$project$Classification$viewErr(err);
+			}
+		}();
+		return A2(
+			$elm$html$Html$div,
+			_List_fromArray(
+				[
+					$elm$html$Html$Attributes$class('pt-1 md:pt-2 lg:pt-4 flex-1')
+				]),
+			_List_fromArray(
+				[
+					A2(
+					$elm$html$Html$h3,
+					_List_fromArray(
+						[
+							$elm$html$Html$Attributes$class('font-bold text-gray-800')
+						]),
+					_List_fromArray(
+						[
+							$elm$html$Html$text(title)
+						])),
+					content
+				]));
+	});
 var $elm$core$Maybe$map = F2(
 	function (f, maybe) {
 		if (maybe.$ === 'Just') {
@@ -12261,18 +13563,8 @@ var $author$project$Classification$SetSlider = F2(
 	function (a, b) {
 		return {$: 'SetSlider', a: a, b: b};
 	});
-var $author$project$Classification$viewImage = function (url) {
-	return A2(
-		$elm$html$Html$img,
-		_List_fromArray(
-			[
-				$elm$html$Html$Attributes$src(url),
-				$elm$html$Html$Attributes$class('max-w-36 h-auto')
-			]),
-		_List_Nil);
-};
-var $author$project$Classification$viewSaeLatentExamples = F2(
-	function (latent, value) {
+var $author$project$Classification$viewSaeExample = F2(
+	function (example, value) {
 		return A2(
 			$elm$html$Html$div,
 			_List_fromArray(
@@ -12280,7 +13572,7 @@ var $author$project$Classification$viewSaeLatentExamples = F2(
 					$elm$html$Html$Attributes$class('flex flex-row gap-2 mt-2')
 				]),
 			_Utils_ap(
-				A2($elm$core$List$map, $author$project$Classification$viewImage, latent.urls),
+				A2($elm$core$List$map, $author$project$Classification$viewImage, example.urls),
 				_List_fromArray(
 					[
 						A2(
@@ -12296,12 +13588,12 @@ var $author$project$Classification$viewSaeLatentExamples = F2(
 								_List_fromArray(
 									[
 										$elm$html$Html$Attributes$type_('range'),
-										$elm$html$Html$Attributes$min('-10'),
-										$elm$html$Html$Attributes$max('10'),
+										$elm$html$Html$Attributes$min('-20'),
+										$elm$html$Html$Attributes$max('20'),
 										$elm$html$Html$Attributes$value(
 										$elm$core$String$fromFloat(value)),
 										$elm$html$Html$Events$onInput(
-										$author$project$Classification$SetSlider(latent.latent))
+										$author$project$Classification$SetSlider(example.latent))
 									]),
 								_List_Nil),
 								A2(
@@ -12310,126 +13602,181 @@ var $author$project$Classification$viewSaeLatentExamples = F2(
 								_List_fromArray(
 									[
 										$elm$html$Html$text(
-										'Latent 24K/' + ($elm$core$String$fromInt(latent.latent) + (': ' + $elm$core$String$fromFloat(value))))
+										'Latent 24K/' + ($elm$core$String$fromInt(example.latent) + (': ' + $elm$core$String$fromFloat(value))))
 									]))
 							]))
 					])));
 	});
-var $author$project$Classification$viewSaeExamples = F3(
-	function (selected, latents, values) {
-		return ($elm$core$List$length(latents) > 0) ? A2(
-			$elm$html$Html$div,
-			_List_Nil,
-			_Utils_ap(
-				_List_fromArray(
-					[
-						A2(
-						$elm$html$Html$p,
-						_List_Nil,
+var $author$project$Classification$viewSaeExamples = F2(
+	function (examplesLoading, values) {
+		switch (examplesLoading.$) {
+			case 'Initial':
+				return A2(
+					$elm$html$Html$p,
+					_List_fromArray(
+						[
+							$elm$html$Html$Attributes$class('italic text-gray-600')
+						]),
+					_List_fromArray(
+						[
+							$elm$html$Html$text('Click on the image above to find similar image patches using a sparse autoencoder (SAE).')
+						]));
+			case 'Loading':
+				return A2(
+					$elm$html$Html$p,
+					_List_Nil,
+					_List_fromArray(
+						[
+							$elm$html$Html$text('Loading similar patches...')
+						]));
+			case 'Loaded':
+				var examples = examplesLoading.a;
+				return A2(
+					$elm$html$Html$div,
+					_List_fromArray(
+						[
+							$elm$html$Html$Attributes$class('p-1 md:px-2 lg:px-4')
+						]),
+					_Utils_ap(
 						_List_fromArray(
 							[
 								A2(
-								$elm$html$Html$span,
+								$elm$html$Html$h3,
 								_List_fromArray(
 									[
-										$elm$html$Html$Attributes$class('bg-rose-600 p-1 rounded')
+										$elm$html$Html$Attributes$class('font-bold')
 									]),
 								_List_fromArray(
 									[
-										$elm$html$Html$text('These patches')
+										$elm$html$Html$text('Similar Examples')
 									])),
-								$elm$html$Html$text(' above are like '),
 								A2(
-								$elm$html$Html$span,
+								$elm$html$Html$p,
+								_List_Nil,
 								_List_fromArray(
 									[
-										$elm$html$Html$Attributes$class('bg-rose-600 text-white p-1 rounded')
-									]),
-								_List_fromArray(
-									[
-										$elm$html$Html$text('these patches')
-									])),
-								$elm$html$Html$text(' below. (Not what you expected? Add more patches and get a larger '),
-								A2(
-								$elm$html$Html$a,
-								_List_fromArray(
-									[
-										$elm$html$Html$Attributes$href('https://simple.wikipedia.org/wiki/Sampling_(statistics)'),
-										$elm$html$Html$Attributes$class('text-blue-500 underline')
-									]),
-								_List_fromArray(
-									[
-										$elm$html$Html$text('sample size')
-									])),
-								$elm$html$Html$text(')')
-							]))
-					]),
-				A2(
-					$elm$core$List$filterMap,
-					function (latent) {
-						return A2(
-							$elm$core$Maybe$map,
-							function (f) {
-								return A2($author$project$Classification$viewSaeLatentExamples, latent, f);
+										A2(
+										$elm$html$Html$span,
+										_List_fromArray(
+											[
+												$elm$html$Html$Attributes$class('bg-rose-600 text-white p-1 rounded')
+											]),
+										_List_fromArray(
+											[
+												$elm$html$Html$text('These patches')
+											])),
+										$elm$html$Html$text(' above are like '),
+										A2(
+										$elm$html$Html$span,
+										_List_fromArray(
+											[
+												$elm$html$Html$Attributes$class('bg-rose-600 text-white p-1 rounded')
+											]),
+										_List_fromArray(
+											[
+												$elm$html$Html$text('these patches')
+											])),
+										$elm$html$Html$text(' below. (Not what you expected? Add more patches and get a larger '),
+										A2(
+										$elm$html$Html$a,
+										_List_fromArray(
+											[
+												$elm$html$Html$Attributes$href('https://simple.wikipedia.org/wiki/Sampling_(statistics)'),
+												$elm$html$Html$Attributes$class('text-blue-500 underline')
+											]),
+										_List_fromArray(
+											[
+												$elm$html$Html$text('sample size')
+											])),
+										$elm$html$Html$text(')')
+									]))
+							]),
+						A2(
+							$elm$core$List$filterMap,
+							function (example) {
+								return A2(
+									$elm$core$Maybe$map,
+									function (f) {
+										return A2($author$project$Classification$viewSaeExample, example, f);
+									},
+									A2($elm$core$Dict$get, example.latent, values));
 							},
-							A2($elm$core$Dict$get, latent.latent, values));
-					},
-					latents))) : (($elm$core$Set$size(selected) > 0) ? A2(
-			$elm$html$Html$p,
-			_List_Nil,
-			_List_fromArray(
-				[
-					$elm$html$Html$text('Loading similar patches...')
-				])) : A2(
-			$elm$html$Html$p,
-			_List_Nil,
-			_List_fromArray(
-				[
-					$elm$html$Html$text('Click on the image above to explain model predictions.')
-				])));
+							examples)));
+			default:
+				var err = examplesLoading.a;
+				return $author$project$Classification$viewErr(err);
+		}
 	});
 var $author$project$Classification$view = function (model) {
+	var callToAction = function () {
+		var _v0 = model.saeExamples;
+		if (_v0.$ === 'Loaded') {
+			return 'Drag one or more sliders below.';
+		} else {
+			return '';
+		}
+	}();
 	return {
 		body: _List_fromArray(
 			[
 				A2($elm$html$Html$header, _List_Nil, _List_Nil),
 				A2(
 				$elm$html$Html$main_,
-				_List_Nil,
+				_List_fromArray(
+					[
+						$elm$html$Html$Attributes$class('w-full min-h-screen p-1 md:p-2 lg:p-4 bg-gray-50 space-y-4')
+					]),
 				_List_fromArray(
 					[
 						A2(
 						$elm$html$Html$div,
 						_List_fromArray(
 							[
-								$elm$html$Html$Attributes$class('flex flex-row items-center')
+								$elm$html$Html$Attributes$class('border border-gray-200 bg-white rounded-lg p-4 space-y-4')
 							]),
 						_List_fromArray(
 							[
-								A4($author$project$Classification$viewGriddedImage, model.hoveredPatchIndex, model.selectedPatchIndices, model.imageUrl, 'Input Image'),
-								$author$project$Classification$viewPreds(model.preds),
-								$author$project$Classification$viewPreds(model.modified)
-							])),
-						A2(
-						$elm$html$Html$div,
-						_List_fromArray(
-							[
-								A2($elm$html$Html$Attributes$style, 'display', 'flex'),
-								A2($elm$html$Html$Attributes$style, 'flex-direction', 'row')
-							]),
-						_List_fromArray(
-							[
-								A3($author$project$Classification$viewSaeExamples, model.selectedPatchIndices, model.saeLatents, model.sliders)
-							])),
-						$author$project$Classification$viewErr(model.err)
+								A2(
+								$elm$html$Html$div,
+								_List_fromArray(
+									[
+										$elm$html$Html$Attributes$class('flex flex-row gap-2 items-stretch')
+									]),
+								_List_fromArray(
+									[
+										$author$project$Classification$viewInputExample(model),
+										A3($author$project$Classification$viewProbs, 'Prediction', 'Wait just a second.', model.originalPredictions),
+										A3($author$project$Classification$viewProbs, 'After Modification', callToAction, model.modifiedPredictions)
+									])),
+								A2(
+								$elm$html$Html$div,
+								_List_fromArray(
+									[
+										$elm$html$Html$Attributes$class('border-t border-gray-200')
+									]),
+								_List_Nil),
+								A2(
+								$elm$html$Html$div,
+								_List_fromArray(
+									[
+										$elm$html$Html$Attributes$class('flex flex-row justify-between')
+									]),
+								_List_fromArray(
+									[
+										A2($author$project$Classification$viewSaeExamples, model.saeExamples, model.sliders),
+										$author$project$Classification$viewClassExamples(model.examinedClass)
+									]))
+							]))
 					]))
 			]),
 		title: 'Image Classification'
 	};
 };
-var $author$project$Classification$main = $elm$browser$Browser$document(
+var $author$project$Classification$main = $elm$browser$Browser$application(
 	{
 		init: $author$project$Classification$init,
+		onUrlChange: $author$project$Classification$onUrlChange,
+		onUrlRequest: $author$project$Classification$onUrlRequest,
 		subscriptions: function (model) {
 			return $elm$core$Platform$Sub$none;
 		},
@@ -12437,4 +13784,4 @@ var $author$project$Classification$main = $elm$browser$Browser$document(
 		view: $author$project$Classification$view
 	});
 _Platform_export({'Classification':{'init':$author$project$Classification$main(
-	$elm$json$Json$Decode$succeed(_Utils_Tuple0))({"versions":{"elm":"0.19.1"},"types":{"message":"Classification.Msg","aliases":{},"unions":{"Classification.Msg":{"args":[],"tags":{"HoverPatch":["Basics.Int"],"ResetHoveredPatch":[],"ToggleSelectedPatch":["Basics.Int"],"GotImageUrl":["Result.Result Gradio.Error (Maybe.Maybe String.String)"],"GotPred":["Result.Result Gradio.Error (Dict.Dict String.String Basics.Float)"],"GotModified":["Result.Result Gradio.Error (Dict.Dict String.String Basics.Float)"],"GotSaeExamples":["Result.Result Gradio.Error (List.List Classification.SaeExampleResult)"],"SetSlider":["Basics.Int","String.String"]}},"Dict.Dict":{"args":["k","v"],"tags":{"RBNode_elm_builtin":["Dict.NColor","k","v","Dict.Dict k v","Dict.Dict k v"],"RBEmpty_elm_builtin":[]}},"Gradio.Error":{"args":[],"tags":{"NetworkError":["String.String"],"ParsingError":["String.String"],"JsonError":["String.String"],"ApiError":["String.String"]}},"Basics.Float":{"args":[],"tags":{"Float":[]}},"Basics.Int":{"args":[],"tags":{"Int":[]}},"List.List":{"args":["a"],"tags":{}},"Maybe.Maybe":{"args":["a"],"tags":{"Just":["a"],"Nothing":[]}},"Result.Result":{"args":["error","value"],"tags":{"Ok":["value"],"Err":["error"]}},"Classification.SaeExampleResult":{"args":[],"tags":{"SaeExampleMissing":[],"SaeExampleUrl":["String.String"],"SaeExampleLatent":["Basics.Int"]}},"String.String":{"args":[],"tags":{"String":[]}},"Dict.NColor":{"args":[],"tags":{"Red":[],"Black":[]}}}}})}});}(this));
+	$elm$json$Json$Decode$succeed(_Utils_Tuple0))({"versions":{"elm":"0.19.1"},"types":{"message":"Classification.Msg","aliases":{"Classification.Example":{"args":[],"type":"{ url : String.String, class : Basics.Int }"}},"unions":{"Classification.Msg":{"args":[],"tags":{"NoOp":[],"SetUrl":["Basics.Int"],"SetExample":["Basics.Int"],"GetRandomExample":[],"HoverPatch":["Basics.Int"],"ResetHoveredPatch":[],"ToggleSelectedPatch":["Basics.Int"],"SetSlider":["Basics.Int","String.String"],"ExamineClass":["Basics.Int"],"GotInputExample":["Requests.Id","Result.Result Gradio.Error Classification.Example"],"GotOriginalPredictions":["Requests.Id","Result.Result Gradio.Error (List.List Basics.Float)"],"GotModifiedPredictions":["Requests.Id","Result.Result Gradio.Error (List.List Basics.Float)"],"GotSaeExamples":["Requests.Id","Result.Result Gradio.Error (List.List Classification.SaeExampleResult)"],"GotClassExample":["Requests.Id","Result.Result Gradio.Error Classification.Example"]}},"Gradio.Error":{"args":[],"tags":{"NetworkError":["String.String"],"ParsingError":["String.String"],"JsonError":["String.String"],"ApiError":["String.String"]}},"Basics.Float":{"args":[],"tags":{"Float":[]}},"Requests.Id":{"args":[],"tags":{"Id":["Basics.Int"]}},"Basics.Int":{"args":[],"tags":{"Int":[]}},"List.List":{"args":["a"],"tags":{}},"Result.Result":{"args":["error","value"],"tags":{"Ok":["value"],"Err":["error"]}},"Classification.SaeExampleResult":{"args":[],"tags":{"SaeExampleMissing":[],"SaeExampleUrl":["String.String"],"SaeExampleLatent":["Basics.Int"]}},"String.String":{"args":[],"tags":{"String":[]}}}}})}});}(this));
