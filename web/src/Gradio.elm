@@ -1,14 +1,15 @@
-module Gradio exposing (Error(..), get, decodeOne)
+module Gradio exposing (Config, Error(..), decodeOne, get)
 
 import Http
 import Json.Decode as D
 import Json.Encode as E
 import Parser exposing ((|.), (|=))
 import Task
+import Url.Builder
 
 
-origin =
-    "http://127.0.0.1:7860/gradio_api/call/"
+type alias Config =
+    { host : String }
 
 
 type Error
@@ -18,19 +19,22 @@ type Error
     | ApiError String
 
 
-get : String -> List E.Value -> D.Decoder a -> (Result Error a -> msg) -> Cmd msg
-get path args decoder msg =
-    start path args
-        |> Task.andThen (finish path decoder)
+get : Config -> String -> List E.Value -> D.Decoder a -> (Result Error a -> msg) -> Cmd msg
+get cfg path args decoder msg =
+    start cfg path args
+        |> Task.andThen (finish cfg path decoder)
         |> Task.attempt msg
 
 
-start : String -> List E.Value -> Task.Task Error String
-start path args =
+start : Config -> String -> List E.Value -> Task.Task Error String
+start cfg path args =
     Http.task
         { method = "POST"
         , headers = []
-        , url = origin ++ path
+        , url =
+            Url.Builder.crossOrigin cfg.host
+                [ "gradio_api", "call", path ]
+                []
         , body = Http.jsonBody (encodeArgs args)
         , resolver =
             Http.stringResolver
@@ -41,12 +45,15 @@ start path args =
         }
 
 
-finish : String -> D.Decoder a -> String -> Task.Task Error a
-finish path decoder id =
+finish : Config -> String -> D.Decoder a -> String -> Task.Task Error a
+finish cfg path decoder eventId =
     Http.task
         { method = "GET"
         , headers = []
-        , url = origin ++ path ++ "/" ++ id
+        , url =
+            Url.Builder.crossOrigin cfg.host
+                [ "gradio_api", "call", path, eventId ]
+                []
         , body = Http.emptyBody
         , resolver =
             Http.stringResolver
@@ -84,7 +91,7 @@ httpResolver response =
 
 parsingResolver : String -> Result Error String
 parsingResolver raw =
-    Parser.run eventDataParser raw
+    Parser.run eventParser (Debug.log "raw response" raw)
         |> Result.mapError (deadEndsToString >> ParsingError)
 
 
@@ -101,70 +108,55 @@ encodeArgs args =
 
 decodeOne : D.Decoder a -> D.Decoder a
 decodeOne decoder =
-    (D.list decoder
+    D.list decoder
         |> D.map List.head
         |> D.andThen decodeOneHelper
-    )
+
 
 decodeOneHelper : Maybe a -> D.Decoder a
 decodeOneHelper maybe =
-    case maybe of 
-        Just something -> 
-            D.succeed something 
+    case maybe of
+        Just something ->
+            D.succeed something
 
         Nothing ->
             D.fail "No result"
-            
+
+
 
 -- PARSER
 
 
-consumeDataLine : Parser.Parser ()
-consumeDataLine =
-    Parser.succeed ()
-        |. Parser.keyword "data"
-        |. Parser.symbol ":"
-        |. Parser.spaces
-        |. Parser.chompUntilEndOr "\n"
-        |. Parser.spaces
+eventParser : Parser.Parser String
+eventParser =
+    Parser.loop () eventParserHelper
 
 
-eventDataParser : Parser.Parser String
-eventDataParser =
-    let
-        handleEvent eventType =
-            case eventType of
-                "complete" ->
-                    Parser.succeed identity
-                        |. Parser.keyword "data"
-                        |. Parser.symbol ":"
-                        |. Parser.spaces
-                        |= restParser
-                        |. Parser.spaces
-                        |. Parser.end
-
-                "heartbeat" ->
-                    Parser.succeed ()
-                        |. consumeDataLine
-                        |. eventDataParser
-
-                "generating" ->
-                    Parser.succeed ()
-                        |. consumeDataLine
-                        |. eventDataParser
-
-                "error" ->
-                    Parser.problem "Received error event"
-
-                _ ->
-                    Parser.problem ("Unknown event type: " ++ eventType)
-    in
+eventParserHelper : () -> Parser.Parser (Parser.Step () String)
+eventParserHelper _ =
     Parser.succeed identity
         |. Parser.keyword "event"
         |. Parser.symbol ":"
         |. Parser.spaces
-        |= (Parser.getChompedString (Parser.chompWhile (\c -> c /= '\n'))
-                |> Parser.andThen handleEvent)
+        |= Parser.oneOf
+            [ Parser.succeed (Parser.Loop ())
+                |. Parser.keyword "heartbeat"
+                |. Parser.spaces
+                |. Parser.keyword "data"
+                |. Parser.symbol ":"
+                |. Parser.spaces
+                |. Parser.keyword "null"
+                |. Parser.spaces
+            , Parser.succeed (\rest -> Parser.Done rest)
+                |. Parser.keyword "complete"
+                |. Parser.spaces
+                |. Parser.keyword "data"
+                |. Parser.symbol ":"
+                |. Parser.spaces
+                |= restParser
+                |. Parser.spaces
+                |. Parser.end
+            ]
 
 
 restParser : Parser.Parser String
