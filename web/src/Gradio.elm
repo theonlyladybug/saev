@@ -91,7 +91,7 @@ httpResolver response =
 
 parsingResolver : String -> Result Error String
 parsingResolver raw =
-    Parser.run eventParser (Debug.log "raw response" raw)
+    Parser.run eventParser raw
         |> Result.mapError (deadEndsToString >> ParsingError)
 
 

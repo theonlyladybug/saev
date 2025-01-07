@@ -7328,10 +7328,10 @@ var $author$project$Classification$urlParser = A2(
 	$author$project$Classification$QueryParams,
 	A2(
 		$elm$url$Url$Parser$slash,
-		$elm$url$Url$Parser$s('web'),
+		$elm$url$Url$Parser$s('saev'),
 		A2(
 			$elm$url$Url$Parser$slash,
-			$elm$url$Url$Parser$s('apps'),
+			$elm$url$Url$Parser$s('webapps'),
 			A2(
 				$elm$url$Url$Parser$questionMark,
 				$elm$url$Url$Parser$s('classification'),
