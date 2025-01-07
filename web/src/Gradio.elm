@@ -1,4 +1,4 @@
-module Gradio exposing (Error(..), get)
+module Gradio exposing (Error(..), get, decodeOne)
 
 import Http
 import Json.Decode as D
@@ -99,6 +99,22 @@ encodeArgs args =
     E.object [ ( "data", E.list identity args ) ]
 
 
+decodeOne : D.Decoder a -> D.Decoder a
+decodeOne decoder =
+    (D.list decoder
+        |> D.map List.head
+        |> D.andThen decodeOneHelper
+    )
+
+decodeOneHelper : Maybe a -> D.Decoder a
+decodeOneHelper maybe =
+    case maybe of 
+        Just something -> 
+            D.succeed something 
+
+        Nothing ->
+            D.fail "No result"
+            
 
 -- PARSER
 
@@ -109,6 +125,7 @@ eventDataParser =
         |. Parser.keyword "event"
         |. Parser.symbol ":"
         |. Parser.spaces
+        -- If this keyword is "complete", continue with the existing parser. If it is "heartbeat", consume a "data: ...", and continue looking for one of the keywords. If it is "generating", consume a "data: ..." and continue looking for keywords. If it is "error" then the parse should fail. AI!
         |. Parser.keyword "complete"
         |. Parser.spaces
         |. Parser.keyword "data"
