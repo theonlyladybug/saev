@@ -29,6 +29,8 @@ class ImagenetDataset:
     """Dataset name on HuggingFace. Don't need to change this.."""
     split: str = "train"
     """Dataset split. For the default ImageNet-1K dataset, can either be 'train', 'validation' or 'test'."""
+    cache_dir: str = "/media/data/yiran/hf_cache"
+    """cache dir for imagenet data to load from"""
 
     @property
     def n_imgs(self) -> int:
@@ -36,7 +38,7 @@ class ImagenetDataset:
         import datasets
 
         dataset = datasets.load_dataset(
-            self.name, split=self.split, trust_remote_code=True
+            self.name, split=self.split, cache_dir=self.cache_dir, trust_remote_code=True
         )
         return len(dataset)
 
@@ -94,6 +96,8 @@ class Activations:
     """Which model family."""
     model_ckpt: str = "ViT-L-14/openai"
     """Specific model checkpoint."""
+    cache_dir: str = "/media/data/yiran/hf_cache/hubs"
+    """Specific cache directory to store model and data caches"""
     vit_batch_size: int = 1024
     """Batch size for ViT inference."""
     n_workers: int = 8

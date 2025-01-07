@@ -253,24 +253,65 @@ def make_vit(cfg: config.Activations):
         typing.assert_never(cfg.model_family)
 
 
+# @beartype.beartype
+# def make_img_transform(model_family: str, model_ckpt: str) -> Callable:
+#     if model_family == "clip" or model_family == "siglip":
+#         import open_clip
+
+#         if model_ckpt.startswith("hf-hub:"):
+#             _, img_transform = open_clip.create_model_from_pretrained(
+#                 model_ckpt, cache_dir=helpers.get_cache_dir()
+#             )
+#         else:
+#             arch, ckpt = model_ckpt.split("/")
+#             _, img_transform = open_clip.create_model_from_pretrained(
+#                 arch, pretrained=ckpt, cache_dir=helpers.get_cache_dir()
+#             )
+
+#         return img_transform
+
+#     elif model_family == "dinov2":
+#         from torchvision.transforms import v2
+
+#         return v2.Compose([
+#             # TODO: I bet this should be 256, 256, which is causing localization issues in non-square images.
+#             v2.Resize(size=256),
+#             v2.CenterCrop(size=(224, 224)),
+#             v2.ToImage(),
+#             v2.ToDtype(torch.float32, scale=True),
+#             v2.Normalize(mean=[0.4850, 0.4560, 0.4060], std=[0.2290, 0.2240, 0.2250]),
+#         ])
+#     elif model_family == "mae":
+#         from torchvision.transforms import v2
+
+#         # Same values from the official script.
+#         return v2.Compose([
+#             v2.Resize(size=(256, 256)),
+#             v2.CenterCrop(size=(224, 224)),
+#             v2.ToImage(),
+#             v2.ToDtype(torch.float32, scale=True),
+#             v2.Normalize(mean=[0.4850, 0.4560, 0.4060], std=[0.2290, 0.2240, 0.2250]),
+#         ])
+#     else:
+#         typing.assert_never(model_family)
 @beartype.beartype
-def make_img_transform(model_family: str, model_ckpt: str) -> Callable:
-    if model_family == "clip" or model_family == "siglip":
+def make_img_transform(cfg: config.Activations) -> Callable:
+    if cfg.model_family == "clip" or cfg.model_family == "siglip":
         import open_clip
 
-        if model_ckpt.startswith("hf-hub:"):
+        if cfg.model_ckpt.startswith("hf-hub:"):
             _, img_transform = open_clip.create_model_from_pretrained(
-                model_ckpt, cache_dir=helpers.get_cache_dir()
+                cfg.model_ckpt, cache_dir=cfg.cache_dir
             )
         else:
-            arch, ckpt = model_ckpt.split("/")
+            arch, ckpt = cfg.model_ckpt.split("/")
             _, img_transform = open_clip.create_model_from_pretrained(
-                arch, pretrained=ckpt, cache_dir=helpers.get_cache_dir()
+                arch, pretrained=ckpt, cache_dir=cfg.cache_dir
             )
 
         return img_transform
 
-    elif model_family == "dinov2":
+    elif cfg.model_family == "dinov2":
         from torchvision.transforms import v2
 
         return v2.Compose([
@@ -281,7 +322,7 @@ def make_img_transform(model_family: str, model_ckpt: str) -> Callable:
             v2.ToDtype(torch.float32, scale=True),
             v2.Normalize(mean=[0.4850, 0.4560, 0.4060], std=[0.2290, 0.2240, 0.2250]),
         ])
-    elif model_family == "mae":
+    elif cfg.model_family == "mae":
         from torchvision.transforms import v2
 
         # Same values from the official script.
@@ -293,7 +334,7 @@ def make_img_transform(model_family: str, model_ckpt: str) -> Callable:
             v2.Normalize(mean=[0.4850, 0.4560, 0.4060], std=[0.2290, 0.2240, 0.2250]),
         ])
     else:
-        typing.assert_never(model_family)
+        typing.assert_never(cfg.model_family)
 
 
 ###############
@@ -648,10 +689,13 @@ class Imagenet(torch.utils.data.Dataset):
     def __init__(self, cfg: config.ImagenetDataset, *, img_transform=None):
         import datasets
 
-        self.hf_dataset = datasets.load_dataset(
-            cfg.name, split=cfg.split, trust_remote_code=True
-        )
+        # self.hf_dataset = datasets.load_dataset(
+        #     cfg.name, split=cfg.split, trust_remote_code=True
+        # )
 
+        self.hf_dataset = datasets.load_dataset(
+            cfg.name, split=cfg.split, cache_dir=cfg.cache_dir, trust_remote_code=True
+        )
         self.img_transform = img_transform
         self.labels = self.hf_dataset.info.features["label"].names
 
@@ -861,7 +905,8 @@ def worker_fn(cfg: config.Activations):
     logger = logging.getLogger("dump")
 
     vit = WrappedVisionTransformer(cfg)
-    img_transform = make_img_transform(cfg.model_family, cfg.model_ckpt)
+    # img_transform = make_img_transform(cfg.model_family, cfg.model_ckpt)
+    img_transform = make_img_transform(cfg)
     dataloader = get_dataloader(cfg, img_transform=img_transform)
 
     writer = ShardWriter(cfg)

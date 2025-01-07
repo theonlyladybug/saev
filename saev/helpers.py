@@ -8,6 +8,7 @@ import time
 
 import beartype
 
+# from . import config
 
 @beartype.beartype
 def get_cache_dir() -> str:
