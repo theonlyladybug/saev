@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
 <meta name="generator" content="pdoc3 0.11.3">
-<title>contrib.semseg.dashboard API documentation</title>
-<meta name="description" content="">
+<title>contrib.semseg.manipulation API documentation</title>
+<meta name="description" content="Manipulate representations by increasing or decreasing the presence of a feature in a ViT activation, then use the linear probe for inference …">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/sanitize.min.css" integrity="sha512-y1dtMcuvtTMJc1yPgEqF0ZjQbhnc/bFhyvIyVNb9Zk5mIGtqVaAB1Ttl28su8AvFMOY0EwRbAe+HCLqj6W7/KA==" crossorigin>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/typography.min.css" integrity="sha512-Y1DYSb995BAfxobCkKepB1BqJJTPrOp3zPL74AWFugHHmmdcvO+C48WLrUOlhGMc0QG7AE3f7gmvvcrmX2fDoA==" crossorigin>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css" crossorigin>
@@ -24,15 +24,32 @@ hljs.highlightAll();
 <main>
 <article id="content">
 <header>
-<h1 class="title">Module <code>contrib.semseg.dashboard</code></h1>
+<h1 class="title">Module <code>contrib.semseg.manipulation</code></h1>
 </header>
 <section id="section-intro">
+<p>Manipulate representations by increasing or decreasing the presence of a feature in a ViT activation, then use the linear probe for inference.</p>
+<p>Record class-specific scores before and after manipulation to see that you can directly manipulate abilities to complete downstream tasks.</p>
 </section>
 <section>
 </section>
 <section>
 </section>
 <section>
+<h2 class="section-title" id="header-functions">Functions</h2>
+<dl>
+<dt id="contrib.semseg.manipulation.main"><code class="name flex">
+<span>def <span class="ident">main</span></span>(<span>cfg: <a title="contrib.semseg.config.Manipulation" href="config.html#contrib.semseg.config.Manipulation">Manipulation</a>)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="contrib.semseg.manipulation.manipulate"><code class="name flex">
+<span>def <span class="ident">manipulate</span></span>(<span>cfg: <a title="contrib.semseg.config.Manipulation" href="config.html#contrib.semseg.config.Manipulation">Manipulation</a>,<br>sae: <a title="saev.nn.SparseAutoencoder" href="../../saev/nn.html#saev.nn.SparseAutoencoder">SparseAutoencoder</a>,<br>acts_BWHD: jaxtyping.Float[Tensor, 'batch width height d_vit']) ‑> tuple[jaxtyping.Float[Tensor, 'batch width height d_vit'], jaxtyping.Float[Tensor, 'batch width height d_vit']]</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
 </section>
 <section>
 </section>
@@ -45,6 +62,12 @@ hljs.highlightAll();
 <li><h3>Super-module</h3>
 <ul>
 <li><code><a title="contrib.semseg" href="index.html">contrib.semseg</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-functions">Functions</a></h3>
+<ul class="">
+<li><code><a title="contrib.semseg.manipulation.main" href="#contrib.semseg.manipulation.main">main</a></code></li>
+<li><code><a title="contrib.semseg.manipulation.manipulate" href="#contrib.semseg.manipulation.manipulate">manipulate</a></code></li>
 </ul>
 </li>
 </ul>

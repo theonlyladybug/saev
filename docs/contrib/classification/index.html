@@ -123,14 +123,15 @@ If you do, the most likley classification is a lotus, which is popular in Japane
 <p>Only once you turn up the SAE feature that fires strongly on potted plants does the classification change to bonsai (which are typically potted).</p>
 <p><img alt="A sunflower changed to &quot;bonsai&quot;." src="/saev/assets/contrib/classification/bonsai.png"></p>
 <p>I encourage you to look at other test images and manipulate the predictions!</p>
+<h2 id="make-figures">Make Figures</h2>
+<pre><code class="language-sh">uv run scripts/preprint/make_figures.py classification \
+  --probs-before &quot;Blue Jay&quot; 0.49 &quot;Clark\nNutcracker&quot; 0.15 &quot;White-Breasted\nNuthatch&quot; 0.11 &quot;Florida\nJay&quot; 0.07 \
+  --probs-after &quot;Clark\nNutcracker&quot; 0.31 &quot;White-Breasted\nNuthatch&quot; 0.19 &quot;Great Grey\nShrike&quot; 0.11 &quot;Blue Jay&quot; 0.10
+</code></pre>
 </section>
 <section>
 <h2 class="section-title" id="header-submodules">Sub-modules</h2>
 <dl>
-<dt><code class="name"><a title="contrib.classification.app" href="app.html">contrib.classification.app</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
 <dt><code class="name"><a title="contrib.classification.config" href="config.html">contrib.classification.config</a></code></dt>
 <dd>
 <div class="desc"></div>
@@ -177,6 +178,7 @@ If you do, the most likley classification is a lotus, which is popular in Japane
 <li><a href="#visualize-the-sae-features">Visualize the SAE Features</a></li>
 <li><a href="#record-cub-200-2011-activations">Record CUB-200-2011 Activations</a></li>
 <li><a href="#train-a-linear-probe">Train a Linear Probe</a></li>
+<li><a href="#make-figures">Make Figures</a></li>
 </ul>
 </li>
 </ul>
@@ -189,7 +191,6 @@ If you do, the most likley classification is a lotus, which is popular in Japane
 </li>
 <li><h3><a href="#header-submodules">Sub-modules</a></h3>
 <ul>
-<li><code><a title="contrib.classification.app" href="app.html">contrib.classification.app</a></code></li>
 <li><code><a title="contrib.classification.config" href="config.html">contrib.classification.config</a></code></li>
 <li><code><a title="contrib.classification.download_caltech101" href="download_caltech101.html">contrib.classification.download_caltech101</a></code></li>
 <li><code><a title="contrib.classification.download_cub" href="download_cub.html">contrib.classification.download_cub</a></code></li>

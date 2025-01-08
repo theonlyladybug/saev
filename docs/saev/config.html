@@ -61,7 +61,7 @@ Might be expanded in the future to support pseudo-random sampling from distribut
 <dl>
 <dt id="saev.config.Activations"><code class="flex name class">
 <span>class <span class="ident">Activations</span></span>
-<span>(</span><span>data: <a title="saev.config.ImagenetDataset" href="#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.ImageFolderDataset" href="#saev.config.ImageFolderDataset">ImageFolderDataset</a> | <a title="saev.config.Ade20kDataset" href="#saev.config.Ade20kDataset">Ade20kDataset</a> = &lt;factory&gt;,<br>dump_to: str = './shards',<br>model_family: Literal['clip', 'siglip', 'dinov2', 'mae'] = 'clip',<br>model_ckpt: str = 'ViT-L-14/openai',<br>vit_batch_size: int = 1024,<br>n_workers: int = 8,<br>d_vit: int = 1024,<br>layers: list[int] = &lt;factory&gt;,<br>n_patches_per_img: int = 256,<br>cls_token: bool = True,<br>n_patches_per_shard: int = 2400000,<br>seed: int = 42,<br>ssl: bool = True,<br>device: str = 'cuda',<br>slurm: bool = False,<br>slurm_acct: str = 'PAS2136',<br>log_to: str = './logs')</span>
+<span>(</span><span>data: <a title="saev.config.ImagenetDataset" href="#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.ImageFolderDataset" href="#saev.config.ImageFolderDataset">ImageFolderDataset</a> | <a title="saev.config.Ade20kDataset" href="#saev.config.Ade20kDataset">Ade20kDataset</a> = &lt;factory&gt;,<br>dump_to: str = './shards',<br>model_family: Literal['clip', 'siglip', 'dinov2', 'moondream2'] = 'clip',<br>model_ckpt: str = 'ViT-L-14/openai',<br>vit_batch_size: int = 1024,<br>n_workers: int = 8,<br>d_vit: int = 1024,<br>layers: list[int] = &lt;factory&gt;,<br>n_patches_per_img: int = 256,<br>cls_token: bool = True,<br>n_patches_per_shard: int = 2400000,<br>seed: int = 42,<br>ssl: bool = True,<br>device: str = 'cuda',<br>slurm: bool = False,<br>slurm_acct: str = 'PAS2136',<br>log_to: str = './logs')</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Configuration for calculating and saving ViT activations.</p></div>
@@ -80,7 +80,7 @@ class Activations:
     &#34;&#34;&#34;Which dataset to use.&#34;&#34;&#34;
     dump_to: str = os.path.join(&#34;.&#34;, &#34;shards&#34;)
     &#34;&#34;&#34;Where to write shards.&#34;&#34;&#34;
-    model_family: typing.Literal[&#34;clip&#34;, &#34;siglip&#34;, &#34;dinov2&#34;, &#34;mae&#34;] = &#34;clip&#34;
+    model_family: typing.Literal[&#34;clip&#34;, &#34;siglip&#34;, &#34;dinov2&#34;, &#34;moondream2&#34;] = &#34;clip&#34;
     &#34;&#34;&#34;Which model family.&#34;&#34;&#34;
     model_ckpt: str = &#34;ViT-L-14/openai&#34;
     &#34;&#34;&#34;Specific model checkpoint.&#34;&#34;&#34;
@@ -148,7 +148,7 @@ class Activations:
 <dd>
 <div class="desc"><p>Specific model checkpoint.</p></div>
 </dd>
-<dt id="saev.config.Activations.model_family"><code class="name">var <span class="ident">model_family</span> : Literal['clip', 'siglip', 'dinov2', 'mae']</code></dt>
+<dt id="saev.config.Activations.model_family"><code class="name">var <span class="ident">model_family</span> : Literal['clip', 'siglip', 'dinov2', 'moondream2']</code></dt>
 <dd>
 <div class="desc"><p>Which model family.</p></div>
 </dd>

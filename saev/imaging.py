@@ -25,13 +25,12 @@ def add_highlights(
     pw_px, ph_px = iw_px // iw_np, ih_px // ih_np
     assert iw_np * ih_np == len(patches)
 
-    # Create a transparent red overlay
+    # Create a transparent overlay
     overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
     draw = ImageDraw.Draw(overlay)
 
     colors = (colormap(patches / (upper + 1e-9))[:, :3] * 256).astype(np.uint8)
 
-    # Using semi-transparent red (255, 0, 0, alpha)
     for p, (val, color) in enumerate(zip(patches, colors)):
         assert upper is not None
         val /= upper + 1e-9

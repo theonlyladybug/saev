@@ -12,3 +12,4 @@ logs/
 tmp/
 .coverage
 saev.egg-info/
+elm-stuff/

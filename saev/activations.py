@@ -217,26 +217,34 @@ class DinoV2(torch.nn.Module):
 
 
 @jaxtyped(typechecker=beartype.beartype)
-class MaskedAutoencoder(torch.nn.Module):
+class Moondream2(torch.nn.Module):
+    """
+    Moondream2 has 14x14 pixel patches. For a 378x378 image (as we use here), this is 27x27 patches for a total of 729, with no [CLS] token.
+    """
+
     def __init__(self, model_ckpt: str):
         super().__init__()
 
-        import contrib.mae
+        import transformers
 
-        self.model = contrib.mae.load_ckpt(model_ckpt)
-        self.model = self.model.vit
+        model_id, revision = model_ckpt.split(":")
 
-    def get_residuals(self) -> list[torch.nn.Module]:
-        return self.model.trunk.blocks
+        mllm = transformers.AutoModelForCausalLM.from_pretrained(
+            model_id, revision=revision, trust_remote_code=True
+        )
+        self.model = mllm.vision_encoder.encoder.model.visual
 
     def get_patches(self, cfg: config.Activations) -> slice:
         return slice(None, None, None)
 
+    def get_residuals(self) -> list[torch.nn.Module]:
+        return self.model.blocks
+
     def forward(
         self, batch: Float[Tensor, "batch 3 width height"]
     ) -> Float[Tensor, "batch patches dim"]:
-        y = self.model(batch)
-        return y
+        features = self.model(batch)
+        return features
 
 
 @beartype.beartype
@@ -247,8 +255,8 @@ def make_vit(cfg: config.Activations):
         return Siglip(cfg.model_ckpt)
     elif cfg.model_family == "dinov2":
         return DinoV2(cfg.model_ckpt)
-    elif cfg.model_family == "mae":
-        return MaskedAutoencoder(cfg.model_ckpt)
+    elif cfg.model_family == "moondream2":
+        return Moondream2(cfg.model_ckpt)
     else:
         typing.assert_never(cfg.model_family)
 
@@ -281,16 +289,16 @@ def make_img_transform(model_family: str, model_ckpt: str) -> Callable:
             v2.ToDtype(torch.float32, scale=True),
             v2.Normalize(mean=[0.4850, 0.4560, 0.4060], std=[0.2290, 0.2240, 0.2250]),
         ])
-    elif model_family == "mae":
+
+    elif model_family == "moondream2":
         from torchvision.transforms import v2
 
-        # Same values from the official script.
+        # Assume fixed image ratio, 378x378
         return v2.Compose([
-            v2.Resize(size=(256, 256)),
-            v2.CenterCrop(size=(224, 224)),
+            v2.Resize(size=(378, 378), interpolation=v2.InterpolationMode.BICUBIC),
             v2.ToImage(),
             v2.ToDtype(torch.float32, scale=True),
-            v2.Normalize(mean=[0.4850, 0.4560, 0.4060], std=[0.2290, 0.2240, 0.2250]),
+            v2.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
         ])
     else:
         typing.assert_never(model_family)

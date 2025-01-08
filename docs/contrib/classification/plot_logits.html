@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
 <meta name="generator" content="pdoc3 0.11.3">
-<title>contrib.semseg.dashboard API documentation</title>
-<meta name="description" content="">
+<title>contrib.classification.plot_logits API documentation</title>
+<meta name="description" content="Generates plots demonstrating SAE feature specificity in image classification …">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/sanitize.min.css" integrity="sha512-y1dtMcuvtTMJc1yPgEqF0ZjQbhnc/bFhyvIyVNb9Zk5mIGtqVaAB1Ttl28su8AvFMOY0EwRbAe+HCLqj6W7/KA==" crossorigin>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/typography.min.css" integrity="sha512-Y1DYSb995BAfxobCkKepB1BqJJTPrOp3zPL74AWFugHHmmdcvO+C48WLrUOlhGMc0QG7AE3f7gmvvcrmX2fDoA==" crossorigin>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css" crossorigin>
@@ -24,9 +24,16 @@ hljs.highlightAll();
 <main>
 <article id="content">
 <header>
-<h1 class="title">Module <code>contrib.semseg.dashboard</code></h1>
+<h1 class="title">Module <code>contrib.classification.plot_logits</code></h1>
 </header>
 <section id="section-intro">
+<p>Generates plots demonstrating SAE feature specificity in image classification.</p>
+<p>This module creates visualizations showing how different feature interventions affect class logits in a controlled manner.
+It plots the relationship between intervention magnitudes and their effects on class predictions, demonstrating that features are semantically meaningful and independent.</p>
+<p>The main plotting function generates a three-panel figure:
+- Left panel: Effect of feature A intervention on classes A, B and C
+- Middle panel: Effect of feature B intervention on classes A, B and C
+- Right panel: Effect of feature C intervention on classes A, B and C</p>
 </section>
 <section>
 </section>
@@ -35,6 +42,70 @@ hljs.highlightAll();
 <section>
 </section>
 <section>
+<h2 class="section-title" id="header-classes">Classes</h2>
+<dl>
+<dt id="contrib.classification.plot_logits.Config"><code class="flex name class">
+<span>class <span class="ident">Config</span></span>
+<span>(</span><span>magnitude_range: tuple[float, float] = (-10.0, 10.0),<br>n_points: int = 50,<br>figsize: tuple[float, float] = (18.0, 5.0),<br>class_colors: dict[str, str] = &lt;factory&gt;,<br>show_confidence: bool = True,<br>dpi: int = 300)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Config(magnitude_range: tuple[float, float] = (-10.0, 10.0), n_points: int = 50, figsize: tuple[float, float] = (18.0, 5.0), class_colors: dict[str, str] = <factory>, show_confidence: bool = True, dpi: int = 300)</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@dataclasses.dataclass(frozen=True)
+class Config:
+    magnitude_range: tuple[float, float] = (-10.0, 10.0)
+    &#34;&#34;&#34;Range for intervention magnitudes, from minimum to maximum value. Usually kept within [-10, 10] following Anthropic&#39;s work. Values outside this range may create artifacts.&#34;&#34;&#34;
+
+    n_points: int = 50
+    &#34;&#34;&#34;Number of evenly spaced points to sample within magnitude range. Higher values create smoother plots but increase computation time.&#34;&#34;&#34;
+
+    figsize: tuple[float, float] = (18.0, 5.0)
+    &#34;&#34;&#34;Figure dimensions in inches (width, height). Default size is optimized for a three-panel figure.&#34;&#34;&#34;
+
+    class_colors: dict[str, str] = dataclasses.field(
+        default_factory=lambda: {
+            &#34;class_a&#34;: &#34;#FF0000&#34;,  # Red
+            &#34;class_b&#34;: &#34;#4169E1&#34;,  # Royal Blue
+        }
+    )
+    &#34;&#34;&#34;Color mapping for different classes. Uses hex color codes for consistency across plotting backends.&#34;&#34;&#34;
+    show_confidence: bool = True
+    &#34;&#34;&#34;Whether to show confidence intervals around trend lines.&#34;&#34;&#34;
+    dpi: int = 300
+    &#34;&#34;&#34;Dots per inch for saved figures. Higher values create larger files but better resolution.&#34;&#34;&#34;</code></pre>
+</details>
+<h3>Class variables</h3>
+<dl>
+<dt id="contrib.classification.plot_logits.Config.class_colors"><code class="name">var <span class="ident">class_colors</span> : dict[str, str]</code></dt>
+<dd>
+<div class="desc"><p>Color mapping for different classes. Uses hex color codes for consistency across plotting backends.</p></div>
+</dd>
+<dt id="contrib.classification.plot_logits.Config.dpi"><code class="name">var <span class="ident">dpi</span> : int</code></dt>
+<dd>
+<div class="desc"><p>Dots per inch for saved figures. Higher values create larger files but better resolution.</p></div>
+</dd>
+<dt id="contrib.classification.plot_logits.Config.figsize"><code class="name">var <span class="ident">figsize</span> : tuple[float, float]</code></dt>
+<dd>
+<div class="desc"><p>Figure dimensions in inches (width, height). Default size is optimized for a three-panel figure.</p></div>
+</dd>
+<dt id="contrib.classification.plot_logits.Config.magnitude_range"><code class="name">var <span class="ident">magnitude_range</span> : tuple[float, float]</code></dt>
+<dd>
+<div class="desc"><p>Range for intervention magnitudes, from minimum to maximum value. Usually kept within [-10, 10] following Anthropic's work. Values outside this range may create artifacts.</p></div>
+</dd>
+<dt id="contrib.classification.plot_logits.Config.n_points"><code class="name">var <span class="ident">n_points</span> : int</code></dt>
+<dd>
+<div class="desc"><p>Number of evenly spaced points to sample within magnitude range. Higher values create smoother plots but increase computation time.</p></div>
+</dd>
+<dt id="contrib.classification.plot_logits.Config.show_confidence"><code class="name">var <span class="ident">show_confidence</span> : bool</code></dt>
+<dd>
+<div class="desc"><p>Whether to show confidence intervals around trend lines.</p></div>
+</dd>
+</dl>
+</dd>
+</dl>
 </section>
 </article>
 <nav id="sidebar">
@@ -44,7 +115,22 @@ hljs.highlightAll();
 <ul id="index">
 <li><h3>Super-module</h3>
 <ul>
-<li><code><a title="contrib.semseg" href="index.html">contrib.semseg</a></code></li>
+<li><code><a title="contrib.classification" href="index.html">contrib.classification</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-classes">Classes</a></h3>
+<ul>
+<li>
+<h4><code><a title="contrib.classification.plot_logits.Config" href="#contrib.classification.plot_logits.Config">Config</a></code></h4>
+<ul class="two-column">
+<li><code><a title="contrib.classification.plot_logits.Config.class_colors" href="#contrib.classification.plot_logits.Config.class_colors">class_colors</a></code></li>
+<li><code><a title="contrib.classification.plot_logits.Config.dpi" href="#contrib.classification.plot_logits.Config.dpi">dpi</a></code></li>
+<li><code><a title="contrib.classification.plot_logits.Config.figsize" href="#contrib.classification.plot_logits.Config.figsize">figsize</a></code></li>
+<li><code><a title="contrib.classification.plot_logits.Config.magnitude_range" href="#contrib.classification.plot_logits.Config.magnitude_range">magnitude_range</a></code></li>
+<li><code><a title="contrib.classification.plot_logits.Config.n_points" href="#contrib.classification.plot_logits.Config.n_points">n_points</a></code></li>
+<li><code><a title="contrib.classification.plot_logits.Config.show_confidence" href="#contrib.classification.plot_logits.Config.show_confidence">show_confidence</a></code></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>

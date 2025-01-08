@@ -41,6 +41,8 @@ default_highlighted_i_semseg = [
     255,
 ]
 
+default_highlighted_i_classification = [63, 64, 77, 78, 79, 93, 94]
+
 
 @beartype.beartype
 def add_highlights(img: Image.Image, patches: list[bool]) -> Image.Image:
@@ -92,10 +94,11 @@ def make_figure_semseg(
     """
     os.makedirs(out, exist_ok=True)
 
-    import saev.activations
-    import saev.config
     import einops.layers.torch
     from torchvision.transforms import v2
+
+    import saev.activations
+    import saev.config
 
     to_array = v2.Compose([
         v2.Resize(512, interpolation=v2.InterpolationMode.NEAREST),
@@ -137,20 +140,20 @@ def make_figure_semseg(
 
 
 @beartype.beartype
-def barchart(data: dict[str, float], colors: list[str]):
+def barchart(data: dict[str, float], colors: list[str], ylim_max: int = 100):
     import matplotlib.pyplot as plt
 
     data = sorted(data.items(), key=lambda pair: pair[1], reverse=True)
     categories = [label for label, value in data]
     values = [value * 100 for label, value in data]
 
-    fig, ax = plt.subplots(figsize=(8, 6))
+    fig, ax = plt.subplots(figsize=(6, 6))
     ax.bar(categories, values, color=colors[: len(values)])
 
     # Customize the plot
-    ax.set_ylabel("Probability (%)", fontsize=12)
-    ax.set_ylim(0, 100)
-    ax.tick_params(axis="both", which="major", labelsize=12)
+    ax.set_ylabel("Probability (%)", fontsize=13)
+    ax.set_ylim(0, ylim_max)
+    ax.tick_params(axis="both", which="major", labelsize=13)
     ax.set_axisbelow(True)
 
     # Remove top and right spines
@@ -167,9 +170,34 @@ def barchart(data: dict[str, float], colors: list[str]):
 def make_figure_classification(
     probs_before: dict[str, float],
     probs_after: dict[str, float],
+    example_i: int = 680,
+    highlighted_i: list[int] = default_highlighted_i_classification,
     out: str = os.path.join(".", "logs", "figures", "classification"),
-    max_ylim: int = -1,
+    ylim_max: int = -1,
 ):
+    import einops.layers.torch
+    from torchvision.transforms import v2
+
+    import saev.activations
+    import saev.config
+
+    to_array = v2.Compose([
+        v2.Resize((512, 512), interpolation=v2.InterpolationMode.NEAREST),
+        v2.CenterCrop((448, 448)),
+        v2.ToImage(),
+        einops.layers.torch.Rearrange("channels width height -> width height channels"),
+    ])
+
+    dataset = saev.activations.ImageFolder(
+        "/research/nfs_su_809/workspace/stevens.994/datasets/cub2011/test",
+        transform=to_array,
+    )
+    img_arr = dataset[example_i]["image"]
+
+    bool_patches = [i in highlighted_i for i in range(196)]
+    highlighted_img = add_highlights(Image.fromarray(img_arr.numpy()), bool_patches)
+    highlighted_img.save(os.path.join(out, f"cub200_highlighted_img{example_i}.png"))
+
     probs_before = {
         key.replace("\\n", "\n"): value for key, value in probs_before.items()
     }
@@ -204,18 +232,18 @@ def make_figure_classification(
         color_map[cat]
         for cat in sorted(probs_after.keys(), key=probs_after.get, reverse=True)
     ]
-    if max_ylim < 0:
+
+    if ylim_max < 0:
         # Find max probability across both dicts and convert to percentage
-        max_prob = max(
-            max(probs_before.values()) * 100,
-            max(probs_after.values()) * 100
+        max_prob = (
+            max(max(probs_before.values()) * 100, max(probs_after.values()) * 100) + 5
         )
         # Round up to next multiple of 10
-        max_ylim = math.ceil(max_prob / 10) * 10
+        ylim_max = math.ceil(max_prob / 10) * 10
 
-    fig, ax = barchart(probs_before, colors_before)
+    fig, ax = barchart(probs_before, colors_before, ylim_max)
     fig.savefig(os.path.join(out, "probs_before.png"))
-    fig, ax = barchart(probs_after, colors_after)
+    fig, ax = barchart(probs_after, colors_after, ylim_max)
     fig.savefig(os.path.join(out, "probs_after.png"))
 
 

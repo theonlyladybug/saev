@@ -122,3 +122,12 @@ Only once you turn up the SAE feature that fires strongly on potted plants does 
 ![A sunflower changed to "bonsai".](/saev/assets/contrib/classification/bonsai.png)
 
 I encourage you to look at other test images and manipulate the predictions!
+
+
+## Make Figures
+
+```sh
+uv run scripts/preprint/make_figures.py classification \
+  --probs-before "Blue Jay" 0.49 "Clark\nNutcracker" 0.15 "White-Breasted\nNuthatch" 0.11 "Florida\nJay" 0.07 \
+  --probs-after "Clark\nNutcracker" 0.31 "White-Breasted\nNuthatch" 0.19 "Great Grey\nShrike" 0.11 "Blue Jay" 0.10
+```
