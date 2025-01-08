@@ -1,29 +1,30 @@
 import marimo
 
-__generated_with = "0.9.20"
+__generated_with = "0.9.32"
 app = marimo.App(width="full")
 
 
 @app.cell
 def __():
+    import json
     import os
-    import pickle
     import random
 
     import marimo as mo
     import matplotlib.pyplot as plt
     import numpy as np
+    import polars as pl
     import torch
 
-    return mo, np, os, pickle, plt, random, torch
+    return json, mo, np, os, pl, plt, random, torch
 
 
 @app.cell
 def __(mo, os):
     def make_ckpt_dropdown():
         try:
-            choices = os.listdir(
-                "/research/nfs_su_809/workspace/stevens.994/saev/features"
+            choices = sorted(
+                os.listdir("/research/nfs_su_809/workspace/stevens.994/saev/features")
             )
 
         except FileNotFoundError:
@@ -50,70 +51,127 @@ def __(ckpt_dropdown, mo):
         ),
     )
 
-    webapp_dir = f"/research/nfs_su_809/workspace/stevens.994/saev/features/{ckpt_dropdown.value}/sort_by_img"
+    webapp_dir = f"/research/nfs_su_809/workspace/stevens.994/saev/features/{ckpt_dropdown.value}/sort_by_patch"
 
-    get_neuron_i, set_neuron_i = mo.state(0)
-    return get_neuron_i, set_neuron_i, webapp_dir
-
-
-@app.cell
-def __(mo, os, webapp_dir):
-    neuron_indices = [
-        int(name) for name in os.listdir(f"{webapp_dir}/neurons") if name.isdigit()
-    ]
-    neuron_indices = sorted(neuron_indices)
-    mo.md(f"Found {len(neuron_indices)} saved neurons.")
-    return (neuron_indices,)
+    get_i, set_i = mo.state(0)
+    return get_i, set_i, webapp_dir
 
 
 @app.cell
-def __(mo, neuron_indices, set_neuron_i):
+def __(mo):
+    sort_by_freq_btn = mo.ui.run_button(label="Sort by frequency")
+
+    sort_by_value_btn = mo.ui.run_button(label="Sort by value")
+
+    sort_by_latent_btn = mo.ui.run_button(label="Sort by latent")
+    return sort_by_freq_btn, sort_by_latent_btn, sort_by_value_btn
+
+
+@app.cell
+def __(mo, sort_by_freq_btn, sort_by_latent_btn, sort_by_value_btn):
+    mo.hstack(
+        [sort_by_freq_btn, sort_by_value_btn, sort_by_latent_btn], justify="start"
+    )
+    return
+
+
+@app.cell
+def __(
+    json,
+    mo,
+    os,
+    sort_by_freq_btn,
+    sort_by_latent_btn,
+    sort_by_value_btn,
+    webapp_dir,
+):
+    def get_neurons() -> list[dict]:
+        rows = []
+        for name in os.listdir(f"{webapp_dir}/neurons"):
+            if not name.isdigit():
+                continue
+
+            with open(f"{webapp_dir}/neurons/{name}/metadata.json") as fd:
+                rows.append(json.load(fd))
+            # rows.append({"neuron": int(name)})
+        return rows
+
+    neurons = get_neurons()
+
+    if sort_by_latent_btn.value:
+        neurons = sorted(neurons, key=lambda dct: dct["neuron"])
+    elif sort_by_freq_btn.value:
+        neurons = sorted(neurons, key=lambda dct: dct["log10_freq"])
+    elif sort_by_value_btn.value:
+        neurons = sorted(neurons, key=lambda dct: dct["log10_value"], reverse=True)
+
+    mo.md(f"Found {len(neurons)} saved neurons.")
+    return get_neurons, neurons
+
+
+@app.cell
+def __(mo, neurons, set_i):
     next_button = mo.ui.button(
         label="Next",
-        on_change=lambda _: set_neuron_i(lambda v: (v + 1) % len(neuron_indices)),
+        on_change=lambda _: set_i(lambda v: (v + 1) % len(neurons)),
     )
 
     prev_button = mo.ui.button(
         label="Previous",
-        on_change=lambda _: set_neuron_i(lambda v: (v - 1) % len(neuron_indices)),
+        on_change=lambda _: set_i(lambda v: (v - 1) % len(neurons)),
     )
     return next_button, prev_button
 
 
 @app.cell
-def __(get_neuron_i, mo, neuron_indices, set_neuron_i):
+def __(get_i, mo, neurons, set_i):
     neuron_slider = mo.ui.slider(
         0,
-        len(neuron_indices),
-        value=get_neuron_i(),
-        on_change=lambda i: set_neuron_i(i),
+        len(neurons),
+        value=get_i(),
+        on_change=lambda i: set_i(i),
         full_width=True,
     )
     return (neuron_slider,)
 
 
 @app.cell
+def __():
+    return
+
+
+@app.cell
 def __(
-    get_neuron_i,
+    display_info,
+    get_i,
     mo,
-    neuron_indices,
     neuron_slider,
+    neurons,
     next_button,
     prev_button,
 ):
-    label = f"Neuron {neuron_indices[get_neuron_i()]} ({get_neuron_i()}/{len(neuron_indices)}; {get_neuron_i() / len(neuron_indices) * 100:.2f}%)"
-
+    # label = f"Neuron {neurons[get_i()]} ({get_i()}/{len(neurons)}; {get_i() / len(neurons) * 100:.2f}%)"
+    # , display_info(**neurons[get_i()])
     mo.md(f"""
-    {mo.hstack([prev_button, next_button, label], justify="start")}
+    {mo.hstack([prev_button, next_button, display_info(**neurons[get_i()])], justify="start")}
     {neuron_slider}
     """)
-    return (label,)
+    return
 
 
 @app.cell
 def __():
-    # mo.image(f"{webapp_dir}/neurons/{neuron_indices[get_neuron_i()]}/top_images.png")
     return
+
+
+@app.cell
+def __(get_i, mo, neurons):
+    def display_info(log10_freq: float, log10_value: float, neuron: int):
+        return mo.md(
+            f"Neuron {neuron} ({get_i()}/{len(neurons)}; {get_i() / len(neurons) * 100:.1f}%) | Frequency: {10** log10_freq * 100:.3f}% of inputs | Mean Value: {10** log10_value:.3f}"
+        )
+
+    return (display_info,)
 
 
 @app.cell
@@ -122,6 +180,7 @@ def __(mo, webapp_dir):
         label = "No label found."
         try:
             label = open(f"{webapp_dir}/neurons/{n}/{i}.txt").read().strip()
+            label = " ".join(label.split("_"))
         except FileNotFoundError:
             return mo.md(f"*Missing image {i + 1}*")
 
@@ -131,8 +190,8 @@ def __(mo, webapp_dir):
 
 
 @app.cell
-def __(get_neuron_i, mo, neuron_indices, show_img):
-    n = neuron_indices[get_neuron_i()]
+def __(get_i, mo, neurons, show_img):
+    n = neurons[get_i()]["neuron"]
 
     mo.vstack([
         mo.hstack(
@@ -185,10 +244,6 @@ def __(get_neuron_i, mo, neuron_indices, show_img):
             ],
             widths="equal",
         ),
-        # mo.hstack(
-        #     [show_img(n, 12), show_img(n, 13), show_img(n, 14), show_img(n, 15)],
-        #     widths="equal",
-        # ),
     ])
     return (n,)
 
@@ -296,14 +351,19 @@ def __(mo, plot_dist, sparsity_slider, value_slider):
 
 @app.cell
 def __(mo):
-    sparsity_slider = mo.ui.range_slider(start=-8, stop=0, step=0.01, value=[-6, -1])
+    sparsity_slider = mo.ui.range_slider(start=-8, stop=0, step=0.1, value=[-6, -1])
     return (sparsity_slider,)
 
 
 @app.cell
 def __(mo):
-    value_slider = mo.ui.range_slider(start=-3, stop=1, step=0.01, value=[-0.75, 1.0])
+    value_slider = mo.ui.range_slider(start=-3, stop=1, step=0.1, value=[-0.75, 1.0])
     return (value_slider,)
+
+
+@app.cell
+def __():
+    return
 
 
 if __name__ == "__main__":

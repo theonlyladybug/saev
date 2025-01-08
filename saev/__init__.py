@@ -6,4 +6,6 @@ The main entrypoint to the package is in `__main__`; use `python -m saev --help`
 .. include:: ./guide.md
 
 .. include:: ./related-work.md
+
+.. include:: ./reproduce.md
 """
