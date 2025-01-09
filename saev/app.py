@@ -1,6 +1,6 @@
 import base64
+import functools
 import io
-import json
 import logging
 import math
 import os
@@ -20,6 +20,7 @@ from PIL import Image, ImageDraw
 from torch import Tensor
 from torchvision.transforms import v2
 
+import saev.activations
 import saev.nn
 
 log_format = "[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s"
@@ -34,26 +35,10 @@ logger = logging.getLogger("app.py")
 DEBUG = True
 """Whether we are debugging."""
 
-n_sae_latents = 3
-"""Number of SAE latents to show."""
-
-n_sae_examples = 4
-"""Number of SAE examples per latent to show."""
-
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 """Hardware accelerator, if any."""
 
-vit_ckpt = "ViT-B-16/openai"
-"""CLIP checkpoint."""
-
-n_patches_per_img: int = 196
-"""Number of patches per image in vit_ckpt."""
-
-max_frequency = 1e-1
-"""Maximum frequency. Any feature that fires more than this is ignored."""
-
 CWD = pathlib.Path(".")
-
 
 logger.info("Set global constants.")
 
@@ -75,22 +60,6 @@ def get_cache_dir() -> str:
     for var in ("HF_HOME", "HF_HUB_CACHE"):
         cache_dir = cache_dir or os.environ.get(var, "")
     return cache_dir or "."
-
-
-@beartype.beartype
-def load_model(fpath: str | pathlib.Path, *, device: str = "cpu") -> torch.nn.Module:
-    """
-    Loads a linear layer from disk.
-    """
-    with open(fpath, "rb") as fd:
-        kwargs = json.loads(fd.readline().decode())
-        buffer = io.BytesIO(fd.read())
-
-    model = torch.nn.Linear(**kwargs)
-    state_dict = torch.load(buffer, weights_only=True, map_location=device)
-    model.load_state_dict(state_dict)
-    model = model.to(device)
-    return model
 
 
 dataset = torchvision.datasets.ImageFolder(
@@ -138,7 +107,7 @@ def make_img(
 
 @jaxtyped(typechecker=beartype.beartype)
 class SplitClip(torch.nn.Module):
-    def __init__(self, *, n_end_layers: int):
+    def __init__(self, vit_ckpt: str, *, n_end_layers: int):
         super().__init__()
 
         if vit_ckpt.startswith("hf-hub:"):
@@ -193,16 +162,38 @@ class SplitClip(torch.nn.Module):
         return pooled
 
 
-# ViT
-split_vit = SplitClip(n_end_layers=1)
-split_vit = split_vit.to(device)
-logger.info("Initialized CLIP ViT.")
+vit_lookup: dict[str, tuple[str, str]] = {
+    "bioclip/inat21": ("clip", "hf-hub:imageomics/bioclip"),
+    "clip/inat21": ("clip", "ViT-B-16/openai"),
+}
 
-# SAE
-sae_ckpt_fpath = CWD / "checkpoints" / "gpnn7x3p" / "sae.pt"
-sae = saev.nn.load(sae_ckpt_fpath.as_posix())
-sae.to(device).eval()
-logger.info("Loaded SAE.")
+
+@beartype.beartype
+@functools.cache
+def load_split_vit(model: str) -> tuple[SplitClip, object]:
+    # Translate model key to ckpt. Use the model as the default.
+    model_family, model_ckpt = vit_lookup[model]
+    split_vit = SplitClip(model_ckpt, n_end_layers=1).to(device).eval()
+    vit_transform = saev.activations.make_img_transform(model_family, model_ckpt)
+    logger.info("Loaded Split ViT: %s.", model)
+    return split_vit, vit_transform
+
+
+sae_lookup = {
+    "bioclip/inat21": "gpnn7x3p",
+    "clip/inat21": "rscsjxgd",
+}
+
+
+@beartype.beartype
+@functools.cache
+def load_sae(model: str) -> saev.nn.SparseAutoencoder:
+    sae_ckpt = sae_lookup[model]
+    sae_ckpt_fpath = CWD / "checkpoints" / sae_ckpt / "sae.pt"
+    sae = saev.nn.load(sae_ckpt_fpath.as_posix())
+    sae.to(device).eval()
+    logger.info("Loaded SAE: %s -> %s.", model, sae_ckpt)
+    return sae
 
 
 ############
@@ -215,11 +206,6 @@ human_transform = v2.Compose([
     v2.ToImage(),
     einops.layers.torch.Rearrange("channels width height -> width height channels"),
 ])
-
-arch, ckpt = vit_ckpt.split("/")
-_, vit_transform = open_clip.create_model_from_pretrained(
-    arch, pretrained=ckpt, cache_dir=get_cache_dir()
-)
 
 
 logger.info("Loaded all datasets.")
@@ -245,10 +231,6 @@ sparsity = load_tensor(
 )
 
 
-mask = torch.ones((sae.cfg.d_sae), dtype=bool)
-mask = mask & (sparsity < max_frequency)
-
-
 #############
 # Inference #
 #############
@@ -271,6 +253,8 @@ def get_image(image_i: int) -> list[str]:
 
 @beartype.beartype
 def get_random_class_image(cls: int) -> Image.Image:
+    raise NotImplementedError()
+    # TODO
     indices = [i for i, tgt in enumerate(image_labels) if tgt == cls]
     i = random.choice(indices)
 
@@ -332,73 +316,6 @@ def get_sae_examples(
     return images + latents
 
 
-@torch.inference_mode
-def get_pred_dist(i: int) -> dict[int, float]:
-    img = get_dataset_img(i)
-    x = vit_transform(img)[None, ...].to(device)
-    x_BPD = split_vit.forward_start(x)
-    x_BD = split_vit.forward_end(x_BPD)
-
-    logits_BC = clf(x_BD)
-
-    probs = torch.nn.functional.softmax(logits_BC[0], dim=0).cpu().tolist()
-    return {i: prob for i, prob in enumerate(probs)}
-
-
-@torch.inference_mode
-def get_modified_dist(
-    image_i: int,
-    patches: list[int],
-    latent1: int,
-    latent2: int,
-    latent3: int,
-    value1: float,
-    value2: float,
-    value3: float,
-) -> dict[int, float]:
-    img = get_dataset_img(image_i)
-    x = vit_transform(img)[None, ...].to(device)
-    x_BPD = split_vit.forward_start(x)
-
-    cls_B1D, x_BPD = x_BPD[:, :1, :], x_BPD[:, 1:, :]
-
-    x_hat_BPD, f_x_BPS, _ = sae(x_BPD)
-    err_BPD = x_BPD - x_hat_BPD
-
-    values = torch.tensor(
-        [
-            unscaled(value, top_values[latent].max().item())
-            for value, latent in [
-                (value1, latent1),
-                (value2, latent2),
-                (value3, latent3),
-            ]
-        ],
-        device=device,
-    )
-    patches = torch.tensor(patches, device=device)
-    latents = torch.tensor([latent1, latent2, latent3], device=device)
-    f_x_BPS[:, patches[:, None], latents[None, :]] = values
-
-    # Reproduce the SAE forward pass after f_x
-    modified_x_hat_BPD = (
-        einops.einsum(
-            f_x_BPS,
-            sae.W_dec,
-            "batch patches d_sae, d_sae d_vit -> batch patches d_vit",
-        )
-        + sae.b_dec
-    )
-
-    modified_BPD = torch.cat([cls_B1D, err_BPD + modified_x_hat_BPD], axis=1)
-
-    modified_BD = split_vit.forward_end(modified_BPD)
-    logits_BC = clf(modified_BD)
-
-    probs = torch.nn.functional.softmax(logits_BC[0], dim=0).cpu().tolist()
-    return {i: prob for i, prob in enumerate(probs)}
-
-
 @beartype.beartype
 def unscaled(x: float | int, max_obs: float | int) -> float:
     """Scale from [-20, 20] to [20 * -max_obs, 20 * max_obs]."""
@@ -456,26 +373,57 @@ def add_highlights(
 
 
 @beartype.beartype
+class Example(typing.TypedDict):
+    # Document this class and variables. AI!
+    url: str
+    label: str
+
+
+@beartype.beartype
 class SaeActivation(typing.TypedDict):
     """Represents the activation pattern of a single SAE latent across patches.
 
-    This class captures how strongly a particular SAE latent fires on different
-    patches of an input image.
+    This captures how strongly a particular SAE latent fires on different patches of an input image.
     """
 
     latent: int
     """The index of the SAE latent being measured."""
 
     activations: list[float]
-    """The activation values of this latent across different patches.
-    Each value represents how strongly this latent fired on a particular patch."""
+    """The activation values of this latent across different patches. Each value represents how strongly this latent fired on a particular patch."""
+
+    examples: list[Example]
 
 
 @beartype.beartype
+@torch.inference_mode
 def get_sae_activations(
     image: Image.Image, latents: dict[str, list[int]]
 ) -> dict[str, list[SaeActivation]]:
-    breakpoint()
+    """
+    Args:
+        image: Image to get SAE activations for.
+        latents: A lookup from model name (string) to a list of latents to report latents for (integers).
+
+    Returns:
+        A lookup from model name (string) to a list of SaeActivations, one for each latent in the `latents` argument.
+    """
+    response = {}
+    for model_name, requested_latents in latents.items():
+        sae_activations = []
+        split_vit, vit_transform = load_split_vit(model_name)
+        sae = load_sae(model_name)
+        x = vit_transform(image)[None, ...].to(device)
+        vit_acts_PD = split_vit.forward_start(x)[0]
+
+        _, f_x_PS, _ = sae(vit_acts_PD)
+        # Ignore [CLS] token and get just the requested latents.
+        acts_SP = einops.rearrange(f_x_PS[1:], "patches n_latents -> n_latents patches")
+        for latent in requested_latents:
+            acts = acts_SP[latent].cpu().tolist()
+            sae_activations.append(SaeActivation(latent=latent, activations=acts))
+        response[model_name] = sae_activations
+    return response
 
 
 #############
@@ -504,56 +452,16 @@ with gr.Blocks() as demo:
         postprocess=False,
     )
 
+    latents_json = gr.JSON(label="Latents", value={})
+    activations_json = gr.JSON(label="Activations", value={})
+
     get_sae_activations_btn = gr.Button(value="Get SAE Activations")
     get_sae_activations_btn.click(
         get_sae_activations,
-        inputs=[input_image],
-        outputs=[],
+        inputs=[input_image, latents_json],
+        outputs=[activations_json],
         api_name="get-sae-activations",
     )
-    # patch_numbers = gr.CheckboxGroup(
-    #     label="Image Patch", choices=list(range(n_patches_per_img))
-    # )
-    # top_latent_numbers = gr.CheckboxGroup(label="Top Latents")
-    # top_latent_numbers = [
-    #     gr.Number(label=f"Top Latents #{j + 1}", precision=0)
-    #     for j in range(n_sae_latents)
-    # ]
-    # sae_example_images = [
-    #     gr.Image(label=f"Latent #{j}, Example #{i + 1}")
-    #     for i in range(n_sae_examples)
-    #     for j in range(n_sae_latents)
-    # ]
-    # get_sae_examples_btn = gr.Button(value="Get SAE Examples")
-    # get_sae_examples_btn.click(
-    #     get_sae_examples,
-    #     inputs=[image_number, patch_numbers],
-    #     outputs=sae_example_images + top_latent_numbers,
-    #     api_name="get-sae-examples",
-    #     concurrency_limit=16,
-    # )
-
-    # pred_dist = gr.Label(label="Pred. Dist.")
-    # get_pred_dist_btn = gr.Button(value="Get Pred. Distribution")
-    # get_pred_dist_btn.click(
-    #     get_pred_dist,
-    #     inputs=[image_number],
-    #     outputs=[pred_dist],
-    #     api_name="get-preds",
-    # )
-
-    # latent_numbers = [gr.Number(label=f"Latent {i + 1}", precision=0) for i in range(3)]
-    # value_sliders = [
-    #     gr.Slider(label=f"Value {i + 1}", minimum=-10, maximum=10) for i in range(3)
-    # ]
-    # get_modified_dist_btn = gr.Button(value="Get Modified Label")
-    # get_modified_dist_btn.click(
-    #     get_modified_dist,
-    #     inputs=[image_number, patch_numbers] + latent_numbers + value_sliders,
-    #     outputs=[pred_dist],
-    #     api_name="get-modified",
-    #     concurrency_limit=16,
-    # )
 
 
 if __name__ == "__main__":
