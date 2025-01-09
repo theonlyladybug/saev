@@ -457,9 +457,18 @@ def add_highlights(
 
 @beartype.beartype
 class SaeActivation(typing.TypedDict):
-    # Document this class, including both a class docstring and variable docstrings. AI!
+    """Represents the activation pattern of a single SAE latent across patches.
+
+    This class captures how strongly a particular SAE latent fires on different
+    patches of an input image.
+    """
+
     latent: int
+    """The index of the SAE latent being measured."""
+
     activations: list[float]
+    """The activation values of this latent across different patches.
+    Each value represents how strongly this latent fired on a particular patch."""
 
 
 @beartype.beartype
