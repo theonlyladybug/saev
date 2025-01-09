@@ -375,13 +375,13 @@ def add_highlights(
 @beartype.beartype
 class Example(typing.TypedDict):
     """Represents an example image and its associated label.
-    
+
     Used to store examples of SAE latent activations for visualization.
     """
-    
+
     url: str
     """The URL or path to access the example image."""
-    
+
     label: str
     """The class label or description associated with this example."""
 
