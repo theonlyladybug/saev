@@ -1,6 +1,7 @@
 module Requests exposing
     ( Id
     , Result
+    , State(..)
     , init
     , isStale
     , next
@@ -36,3 +37,14 @@ next (Id id) =
 isStale : Id -> Id -> Bool
 isStale (Id id) (Id last) =
     id < last
+
+
+
+-- LoadingState
+
+
+type State a
+    = Initial
+    | Loading
+    | Loaded a
+    | Failed String
