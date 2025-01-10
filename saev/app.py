@@ -58,11 +58,22 @@ CWD = pathlib.Path(".")
 @beartype.beartype
 @dataclasses.dataclass(frozen=True)
 class ModelConfig:
-    # Document this class and variables. AI
+    """Configuration for a Vision Transformer (ViT) and Sparse Autoencoder (SAE) model pair.
+    
+    Stores paths and configuration needed to load and run a specific ViT+SAE combination.
+    """
+    
     vit_family: str
+    """The family of ViT model, e.g. 'clip' for CLIP models."""
+    
     vit_ckpt: str
+    """Checkpoint identifier for the ViT model, either as HuggingFace path or model/checkpoint pair."""
+    
     sae_ckpt: str
+    """Identifier for the SAE checkpoint to load."""
+    
     tensor_dpath: pathlib.Path
+    """Directory containing precomputed tensors for this model combination."""
 
 
 MODEL_LOOKUP: dict[str, ModelConfig] = {
@@ -290,7 +301,21 @@ def add_highlights(
     upper: float | None = None,
     opacity: float = 0.9,
 ) -> pyvips.Image:
-    # Document this function with a full docstring. AI!
+    """Add colored highlights to an image based on patch activation values.
+    
+    Overlays a colored highlight on each patch of the image, with intensity proportional
+    to the activation value for that patch. Used to visualize which parts of an image
+    most strongly activated a particular SAE latent.
+
+    Args:
+        img: The base image to highlight
+        patches: Array of activation values, one per patch
+        upper: Optional maximum value to normalize activations against
+        opacity: Opacity of the highlight overlay (0-1)
+
+    Returns:
+        A new image with colored highlights overlaid on the original
+    """
     if not len(patches):
         return img
 
