@@ -442,17 +442,24 @@ def make_sae_activation(
         upper = top_values[latent].max().item()
 
     examples = []
-    # Rewrite this for loop to use pool.submit for every call of vips_to_base64. AI!
+    futures = []
     for ex_img, values_p, ex_label in raw_examples:
         highlighted_img = add_highlights(ex_img, values_p, upper=upper)
-        orig_url = pool.submit(vips_to_base64, ex_img)
-        highlighted_url = pool.submit(vips_to_base64, highlighted_img)
+        # Submit both conversions to the thread pool
+        orig_future = pool.submit(vips_to_base64, ex_img)
+        highlight_future = pool.submit(vips_to_base64, highlighted_img)
+        futures.append((orig_future, highlight_future, ex_label))
+
+    # Wait for all conversions to complete and build examples
+    for orig_future, highlight_future, ex_label in futures:
         example = Example(
-            orig_url=orig_url, highlighted_url=highlighted_url, label=ex_label
+            orig_url=orig_future.result(),
+            highlighted_url=highlight_future.result(), 
+            label=ex_label
         )
         examples.append(example)
 
-    SaeActivation(latent=latent, activations=acts, examples=examples)
+    return SaeActivation(latent=latent, activations=acts, examples=examples)
 
 
 @beartype.beartype
