@@ -4953,6 +4953,311 @@ function _Browser_load(url)
 		}
 	}));
 }
+
+
+
+// SEND REQUEST
+
+var _Http_toTask = F3(function(router, toTask, request)
+{
+	return _Scheduler_binding(function(callback)
+	{
+		function done(response) {
+			callback(toTask(request.expect.a(response)));
+		}
+
+		var xhr = new XMLHttpRequest();
+		xhr.addEventListener('error', function() { done($elm$http$Http$NetworkError_); });
+		xhr.addEventListener('timeout', function() { done($elm$http$Http$Timeout_); });
+		xhr.addEventListener('load', function() { done(_Http_toResponse(request.expect.b, xhr)); });
+		$elm$core$Maybe$isJust(request.tracker) && _Http_track(router, xhr, request.tracker.a);
+
+		try {
+			xhr.open(request.method, request.url, true);
+		} catch (e) {
+			return done($elm$http$Http$BadUrl_(request.url));
+		}
+
+		_Http_configureRequest(xhr, request);
+
+		request.body.a && xhr.setRequestHeader('Content-Type', request.body.a);
+		xhr.send(request.body.b);
+
+		return function() { xhr.c = true; xhr.abort(); };
+	});
+});
+
+
+// CONFIGURE
+
+function _Http_configureRequest(xhr, request)
+{
+	for (var headers = request.headers; headers.b; headers = headers.b) // WHILE_CONS
+	{
+		xhr.setRequestHeader(headers.a.a, headers.a.b);
+	}
+	xhr.timeout = request.timeout.a || 0;
+	xhr.responseType = request.expect.d;
+	xhr.withCredentials = request.allowCookiesFromOtherDomains;
+}
+
+
+// RESPONSES
+
+function _Http_toResponse(toBody, xhr)
+{
+	return A2(
+		200 <= xhr.status && xhr.status < 300 ? $elm$http$Http$GoodStatus_ : $elm$http$Http$BadStatus_,
+		_Http_toMetadata(xhr),
+		toBody(xhr.response)
+	);
+}
+
+
+// METADATA
+
+function _Http_toMetadata(xhr)
+{
+	return {
+		url: xhr.responseURL,
+		statusCode: xhr.status,
+		statusText: xhr.statusText,
+		headers: _Http_parseHeaders(xhr.getAllResponseHeaders())
+	};
+}
+
+
+// HEADERS
+
+function _Http_parseHeaders(rawHeaders)
+{
+	if (!rawHeaders)
+	{
+		return $elm$core$Dict$empty;
+	}
+
+	var headers = $elm$core$Dict$empty;
+	var headerPairs = rawHeaders.split('\r\n');
+	for (var i = headerPairs.length; i--; )
+	{
+		var headerPair = headerPairs[i];
+		var index = headerPair.indexOf(': ');
+		if (index > 0)
+		{
+			var key = headerPair.substring(0, index);
+			var value = headerPair.substring(index + 2);
+
+			headers = A3($elm$core$Dict$update, key, function(oldValue) {
+				return $elm$core$Maybe$Just($elm$core$Maybe$isJust(oldValue)
+					? value + ', ' + oldValue.a
+					: value
+				);
+			}, headers);
+		}
+	}
+	return headers;
+}
+
+
+// EXPECT
+
+var _Http_expect = F3(function(type, toBody, toValue)
+{
+	return {
+		$: 0,
+		d: type,
+		b: toBody,
+		a: toValue
+	};
+});
+
+var _Http_mapExpect = F2(function(func, expect)
+{
+	return {
+		$: 0,
+		d: expect.d,
+		b: expect.b,
+		a: function(x) { return func(expect.a(x)); }
+	};
+});
+
+function _Http_toDataView(arrayBuffer)
+{
+	return new DataView(arrayBuffer);
+}
+
+
+// BODY and PARTS
+
+var _Http_emptyBody = { $: 0 };
+var _Http_pair = F2(function(a, b) { return { $: 0, a: a, b: b }; });
+
+function _Http_toFormData(parts)
+{
+	for (var formData = new FormData(); parts.b; parts = parts.b) // WHILE_CONS
+	{
+		var part = parts.a;
+		formData.append(part.a, part.b);
+	}
+	return formData;
+}
+
+var _Http_bytesToBlob = F2(function(mime, bytes)
+{
+	return new Blob([bytes], { type: mime });
+});
+
+
+// PROGRESS
+
+function _Http_track(router, xhr, tracker)
+{
+	// TODO check out lengthComputable on loadstart event
+
+	xhr.upload.addEventListener('progress', function(event) {
+		if (xhr.c) { return; }
+		_Scheduler_rawSpawn(A2($elm$core$Platform$sendToSelf, router, _Utils_Tuple2(tracker, $elm$http$Http$Sending({
+			sent: event.loaded,
+			size: event.total
+		}))));
+	});
+	xhr.addEventListener('progress', function(event) {
+		if (xhr.c) { return; }
+		_Scheduler_rawSpawn(A2($elm$core$Platform$sendToSelf, router, _Utils_Tuple2(tracker, $elm$http$Http$Receiving({
+			received: event.loaded,
+			size: event.lengthComputable ? $elm$core$Maybe$Just(event.total) : $elm$core$Maybe$Nothing
+		}))));
+	});
+}
+
+
+
+// STRINGS
+
+
+var _Parser_isSubString = F5(function(smallString, offset, row, col, bigString)
+{
+	var smallLength = smallString.length;
+	var isGood = offset + smallLength <= bigString.length;
+
+	for (var i = 0; isGood && i < smallLength; )
+	{
+		var code = bigString.charCodeAt(offset);
+		isGood =
+			smallString[i++] === bigString[offset++]
+			&& (
+				code === 0x000A /* \n */
+					? ( row++, col=1 )
+					: ( col++, (code & 0xF800) === 0xD800 ? smallString[i++] === bigString[offset++] : 1 )
+			)
+	}
+
+	return _Utils_Tuple3(isGood ? offset : -1, row, col);
+});
+
+
+
+// CHARS
+
+
+var _Parser_isSubChar = F3(function(predicate, offset, string)
+{
+	return (
+		string.length <= offset
+			? -1
+			:
+		(string.charCodeAt(offset) & 0xF800) === 0xD800
+			? (predicate(_Utils_chr(string.substr(offset, 2))) ? offset + 2 : -1)
+			:
+		(predicate(_Utils_chr(string[offset]))
+			? ((string[offset] === '\n') ? -2 : (offset + 1))
+			: -1
+		)
+	);
+});
+
+
+var _Parser_isAsciiCode = F3(function(code, offset, string)
+{
+	return string.charCodeAt(offset) === code;
+});
+
+
+
+// NUMBERS
+
+
+var _Parser_chompBase10 = F2(function(offset, string)
+{
+	for (; offset < string.length; offset++)
+	{
+		var code = string.charCodeAt(offset);
+		if (code < 0x30 || 0x39 < code)
+		{
+			return offset;
+		}
+	}
+	return offset;
+});
+
+
+var _Parser_consumeBase = F3(function(base, offset, string)
+{
+	for (var total = 0; offset < string.length; offset++)
+	{
+		var digit = string.charCodeAt(offset) - 0x30;
+		if (digit < 0 || base <= digit) break;
+		total = base * total + digit;
+	}
+	return _Utils_Tuple2(offset, total);
+});
+
+
+var _Parser_consumeBase16 = F2(function(offset, string)
+{
+	for (var total = 0; offset < string.length; offset++)
+	{
+		var code = string.charCodeAt(offset);
+		if (0x30 <= code && code <= 0x39)
+		{
+			total = 16 * total + code - 0x30;
+		}
+		else if (0x41 <= code && code <= 0x46)
+		{
+			total = 16 * total + code - 55;
+		}
+		else if (0x61 <= code && code <= 0x66)
+		{
+			total = 16 * total + code - 87;
+		}
+		else
+		{
+			break;
+		}
+	}
+	return _Utils_Tuple2(offset, total);
+});
+
+
+
+// FIND STRING
+
+
+var _Parser_findSubString = F5(function(smallString, offset, row, col, bigString)
+{
+	var newOffset = bigString.indexOf(smallString, offset);
+	var target = newOffset < 0 ? bigString.length : newOffset + smallString.length;
+
+	while (offset < target)
+	{
+		var code = bigString.charCodeAt(offset++);
+		code === 0x000A /* \n */
+			? ( col=1, row++ )
+			: ( col++, (code & 0xF800) === 0xD800 && offset++ )
+	}
+
+	return _Utils_Tuple3(newOffset, row, col);
+});
 var $elm$core$Basics$EQ = {$: 'EQ'};
 var $elm$core$Basics$GT = {$: 'GT'};
 var $elm$core$Basics$LT = {$: 'LT'};
@@ -10554,13 +10859,883 @@ var $elm$core$Basics$never = function (_v0) {
 	}
 };
 var $elm$browser$Browser$application = _Browser_application;
+var $author$project$Requests$Initial = {$: 'Initial'};
+var $author$project$Comparison$Example = F2(
+	function (url, label) {
+		return {label: label, url: url};
+	});
+var $author$project$Comparison$GotImage = F2(
+	function (a, b) {
+		return {$: 'GotImage', a: a, b: b};
+	});
+var $elm$json$Json$Decode$andThen = _Json_andThen;
+var $author$project$Gradio$Base64Image = function (a) {
+	return {$: 'Base64Image', a: a};
+};
+var $author$project$Gradio$base64Image = function (str) {
+	return A2($elm$core$String$startsWith, 'data:image/', str) ? $elm$core$Maybe$Just(
+		$author$project$Gradio$Base64Image(str)) : $elm$core$Maybe$Nothing;
+};
+var $elm$json$Json$Decode$fail = _Json_fail;
+var $author$project$Gradio$base64ImageDecoder = A2(
+	$elm$json$Json$Decode$andThen,
+	function (str) {
+		var _v0 = $author$project$Gradio$base64Image(str);
+		if (_v0.$ === 'Just') {
+			var img = _v0.a;
+			return $elm$json$Json$Decode$succeed(img);
+		} else {
+			return $elm$json$Json$Decode$fail('Invalid base64 image format');
+		}
+	},
+	$elm$json$Json$Decode$string);
+var $elm$core$Task$onError = _Scheduler_onError;
+var $elm$core$Task$attempt = F2(
+	function (resultToMessage, task) {
+		return $elm$core$Task$command(
+			$elm$core$Task$Perform(
+				A2(
+					$elm$core$Task$onError,
+					A2(
+						$elm$core$Basics$composeL,
+						A2($elm$core$Basics$composeL, $elm$core$Task$succeed, resultToMessage),
+						$elm$core$Result$Err),
+					A2(
+						$elm$core$Task$andThen,
+						A2(
+							$elm$core$Basics$composeL,
+							A2($elm$core$Basics$composeL, $elm$core$Task$succeed, resultToMessage),
+							$elm$core$Result$Ok),
+						task))));
+	});
+var $elm$core$Result$andThen = F2(
+	function (callback, result) {
+		if (result.$ === 'Ok') {
+			var value = result.a;
+			return callback(value);
+		} else {
+			var msg = result.a;
+			return $elm$core$Result$Err(msg);
+		}
+	});
+var $elm$url$Url$Builder$toQueryPair = function (_v0) {
+	var key = _v0.a;
+	var value = _v0.b;
+	return key + ('=' + value);
+};
+var $elm$url$Url$Builder$toQuery = function (parameters) {
+	if (!parameters.b) {
+		return '';
+	} else {
+		return '?' + A2(
+			$elm$core$String$join,
+			'&',
+			A2($elm$core$List$map, $elm$url$Url$Builder$toQueryPair, parameters));
+	}
+};
+var $elm$url$Url$Builder$crossOrigin = F3(
+	function (prePath, pathSegments, parameters) {
+		return prePath + ('/' + (A2($elm$core$String$join, '/', pathSegments) + $elm$url$Url$Builder$toQuery(parameters)));
+	});
+var $elm$http$Http$BadStatus_ = F2(
+	function (a, b) {
+		return {$: 'BadStatus_', a: a, b: b};
+	});
+var $elm$http$Http$BadUrl_ = function (a) {
+	return {$: 'BadUrl_', a: a};
+};
+var $elm$http$Http$GoodStatus_ = F2(
+	function (a, b) {
+		return {$: 'GoodStatus_', a: a, b: b};
+	});
+var $elm$http$Http$NetworkError_ = {$: 'NetworkError_'};
+var $elm$http$Http$Receiving = function (a) {
+	return {$: 'Receiving', a: a};
+};
+var $elm$http$Http$Sending = function (a) {
+	return {$: 'Sending', a: a};
+};
+var $elm$http$Http$Timeout_ = {$: 'Timeout_'};
+var $elm$core$Maybe$isJust = function (maybe) {
+	if (maybe.$ === 'Just') {
+		return true;
+	} else {
+		return false;
+	}
+};
+var $elm$core$Platform$sendToSelf = _Platform_sendToSelf;
+var $elm$http$Http$emptyBody = _Http_emptyBody;
+var $author$project$Gradio$ApiError = function (a) {
+	return {$: 'ApiError', a: a};
+};
+var $author$project$Gradio$NetworkError = function (a) {
+	return {$: 'NetworkError', a: a};
+};
+var $author$project$Gradio$httpResolver = function (response) {
+	switch (response.$) {
+		case 'GoodStatus_':
+			var body = response.b;
+			return $elm$core$Result$Ok(body);
+		case 'BadUrl_':
+			var url = response.a;
+			return $elm$core$Result$Err(
+				$author$project$Gradio$ApiError('Bad URL: ' + url));
+		case 'Timeout_':
+			return $elm$core$Result$Err(
+				$author$project$Gradio$NetworkError('Timed out'));
+		case 'NetworkError_':
+			return $elm$core$Result$Err(
+				$author$project$Gradio$NetworkError('Unknown network error'));
+		default:
+			var body = response.b;
+			return $elm$core$Result$Err(
+				$author$project$Gradio$ApiError(body));
+	}
+};
+var $author$project$Gradio$JsonError = function (a) {
+	return {$: 'JsonError', a: a};
+};
+var $elm$core$Result$mapError = F2(
+	function (f, result) {
+		if (result.$ === 'Ok') {
+			var v = result.a;
+			return $elm$core$Result$Ok(v);
+		} else {
+			var e = result.a;
+			return $elm$core$Result$Err(
+				f(e));
+		}
+	});
+var $author$project$Gradio$jsonResolver = F2(
+	function (decoder, body) {
+		return A2(
+			$elm$core$Result$mapError,
+			A2($elm$core$Basics$composeR, $elm$json$Json$Decode$errorToString, $author$project$Gradio$JsonError),
+			A2($elm$json$Json$Decode$decodeString, decoder, body));
+	});
+var $author$project$Gradio$ParsingError = function (a) {
+	return {$: 'ParsingError', a: a};
+};
+var $elm$core$String$concat = function (strings) {
+	return A2($elm$core$String$join, '', strings);
+};
+var $author$project$Gradio$problemToString = function (p) {
+	switch (p.$) {
+		case 'Expecting':
+			var s = p.a;
+			return 'expecting \'' + (s + '\'');
+		case 'ExpectingInt':
+			return 'expecting int';
+		case 'ExpectingHex':
+			return 'expecting hex';
+		case 'ExpectingOctal':
+			return 'expecting octal';
+		case 'ExpectingBinary':
+			return 'expecting binary';
+		case 'ExpectingFloat':
+			return 'expecting float';
+		case 'ExpectingNumber':
+			return 'expecting number';
+		case 'ExpectingVariable':
+			return 'expecting variable';
+		case 'ExpectingSymbol':
+			var s = p.a;
+			return 'expecting symbol \'' + (s + '\'');
+		case 'ExpectingKeyword':
+			var s = p.a;
+			return 'expecting keyword \'' + (s + '\'');
+		case 'ExpectingEnd':
+			return 'expecting end';
+		case 'UnexpectedChar':
+			return 'unexpected char';
+		case 'Problem':
+			var s = p.a;
+			return 'problem ' + s;
+		default:
+			return 'bad repeat';
+	}
+};
+var $author$project$Gradio$deadEndToString = function (deadend) {
+	return $author$project$Gradio$problemToString(deadend.problem) + (' at row ' + ($elm$core$String$fromInt(deadend.row) + (', col ' + $elm$core$String$fromInt(deadend.col))));
+};
+var $author$project$Gradio$deadEndsToString = function (deadEnds) {
+	return $elm$core$String$concat(
+		A2(
+			$elm$core$List$intersperse,
+			'; ',
+			A2($elm$core$List$map, $author$project$Gradio$deadEndToString, deadEnds)));
+};
+var $elm$parser$Parser$Done = function (a) {
+	return {$: 'Done', a: a};
+};
+var $elm$parser$Parser$Loop = function (a) {
+	return {$: 'Loop', a: a};
+};
+var $elm$parser$Parser$ExpectingEnd = {$: 'ExpectingEnd'};
+var $elm$parser$Parser$Advanced$Bad = F2(
+	function (a, b) {
+		return {$: 'Bad', a: a, b: b};
+	});
+var $elm$parser$Parser$Advanced$Good = F3(
+	function (a, b, c) {
+		return {$: 'Good', a: a, b: b, c: c};
+	});
+var $elm$parser$Parser$Advanced$Parser = function (a) {
+	return {$: 'Parser', a: a};
+};
+var $elm$parser$Parser$Advanced$AddRight = F2(
+	function (a, b) {
+		return {$: 'AddRight', a: a, b: b};
+	});
+var $elm$parser$Parser$Advanced$DeadEnd = F4(
+	function (row, col, problem, contextStack) {
+		return {col: col, contextStack: contextStack, problem: problem, row: row};
+	});
+var $elm$parser$Parser$Advanced$Empty = {$: 'Empty'};
+var $elm$parser$Parser$Advanced$fromState = F2(
+	function (s, x) {
+		return A2(
+			$elm$parser$Parser$Advanced$AddRight,
+			$elm$parser$Parser$Advanced$Empty,
+			A4($elm$parser$Parser$Advanced$DeadEnd, s.row, s.col, x, s.context));
+	});
+var $elm$parser$Parser$Advanced$end = function (x) {
+	return $elm$parser$Parser$Advanced$Parser(
+		function (s) {
+			return _Utils_eq(
+				$elm$core$String$length(s.src),
+				s.offset) ? A3($elm$parser$Parser$Advanced$Good, false, _Utils_Tuple0, s) : A2(
+				$elm$parser$Parser$Advanced$Bad,
+				false,
+				A2($elm$parser$Parser$Advanced$fromState, s, x));
+		});
+};
+var $elm$parser$Parser$end = $elm$parser$Parser$Advanced$end($elm$parser$Parser$ExpectingEnd);
+var $elm$parser$Parser$Advanced$map2 = F3(
+	function (func, _v0, _v1) {
+		var parseA = _v0.a;
+		var parseB = _v1.a;
+		return $elm$parser$Parser$Advanced$Parser(
+			function (s0) {
+				var _v2 = parseA(s0);
+				if (_v2.$ === 'Bad') {
+					var p = _v2.a;
+					var x = _v2.b;
+					return A2($elm$parser$Parser$Advanced$Bad, p, x);
+				} else {
+					var p1 = _v2.a;
+					var a = _v2.b;
+					var s1 = _v2.c;
+					var _v3 = parseB(s1);
+					if (_v3.$ === 'Bad') {
+						var p2 = _v3.a;
+						var x = _v3.b;
+						return A2($elm$parser$Parser$Advanced$Bad, p1 || p2, x);
+					} else {
+						var p2 = _v3.a;
+						var b = _v3.b;
+						var s2 = _v3.c;
+						return A3(
+							$elm$parser$Parser$Advanced$Good,
+							p1 || p2,
+							A2(func, a, b),
+							s2);
+					}
+				}
+			});
+	});
+var $elm$parser$Parser$Advanced$ignorer = F2(
+	function (keepParser, ignoreParser) {
+		return A3($elm$parser$Parser$Advanced$map2, $elm$core$Basics$always, keepParser, ignoreParser);
+	});
+var $elm$parser$Parser$ignorer = $elm$parser$Parser$Advanced$ignorer;
+var $elm$parser$Parser$Advanced$keeper = F2(
+	function (parseFunc, parseArg) {
+		return A3($elm$parser$Parser$Advanced$map2, $elm$core$Basics$apL, parseFunc, parseArg);
+	});
+var $elm$parser$Parser$keeper = $elm$parser$Parser$Advanced$keeper;
+var $elm$parser$Parser$ExpectingKeyword = function (a) {
+	return {$: 'ExpectingKeyword', a: a};
+};
+var $elm$parser$Parser$Advanced$Token = F2(
+	function (a, b) {
+		return {$: 'Token', a: a, b: b};
+	});
+var $elm$parser$Parser$Advanced$isSubChar = _Parser_isSubChar;
+var $elm$parser$Parser$Advanced$isSubString = _Parser_isSubString;
+var $elm$parser$Parser$Advanced$keyword = function (_v0) {
+	var kwd = _v0.a;
+	var expecting = _v0.b;
+	var progress = !$elm$core$String$isEmpty(kwd);
+	return $elm$parser$Parser$Advanced$Parser(
+		function (s) {
+			var _v1 = A5($elm$parser$Parser$Advanced$isSubString, kwd, s.offset, s.row, s.col, s.src);
+			var newOffset = _v1.a;
+			var newRow = _v1.b;
+			var newCol = _v1.c;
+			return (_Utils_eq(newOffset, -1) || (0 <= A3(
+				$elm$parser$Parser$Advanced$isSubChar,
+				function (c) {
+					return $elm$core$Char$isAlphaNum(c) || _Utils_eq(
+						c,
+						_Utils_chr('_'));
+				},
+				newOffset,
+				s.src))) ? A2(
+				$elm$parser$Parser$Advanced$Bad,
+				false,
+				A2($elm$parser$Parser$Advanced$fromState, s, expecting)) : A3(
+				$elm$parser$Parser$Advanced$Good,
+				progress,
+				_Utils_Tuple0,
+				{col: newCol, context: s.context, indent: s.indent, offset: newOffset, row: newRow, src: s.src});
+		});
+};
+var $elm$parser$Parser$keyword = function (kwd) {
+	return $elm$parser$Parser$Advanced$keyword(
+		A2(
+			$elm$parser$Parser$Advanced$Token,
+			kwd,
+			$elm$parser$Parser$ExpectingKeyword(kwd)));
+};
+var $elm$parser$Parser$Advanced$Append = F2(
+	function (a, b) {
+		return {$: 'Append', a: a, b: b};
+	});
+var $elm$parser$Parser$Advanced$oneOfHelp = F3(
+	function (s0, bag, parsers) {
+		oneOfHelp:
+		while (true) {
+			if (!parsers.b) {
+				return A2($elm$parser$Parser$Advanced$Bad, false, bag);
+			} else {
+				var parse = parsers.a.a;
+				var remainingParsers = parsers.b;
+				var _v1 = parse(s0);
+				if (_v1.$ === 'Good') {
+					var step = _v1;
+					return step;
+				} else {
+					var step = _v1;
+					var p = step.a;
+					var x = step.b;
+					if (p) {
+						return step;
+					} else {
+						var $temp$s0 = s0,
+							$temp$bag = A2($elm$parser$Parser$Advanced$Append, bag, x),
+							$temp$parsers = remainingParsers;
+						s0 = $temp$s0;
+						bag = $temp$bag;
+						parsers = $temp$parsers;
+						continue oneOfHelp;
+					}
+				}
+			}
+		}
+	});
+var $elm$parser$Parser$Advanced$oneOf = function (parsers) {
+	return $elm$parser$Parser$Advanced$Parser(
+		function (s) {
+			return A3($elm$parser$Parser$Advanced$oneOfHelp, s, $elm$parser$Parser$Advanced$Empty, parsers);
+		});
+};
+var $elm$parser$Parser$oneOf = $elm$parser$Parser$Advanced$oneOf;
+var $elm$parser$Parser$Advanced$chompUntilEndOr = function (str) {
+	return $elm$parser$Parser$Advanced$Parser(
+		function (s) {
+			var _v0 = A5(_Parser_findSubString, str, s.offset, s.row, s.col, s.src);
+			var newOffset = _v0.a;
+			var newRow = _v0.b;
+			var newCol = _v0.c;
+			var adjustedOffset = (newOffset < 0) ? $elm$core$String$length(s.src) : newOffset;
+			return A3(
+				$elm$parser$Parser$Advanced$Good,
+				_Utils_cmp(s.offset, adjustedOffset) < 0,
+				_Utils_Tuple0,
+				{col: newCol, context: s.context, indent: s.indent, offset: adjustedOffset, row: newRow, src: s.src});
+		});
+};
+var $elm$parser$Parser$chompUntilEndOr = $elm$parser$Parser$Advanced$chompUntilEndOr;
+var $elm$parser$Parser$Advanced$mapChompedString = F2(
+	function (func, _v0) {
+		var parse = _v0.a;
+		return $elm$parser$Parser$Advanced$Parser(
+			function (s0) {
+				var _v1 = parse(s0);
+				if (_v1.$ === 'Bad') {
+					var p = _v1.a;
+					var x = _v1.b;
+					return A2($elm$parser$Parser$Advanced$Bad, p, x);
+				} else {
+					var p = _v1.a;
+					var a = _v1.b;
+					var s1 = _v1.c;
+					return A3(
+						$elm$parser$Parser$Advanced$Good,
+						p,
+						A2(
+							func,
+							A3($elm$core$String$slice, s0.offset, s1.offset, s0.src),
+							a),
+						s1);
+				}
+			});
+	});
+var $elm$parser$Parser$Advanced$getChompedString = function (parser) {
+	return A2($elm$parser$Parser$Advanced$mapChompedString, $elm$core$Basics$always, parser);
+};
+var $elm$parser$Parser$getChompedString = $elm$parser$Parser$Advanced$getChompedString;
+var $elm$parser$Parser$Advanced$succeed = function (a) {
+	return $elm$parser$Parser$Advanced$Parser(
+		function (s) {
+			return A3($elm$parser$Parser$Advanced$Good, false, a, s);
+		});
+};
+var $elm$parser$Parser$succeed = $elm$parser$Parser$Advanced$succeed;
+var $author$project$Gradio$restParser = $elm$parser$Parser$getChompedString(
+	A2(
+		$elm$parser$Parser$ignorer,
+		$elm$parser$Parser$succeed(_Utils_Tuple0),
+		$elm$parser$Parser$chompUntilEndOr('\n')));
+var $elm$parser$Parser$Advanced$chompWhileHelp = F5(
+	function (isGood, offset, row, col, s0) {
+		chompWhileHelp:
+		while (true) {
+			var newOffset = A3($elm$parser$Parser$Advanced$isSubChar, isGood, offset, s0.src);
+			if (_Utils_eq(newOffset, -1)) {
+				return A3(
+					$elm$parser$Parser$Advanced$Good,
+					_Utils_cmp(s0.offset, offset) < 0,
+					_Utils_Tuple0,
+					{col: col, context: s0.context, indent: s0.indent, offset: offset, row: row, src: s0.src});
+			} else {
+				if (_Utils_eq(newOffset, -2)) {
+					var $temp$isGood = isGood,
+						$temp$offset = offset + 1,
+						$temp$row = row + 1,
+						$temp$col = 1,
+						$temp$s0 = s0;
+					isGood = $temp$isGood;
+					offset = $temp$offset;
+					row = $temp$row;
+					col = $temp$col;
+					s0 = $temp$s0;
+					continue chompWhileHelp;
+				} else {
+					var $temp$isGood = isGood,
+						$temp$offset = newOffset,
+						$temp$row = row,
+						$temp$col = col + 1,
+						$temp$s0 = s0;
+					isGood = $temp$isGood;
+					offset = $temp$offset;
+					row = $temp$row;
+					col = $temp$col;
+					s0 = $temp$s0;
+					continue chompWhileHelp;
+				}
+			}
+		}
+	});
+var $elm$parser$Parser$Advanced$chompWhile = function (isGood) {
+	return $elm$parser$Parser$Advanced$Parser(
+		function (s) {
+			return A5($elm$parser$Parser$Advanced$chompWhileHelp, isGood, s.offset, s.row, s.col, s);
+		});
+};
+var $elm$parser$Parser$Advanced$spaces = $elm$parser$Parser$Advanced$chompWhile(
+	function (c) {
+		return _Utils_eq(
+			c,
+			_Utils_chr(' ')) || (_Utils_eq(
+			c,
+			_Utils_chr('\n')) || _Utils_eq(
+			c,
+			_Utils_chr('\r')));
+	});
+var $elm$parser$Parser$spaces = $elm$parser$Parser$Advanced$spaces;
+var $elm$parser$Parser$ExpectingSymbol = function (a) {
+	return {$: 'ExpectingSymbol', a: a};
+};
+var $elm$parser$Parser$Advanced$token = function (_v0) {
+	var str = _v0.a;
+	var expecting = _v0.b;
+	var progress = !$elm$core$String$isEmpty(str);
+	return $elm$parser$Parser$Advanced$Parser(
+		function (s) {
+			var _v1 = A5($elm$parser$Parser$Advanced$isSubString, str, s.offset, s.row, s.col, s.src);
+			var newOffset = _v1.a;
+			var newRow = _v1.b;
+			var newCol = _v1.c;
+			return _Utils_eq(newOffset, -1) ? A2(
+				$elm$parser$Parser$Advanced$Bad,
+				false,
+				A2($elm$parser$Parser$Advanced$fromState, s, expecting)) : A3(
+				$elm$parser$Parser$Advanced$Good,
+				progress,
+				_Utils_Tuple0,
+				{col: newCol, context: s.context, indent: s.indent, offset: newOffset, row: newRow, src: s.src});
+		});
+};
+var $elm$parser$Parser$Advanced$symbol = $elm$parser$Parser$Advanced$token;
+var $elm$parser$Parser$symbol = function (str) {
+	return $elm$parser$Parser$Advanced$symbol(
+		A2(
+			$elm$parser$Parser$Advanced$Token,
+			str,
+			$elm$parser$Parser$ExpectingSymbol(str)));
+};
+var $author$project$Gradio$eventParserHelper = function (_v0) {
+	return A2(
+		$elm$parser$Parser$keeper,
+		A2(
+			$elm$parser$Parser$ignorer,
+			A2(
+				$elm$parser$Parser$ignorer,
+				A2(
+					$elm$parser$Parser$ignorer,
+					$elm$parser$Parser$succeed($elm$core$Basics$identity),
+					$elm$parser$Parser$keyword('event')),
+				$elm$parser$Parser$symbol(':')),
+			$elm$parser$Parser$spaces),
+		$elm$parser$Parser$oneOf(
+			_List_fromArray(
+				[
+					A2(
+					$elm$parser$Parser$ignorer,
+					A2(
+						$elm$parser$Parser$ignorer,
+						A2(
+							$elm$parser$Parser$ignorer,
+							A2(
+								$elm$parser$Parser$ignorer,
+								A2(
+									$elm$parser$Parser$ignorer,
+									A2(
+										$elm$parser$Parser$ignorer,
+										A2(
+											$elm$parser$Parser$ignorer,
+											$elm$parser$Parser$succeed(
+												$elm$parser$Parser$Loop(_Utils_Tuple0)),
+											$elm$parser$Parser$keyword('heartbeat')),
+										$elm$parser$Parser$spaces),
+									$elm$parser$Parser$keyword('data')),
+								$elm$parser$Parser$symbol(':')),
+							$elm$parser$Parser$spaces),
+						$elm$parser$Parser$keyword('null')),
+					$elm$parser$Parser$spaces),
+					A2(
+					$elm$parser$Parser$keeper,
+					A2(
+						$elm$parser$Parser$ignorer,
+						A2(
+							$elm$parser$Parser$ignorer,
+							A2(
+								$elm$parser$Parser$ignorer,
+								A2(
+									$elm$parser$Parser$ignorer,
+									A2(
+										$elm$parser$Parser$ignorer,
+										$elm$parser$Parser$succeed(
+											function (rest) {
+												return $elm$parser$Parser$Done(rest);
+											}),
+										$elm$parser$Parser$keyword('complete')),
+									$elm$parser$Parser$spaces),
+								$elm$parser$Parser$keyword('data')),
+							$elm$parser$Parser$symbol(':')),
+						$elm$parser$Parser$spaces),
+					A2(
+						$elm$parser$Parser$ignorer,
+						A2($elm$parser$Parser$ignorer, $author$project$Gradio$restParser, $elm$parser$Parser$spaces),
+						$elm$parser$Parser$end))
+				])));
+};
+var $elm$parser$Parser$Advanced$loopHelp = F4(
+	function (p, state, callback, s0) {
+		loopHelp:
+		while (true) {
+			var _v0 = callback(state);
+			var parse = _v0.a;
+			var _v1 = parse(s0);
+			if (_v1.$ === 'Good') {
+				var p1 = _v1.a;
+				var step = _v1.b;
+				var s1 = _v1.c;
+				if (step.$ === 'Loop') {
+					var newState = step.a;
+					var $temp$p = p || p1,
+						$temp$state = newState,
+						$temp$callback = callback,
+						$temp$s0 = s1;
+					p = $temp$p;
+					state = $temp$state;
+					callback = $temp$callback;
+					s0 = $temp$s0;
+					continue loopHelp;
+				} else {
+					var result = step.a;
+					return A3($elm$parser$Parser$Advanced$Good, p || p1, result, s1);
+				}
+			} else {
+				var p1 = _v1.a;
+				var x = _v1.b;
+				return A2($elm$parser$Parser$Advanced$Bad, p || p1, x);
+			}
+		}
+	});
+var $elm$parser$Parser$Advanced$loop = F2(
+	function (state, callback) {
+		return $elm$parser$Parser$Advanced$Parser(
+			function (s) {
+				return A4($elm$parser$Parser$Advanced$loopHelp, false, state, callback, s);
+			});
+	});
+var $elm$parser$Parser$Advanced$map = F2(
+	function (func, _v0) {
+		var parse = _v0.a;
+		return $elm$parser$Parser$Advanced$Parser(
+			function (s0) {
+				var _v1 = parse(s0);
+				if (_v1.$ === 'Good') {
+					var p = _v1.a;
+					var a = _v1.b;
+					var s1 = _v1.c;
+					return A3(
+						$elm$parser$Parser$Advanced$Good,
+						p,
+						func(a),
+						s1);
+				} else {
+					var p = _v1.a;
+					var x = _v1.b;
+					return A2($elm$parser$Parser$Advanced$Bad, p, x);
+				}
+			});
+	});
+var $elm$parser$Parser$map = $elm$parser$Parser$Advanced$map;
+var $elm$parser$Parser$Advanced$Done = function (a) {
+	return {$: 'Done', a: a};
+};
+var $elm$parser$Parser$Advanced$Loop = function (a) {
+	return {$: 'Loop', a: a};
+};
+var $elm$parser$Parser$toAdvancedStep = function (step) {
+	if (step.$ === 'Loop') {
+		var s = step.a;
+		return $elm$parser$Parser$Advanced$Loop(s);
+	} else {
+		var a = step.a;
+		return $elm$parser$Parser$Advanced$Done(a);
+	}
+};
+var $elm$parser$Parser$loop = F2(
+	function (state, callback) {
+		return A2(
+			$elm$parser$Parser$Advanced$loop,
+			state,
+			function (s) {
+				return A2(
+					$elm$parser$Parser$map,
+					$elm$parser$Parser$toAdvancedStep,
+					callback(s));
+			});
+	});
+var $author$project$Gradio$eventParser = A2($elm$parser$Parser$loop, _Utils_Tuple0, $author$project$Gradio$eventParserHelper);
+var $elm$parser$Parser$DeadEnd = F3(
+	function (row, col, problem) {
+		return {col: col, problem: problem, row: row};
+	});
+var $elm$parser$Parser$problemToDeadEnd = function (p) {
+	return A3($elm$parser$Parser$DeadEnd, p.row, p.col, p.problem);
+};
+var $elm$parser$Parser$Advanced$bagToList = F2(
+	function (bag, list) {
+		bagToList:
+		while (true) {
+			switch (bag.$) {
+				case 'Empty':
+					return list;
+				case 'AddRight':
+					var bag1 = bag.a;
+					var x = bag.b;
+					var $temp$bag = bag1,
+						$temp$list = A2($elm$core$List$cons, x, list);
+					bag = $temp$bag;
+					list = $temp$list;
+					continue bagToList;
+				default:
+					var bag1 = bag.a;
+					var bag2 = bag.b;
+					var $temp$bag = bag1,
+						$temp$list = A2($elm$parser$Parser$Advanced$bagToList, bag2, list);
+					bag = $temp$bag;
+					list = $temp$list;
+					continue bagToList;
+			}
+		}
+	});
+var $elm$parser$Parser$Advanced$run = F2(
+	function (_v0, src) {
+		var parse = _v0.a;
+		var _v1 = parse(
+			{col: 1, context: _List_Nil, indent: 1, offset: 0, row: 1, src: src});
+		if (_v1.$ === 'Good') {
+			var value = _v1.b;
+			return $elm$core$Result$Ok(value);
+		} else {
+			var bag = _v1.b;
+			return $elm$core$Result$Err(
+				A2($elm$parser$Parser$Advanced$bagToList, bag, _List_Nil));
+		}
+	});
+var $elm$parser$Parser$run = F2(
+	function (parser, source) {
+		var _v0 = A2($elm$parser$Parser$Advanced$run, parser, source);
+		if (_v0.$ === 'Ok') {
+			var a = _v0.a;
+			return $elm$core$Result$Ok(a);
+		} else {
+			var problems = _v0.a;
+			return $elm$core$Result$Err(
+				A2($elm$core$List$map, $elm$parser$Parser$problemToDeadEnd, problems));
+		}
+	});
+var $author$project$Gradio$parsingResolver = function (raw) {
+	return A2(
+		$elm$core$Result$mapError,
+		A2($elm$core$Basics$composeR, $author$project$Gradio$deadEndsToString, $author$project$Gradio$ParsingError),
+		A2($elm$parser$Parser$run, $author$project$Gradio$eventParser, raw));
+};
+var $elm$http$Http$stringResolver = A2(_Http_expect, '', $elm$core$Basics$identity);
+var $elm$core$Task$fail = _Scheduler_fail;
+var $elm$http$Http$resultToTask = function (result) {
+	if (result.$ === 'Ok') {
+		var a = result.a;
+		return $elm$core$Task$succeed(a);
+	} else {
+		var x = result.a;
+		return $elm$core$Task$fail(x);
+	}
+};
+var $elm$http$Http$task = function (r) {
+	return A3(
+		_Http_toTask,
+		_Utils_Tuple0,
+		$elm$http$Http$resultToTask,
+		{allowCookiesFromOtherDomains: false, body: r.body, expect: r.resolver, headers: r.headers, method: r.method, timeout: r.timeout, tracker: $elm$core$Maybe$Nothing, url: r.url});
+};
+var $author$project$Gradio$finish = F4(
+	function (cfg, path, decoder, eventId) {
+		return $elm$http$Http$task(
+			{
+				body: $elm$http$Http$emptyBody,
+				headers: _List_Nil,
+				method: 'GET',
+				resolver: $elm$http$Http$stringResolver(
+					A2(
+						$elm$core$Basics$composeR,
+						$author$project$Gradio$httpResolver,
+						A2(
+							$elm$core$Basics$composeR,
+							$elm$core$Result$andThen($author$project$Gradio$parsingResolver),
+							$elm$core$Result$andThen(
+								$author$project$Gradio$jsonResolver(decoder))))),
+				timeout: $elm$core$Maybe$Nothing,
+				url: A3(
+					$elm$url$Url$Builder$crossOrigin,
+					cfg.host,
+					_List_fromArray(
+						['gradio_api', 'call', path, eventId]),
+					_List_Nil)
+			});
+	});
+var $author$project$Gradio$encodeArgs = function (args) {
+	return $elm$json$Json$Encode$object(
+		_List_fromArray(
+			[
+				_Utils_Tuple2(
+				'data',
+				A2($elm$json$Json$Encode$list, $elm$core$Basics$identity, args))
+			]));
+};
+var $author$project$Gradio$eventIdDecoder = A2($elm$json$Json$Decode$field, 'event_id', $elm$json$Json$Decode$string);
+var $elm$http$Http$jsonBody = function (value) {
+	return A2(
+		_Http_pair,
+		'application/json',
+		A2($elm$json$Json$Encode$encode, 0, value));
+};
+var $author$project$Gradio$start = F3(
+	function (cfg, path, args) {
+		return $elm$http$Http$task(
+			{
+				body: $elm$http$Http$jsonBody(
+					$author$project$Gradio$encodeArgs(args)),
+				headers: _List_Nil,
+				method: 'POST',
+				resolver: $elm$http$Http$stringResolver(
+					A2(
+						$elm$core$Basics$composeR,
+						$author$project$Gradio$httpResolver,
+						$elm$core$Result$andThen(
+							$author$project$Gradio$jsonResolver($author$project$Gradio$eventIdDecoder)))),
+				timeout: $elm$core$Maybe$Nothing,
+				url: A3(
+					$elm$url$Url$Builder$crossOrigin,
+					cfg.host,
+					_List_fromArray(
+						['gradio_api', 'call', path]),
+					_List_Nil)
+			});
+	});
+var $author$project$Gradio$get = F5(
+	function (cfg, path, args, decoder, msg) {
+		return A2(
+			$elm$core$Task$attempt,
+			msg,
+			A2(
+				$elm$core$Task$andThen,
+				A3($author$project$Gradio$finish, cfg, path, decoder),
+				A3($author$project$Gradio$start, cfg, path, args)));
+	});
+var $elm$json$Json$Decode$index = _Json_decodeIndex;
+var $elm$json$Json$Encode$int = _Json_wrap;
+var $author$project$Comparison$getImage = F3(
+	function (cfg, id, imageIndex) {
+		return A5(
+			$author$project$Gradio$get,
+			cfg,
+			'get-image',
+			_List_fromArray(
+				[
+					$elm$json$Json$Encode$int(imageIndex)
+				]),
+			A3(
+				$elm$json$Json$Decode$map2,
+				$author$project$Comparison$Example,
+				A2($elm$json$Json$Decode$index, 0, $author$project$Gradio$base64ImageDecoder),
+				A2($elm$json$Json$Decode$index, 1, $elm$json$Json$Decode$string)),
+			$author$project$Comparison$GotImage(id));
+	});
+var $author$project$Requests$Id = function (a) {
+	return {$: 'Id', a: a};
+};
+var $author$project$Requests$init = $author$project$Requests$Id(0);
 var $author$project$Comparison$init = F3(
 	function (_v0, url, key) {
 		var model = {
-			gradio: {host: 'https://localhost:7860'},
-			key: key
+			gradio: {host: 'http://127.0.0.1:7860'},
+			imageRequestId: $author$project$Requests$init,
+			inputExample: $author$project$Requests$Initial,
+			key: key,
+			saeActivations: $author$project$Requests$Initial,
+			saeActivationsRequestId: $author$project$Requests$init
 		};
-		return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
+		return _Utils_Tuple2(
+			model,
+			A3($author$project$Comparison$getImage, model.gradio, model.imageRequestId, 0));
 	});
 var $elm$core$Platform$Sub$batch = _Platform_batch;
 var $elm$core$Platform$Sub$none = $elm$core$Platform$Sub$batch(_List_Nil);
@@ -10571,20 +11746,461 @@ var $author$project$Comparison$onUrlChange = function (url) {
 var $author$project$Comparison$onUrlRequest = function (request) {
 	return $author$project$Comparison$NoOp;
 };
+var $author$project$Requests$Failed = function (a) {
+	return {$: 'Failed', a: a};
+};
+var $author$project$Requests$Loaded = function (a) {
+	return {$: 'Loaded', a: a};
+};
+var $author$project$Requests$Loading = {$: 'Loading'};
+var $author$project$Comparison$explainGradioError = function (err) {
+	switch (err.$) {
+		case 'NetworkError':
+			var msg = err.a;
+			return 'Network error: ' + msg;
+		case 'JsonError':
+			var msg = err.a;
+			return 'Error decoding JSON: ' + msg;
+		case 'ParsingError':
+			var msg = err.a;
+			return 'Error parsing API response: ' + msg;
+		default:
+			var msg = err.a;
+			return 'Error in the API: ' + msg;
+	}
+};
+var $author$project$Comparison$GotSaeActivations = F2(
+	function (a, b) {
+		return {$: 'GotSaeActivations', a: a, b: b};
+	});
+var $author$project$Comparison$SaeActivation = F3(
+	function (latent, activations, examples) {
+		return {activations: activations, examples: examples, latent: latent};
+	});
+var $author$project$Gradio$decodeOneHelper = function (maybe) {
+	if (maybe.$ === 'Just') {
+		var something = maybe.a;
+		return $elm$json$Json$Decode$succeed(something);
+	} else {
+		return $elm$json$Json$Decode$fail('No result');
+	}
+};
+var $elm$core$List$head = function (list) {
+	if (list.b) {
+		var x = list.a;
+		var xs = list.b;
+		return $elm$core$Maybe$Just(x);
+	} else {
+		return $elm$core$Maybe$Nothing;
+	}
+};
+var $author$project$Gradio$decodeOne = function (decoder) {
+	return A2(
+		$elm$json$Json$Decode$andThen,
+		$author$project$Gradio$decodeOneHelper,
+		A2(
+			$elm$json$Json$Decode$map,
+			$elm$core$List$head,
+			$elm$json$Json$Decode$list(decoder)));
+};
+var $author$project$Gradio$encodeImg = function (_v0) {
+	var image = _v0.a;
+	return $elm$json$Json$Encode$object(
+		_List_fromArray(
+			[
+				_Utils_Tuple2(
+				'url',
+				$elm$json$Json$Encode$string(image))
+			]));
+};
+var $author$project$Comparison$HighlightedExample = F3(
+	function (original, highlighted, label) {
+		return {highlighted: highlighted, label: label, original: original};
+	});
+var $author$project$Comparison$highlightedExampleDecoder = A4(
+	$elm$json$Json$Decode$map3,
+	$author$project$Comparison$HighlightedExample,
+	A2($elm$json$Json$Decode$field, 'orig_url', $author$project$Gradio$base64ImageDecoder),
+	A2($elm$json$Json$Decode$field, 'highlighted_url', $author$project$Gradio$base64ImageDecoder),
+	A2($elm$json$Json$Decode$field, 'label', $elm$json$Json$Decode$string));
+var $author$project$Comparison$getSaeActivations = F3(
+	function (cfg, id, image) {
+		var latents = $elm$json$Json$Encode$object(
+			_List_fromArray(
+				[
+					_Utils_Tuple2(
+					'bioclip/inat21',
+					A2(
+						$elm$json$Json$Encode$list,
+						$elm$json$Json$Encode$int,
+						_List_fromArray(
+							[449, 451, 518, 18380, 10185, 20085, 5435, 16081]))),
+					_Utils_Tuple2(
+					'clip/inat21',
+					A2(
+						$elm$json$Json$Encode$list,
+						$elm$json$Json$Encode$int,
+						_List_fromArray(
+							[4661, 565, 5317])))
+				]));
+		return A5(
+			$author$project$Gradio$get,
+			cfg,
+			'get-sae-activations',
+			_List_fromArray(
+				[
+					$author$project$Gradio$encodeImg(image),
+					latents
+				]),
+			$author$project$Gradio$decodeOne(
+				$elm$json$Json$Decode$dict(
+					$elm$json$Json$Decode$list(
+						A4(
+							$elm$json$Json$Decode$map3,
+							$author$project$Comparison$SaeActivation,
+							A2($elm$json$Json$Decode$field, 'latent', $elm$json$Json$Decode$int),
+							A2(
+								$elm$json$Json$Decode$field,
+								'activations',
+								$elm$json$Json$Decode$list($elm$json$Json$Decode$float)),
+							A2(
+								$elm$json$Json$Decode$field,
+								'examples',
+								$elm$json$Json$Decode$list($author$project$Comparison$highlightedExampleDecoder)))))),
+			$author$project$Comparison$GotSaeActivations(id));
+	});
+var $author$project$Requests$isStale = F2(
+	function (_v0, _v1) {
+		var id = _v0.a;
+		var last = _v1.a;
+		return _Utils_cmp(id, last) < 0;
+	});
+var $author$project$Requests$next = function (_v0) {
+	var id = _v0.a;
+	return $author$project$Requests$Id(id + 1);
+};
 var $author$project$Comparison$update = F2(
 	function (msg, model) {
-		return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
+		switch (msg.$) {
+			case 'NoOp':
+				return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
+			case 'GotImage':
+				var id = msg.a;
+				var result = msg.b;
+				if (A2($author$project$Requests$isStale, id, model.imageRequestId)) {
+					return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
+				} else {
+					if (result.$ === 'Ok') {
+						var example = result.a;
+						var saeActivationsRequestId = $author$project$Requests$next(model.saeActivationsRequestId);
+						return _Utils_Tuple2(
+							_Utils_update(
+								model,
+								{
+									inputExample: $author$project$Requests$Loaded(example),
+									saeActivations: $author$project$Requests$Loading,
+									saeActivationsRequestId: saeActivationsRequestId
+								}),
+							A3($author$project$Comparison$getSaeActivations, model.gradio, saeActivationsRequestId, example.url));
+					} else {
+						var err = result.a;
+						return _Utils_Tuple2(
+							_Utils_update(
+								model,
+								{
+									inputExample: $author$project$Requests$Failed(
+										$author$project$Comparison$explainGradioError(err))
+								}),
+							$elm$core$Platform$Cmd$none);
+					}
+				}
+			default:
+				var id = msg.a;
+				var result = msg.b;
+				if (A2($author$project$Requests$isStale, id, model.saeActivationsRequestId)) {
+					return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
+				} else {
+					if (result.$ === 'Ok') {
+						var saeActivations = result.a;
+						return _Utils_Tuple2(
+							_Utils_update(
+								model,
+								{
+									saeActivations: $author$project$Requests$Loaded(saeActivations)
+								}),
+							$elm$core$Platform$Cmd$none);
+					} else {
+						var err = result.a;
+						return _Utils_Tuple2(
+							_Utils_update(
+								model,
+								{
+									saeActivations: $author$project$Requests$Failed(
+										$author$project$Comparison$explainGradioError(err))
+								}),
+							$elm$core$Platform$Cmd$none);
+					}
+				}
+		}
 	});
+var $author$project$Gradio$base64ImageToString = function (_v0) {
+	var str = _v0.a;
+	return str;
+};
+var $elm$html$Html$img = _VirtualDom_node('img');
+var $elm$html$Html$Attributes$src = function (url) {
+	return A2(
+		$elm$html$Html$Attributes$stringProperty,
+		'src',
+		_VirtualDom_noJavaScriptOrHtmlUri(url));
+};
+var $elm$html$Html$h3 = _VirtualDom_node('h3');
+var $author$project$Comparison$viewErr = function (err) {
+	return A2(
+		$elm$html$Html$div,
+		_List_fromArray(
+			[
+				$elm$html$Html$Attributes$class('relative rounded-lg border border-red-200 bg-red-50 p-4 m-4')
+			]),
+		_List_fromArray(
+			[
+				A2($elm$html$Html$button, _List_Nil, _List_Nil),
+				A2(
+				$elm$html$Html$h3,
+				_List_fromArray(
+					[
+						$elm$html$Html$Attributes$class('font-bold text-red-800')
+					]),
+				_List_fromArray(
+					[
+						$elm$html$Html$text('Error')
+					])),
+				A2(
+				$elm$html$Html$p,
+				_List_fromArray(
+					[
+						$elm$html$Html$Attributes$class('text-red-700')
+					]),
+				_List_fromArray(
+					[
+						$elm$html$Html$text(err)
+					]))
+			]));
+};
+var $author$project$Comparison$viewInputExample = function (requestedExample) {
+	switch (requestedExample.$) {
+		case 'Initial':
+			return A2(
+				$elm$html$Html$p,
+				_List_Nil,
+				_List_fromArray(
+					[
+						$elm$html$Html$text('Loading initial example...')
+					]));
+		case 'Loading':
+			return A2(
+				$elm$html$Html$p,
+				_List_Nil,
+				_List_fromArray(
+					[
+						$elm$html$Html$text('Loading example...')
+					]));
+		case 'Loaded':
+			var example = requestedExample.a;
+			return A2(
+				$elm$html$Html$img,
+				_List_fromArray(
+					[
+						$elm$html$Html$Attributes$src(
+						$author$project$Gradio$base64ImageToString(example.url))
+					]),
+				_List_Nil);
+		default:
+			var err = requestedExample.a;
+			return $author$project$Comparison$viewErr(err);
+	}
+};
+var $author$project$Comparison$uncurry = F2(
+	function (f, _v0) {
+		var a = _v0.a;
+		var b = _v0.b;
+		return A2(f, a, b);
+	});
+var $elm$html$Html$details = _VirtualDom_node('details');
+var $elm$html$Html$summary = _VirtualDom_node('summary');
+var $author$project$Comparison$viewHighlightedExample = function (_v0) {
+	var original = _v0.original;
+	var highlighted = _v0.highlighted;
+	var label = _v0.label;
+	return A2(
+		$elm$html$Html$div,
+		_List_fromArray(
+			[
+				$elm$html$Html$Attributes$class('relative group')
+			]),
+		_List_fromArray(
+			[
+				A2(
+				$elm$html$Html$img,
+				_List_fromArray(
+					[
+						$elm$html$Html$Attributes$class('transition-opacity duration-100 group-hover:opacity-0'),
+						$elm$html$Html$Attributes$src(
+						$author$project$Gradio$base64ImageToString(original))
+					]),
+				_List_Nil),
+				A2(
+				$elm$html$Html$img,
+				_List_fromArray(
+					[
+						$elm$html$Html$Attributes$class('absolute inset-0 opacity-0 transition-opacity duration-100 group-hover:opacity-100'),
+						$elm$html$Html$Attributes$src(
+						$author$project$Gradio$base64ImageToString(highlighted))
+					]),
+				_List_Nil)
+			]));
+};
+var $author$project$Comparison$viewSaeActivation = function (_v0) {
+	var latent = _v0.latent;
+	var activations = _v0.activations;
+	var examples = _v0.examples;
+	return A2(
+		$elm$html$Html$div,
+		_List_Nil,
+		_List_fromArray(
+			[
+				A2(
+				$elm$html$Html$details,
+				_List_fromArray(
+					[
+						$elm$html$Html$Attributes$class('cursor-pointer rounded-lg border border-gray-200 bg-white shadow-sm hover:shadow-md transition-shadow duration-200 dark:border-gray-700 dark:bg-gray-800 ')
+					]),
+				_List_fromArray(
+					[
+						A2(
+						$elm$html$Html$summary,
+						_List_fromArray(
+							[
+								$elm$html$Html$Attributes$class('cursor-pointer select-none px-4 py-3 hover:bg-gray-50 text-gray-900')
+							]),
+						_List_fromArray(
+							[
+								A2(
+								$elm$html$Html$span,
+								_List_Nil,
+								_List_fromArray(
+									[
+										$elm$html$Html$text(
+										'Latent: ' + $elm$core$String$fromInt(latent))
+									]))
+							])),
+						A2(
+						$elm$html$Html$div,
+						_List_fromArray(
+							[
+								$elm$html$Html$Attributes$class('p-1 text-gray-600 border-t border-gray-200 grid gap-1 grid-cols-2 md:grid-cols-4')
+							]),
+						A2($elm$core$List$map, $author$project$Comparison$viewHighlightedExample, examples))
+					]))
+			]));
+};
+var $author$project$Comparison$viewModelSaeActivations = F2(
+	function (model, saeActivations) {
+		return A2(
+			$elm$html$Html$div,
+			_List_Nil,
+			_List_fromArray(
+				[
+					A2(
+					$elm$html$Html$p,
+					_List_Nil,
+					_List_fromArray(
+						[
+							$elm$html$Html$text(model)
+						])),
+					A2(
+					$elm$html$Html$div,
+					_List_fromArray(
+						[
+							$elm$html$Html$Attributes$class('grid grid-cols-1 lg:grid-cols-2')
+						]),
+					A2($elm$core$List$map, $author$project$Comparison$viewSaeActivation, saeActivations))
+				]));
+	});
+var $author$project$Comparison$viewSaeActivations = function (requestedActivations) {
+	switch (requestedActivations.$) {
+		case 'Initial':
+			return A2(
+				$elm$html$Html$p,
+				_List_fromArray(
+					[
+						$elm$html$Html$Attributes$class('italic')
+					]),
+				_List_fromArray(
+					[
+						$elm$html$Html$text('Load an image to see SAE activations.')
+					]));
+		case 'Loading':
+			return A2(
+				$elm$html$Html$p,
+				_List_Nil,
+				_List_fromArray(
+					[
+						$elm$html$Html$text('Loading SAE activations...')
+					]));
+		case 'Loaded':
+			var activations = requestedActivations.a;
+			return A2(
+				$elm$html$Html$div,
+				_List_Nil,
+				A2(
+					$elm$core$List$map,
+					$author$project$Comparison$uncurry($author$project$Comparison$viewModelSaeActivations),
+					$elm$core$Dict$toList(activations)));
+		default:
+			var err = requestedActivations.a;
+			return $author$project$Comparison$viewErr(err);
+	}
+};
 var $author$project$Comparison$view = function (model) {
 	return {
 		body: _List_fromArray(
 			[
 				A2(
-				$elm$html$Html$p,
-				_List_Nil,
+				$elm$html$Html$div,
 				_List_fromArray(
 					[
-						$elm$html$Html$text('Hello World')
+						$elm$html$Html$Attributes$class('flex flex-row')
+					]),
+				_List_fromArray(
+					[
+						A2(
+						$elm$html$Html$div,
+						_List_fromArray(
+							[
+								$elm$html$Html$Attributes$class('flex flex-col flex-1')
+							]),
+						_List_fromArray(
+							[
+								$author$project$Comparison$viewInputExample(model.inputExample),
+								A2(
+								$elm$html$Html$p,
+								_List_Nil,
+								_List_fromArray(
+									[
+										$elm$html$Html$text('TODO: other example images here')
+									]))
+							])),
+						A2(
+						$elm$html$Html$div,
+						_List_fromArray(
+							[
+								$elm$html$Html$Attributes$class('flex flex-col flex-1')
+							]),
+						_List_fromArray(
+							[
+								$author$project$Comparison$viewSaeActivations(model.saeActivations)
+							]))
 					]))
 			]),
 		title: 'Image Classification'
@@ -10602,4 +12218,4 @@ var $author$project$Comparison$main = $elm$browser$Browser$application(
 		view: $author$project$Comparison$view
 	});
 _Platform_export({'Comparison':{'init':$author$project$Comparison$main(
-	$elm$json$Json$Decode$succeed(_Utils_Tuple0))({"versions":{"elm":"0.19.1"},"types":{"message":"Comparison.Msg","aliases":{},"unions":{"Comparison.Msg":{"args":[],"tags":{"NoOp":[]}}}}})}});}(this));
+	$elm$json$Json$Decode$succeed(_Utils_Tuple0))({"versions":{"elm":"0.19.1"},"types":{"message":"Comparison.Msg","aliases":{"Comparison.Example":{"args":[],"type":"{ url : Gradio.Base64Image, label : String.String }"},"Comparison.HighlightedExample":{"args":[],"type":"{ original : Gradio.Base64Image, highlighted : Gradio.Base64Image, label : String.String }"},"Comparison.SaeActivation":{"args":[],"type":"{ latent : Basics.Int, activations : List.List Basics.Float, examples : List.List Comparison.HighlightedExample }"}},"unions":{"Comparison.Msg":{"args":[],"tags":{"NoOp":[],"GotImage":["Requests.Id","Result.Result Gradio.Error Comparison.Example"],"GotSaeActivations":["Requests.Id","Result.Result Gradio.Error (Dict.Dict String.String (List.List Comparison.SaeActivation))"]}},"Gradio.Base64Image":{"args":[],"tags":{"Base64Image":["String.String"]}},"Dict.Dict":{"args":["k","v"],"tags":{"RBNode_elm_builtin":["Dict.NColor","k","v","Dict.Dict k v","Dict.Dict k v"],"RBEmpty_elm_builtin":[]}},"Gradio.Error":{"args":[],"tags":{"NetworkError":["String.String"],"ParsingError":["String.String"],"JsonError":["String.String"],"ApiError":["String.String"]}},"Basics.Float":{"args":[],"tags":{"Float":[]}},"Requests.Id":{"args":[],"tags":{"Id":["Basics.Int"]}},"Basics.Int":{"args":[],"tags":{"Int":[]}},"List.List":{"args":["a"],"tags":{}},"Result.Result":{"args":["error","value"],"tags":{"Ok":["value"],"Err":["error"]}},"String.String":{"args":[],"tags":{"String":[]}},"Dict.NColor":{"args":[],"tags":{"Red":[],"Black":[]}}}}})}});}(this));

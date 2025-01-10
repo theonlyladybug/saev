@@ -287,8 +287,8 @@ logger.info("Loaded all datasets.")
 
 @beartype.beartype
 @line_profiler.profile
-def vips_to_base64(image: pyvips.Image) -> str:
-    buf = image.write_to_buffer(".webp")
+def vips_to_base64(img_v: pyvips.Image) -> str:
+    buf = img_v.write_to_buffer(".webp")
     b64 = base64.b64encode(buf)
     s64 = b64.decode("utf8")
     return "data:image/webp;base64," + s64
@@ -350,7 +350,7 @@ def add_highlights(
         patch = np.zeros((patch_w, patch_h, 4), dtype=np.uint8)
         patch[:, :, 0] = int(255 * val)
         patch[:, :, 3] = int(128 * val)
-        overlay[x : x + patch_w, y : y + patch_h, :] = patch
+        overlay[y : y + patch_h, x : x + patch_w, :] = patch
     overlay = pyvips.Image.new_from_array(overlay).copy(interpretation="srgb")
     return img_v_sized.addalpha().composite(overlay, "over")
 
@@ -418,6 +418,36 @@ def vips_to_pil(vips_img: PIL.Image.Image) -> PIL.Image.Image:
     return PIL.Image.fromarray(np_array)
 
 
+@beartype.beartype
+class BufferInfo(typing.NamedTuple):
+    buffer: bytes
+    width: int
+    height: int
+    bands: int
+    format: object
+
+    @classmethod
+    def from_img_v(cls, img_v: pyvips.Image) -> "BufferInfo":
+        return cls(
+            img_v.write_to_memory(),
+            img_v.width,
+            img_v.height,
+            img_v.bands,
+            img_v.format,
+        )
+
+
+@beartype.beartype
+@line_profiler.profile
+def bufferinfo_to_base64(bufferinfo: BufferInfo) -> str:
+    img_v = pyvips.Image.new_from_memory(*bufferinfo)
+    buf = img_v.write_to_buffer(".webp")
+    b64 = base64.b64encode(buf)
+    s64 = b64.decode("utf8")
+    return "data:image/webp;base64," + s64
+
+
+@jaxtyped(typechecker=beartype.beartype)
 def make_sae_activation(
     latent: int,
     acts: list[float],
@@ -429,19 +459,19 @@ def make_sae_activation(
     for i_im, values_p in zip(top_img_i, top_values):
         if i_im in seen_i_im:
             continue
-        ex_img_v_raw, ex_label = get_dataset_image(i_im.item())
+
+        ex_img_v_raw, ex_label = get_dataset_image(i_im)
         ex_img_v_sized = to_sized(ex_img_v_raw)
         raw_examples.append((ex_img_v_sized, values_p.numpy(), ex_label))
+
+        seen_i_im.add(i_im)
 
         # Only need 4 example images per latent.
         if len(seen_i_im) >= 4:
             break
 
-    upper = None
-    if top_values[latent].numel() > 0:
-        upper = top_values[latent].max().item()
+    upper = top_values.max().item()
 
-    examples = []
     futures = []
     for ex_img, values_p, ex_label in raw_examples:
         highlighted_img = add_highlights(ex_img, values_p, upper=upper)
@@ -451,11 +481,12 @@ def make_sae_activation(
         futures.append((orig_future, highlight_future, ex_label))
 
     # Wait for all conversions to complete and build examples
+    examples = []
     for orig_future, highlight_future, ex_label in futures:
         example = Example(
             orig_url=orig_future.result(),
-            highlighted_url=highlight_future.result(), 
-            label=ex_label
+            highlighted_url=highlight_future.result(),
+            label=ex_label,
         )
         examples.append(example)
 
@@ -476,30 +507,34 @@ def get_sae_activations(
         A lookup from model name (string) to a list of SaeActivations, one for each latent in the `latents` argument.
     """
     response = {}
-    for model_name, requested_latents in latents.items():
-        sae_activations = []
-        split_vit, vit_transform = load_split_vit(model_name)
-        sae = load_sae(model_name)
-        x = vit_transform(img_p)[None, ...].to(DEVICE)
-        vit_acts_PD = split_vit.forward_start(x)[0]
+    with concurrent.futures.ThreadPoolExecutor(max_workers=16) as pool:
+        for model_name, requested_latents in latents.items():
+            sae_activations = []
+            split_vit, vit_transform = load_split_vit(model_name)
+            sae = load_sae(model_name)
+            x = vit_transform(img_p)[None, ...].to(DEVICE)
+            vit_acts_PD = split_vit.forward_start(x)[0]
 
-        _, f_x_PS, _ = sae(vit_acts_PD)
-        # Ignore [CLS] token and get just the requested latents.
-        acts_SP = einops.rearrange(f_x_PS[1:], "patches n_latents -> n_latents patches")
-        logger.info("Got SAE activations for '%s'.", model_name)
-        top_img_i, top_values = load_tensors(model_name)
-        logger.info("Loaded top SAE activations for '%s'.", model_name)
-
-        for latent in progress(requested_latents, every=1):
-            sae_activations.append(
-                make_sae_activation(
-                    latent,
-                    acts_SP[latent].cpu().tolist(),
-                    top_img_i[latent].tolist(),
-                    top_values[latent],
-                )
+            _, f_x_PS, _ = sae(vit_acts_PD)
+            # Ignore [CLS] token and get just the requested latents.
+            acts_SP = einops.rearrange(
+                f_x_PS[1:], "patches n_latents -> n_latents patches"
             )
-        response[model_name] = sae_activations
+            logger.info("Got SAE activations for '%s'.", model_name)
+            top_img_i, top_values = load_tensors(model_name)
+            logger.info("Loaded top SAE activations for '%s'.", model_name)
+
+            for latent in progress(requested_latents, every=1):
+                sae_activations.append(
+                    make_sae_activation(
+                        latent,
+                        acts_SP[latent].cpu().tolist(),
+                        top_img_i[latent].tolist(),
+                        top_values[latent],
+                        pool,
+                    )
+                )
+            response[model_name] = sae_activations
     return response
 
 

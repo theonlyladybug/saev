@@ -1,4 +1,4 @@
-module Gradio exposing (Config, Error(..), decodeOne, get)
+module Gradio exposing (Base64Image, Config, Error(..), HttpUrlImage, base64ImageDecoder, base64ImageToString, decodeOne, encodeImg, get, httpUrlImageDecoder)
 
 import Http
 import Json.Decode as D
@@ -17,6 +17,32 @@ type Error
     | ParsingError String
     | JsonError String
     | ApiError String
+
+
+type Base64Image
+    = Base64Image String
+
+
+
+-- Constructor function with validation if needed
+
+
+base64Image : String -> Maybe Base64Image
+base64Image str =
+    if String.startsWith "data:image/" str then
+        Just (Base64Image str)
+
+    else
+        Nothing
+
+
+base64ImageToString : Base64Image -> String
+base64ImageToString (Base64Image str) =
+    str
+
+
+type HttpUrlImage
+    = HttpUrlImage String
 
 
 get : Config -> String -> List E.Value -> D.Decoder a -> (Result Error a -> msg) -> Cmd msg
@@ -104,6 +130,36 @@ jsonResolver decoder body =
 encodeArgs : List E.Value -> E.Value
 encodeArgs args =
     E.object [ ( "data", E.list identity args ) ]
+
+
+encodeImg : Base64Image -> E.Value
+encodeImg (Base64Image image) =
+    E.object [ ( "url", E.string image ) ]
+
+
+httpUrlImageDecoder : D.Decoder HttpUrlImage
+httpUrlImageDecoder =
+    D.field "url" D.string
+        |> D.map (String.replace "gradio_api/gradio_api" "gradio_api")
+        |> D.map (String.replace "gra/gradio_api" "gradio_api")
+        |> D.map (String.replace "gradio_ap/gradio_api" "gradio_api")
+        |> D.map (String.replace "gradio_api/ca/gradio_api" "gradio_api")
+        |> D.map (String.replace "gradio_api/call/gradio_api" "gradio_api")
+        |> D.map HttpUrlImage
+
+
+base64ImageDecoder : D.Decoder Base64Image
+base64ImageDecoder =
+    D.string
+        |> D.andThen
+            (\str ->
+                case base64Image str of
+                    Just img ->
+                        D.succeed img
+
+                    Nothing ->
+                        D.fail "Invalid base64 image format"
+            )
 
 
 decodeOne : D.Decoder a -> D.Decoder a

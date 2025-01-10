@@ -1,7 +1,7 @@
 module Requests exposing
     ( Id
+    , Requested(..)
     , Result
-    , State(..)
     , init
     , isStale
     , next
@@ -39,11 +39,7 @@ isStale (Id id) (Id last) =
     id < last
 
 
-
--- LoadingState
-
-
-type State a
+type Requested a
     = Initial
     | Loading
     | Loaded a
