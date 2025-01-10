@@ -271,9 +271,13 @@ def load_tensors(
 
 def to_sized(img_v_raw: pyvips.Image) -> pyvips.Image:
     """Convert raw vips image to standard model input size (resize + crop)."""
-    hscale, vscale
-    # Calculate hscale and vscale from img_v_raw.height .width attributes AI!
-    return pyvips.crop(pyvips.resize(scale=hscale, vscale=vscale))
+    # Calculate scaling factors to reach RESIZE_SIZE
+    hscale = RESIZE_SIZE[0] / img_v_raw.width
+    vscale = RESIZE_SIZE[1] / img_v_raw.height
+    
+    # Resize then crop to CROP_COORDS
+    resized = img_v_raw.resize(hscale, vscale=vscale)
+    return resized.crop(*CROP_COORDS)
 
 
 human_transform = v2.Compose([
