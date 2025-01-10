@@ -1,4 +1,5 @@
 import base64
+import concurrent.futures
 import dataclasses
 import functools
 import logging
@@ -17,10 +18,9 @@ import open_clip
 import PIL.Image
 import pyvips
 import torch
-import torchvision
+import torchvision.datasets
 from jaxtyping import Float, Int, jaxtyped
 from torch import Tensor
-from torchvision.transforms import v2
 
 import saev.activations
 import saev.nn
@@ -28,6 +28,8 @@ import saev.nn
 log_format = "[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s"
 logging.basicConfig(level=logging.INFO, format=log_format)
 logger = logging.getLogger("app.py")
+# Disable pyvips info logging
+logging.getLogger("pyvips").setLevel(logging.WARNING)
 
 
 ###########
@@ -138,7 +140,7 @@ class VipsImageFolder(torchvision.datasets.ImageFolder):
     @staticmethod
     def _vips_loader(path: str) -> torch.Tensor:
         """Load and convert image to tensor using pyvips."""
-        image = pyvips.Image.new_from_file(path, access="sequential")
+        image = pyvips.Image.new_from_file(path, access="random")
         return image
 
 
@@ -274,16 +276,10 @@ def to_sized(img_v_raw: pyvips.Image) -> pyvips.Image:
     # Calculate scaling factors to reach RESIZE_SIZE
     hscale = RESIZE_SIZE[0] / img_v_raw.width
     vscale = RESIZE_SIZE[1] / img_v_raw.height
-    
+
     # Resize then crop to CROP_COORDS
     resized = img_v_raw.resize(hscale, vscale=vscale)
     return resized.crop(*CROP_COORDS)
-
-
-human_transform = v2.Compose([
-    v2.Resize((512, 512), interpolation=v2.InterpolationMode.NEAREST),
-    v2.CenterCrop((448, 448)),
-])
 
 
 logger.info("Loaded all datasets.")
@@ -292,20 +288,22 @@ logger.info("Loaded all datasets.")
 @beartype.beartype
 @line_profiler.profile
 def vips_to_base64(image: pyvips.Image) -> str:
-    return "data:image/png;base64," + base64.b64encode(
-        image.write_to_buffer(".png")
-    ).decode("utf8")
+    buf = image.write_to_buffer(".webp")
+    b64 = base64.b64encode(buf)
+    s64 = b64.decode("utf8")
+    return "data:image/webp;base64," + s64
 
 
 @beartype.beartype
-def get_image(image_i: int) -> list[str]:
-    image, label = get_dataset_image(image_i)
-    image = human_transform(image)
+def get_image(i: int) -> list[str]:
+    img_v_raw, label = get_dataset_image(i)
+    img_v_sized = to_sized(img_v_raw)
 
-    return [vips_to_base64(image), label]
+    return [vips_to_base64(img_v_sized), label]
 
 
 @jaxtyped(typechecker=beartype.beartype)
+@line_profiler.profile
 def add_highlights(
     img_v_sized: pyvips.Image,
     patches: np.ndarray,
@@ -329,23 +327,18 @@ def add_highlights(
         A new image with colored highlights overlaid on the original
     """
     if not len(patches):
-        return img_v
+        return img_v_sized
 
     # Calculate patch grid dimensions
     grid_w = grid_h = int(math.sqrt(len(patches)))
     assert grid_w * grid_h == len(patches)
 
-    patch_w = img.width // grid_w
-    patch_h = img.height // grid_h
-    breakpoint()
+    patch_w = img_v_sized.width // grid_w
+    patch_h = img_v_sized.height // grid_h
     assert patch_w == patch_h
 
-    # Convert image to RGBA if needed
-    if img.bands < 4:
-        img = img.bandjoin(255)  # Add alpha channel
-
     # Create overlay by processing each patch
-    overlay = None
+    overlay = np.zeros((img_v_sized.width, img_v_sized.height, 4), dtype=np.uint8)
     for idx, val in enumerate(patches):
         assert upper is not None
         val = val / (upper + 1e-9)
@@ -354,24 +347,12 @@ def add_highlights(
         y = (idx // grid_w) * patch_h
 
         # Create patch overlay
-        patch_overlay = pyvips.Image.new_from_array([
-            [val * opacity]  # Alpha value for this patch
-        ]).resize(patch_w)
-
-        # Create RGBA for this patch (red + alpha)
-        patch_rgba = patch_overlay.bandjoin([
-            patch_overlay * 0,
-            patch_overlay * 0,
-            patch_overlay,
-        ])
-
-        if overlay is None:
-            overlay = patch_rgba.embed(x, y, img.width, img.height)
-        else:
-            patch_positioned = patch_rgba.embed(x, y, img.width, img.height)
-            overlay = overlay.composite(patch_positioned, "over")
-
-    return img.composite(overlay, "over")
+        patch = np.zeros((patch_w, patch_h, 4), dtype=np.uint8)
+        patch[:, :, 0] = int(255 * val)
+        patch[:, :, 3] = int(128 * val)
+        overlay[x : x + patch_w, y : y + patch_h, :] = patch
+    overlay = pyvips.Image.new_from_array(overlay).copy(interpretation="srgb")
+    return img_v_sized.addalpha().composite(overlay, "over")
 
 
 @beartype.beartype
@@ -437,9 +418,45 @@ def vips_to_pil(vips_img: PIL.Image.Image) -> PIL.Image.Image:
     return PIL.Image.fromarray(np_array)
 
 
+def make_sae_activation(
+    latent: int,
+    acts: list[float],
+    top_img_i: list[int],
+    top_values: Float[Tensor, "top_k n_patches"],
+    pool: concurrent.futures.Executor,
+) -> SaeActivation:
+    raw_examples, seen_i_im = [], set()
+    for i_im, values_p in zip(top_img_i, top_values):
+        if i_im in seen_i_im:
+            continue
+        ex_img_v_raw, ex_label = get_dataset_image(i_im.item())
+        ex_img_v_sized = to_sized(ex_img_v_raw)
+        raw_examples.append((ex_img_v_sized, values_p.numpy(), ex_label))
+
+        # Only need 4 example images per latent.
+        if len(seen_i_im) >= 4:
+            break
+
+    upper = None
+    if top_values[latent].numel() > 0:
+        upper = top_values[latent].max().item()
+
+    examples = []
+    # Rewrite this for loop to use pool.submit for every call of vips_to_base64. AI!
+    for ex_img, values_p, ex_label in raw_examples:
+        highlighted_img = add_highlights(ex_img, values_p, upper=upper)
+        orig_url = pool.submit(vips_to_base64, ex_img)
+        highlighted_url = pool.submit(vips_to_base64, highlighted_img)
+        example = Example(
+            orig_url=orig_url, highlighted_url=highlighted_url, label=ex_label
+        )
+        examples.append(example)
+
+    SaeActivation(latent=latent, activations=acts, examples=examples)
+
+
 @beartype.beartype
 @torch.inference_mode
-@line_profiler.profile
 def get_sae_activations(
     img_p: PIL.Image.Image, latents: dict[str, list[int]]
 ) -> dict[str, list[SaeActivation]]:
@@ -467,35 +484,13 @@ def get_sae_activations(
         logger.info("Loaded top SAE activations for '%s'.", model_name)
 
         for latent in progress(requested_latents, every=1):
-            acts = acts_SP[latent].cpu().tolist()
-            raw_examples, seen_i_im = [], set()
-            for i_im, values_p in zip(top_img_i[latent], top_values[latent]):
-                if i_im in seen_i_im:
-                    continue
-                ex_img, ex_label = get_dataset_image(i_im.item())
-                ex_img = human_transform(ex_img)
-                raw_examples.append((ex_img, values_p.numpy(), ex_label))
-                # Only need 4 example images per latent.
-                if len(seen_i_im) >= 4:
-                    break
-
-            upper = None
-            if top_values[latent].numel() > 0:
-                upper = top_values[latent].max().item()
-
-            examples = []
-            for ex_img, values_p, ex_label in raw_examples:
-                breakpoint()
-                highlighted_img = add_highlights(ex_img, values_p, upper=upper)
-                example = Example(
-                    orig_url=vips_to_base64(ex_img),
-                    highlighted_url=vips_to_base64(highlighted_img),
-                    label=ex_label,
-                )
-                examples.append(example)
-
             sae_activations.append(
-                SaeActivation(latent=latent, activations=acts, examples=examples)
+                make_sae_activation(
+                    latent,
+                    acts_SP[latent].cpu().tolist(),
+                    top_img_i[latent].tolist(),
+                    top_values[latent],
+                )
             )
         response[model_name] = sae_activations
     return response
