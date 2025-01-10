@@ -59,19 +59,19 @@ CWD = pathlib.Path(".")
 @dataclasses.dataclass(frozen=True)
 class ModelConfig:
     """Configuration for a Vision Transformer (ViT) and Sparse Autoencoder (SAE) model pair.
-    
+
     Stores paths and configuration needed to load and run a specific ViT+SAE combination.
     """
-    
+
     vit_family: str
     """The family of ViT model, e.g. 'clip' for CLIP models."""
-    
+
     vit_ckpt: str
     """Checkpoint identifier for the ViT model, either as HuggingFace path or model/checkpoint pair."""
-    
+
     sae_ckpt: str
     """Identifier for the SAE checkpoint to load."""
-    
+
     tensor_dpath: pathlib.Path
     """Directory containing precomputed tensors for this model combination."""
 
@@ -118,6 +118,10 @@ def get_cache_dir() -> str:
 
 
 class VipsImageFolder(torchvision.datasets.ImageFolder):
+    """
+    Clone of ImageFolder that returns pyvips.Image instead of PIL.Image.Image.
+    """
+
     def __init__(
         self,
         root: str,
@@ -145,7 +149,12 @@ dataset = VipsImageFolder(
 
 @beartype.beartype
 def get_dataset_image(i: int) -> tuple[pyvips.Image, str]:
-    """Get raw image and processed label from dataset."""
+    """
+    Get raw image and processed label from dataset.
+
+    Returns:
+        Tuple of pyvips.Image and classname.
+    """
     img, tgt = dataset[i]
     species_label = dataset.classes[tgt]
     # iNat21 specific: Remove taxonomy prefix
@@ -259,6 +268,14 @@ def load_tensors(
 # Datasets #
 ############
 
+
+def to_sized(img_v_raw: pyvips.Image) -> pyvips.Image:
+    """Convert raw vips image to standard model input size (resize + crop)."""
+    hscale, vscale
+    # Calculate hscale and vscale from img_v_raw.height .width attributes AI!
+    return pyvips.crop(pyvips.resize(scale=hscale, vscale=vscale))
+
+
 human_transform = v2.Compose([
     v2.Resize((512, 512), interpolation=v2.InterpolationMode.NEAREST),
     v2.CenterCrop((448, 448)),
@@ -266,15 +283,6 @@ human_transform = v2.Compose([
 
 
 logger.info("Loaded all datasets.")
-
-#############
-# Variables #
-#############
-
-
-#############
-# Inference #
-#############
 
 
 @beartype.beartype
@@ -295,14 +303,14 @@ def get_image(image_i: int) -> list[str]:
 
 @jaxtyped(typechecker=beartype.beartype)
 def add_highlights(
-    img: pyvips.Image,
+    img_v_sized: pyvips.Image,
     patches: np.ndarray,
     *,
     upper: float | None = None,
     opacity: float = 0.9,
 ) -> pyvips.Image:
     """Add colored highlights to an image based on patch activation values.
-    
+
     Overlays a colored highlight on each patch of the image, with intensity proportional
     to the activation value for that patch. Used to visualize which parts of an image
     most strongly activated a particular SAE latent.
@@ -317,7 +325,7 @@ def add_highlights(
         A new image with colored highlights overlaid on the original
     """
     if not len(patches):
-        return img
+        return img_v
 
     # Calculate patch grid dimensions
     grid_w = grid_h = int(math.sqrt(len(patches)))
@@ -325,6 +333,7 @@ def add_highlights(
 
     patch_w = img.width // grid_w
     patch_h = img.height // grid_h
+    breakpoint()
     assert patch_w == patch_h
 
     # Convert image to RGBA if needed
@@ -472,6 +481,7 @@ def get_sae_activations(
 
             examples = []
             for ex_img, values_p, ex_label in raw_examples:
+                breakpoint()
                 highlighted_img = add_highlights(ex_img, values_p, upper=upper)
                 example = Example(
                     orig_url=vips_to_base64(ex_img),
