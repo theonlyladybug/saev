@@ -1,22 +1,24 @@
 import base64
+import dataclasses
 import functools
-import io
 import logging
 import math
 import os
 import pathlib
-import random
+import time
 import typing
 
 import beartype
 import einops.layers.torch
 import gradio as gr
+import line_profiler
 import numpy as np
 import open_clip
+import PIL.Image
+import pyvips
 import torch
 import torchvision
-from jaxtyping import Float, jaxtyped
-from PIL import Image, ImageDraw
+from jaxtyping import Float, Int, jaxtyped
 from torch import Tensor
 from torchvision.transforms import v2
 
@@ -28,20 +30,62 @@ logging.basicConfig(level=logging.INFO, format=log_format)
 logger = logging.getLogger("app.py")
 
 
-####################
-# Global Constants #
-####################
+###########
+# Globals #
+###########
+
+
+RESIZE_SIZE = (512, 512)
+
+CROP_SIZE = (448, 448)
+
+CROP_COORDS = (
+    (RESIZE_SIZE[0] - CROP_SIZE[0]) // 2,
+    (RESIZE_SIZE[1] - CROP_SIZE[1]) // 2,
+    (RESIZE_SIZE[0] + CROP_SIZE[0]) // 2,
+    (RESIZE_SIZE[1] + CROP_SIZE[1]) // 2,
+)
 
 DEBUG = True
 """Whether we are debugging."""
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 """Hardware accelerator, if any."""
 
 CWD = pathlib.Path(".")
 
-logger.info("Set global constants.")
 
+@beartype.beartype
+@dataclasses.dataclass(frozen=True)
+class ModelConfig:
+    # Document this class and variables. AI
+    vit_family: str
+    vit_ckpt: str
+    sae_ckpt: str
+    tensor_dpath: pathlib.Path
+
+
+MODEL_LOOKUP: dict[str, ModelConfig] = {
+    "bioclip/inat21": ModelConfig(
+        "clip",
+        "hf-hub:imageomics/bioclip",
+        "gpnn7x3p",
+        pathlib.Path(
+            "/research/nfs_su_809/workspace/stevens.994/saev/features/gpnn7x3p-high-freq/sort_by_patch/"
+        ),
+    ),
+    "clip/inat21": ModelConfig(
+        "clip",
+        "ViT-B-16/openai",
+        "rscsjxgd",
+        pathlib.Path(
+            "/research/nfs_su_809/workspace/stevens.994/saev/features/rscsjxgd-high-freq/sort_by_patch/"
+        ),
+    ),
+}
+
+
+logger.info("Set global constants.")
 
 ###########
 # Helpers #
@@ -59,45 +103,43 @@ def get_cache_dir() -> str:
     cache_dir = ""
     for var in ("HF_HOME", "HF_HUB_CACHE"):
         cache_dir = cache_dir or os.environ.get(var, "")
-    return cache_dir or "."
+    return cache_dir or CWD
 
 
-dataset = torchvision.datasets.ImageFolder(
+class VipsImageFolder(torchvision.datasets.ImageFolder):
+    def __init__(
+        self,
+        root: str,
+        transform: typing.Callable | None = None,
+        target_transform: typing.Callable | None = None,
+    ):
+        super().__init__(
+            root,
+            transform=transform,
+            target_transform=target_transform,
+            loader=self._vips_loader,
+        )
+
+    @staticmethod
+    def _vips_loader(path: str) -> torch.Tensor:
+        """Load and convert image to tensor using pyvips."""
+        image = pyvips.Image.new_from_file(path, access="sequential")
+        return image
+
+
+dataset = VipsImageFolder(
     root="/research/nfs_su_809/workspace/stevens.994/datasets/inat21/train_mini/"
 )
 
 
 @beartype.beartype
-def get_dataset_img(i: int) -> tuple[Image.Image, str]:
+def get_dataset_image(i: int) -> tuple[pyvips.Image, str]:
+    """Get raw image and processed label from dataset."""
     img, tgt = dataset[i]
-    label = dataset.classes[tgt]
-    # iNat21 specific trick
-    label = " ".join(label.split("_")[1:])
-    return img, label
-
-
-@beartype.beartype
-def make_img(
-    img: Image.Image,
-    patches: Float[Tensor, " n_patches"],
-    *,
-    upper: int | None = None,
-) -> Image.Image:
-    # Resize to 256x256 and crop to 224x224
-    resize_size_px = (512, 512)
-    resize_w_px, resize_h_px = resize_size_px
-    crop_size_px = (448, 448)
-    crop_w_px, crop_h_px = crop_size_px
-    crop_coords_px = (
-        (resize_w_px - crop_w_px) // 2,
-        (resize_h_px - crop_h_px) // 2,
-        (resize_w_px + crop_w_px) // 2,
-        (resize_h_px + crop_h_px) // 2,
-    )
-
-    img = img.resize(resize_size_px).crop(crop_coords_px)
-    img = add_highlights(img, patches.numpy(), upper=upper, opacity=0.5)
-    return img
+    species_label = dataset.classes[tgt]
+    # iNat21 specific: Remove taxonomy prefix
+    species_name = " ".join(species_label.split("_")[1:])
+    return img, species_name
 
 
 ##########
@@ -162,38 +204,44 @@ class SplitClip(torch.nn.Module):
         return pooled
 
 
-vit_lookup: dict[str, tuple[str, str]] = {
-    "bioclip/inat21": ("clip", "hf-hub:imageomics/bioclip"),
-    "clip/inat21": ("clip", "ViT-B-16/openai"),
-}
-
-
 @beartype.beartype
 @functools.cache
 def load_split_vit(model: str) -> tuple[SplitClip, object]:
     # Translate model key to ckpt. Use the model as the default.
-    model_family, model_ckpt = vit_lookup[model]
-    split_vit = SplitClip(model_ckpt, n_end_layers=1).to(device).eval()
-    vit_transform = saev.activations.make_img_transform(model_family, model_ckpt)
+    model_cfg = MODEL_LOOKUP[model]
+    split_vit = SplitClip(model_cfg.vit_ckpt, n_end_layers=1).to(DEVICE).eval()
+    vit_transform = saev.activations.make_img_transform(
+        model_cfg.vit_family, model_cfg.vit_ckpt
+    )
     logger.info("Loaded Split ViT: %s.", model)
     return split_vit, vit_transform
-
-
-sae_lookup = {
-    "bioclip/inat21": "gpnn7x3p",
-    "clip/inat21": "rscsjxgd",
-}
 
 
 @beartype.beartype
 @functools.cache
 def load_sae(model: str) -> saev.nn.SparseAutoencoder:
-    sae_ckpt = sae_lookup[model]
-    sae_ckpt_fpath = CWD / "checkpoints" / sae_ckpt / "sae.pt"
+    model_cfg = MODEL_LOOKUP[model]
+    sae_ckpt_fpath = CWD / "checkpoints" / model_cfg.sae_ckpt / "sae.pt"
     sae = saev.nn.load(sae_ckpt_fpath.as_posix())
-    sae.to(device).eval()
-    logger.info("Loaded SAE: %s -> %s.", model, sae_ckpt)
+    sae.to(DEVICE).eval()
+    logger.info("Loaded SAE: %s -> %s.", model, model_cfg.sae_ckpt)
     return sae
+
+
+@beartype.beartype
+def load_tensor(path: str | pathlib.Path) -> Tensor:
+    return torch.load(path, weights_only=True, map_location="cpu")
+
+
+@beartype.beartype
+@functools.cache
+def load_tensors(
+    model: str,
+) -> tuple[Int[Tensor, "d_sae top_k"], Float[Tensor, "d_sae top_k n_patches"]]:
+    model_cfg = MODEL_LOOKUP[model]
+    top_img_i = load_tensor(model_cfg.tensor_dpath / "top_img_i.pt")
+    top_values = load_tensor(model_cfg.tensor_dpath / "top_values.pt")
+    return top_img_i, top_values
 
 
 ############
@@ -203,8 +251,6 @@ def load_sae(model: str) -> saev.nn.SparseAutoencoder:
 human_transform = v2.Compose([
     v2.Resize((512, 512), interpolation=v2.InterpolationMode.NEAREST),
     v2.CenterCrop((448, 448)),
-    v2.ToImage(),
-    einops.layers.torch.Rearrange("channels width height -> width height channels"),
 ])
 
 
@@ -215,161 +261,79 @@ logger.info("Loaded all datasets.")
 #############
 
 
-@beartype.beartype
-def load_tensor(path: str | pathlib.Path) -> Tensor:
-    return torch.load(path, weights_only=True, map_location="cpu")
-
-
-top_img_i = load_tensor(
-    "/research/nfs_su_809/workspace/stevens.994/saev/features/gpnn7x3p-high-freq/sort_by_patch/top_img_i.pt"
-)
-top_values = load_tensor(
-    "/research/nfs_su_809/workspace/stevens.994/saev/features/gpnn7x3p-high-freq/sort_by_patch/top_values.pt"
-)
-sparsity = load_tensor(
-    "/research/nfs_su_809/workspace/stevens.994/saev/features/gpnn7x3p-high-freq/sort_by_patch/sparsity.pt"
-)
-
-
 #############
 # Inference #
 #############
 
 
 @beartype.beartype
-def pil_to_base64(image: Image.Image) -> str:
-    buf = io.BytesIO()
-    image.save(buf, format="png")
-    return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode("utf8")
+@line_profiler.profile
+def vips_to_base64(image: pyvips.Image) -> str:
+    return "data:image/png;base64," + base64.b64encode(
+        image.write_to_buffer(".png")
+    ).decode("utf8")
 
 
 @beartype.beartype
 def get_image(image_i: int) -> list[str]:
-    image, label = get_dataset_img(image_i)
+    image, label = get_dataset_image(image_i)
     image = human_transform(image)
 
-    return [pil_to_base64(Image.fromarray(image.numpy())), label]
-
-
-@beartype.beartype
-def get_random_class_image(cls: int) -> Image.Image:
-    raise NotImplementedError()
-    # TODO
-    indices = [i for i, tgt in enumerate(image_labels) if tgt == cls]
-    i = random.choice(indices)
-
-    image = get_dataset_img(i)
-    image = human_transform(image)
-    return Image.fromarray(image.numpy())
-
-
-@torch.inference_mode
-def get_sae_examples(
-    image_i: int, patches: list[int]
-) -> list[None | Image.Image | int]:
-    """
-    Given a particular cell, returns some highlighted images showing what feature fires most on this cell.
-    """
-    if not patches:
-        return [None] * 12 + [-1] * 3
-
-    logger.info("Getting SAE examples for patches %s.", patches)
-
-    img = get_dataset_img(image_i)
-    x = vit_transform(img)[None, ...].to(device)
-    x_BPD = split_vit.forward_start(x)
-    # Need to add 1 to account for [CLS] token.
-    vit_acts_MD = x_BPD[0, [p + 1 for p in patches]].to(device)
-
-    _, f_x_MS, _ = sae(vit_acts_MD)
-    f_x_S = f_x_MS.sum(axis=0)
-
-    latents = torch.argsort(f_x_S, descending=True).cpu()
-    latents = latents[mask[latents]][:n_sae_latents].tolist()
-
-    images = []
-    for latent in latents:
-        img_patch_pairs, seen_i_im = [], set()
-        for i_im, values_p in zip(top_img_i[latent].tolist(), top_values[latent]):
-            if i_im in seen_i_im:
-                continue
-
-            example_img = get_dataset_img(i_im)
-            img_patch_pairs.append((example_img, values_p))
-            seen_i_im.add(i_im)
-
-        # How to scale values.
-        upper = None
-        if top_values[latent].numel() > 0:
-            upper = top_values[latent].max().item()
-
-        latent_images = [
-            make_img(img, patches.to(float), upper=upper)
-            for img, patches in img_patch_pairs[:n_sae_examples]
-        ]
-
-        while len(latent_images) < n_sae_examples:
-            latent_images += [None]
-
-        images.extend(latent_images)
-
-    return images + latents
-
-
-@beartype.beartype
-def unscaled(x: float | int, max_obs: float | int) -> float:
-    """Scale from [-20, 20] to [20 * -max_obs, 20 * max_obs]."""
-    return map_range(x, (-20.0, 20.0), (-20.0 * max_obs, 20.0 * max_obs))
-
-
-@beartype.beartype
-def map_range(
-    x: float | int,
-    domain: tuple[float | int, float | int],
-    range: tuple[float | int, float | int],
-):
-    a, b = domain
-    c, d = range
-    if not (a <= x <= b):
-        raise ValueError(f"x={x:.3f} must be in {[a, b]}.")
-    return c + (x - a) * (d - c) / (b - a)
+    return [vips_to_base64(image), label]
 
 
 @jaxtyped(typechecker=beartype.beartype)
 def add_highlights(
-    img: Image.Image,
-    patches: Float[np.ndarray, " n_patches"],
+    img: pyvips.Image,
+    patches: np.ndarray,
     *,
-    upper: int | None = None,
+    upper: float | None = None,
     opacity: float = 0.9,
-) -> Image.Image:
+) -> pyvips.Image:
+    # Document this function with a full docstring. AI!
     if not len(patches):
         return img
 
-    iw_np, ih_np = int(math.sqrt(len(patches))), int(math.sqrt(len(patches)))
-    iw_px, ih_px = img.size
-    pw_px, ph_px = iw_px // iw_np, ih_px // ih_np
-    assert iw_np * ih_np == len(patches)
+    # Calculate patch grid dimensions
+    grid_w = grid_h = int(math.sqrt(len(patches)))
+    assert grid_w * grid_h == len(patches)
 
-    # Create a transparent overlay
-    overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
-    draw = ImageDraw.Draw(overlay)
+    patch_w = img.width // grid_w
+    patch_h = img.height // grid_h
+    assert patch_w == patch_h
 
-    # Using semi-transparent red (255, 0, 0, alpha)
-    for p, val in enumerate(patches):
+    # Convert image to RGBA if needed
+    if img.bands < 4:
+        img = img.bandjoin(255)  # Add alpha channel
+
+    # Create overlay by processing each patch
+    overlay = None
+    for idx, val in enumerate(patches):
         assert upper is not None
-        val /= upper + 1e-9
-        x_np, y_np = p % iw_np, p // ih_np
-        draw.rectangle(
-            [
-                (x_np * pw_px, y_np * ph_px),
-                (x_np * pw_px + pw_px, y_np * ph_px + ph_px),
-            ],
-            fill=(int(val * 256), 0, 0, int(opacity * val * 256)),
-        )
+        val = val / (upper + 1e-9)
 
-    # Composite the original image and the overlay
-    return Image.alpha_composite(img.convert("RGBA"), overlay)
+        x = (idx % grid_w) * patch_w
+        y = (idx // grid_w) * patch_h
+
+        # Create patch overlay
+        patch_overlay = pyvips.Image.new_from_array([
+            [val * opacity]  # Alpha value for this patch
+        ]).resize(patch_w)
+
+        # Create RGBA for this patch (red + alpha)
+        patch_rgba = patch_overlay.bandjoin([
+            patch_overlay * 0,
+            patch_overlay * 0,
+            patch_overlay,
+        ])
+
+        if overlay is None:
+            overlay = patch_rgba.embed(x, y, img.width, img.height)
+        else:
+            patch_positioned = patch_rgba.embed(x, y, img.width, img.height)
+            overlay = overlay.composite(patch_positioned, "over")
+
+    return img.composite(overlay, "over")
 
 
 @beartype.beartype
@@ -379,9 +343,10 @@ class Example(typing.TypedDict):
     Used to store examples of SAE latent activations for visualization.
     """
 
-    url: str
-    """The URL or path to access the example image."""
-
+    orig_url: str
+    """The URL or path to access the original example image."""
+    highlighted_url: str
+    """The URL or path to access the SAE-highlighted image."""
     label: str
     """The class label or description associated with this example."""
 
@@ -400,12 +365,45 @@ class SaeActivation(typing.TypedDict):
     """The activation values of this latent across different patches. Each value represents how strongly this latent fired on a particular patch."""
 
     examples: list[Example]
+    """Top examples for this latent."""
+
+
+@beartype.beartype
+def pil_to_vips(pil_img: PIL.Image.Image) -> pyvips.Image:
+    # Convert to numpy array
+    np_array = np.asarray(pil_img)
+    # Handle different formats
+    if np_array.ndim == 2:  # Grayscale
+        return pyvips.Image.new_from_memory(
+            np_array.tobytes(),
+            np_array.shape[1],  # width
+            np_array.shape[0],  # height
+            1,  # bands
+            "uchar",
+        )
+    else:  # RGB/RGBA
+        return pyvips.Image.new_from_memory(
+            np_array.tobytes(),
+            np_array.shape[1],  # width
+            np_array.shape[0],  # height
+            np_array.shape[2],  # bands
+            "uchar",
+        )
+
+
+@beartype.beartype
+def vips_to_pil(vips_img: PIL.Image.Image) -> PIL.Image.Image:
+    # Convert to numpy array
+    np_array = vips_img.numpy()
+    # Convert numpy array to PIL Image
+    return PIL.Image.fromarray(np_array)
 
 
 @beartype.beartype
 @torch.inference_mode
+@line_profiler.profile
 def get_sae_activations(
-    image: Image.Image, latents: dict[str, list[int]]
+    img_p: PIL.Image.Image, latents: dict[str, list[int]]
 ) -> dict[str, list[SaeActivation]]:
     """
     Args:
@@ -420,17 +418,102 @@ def get_sae_activations(
         sae_activations = []
         split_vit, vit_transform = load_split_vit(model_name)
         sae = load_sae(model_name)
-        x = vit_transform(image)[None, ...].to(device)
+        x = vit_transform(img_p)[None, ...].to(DEVICE)
         vit_acts_PD = split_vit.forward_start(x)[0]
 
         _, f_x_PS, _ = sae(vit_acts_PD)
         # Ignore [CLS] token and get just the requested latents.
         acts_SP = einops.rearrange(f_x_PS[1:], "patches n_latents -> n_latents patches")
-        for latent in requested_latents:
+        logger.info("Got SAE activations for '%s'.", model_name)
+        top_img_i, top_values = load_tensors(model_name)
+        logger.info("Loaded top SAE activations for '%s'.", model_name)
+
+        for latent in progress(requested_latents, every=1):
             acts = acts_SP[latent].cpu().tolist()
-            sae_activations.append(SaeActivation(latent=latent, activations=acts))
+            raw_examples, seen_i_im = [], set()
+            for i_im, values_p in zip(top_img_i[latent], top_values[latent]):
+                if i_im in seen_i_im:
+                    continue
+                ex_img, ex_label = get_dataset_image(i_im.item())
+                ex_img = human_transform(ex_img)
+                raw_examples.append((ex_img, values_p.numpy(), ex_label))
+                # Only need 4 example images per latent.
+                if len(seen_i_im) >= 4:
+                    break
+
+            upper = None
+            if top_values[latent].numel() > 0:
+                upper = top_values[latent].max().item()
+
+            examples = []
+            for ex_img, values_p, ex_label in raw_examples:
+                highlighted_img = add_highlights(ex_img, values_p, upper=upper)
+                example = Example(
+                    orig_url=vips_to_base64(ex_img),
+                    highlighted_url=vips_to_base64(highlighted_img),
+                    label=ex_label,
+                )
+                examples.append(example)
+
+            sae_activations.append(
+                SaeActivation(latent=latent, activations=acts, examples=examples)
+            )
         response[model_name] = sae_activations
     return response
+
+
+@beartype.beartype
+class progress:
+    def __init__(self, it, *, every: int = 10, desc: str = "progress", total: int = 0):
+        """
+        Wraps an iterable with a logger like tqdm but doesn't use any control codes to manipulate a progress bar, which doesn't work well when your output is redirected to a file. Instead, simple logging statements are used, but it includes quality-of-life features like iteration speed and predicted time to finish.
+
+        Args:
+            it: Iterable to wrap.
+            every: How many iterations between logging progress.
+            desc: What to name the logger.
+            total: If non-zero, how long the iterable is.
+        """
+        self.it = it
+        self.every = every
+        self.logger = logging.getLogger(desc)
+        self.total = total
+
+    def __iter__(self):
+        start = time.time()
+
+        try:
+            total = len(self)
+        except TypeError:
+            total = None
+
+        for i, obj in enumerate(self.it):
+            yield obj
+
+            if (i + 1) % self.every == 0:
+                now = time.time()
+                duration_s = now - start
+                per_min = (i + 1) / (duration_s / 60)
+
+                if total is not None:
+                    pred_min = (total - (i + 1)) / per_min
+                    self.logger.info(
+                        "%d/%d (%.1f%%) | %.1f it/m (expected finish in %.1fm)",
+                        i + 1,
+                        total,
+                        (i + 1) / total * 100,
+                        per_min,
+                        pred_min,
+                    )
+                else:
+                    self.logger.info("%d/? | %.1f it/m", i + 1, per_min)
+
+    def __len__(self) -> int:
+        if self.total > 0:
+            return self.total
+
+        # Will throw exception.
+        return len(self.it)
 
 
 #############
