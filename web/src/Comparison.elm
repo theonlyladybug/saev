@@ -2,11 +2,11 @@ module Comparison exposing (..)
 
 import Browser
 import Browser.Navigation
-import Dict
 import File
 import Gradio
 import Html
 import Html.Attributes
+import Html.Events
 import Json.Decode as D
 import Json.Encode as E
 import Requests
@@ -31,7 +31,9 @@ main =
 type Msg
     = NoOp
     | GotImage Requests.Id (Result Gradio.Error Example)
-    | GotSaeActivations Requests.Id (Result Gradio.Error (Dict.Dict String (List SaeActivation)))
+    | GotSaeActivations Requests.Id (Result Gradio.Error (List SaeActivation))
+    | FocusLatent String Int
+    | BlurLatent String Int
 
 
 
@@ -46,7 +48,8 @@ type alias Model =
     , inputExample : Requests.Requested Example
 
     -- Mapping from ViT name (string) to a list of activations. Changes as the input image changes.
-    , saeActivations : Requests.Requested (Dict.Dict String (List SaeActivation))
+    , saeActivations : Requests.Requested (List SaeActivation)
+    , focusedLatent : Maybe ( String, Int )
 
     -- APIs
     , gradio : Gradio.Config
@@ -56,7 +59,8 @@ type alias Model =
 
 
 type alias SaeActivation =
-    { latent : Int
+    { model : String
+    , latent : Int
     , activations : List Float -- Has nPatches floats
 
     -- TODO: add examples
@@ -74,6 +78,7 @@ type alias HighlightedExample =
     { original : Gradio.Base64Image
     , highlighted : Gradio.Base64Image
     , label : String
+    , instanceId : String
     }
 
 
@@ -85,6 +90,7 @@ init _ url key =
               key = key
             , inputExample = Requests.Initial
             , saeActivations = Requests.Initial
+            , focusedLatent = Nothing
 
             -- APIs
             , gradio =
@@ -93,7 +99,7 @@ init _ url key =
             , saeActivationsRequestId = Requests.init
             }
     in
-    ( model, getImage model.gradio model.imageRequestId 0 )
+    ( model, getImage model.gradio model.imageRequestId 93571 )
 
 
 
@@ -154,6 +160,21 @@ update msg model =
                         , Cmd.none
                         )
 
+        FocusLatent name latent ->
+            ( { model | focusedLatent = Just ( name, latent ) }, Cmd.none )
+
+        BlurLatent name latent ->
+            case model.focusedLatent of
+                Nothing ->
+                    ( model, Cmd.none )
+
+                Just ( n, l ) ->
+                    if n == name && l == latent then
+                        ( { model | focusedLatent = Nothing }, Cmd.none )
+
+                    else
+                        ( model, Cmd.none )
+
 
 onUrlRequest : Browser.UrlRequest -> Msg
 onUrlRequest request =
@@ -183,22 +204,6 @@ explainGradioError err =
 
         Gradio.ApiError msg ->
             "Error in the API: " ++ msg
-
-
-updateIds : String -> Dict.Dict String Requests.Id -> ( Requests.Id, Dict.Dict String Requests.Id )
-updateIds path ids =
-    let
-        id =
-            Dict.get path ids |> nextId
-    in
-    ( id, Dict.insert path id ids )
-
-
-nextId : Maybe Requests.Id -> Requests.Id
-nextId maybeId =
-    maybeId
-        |> Maybe.withDefault Requests.init
-        |> Requests.next
 
 
 getImage : Gradio.Config -> Requests.Id -> Int -> Cmd Msg
@@ -248,11 +253,12 @@ getSaeActivations cfg id image =
 
 highlightedExampleDecoder : D.Decoder HighlightedExample
 highlightedExampleDecoder =
-    D.map3
+    D.map4
         HighlightedExample
         (D.field "orig_url" Gradio.base64ImageDecoder)
         (D.field "highlighted_url" Gradio.base64ImageDecoder)
         (D.field "label" D.string)
+        (D.field "instance_id" D.string)
 
 
 
@@ -268,21 +274,21 @@ view model =
             [ -- Image picker, left column
               Html.div
                 [ Html.Attributes.class "flex flex-col flex-1" ]
-                [ viewInputExample model.inputExample
+                [ viewInputExample model.focusedLatent model.saeActivations model.inputExample
                 , Html.p [] [ Html.text "TODO: other example images here" ]
                 ]
 
             -- SAE stuff, right column
             , Html.div
                 [ Html.Attributes.class "flex flex-col flex-1" ]
-                [ viewSaeActivations model.saeActivations ]
+                [ viewSaeActivations model.focusedLatent model.saeActivations ]
             ]
         ]
     }
 
 
-viewInputExample : Requests.Requested Example -> Html.Html Msg
-viewInputExample requestedExample =
+viewInputExample : Maybe ( String, Int ) -> Requests.Requested (List SaeActivation) -> Requests.Requested Example -> Html.Html Msg
+viewInputExample focusedLatent requestedSaeActivations requestedExample =
     case requestedExample of
         Requests.Initial ->
             Html.p
@@ -303,8 +309,8 @@ viewInputExample requestedExample =
             viewErr err
 
 
-viewSaeActivations : Requests.Requested (Dict.Dict String (List SaeActivation)) -> Html.Html Msg
-viewSaeActivations requestedActivations =
+viewSaeActivations : Maybe ( String, Int ) -> Requests.Requested (List SaeActivation) -> Html.Html Msg
+viewSaeActivations focusedLatent requestedActivations =
     case requestedActivations of
         Requests.Initial ->
             Html.p
@@ -317,18 +323,32 @@ viewSaeActivations requestedActivations =
                 [ Html.text "Loading SAE activations..." ]
 
         Requests.Loaded activations ->
+            -- Given a list of activations from different models, we want to split it into a list of list of activations, where each sublist has the same model key. AI!
             Html.div
                 []
                 (Dict.toList activations
-                    |> List.map (uncurry viewModelSaeActivations)
+                    |> List.map (uncurry (viewModelSaeActivations focusedLatent))
                 )
 
         Requests.Failed err ->
             viewErr err
 
 
-viewModelSaeActivations : String -> List SaeActivation -> Html.Html Msg
-viewModelSaeActivations model saeActivations =
+viewModelSaeActivations : Maybe ( String, Int ) -> String -> List SaeActivation -> Html.Html Msg
+viewModelSaeActivations focusedLatent model saeActivations =
+    let
+        focused =
+            case focusedLatent of
+                Just ( name, latent ) ->
+                    if name == model then
+                        Just latent
+
+                    else
+                        Nothing
+
+                Nothing ->
+                    Nothing
+    in
     Html.div
         []
         [ Html.p
@@ -337,17 +357,30 @@ viewModelSaeActivations model saeActivations =
         , Html.div
             [ Html.Attributes.class "grid grid-cols-1 lg:grid-cols-2" ]
             (List.map
-                viewSaeActivation
+                (viewSaeActivation focused)
                 saeActivations
             )
         ]
 
 
-viewSaeActivation : SaeActivation -> Html.Html Msg
-viewSaeActivation { latent, activations, examples } =
+viewSaeActivation : Maybe ( String, Int ) -> SaeActivation -> Html.Html Msg
+viewSaeActivation focusedLatent { latent, activations, examples } =
+    let
+        active =
+            case focusedLatent of
+                Nothing ->
+                    False
+
+                Just l ->
+                    l == latent
+    in
     Html.div []
         [ Html.details
-            [ Html.Attributes.class "cursor-pointer rounded-lg border border-gray-200 bg-white shadow-sm hover:shadow-md transition-shadow duration-200 dark:border-gray-700 dark:bg-gray-800 " ]
+            [ Html.Attributes.class "cursor-pointer rounded-lg border border-gray-200 bg-white shadow-sm hover:shadow-md transition-shadow duration-200 dark:border-gray-700 dark:bg-gray-800"
+            , Html.Attributes.attribute "open" ""
+            , Html.Events.onMouseEnter (FocusLatent latent)
+            , Html.Events.onMouseLeave (BlurLatent latent)
+            ]
             [ Html.summary
                 [ Html.Attributes.class "cursor-pointer select-none px-4 py-3 hover:bg-gray-50 text-gray-900" ]
                 [ Html.span
@@ -356,22 +389,32 @@ viewSaeActivation { latent, activations, examples } =
                 ]
             , Html.div
                 [ Html.Attributes.class "p-1 text-gray-600 border-t border-gray-200 grid gap-1 grid-cols-2 md:grid-cols-4" ]
-                (List.map viewHighlightedExample examples)
+                (List.map (viewHighlightedExample active) examples)
             ]
         ]
 
 
-viewHighlightedExample : HighlightedExample -> Html.Html Msg
-viewHighlightedExample { original, highlighted, label } =
+viewHighlightedExample : Bool -> HighlightedExample -> Html.Html Msg
+viewHighlightedExample active { original, highlighted, label, instanceId } =
+    let
+        ( classOriginal, classHighlighted ) =
+            if active then
+                ( "opacity-0", "opacity-100" )
+
+            else
+                ( "opacity-100", "opacity-0" )
+    in
     Html.div
-        [ Html.Attributes.class "relative group" ]
+        [ Html.Attributes.class "relative", Html.Attributes.attribute "data-test-id" instanceId ]
         [ Html.img
-            [ Html.Attributes.class "transition-opacity duration-100 group-hover:opacity-0"
+            [ Html.Attributes.class "transition-opacity duration-100"
+            , Html.Attributes.class classOriginal
             , Html.Attributes.src (Gradio.base64ImageToString original)
             ]
             []
         , Html.img
-            [ Html.Attributes.class "absolute inset-0 opacity-0 transition-opacity duration-100 group-hover:opacity-100"
+            [ Html.Attributes.class "absolute inset-0 transition-opacity duration-100"
+            , Html.Attributes.class classHighlighted
             , Html.Attributes.src (Gradio.base64ImageToString highlighted)
             ]
             []
