@@ -323,7 +323,6 @@ viewSaeActivations focusedLatent requestedActivations =
                 [ Html.text "Loading SAE activations..." ]
 
         Requests.Loaded activations ->
-            -- Given a list of activations from different models, we want to split it into a list of list of activations, where each sublist has the same model key. AI!
             Html.div
                 []
                 (Dict.toList activations
