@@ -103,10 +103,16 @@ def score(cfg: typing.Annotated[config.Score, tyro.conf.arg(name="")]):
         # 2. Save visuals for these example images.
         # 3. Print command to save the topk images from the original training set using `saev visuals`.
 
-        # Get the top cfg.top_k scores and their indices from f1_S. AI!
-
-        # Print command to save the topk images from the original training set using `saev visuals`.
-        # cmd = ["uv", "run", "python", "-m", "saev", "visuals"
+        # Get top performing features
+        topk_scores, topk_indices = torch.topk(f1_S, k=cfg.top_k)
+        
+        # Construct command to visualize top features
+        features_str = ",".join(map(str, topk_indices.tolist()))
+        cmd = f"uv run python -m saev visuals --ckpt {cfg.sae_ckpt} --features {features_str}"
+        print(f"\nTop {cfg.top_k} features for {task_name}:")
+        print(f"F1 scores: {topk_scores.tolist()}")
+        print(f"Feature indices: {topk_indices.tolist()}")
+        print(f"To visualize, run: {cmd}")
 
 
 if __name__ == "__main__":
