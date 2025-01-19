@@ -47,6 +47,7 @@ def score(cfg: typing.Annotated[config.Score, tyro.conf.arg(name="")]):
     pred_labels_SN = torch.zeros((sae.cfg.d_sae, len(imgs_dataset)))
     true_labels_N = torch.zeros((len(imgs_dataset)))
     task_N = torch.zeros((len(imgs_dataset)))
+    task_lookup = {}
 
     for batch in dataloader:
         vit_acts_BD = batch["act"].to(cfg.device)
@@ -63,39 +64,49 @@ def score(cfg: typing.Annotated[config.Score, tyro.conf.arg(name="")]):
 
         # Predictions for each latent is 1 for sae_acts_SI[latent] > threshold, 0 otherwise.
         for j, i in enumerate(i_im.tolist()):
-            true_label = imgs_dataset[i]["label"]
-            # TODO: actually write to task_N.
-            if "teeth" not in true_label:
-                continue
+            task, label = imgs_dataset[i]["label"].split("-")
+            if task not in task_lookup:
+                task_lookup[task] = len(task_lookup)
 
-            true_labels_N[i] = 1.0 if "positive" in true_label else 0.0
-
+            task_N[i] = task_lookup[task]
+            true_labels_N[i] = 1.0 if label == "positive" else 0.0
             pred_labels_SN[:, i] = (sae_acts_SI[:, j] > cfg.threshold).cpu().float()
 
     logger.info("Made %d predictions.", len(imgs_dataset))
-    true_pos_S = einops.reduce(
-        (pred_labels_SN == true_labels_N) & (true_labels_N == 1),
-        "d_sae n_image -> d_sae",
-        "sum",
-    )
-    false_pos_S = einops.reduce(
-        (pred_labels_SN != true_labels_N) & (true_labels_N == 0),
-        "d_sae n_image -> d_sae",
-        "sum",
-    )
-    false_neg_S = einops.reduce(
-        (pred_labels_SN != true_labels_N) & (true_labels_N == 1),
-        "d_sae n_image -> d_sae",
-        "sum",
-    )
-    # TODO: Calculate task-specific f1_S using task_N.
-    f1_S = (2 * true_pos_S) / (2 * true_pos_S + false_pos_S + false_neg_S)
-    breakpoint()
-    print(f1_S, task_N)
-    # TODO:
-    # 1. Pick out the top K features.
-    # 2. Save visuals for these example images.
-    # 3. Print command to save the topk images from the original training set using `saev visuals`.
+    for task_name, task_value in task_lookup.items():
+        true_pos_S = einops.reduce(
+            (pred_labels_SN == true_labels_N)
+            & (true_labels_N == 1)
+            & (task_N == task_value),
+            "d_sae n_image -> d_sae",
+            "sum",
+        )
+        false_pos_S = einops.reduce(
+            (pred_labels_SN != true_labels_N)
+            & (true_labels_N == 0)
+            & (task_N == task_value),
+            "d_sae n_image -> d_sae",
+            "sum",
+        )
+        false_neg_S = einops.reduce(
+            (pred_labels_SN != true_labels_N)
+            & (true_labels_N == 1)
+            & (task_N == task_value),
+            "d_sae n_image -> d_sae",
+            "sum",
+        )
+        f1_S = (2 * true_pos_S) / (2 * true_pos_S + false_pos_S + false_neg_S)
+        print(f1_S.max(), task_name)
+        breakpoint()
+        # TODO
+        # 1. Pick out the top K features.
+        # 2. Save visuals for these example images.
+        # 3. Print command to save the topk images from the original training set using `saev visuals`.
+
+        # Get the top cfg.top_k scores and their indices from f1_S. AI!
+
+        # Print command to save the topk images from the original training set using `saev visuals`.
+        # cmd = ["uv", "run", "python", "-m", "saev", "visuals"
 
 
 if __name__ == "__main__":
