@@ -12,7 +12,6 @@ import typing
 import beartype
 import einops.layers.torch
 import gradio as gr
-import line_profiler
 import numpy as np
 import open_clip
 import PIL.Image
@@ -77,6 +76,9 @@ class ModelConfig:
     tensor_dpath: pathlib.Path
     """Directory containing precomputed tensors for this model combination."""
 
+    dataset_name: str
+    """Which dataset to use."""
+
 
 MODEL_LOOKUP: dict[str, ModelConfig] = {
     "bioclip/inat21": ModelConfig(
@@ -86,6 +88,7 @@ MODEL_LOOKUP: dict[str, ModelConfig] = {
         pathlib.Path(
             "/research/nfs_su_809/workspace/stevens.994/saev/features/gpnn7x3p-high-freq/sort_by_patch/"
         ),
+        "inat21__train_mini",
     ),
     "clip/inat21": ModelConfig(
         "clip",
@@ -94,6 +97,7 @@ MODEL_LOOKUP: dict[str, ModelConfig] = {
         pathlib.Path(
             "/research/nfs_su_809/workspace/stevens.994/saev/features/rscsjxgd-high-freq/sort_by_patch/"
         ),
+        "inat21__train_mini",
     ),
 }
 
@@ -144,19 +148,22 @@ class VipsImageFolder(torchvision.datasets.ImageFolder):
         return image
 
 
-dataset = VipsImageFolder(
-    root="/research/nfs_su_809/workspace/stevens.994/datasets/inat21/train_mini/"
-)
+datasets = {
+    "inat21__train_mini": VipsImageFolder(
+        root="/research/nfs_su_809/workspace/stevens.994/datasets/inat21/train_mini/"
+    )
+}
 
 
 @beartype.beartype
-def get_dataset_image(i: int) -> tuple[pyvips.Image, str]:
+def get_dataset_image(key: str, i: int) -> tuple[pyvips.Image, str]:
     """
     Get raw image and processed label from dataset.
 
     Returns:
         Tuple of pyvips.Image and classname.
     """
+    dataset = datasets[key]
     img, tgt = dataset[i]
     species_label = dataset.classes[tgt]
     # iNat21 specific: Remove taxonomy prefix
@@ -228,25 +235,25 @@ class SplitClip(torch.nn.Module):
 
 @beartype.beartype
 @functools.cache
-def load_split_vit(model: str) -> tuple[SplitClip, object]:
+def load_split_vit(model_name: str) -> tuple[SplitClip, object]:
     # Translate model key to ckpt. Use the model as the default.
-    model_cfg = MODEL_LOOKUP[model]
+    model_cfg = MODEL_LOOKUP[model_name]
     split_vit = SplitClip(model_cfg.vit_ckpt, n_end_layers=1).to(DEVICE).eval()
     vit_transform = saev.activations.make_img_transform(
         model_cfg.vit_family, model_cfg.vit_ckpt
     )
-    logger.info("Loaded Split ViT: %s.", model)
+    logger.info("Loaded Split ViT: %s.", model_name)
     return split_vit, vit_transform
 
 
 @beartype.beartype
 @functools.cache
-def load_sae(model: str) -> saev.nn.SparseAutoencoder:
-    model_cfg = MODEL_LOOKUP[model]
+def load_sae(model_name: str) -> saev.nn.SparseAutoencoder:
+    model_cfg = MODEL_LOOKUP[model_name]
     sae_ckpt_fpath = CWD / "checkpoints" / model_cfg.sae_ckpt / "sae.pt"
     sae = saev.nn.load(sae_ckpt_fpath.as_posix())
     sae.to(DEVICE).eval()
-    logger.info("Loaded SAE: %s -> %s.", model, model_cfg.sae_ckpt)
+    logger.info("Loaded SAE: %s -> %s.", model_name, model_cfg.sae_ckpt)
     return sae
 
 
@@ -258,9 +265,9 @@ def load_tensor(path: str | pathlib.Path) -> Tensor:
 @beartype.beartype
 @functools.cache
 def load_tensors(
-    model: str,
+    model_name: str,
 ) -> tuple[Int[Tensor, "d_sae top_k"], Float[Tensor, "d_sae top_k n_patches"]]:
-    model_cfg = MODEL_LOOKUP[model]
+    model_cfg = MODEL_LOOKUP[model_name]
     top_img_i = load_tensor(model_cfg.tensor_dpath / "top_img_i.pt")
     top_values = load_tensor(model_cfg.tensor_dpath / "top_values.pt")
     return top_img_i, top_values
@@ -286,7 +293,6 @@ logger.info("Loaded all datasets.")
 
 
 @beartype.beartype
-@line_profiler.profile
 def vips_to_base64(img_v: pyvips.Image) -> str:
     buf = img_v.write_to_buffer(".webp")
     b64 = base64.b64encode(buf)
@@ -295,15 +301,16 @@ def vips_to_base64(img_v: pyvips.Image) -> str:
 
 
 @beartype.beartype
-def get_image(i: int) -> list[str]:
-    img_v_raw, label = get_dataset_image(i)
+def get_image(example_id: str) -> list[str]:
+    dataset, split, i_str = example_id.split("__")
+    i = int(i_str)
+    img_v_raw, label = get_dataset_image(f"{dataset}__{split}", i)
     img_v_sized = to_sized(img_v_raw)
 
     return [vips_to_base64(img_v_sized), label]
 
 
 @jaxtyped(typechecker=beartype.beartype)
-@line_profiler.profile
 def add_highlights(
     img_v_sized: pyvips.Image,
     patches: np.ndarray,
@@ -368,6 +375,8 @@ class Example(typing.TypedDict):
     """The URL or path to access the SAE-highlighted image."""
     label: str
     """The class label or description associated with this example."""
+    example_id: str
+    """Unique ID to idenfify the original dataset instance."""
 
 
 @beartype.beartype
@@ -376,6 +385,9 @@ class SaeActivation(typing.TypedDict):
 
     This captures how strongly a particular SAE latent fires on different patches of an input image.
     """
+
+    model_name: str
+    """The model key."""
 
     latent: int
     """The index of the SAE latent being measured."""
@@ -438,7 +450,6 @@ class BufferInfo(typing.NamedTuple):
 
 
 @beartype.beartype
-@line_profiler.profile
 def bufferinfo_to_base64(bufferinfo: BufferInfo) -> str:
     img_v = pyvips.Image.new_from_memory(*bufferinfo)
     buf = img_v.write_to_buffer(".webp")
@@ -449,20 +460,23 @@ def bufferinfo_to_base64(bufferinfo: BufferInfo) -> str:
 
 @jaxtyped(typechecker=beartype.beartype)
 def make_sae_activation(
+    model_name: str,
     latent: int,
     acts: list[float],
     top_img_i: list[int],
     top_values: Float[Tensor, "top_k n_patches"],
     pool: concurrent.futures.Executor,
 ) -> SaeActivation:
-    raw_examples, seen_i_im = [], set()
+    dataset_name = MODEL_LOOKUP[model_name].dataset_name
+    raw_examples: list[tuple[int, pyvips.Image, Float[np.ndarray, "..."], str]] = []
+    seen_i_im = set()
     for i_im, values_p in zip(top_img_i, top_values):
         if i_im in seen_i_im:
             continue
 
-        ex_img_v_raw, ex_label = get_dataset_image(i_im)
+        ex_img_v_raw, ex_label = get_dataset_image(dataset_name, i_im)
         ex_img_v_sized = to_sized(ex_img_v_raw)
-        raw_examples.append((ex_img_v_sized, values_p.numpy(), ex_label))
+        raw_examples.append((i_im, ex_img_v_sized, values_p.numpy(), ex_label))
 
         seen_i_im.add(i_im)
 
@@ -473,24 +487,27 @@ def make_sae_activation(
     upper = top_values.max().item()
 
     futures = []
-    for ex_img, values_p, ex_label in raw_examples:
+    for i_im, ex_img, values_p, ex_label in raw_examples:
         highlighted_img = add_highlights(ex_img, values_p, upper=upper)
         # Submit both conversions to the thread pool
         orig_future = pool.submit(vips_to_base64, ex_img)
         highlight_future = pool.submit(vips_to_base64, highlighted_img)
-        futures.append((orig_future, highlight_future, ex_label))
+        futures.append((i_im, orig_future, highlight_future, ex_label))
 
     # Wait for all conversions to complete and build examples
     examples = []
-    for orig_future, highlight_future, ex_label in futures:
+    for i_im, orig_future, highlight_future, ex_label in futures:
         example = Example(
             orig_url=orig_future.result(),
             highlighted_url=highlight_future.result(),
             label=ex_label,
+            example_id=f"inat21__train_mini__{i_im}",
         )
         examples.append(example)
 
-    return SaeActivation(latent=latent, activations=acts, examples=examples)
+    return SaeActivation(
+        model_name=model_name, latent=latent, activations=acts, examples=examples
+    )
 
 
 @beartype.beartype
@@ -524,9 +541,10 @@ def get_sae_activations(
             top_img_i, top_values = load_tensors(model_name)
             logger.info("Loaded top SAE activations for '%s'.", model_name)
 
-            for latent in progress(requested_latents, every=1):
+            for latent in requested_latents:
                 sae_activations.append(
                     make_sae_activation(
+                        model_name,
                         latent,
                         acts_SP[latent].cpu().tolist(),
                         top_img_i[latent].tolist(),
@@ -598,8 +616,7 @@ class progress:
 
 
 with gr.Blocks() as demo:
-    image_number = gr.Number(label="Test Example", precision=0)
-    class_number = gr.Number(label="Test Class", precision=0)
+    example_id_text = gr.Text(label="Test Example")
     input_image = gr.Image(
         label="Input Image",
         sources=["upload", "clipboard"],
@@ -612,7 +629,7 @@ with gr.Blocks() as demo:
     get_input_image_btn = gr.Button(value="Get Input Image")
     get_input_image_btn.click(
         get_image,
-        inputs=[image_number],
+        inputs=[example_id_text],
         outputs=[input_image_base64, input_image_label],
         api_name="get-image",
         postprocess=False,

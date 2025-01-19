@@ -64,16 +64,16 @@ type alias Model =
     { -- Browser
       key : Browser.Navigation.Key
     , inputExampleIndex : Int
-    , inputExample : LoadingState Example
+    , inputExample : Requests.State Example
     , hoveredPatchIndex : Maybe Int
     , selectedPatchIndices : Set.Set Int
-    , saeExamples : LoadingState (List SaeExample)
+    , saeExamples : Requests.State (List SaeExample)
     , sliders : Dict.Dict Int Float
     , examinedClass : ExaminedClass
 
     -- ML stuff
-    , originalPredictions : LoadingState (List Float)
-    , modifiedPredictions : LoadingState (List Float)
+    , originalPredictions : Requests.State (List Float)
+    , modifiedPredictions : Requests.State (List Float)
 
     -- APIs
     , gradio : Gradio.Config
@@ -85,18 +85,11 @@ type alias Model =
     }
 
 
-type LoadingState a
-    = Initial
-    | Loading
-    | Loaded a
-    | Failed String
-
-
 type ExaminedClass
     = NotExamining
     | Examining
         { class : Int
-        , examples : LoadingState (List Example)
+        , examples : Requests.State (List Example)
         }
 
 
@@ -749,7 +742,7 @@ viewGridCell hovered selected self =
         []
 
 
-viewProbs : String -> String -> LoadingState (List Float) -> Html.Html Msg
+viewProbs : String -> String -> Requests.State (List Float) -> Html.Html Msg
 viewProbs title callToAction loadingProbs =
     let
         content =
@@ -815,7 +808,7 @@ viewProb target prob =
         ]
 
 
-viewSaeExamples : LoadingState (List SaeExample) -> Dict.Dict Int Float -> Html.Html Msg
+viewSaeExamples : Requests.State (List SaeExample) -> Dict.Dict Int Float -> Html.Html Msg
 viewSaeExamples examplesLoading values =
     case examplesLoading of
         Initial ->

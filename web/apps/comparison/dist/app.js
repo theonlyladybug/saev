@@ -11701,16 +11701,15 @@ var $author$project$Gradio$get = F5(
 				A3($author$project$Gradio$start, cfg, path, args)));
 	});
 var $elm$json$Json$Decode$index = _Json_decodeIndex;
-var $elm$json$Json$Encode$int = _Json_wrap;
 var $author$project$Comparison$getImage = F3(
-	function (cfg, id, imageIndex) {
+	function (cfg, id, exampleId) {
 		return A5(
 			$author$project$Gradio$get,
 			cfg,
 			'get-image',
 			_List_fromArray(
 				[
-					$elm$json$Json$Encode$int(imageIndex)
+					$elm$json$Json$Encode$string(exampleId)
 				]),
 			A3(
 				$elm$json$Json$Decode$map2,
@@ -11726,6 +11725,7 @@ var $author$project$Requests$init = $author$project$Requests$Id(0);
 var $author$project$Comparison$init = F3(
 	function (_v0, url, key) {
 		var model = {
+			focusedLatent: $elm$core$Maybe$Nothing,
 			gradio: {host: 'http://127.0.0.1:7860'},
 			imageRequestId: $author$project$Requests$init,
 			inputExample: $author$project$Requests$Initial,
@@ -11735,7 +11735,7 @@ var $author$project$Comparison$init = F3(
 		};
 		return _Utils_Tuple2(
 			model,
-			A3($author$project$Comparison$getImage, model.gradio, model.imageRequestId, 0));
+			A3($author$project$Comparison$getImage, model.gradio, model.imageRequestId, 'inat21__train_mini__93571'));
 	});
 var $elm$core$Platform$Sub$batch = _Platform_batch;
 var $elm$core$Platform$Sub$none = $elm$core$Platform$Sub$batch(_List_Nil);
@@ -11773,9 +11773,9 @@ var $author$project$Comparison$GotSaeActivations = F2(
 	function (a, b) {
 		return {$: 'GotSaeActivations', a: a, b: b};
 	});
-var $author$project$Comparison$SaeActivation = F3(
-	function (latent, activations, examples) {
-		return {activations: activations, examples: examples, latent: latent};
+var $author$project$Comparison$SaeActivation = F4(
+	function (model, latent, activations, examples) {
+		return {activations: activations, examples: examples, latent: latent, model: model};
 	});
 var $author$project$Gradio$decodeOneHelper = function (maybe) {
 	if (maybe.$ === 'Just') {
@@ -11813,16 +11813,19 @@ var $author$project$Gradio$encodeImg = function (_v0) {
 				$elm$json$Json$Encode$string(image))
 			]));
 };
-var $author$project$Comparison$HighlightedExample = F3(
-	function (original, highlighted, label) {
-		return {highlighted: highlighted, label: label, original: original};
+var $author$project$Comparison$HighlightedExample = F4(
+	function (original, highlighted, label, exampleId) {
+		return {exampleId: exampleId, highlighted: highlighted, label: label, original: original};
 	});
-var $author$project$Comparison$highlightedExampleDecoder = A4(
-	$elm$json$Json$Decode$map3,
+var $elm$json$Json$Decode$map4 = _Json_map4;
+var $author$project$Comparison$highlightedExampleDecoder = A5(
+	$elm$json$Json$Decode$map4,
 	$author$project$Comparison$HighlightedExample,
 	A2($elm$json$Json$Decode$field, 'orig_url', $author$project$Gradio$base64ImageDecoder),
 	A2($elm$json$Json$Decode$field, 'highlighted_url', $author$project$Gradio$base64ImageDecoder),
-	A2($elm$json$Json$Decode$field, 'label', $elm$json$Json$Decode$string));
+	A2($elm$json$Json$Decode$field, 'label', $elm$json$Json$Decode$string),
+	A2($elm$json$Json$Decode$field, 'example_id', $elm$json$Json$Decode$string));
+var $elm$json$Json$Encode$int = _Json_wrap;
 var $author$project$Comparison$getSaeActivations = F3(
 	function (cfg, id, image) {
 		var latents = $elm$json$Json$Encode$object(
@@ -11834,7 +11837,7 @@ var $author$project$Comparison$getSaeActivations = F3(
 						$elm$json$Json$Encode$list,
 						$elm$json$Json$Encode$int,
 						_List_fromArray(
-							[449, 451, 518, 18380, 10185, 20085, 5435, 16081]))),
+							[449, 451, 518, 6448, 18380, 10185, 20085, 5435, 16081]))),
 					_Utils_Tuple2(
 					'clip/inat21',
 					A2(
@@ -11855,9 +11858,10 @@ var $author$project$Comparison$getSaeActivations = F3(
 			$author$project$Gradio$decodeOne(
 				$elm$json$Json$Decode$dict(
 					$elm$json$Json$Decode$list(
-						A4(
-							$elm$json$Json$Decode$map3,
+						A5(
+							$elm$json$Json$Decode$map4,
 							$author$project$Comparison$SaeActivation,
+							A2($elm$json$Json$Decode$field, 'model_name', $elm$json$Json$Decode$string),
 							A2($elm$json$Json$Decode$field, 'latent', $elm$json$Json$Decode$int),
 							A2(
 								$elm$json$Json$Decode$field,
@@ -11914,7 +11918,7 @@ var $author$project$Comparison$update = F2(
 							$elm$core$Platform$Cmd$none);
 					}
 				}
-			default:
+			case 'GotSaeActivations':
 				var id = msg.a;
 				var result = msg.b;
 				if (A2($author$project$Requests$isStale, id, model.saeActivationsRequestId)) {
@@ -11941,19 +11945,73 @@ var $author$project$Comparison$update = F2(
 							$elm$core$Platform$Cmd$none);
 					}
 				}
+			case 'FocusLatent':
+				var name = msg.a;
+				var latent = msg.b;
+				return _Utils_Tuple2(
+					_Utils_update(
+						model,
+						{
+							focusedLatent: $elm$core$Maybe$Just(
+								_Utils_Tuple2(name, latent))
+						}),
+					$elm$core$Platform$Cmd$none);
+			case 'BlurLatent':
+				var name = msg.a;
+				var latent = msg.b;
+				var _v3 = model.focusedLatent;
+				if (_v3.$ === 'Nothing') {
+					return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
+				} else {
+					var _v4 = _v3.a;
+					var n = _v4.a;
+					var l = _v4.b;
+					return (_Utils_eq(n, name) && _Utils_eq(l, latent)) ? _Utils_Tuple2(
+						_Utils_update(
+							model,
+							{focusedLatent: $elm$core$Maybe$Nothing}),
+						$elm$core$Platform$Cmd$none) : _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
+				}
+			default:
+				var exampleId = msg.a;
+				var imageRequestId = $author$project$Requests$next(model.imageRequestId);
+				return _Utils_Tuple2(
+					_Utils_update(
+						model,
+						{focusedLatent: $elm$core$Maybe$Nothing, imageRequestId: imageRequestId, inputExample: $author$project$Requests$Loading, saeActivations: $author$project$Requests$Initial}),
+					A3($author$project$Comparison$getImage, model.gradio, imageRequestId, exampleId));
 		}
 	});
-var $author$project$Gradio$base64ImageToString = function (_v0) {
-	var str = _v0.a;
-	return str;
-};
-var $elm$html$Html$img = _VirtualDom_node('img');
-var $elm$html$Html$Attributes$src = function (url) {
-	return A2(
-		$elm$html$Html$Attributes$stringProperty,
-		'src',
-		_VirtualDom_noJavaScriptOrHtmlUri(url));
-};
+var $elm$core$Maybe$andThen = F2(
+	function (callback, maybeValue) {
+		if (maybeValue.$ === 'Just') {
+			var value = maybeValue.a;
+			return callback(value);
+		} else {
+			return $elm$core$Maybe$Nothing;
+		}
+	});
+var $elm$core$List$filter = F2(
+	function (isGood, list) {
+		return A3(
+			$elm$core$List$foldr,
+			F2(
+				function (x, xs) {
+					return isGood(x) ? A2($elm$core$List$cons, x, xs) : xs;
+				}),
+			_List_Nil,
+			list);
+	});
+var $elm$core$Maybe$map = F2(
+	function (f, maybe) {
+		if (maybe.$ === 'Just') {
+			var value = maybe.a;
+			return $elm$core$Maybe$Just(
+				f(value));
+		} else {
+			return $elm$core$Maybe$Nothing;
+		}
+	});
 var $elm$html$Html$h3 = _VirtualDom_node('h3');
 var $author$project$Comparison$viewErr = function (err) {
 	return A2(
@@ -11987,125 +12045,325 @@ var $author$project$Comparison$viewErr = function (err) {
 					]))
 			]));
 };
-var $author$project$Comparison$viewInputExample = function (requestedExample) {
-	switch (requestedExample.$) {
-		case 'Initial':
-			return A2(
-				$elm$html$Html$p,
-				_List_Nil,
-				_List_fromArray(
-					[
-						$elm$html$Html$text('Loading initial example...')
-					]));
-		case 'Loading':
-			return A2(
-				$elm$html$Html$p,
-				_List_Nil,
-				_List_fromArray(
-					[
-						$elm$html$Html$text('Loading example...')
-					]));
-		case 'Loaded':
-			var example = requestedExample.a;
-			return A2(
-				$elm$html$Html$img,
-				_List_fromArray(
-					[
-						$elm$html$Html$Attributes$src(
-						$author$project$Gradio$base64ImageToString(example.url))
-					]),
-				_List_Nil);
-		default:
-			var err = requestedExample.a;
-			return $author$project$Comparison$viewErr(err);
-	}
+var $author$project$Gradio$base64ImageToString = function (_v0) {
+	var str = _v0.a;
+	return str;
 };
+var $elm$html$Html$img = _VirtualDom_node('img');
+var $elm$html$Html$Attributes$src = function (url) {
+	return A2(
+		$elm$html$Html$Attributes$stringProperty,
+		'src',
+		_VirtualDom_noJavaScriptOrHtmlUri(url));
+};
+var $elm$core$Basics$clamp = F3(
+	function (low, high, number) {
+		return (_Utils_cmp(number, low) < 0) ? low : ((_Utils_cmp(number, high) > 0) ? high : number);
+	});
+var $author$project$Comparison$bucket = function (value) {
+	var clamped = A3($elm$core$Basics$clamp, 0.0, 1.0, value);
+	var out = (clamped >= 1.0) ? 9 : $elm$core$Basics$floor(clamped * 10);
+	return out;
+};
+var $author$project$Comparison$viewGridCell = function (value) {
+	var opacity = A2(
+		$elm$core$Maybe$withDefault,
+		'opacity-0',
+		A2(
+			$elm$core$Array$get,
+			$author$project$Comparison$bucket(0.5 * value),
+			$elm$core$Array$fromList(
+				_List_fromArray(
+					['opacity-0', 'opacity-10', 'opacity-20', 'opacity-30', 'opacity-40', 'opacity-50', 'opacity-60', 'opacity-70', 'opacity-80', 'opacity-90', 'opacity-100']))));
+	return A2(
+		$elm$html$Html$div,
+		_List_fromArray(
+			[
+				$elm$html$Html$Attributes$class('w-[16px] h-[16px] bg-rose-600'),
+				$elm$html$Html$Attributes$class('md:w-[24px] md:h-[24px]'),
+				$elm$html$Html$Attributes$class('lg:w-[32px] lg:h-[32px]'),
+				$elm$html$Html$Attributes$class('xl:w-[40px] xl:h-[40px]'),
+				$elm$html$Html$Attributes$class(opacity)
+			]),
+		_List_Nil);
+};
+var $author$project$Comparison$viewGriddedImage = F2(
+	function (values, _v0) {
+		var url = _v0.url;
+		var label = _v0.label;
+		return A2(
+			$elm$html$Html$div,
+			_List_Nil,
+			_List_fromArray(
+				[
+					A2(
+					$elm$html$Html$div,
+					_List_fromArray(
+						[
+							$elm$html$Html$Attributes$class('relative inline-block')
+						]),
+					_List_fromArray(
+						[
+							A2(
+							$elm$html$Html$div,
+							_List_fromArray(
+								[
+									$elm$html$Html$Attributes$class('absolute grid'),
+									$elm$html$Html$Attributes$class('grid-rows-[repeat(14,_16px)] grid-cols-[repeat(14,_16px)]'),
+									$elm$html$Html$Attributes$class('md:grid-rows-[repeat(14,_24px)] md:grid-cols-[repeat(14,_24px)]'),
+									$elm$html$Html$Attributes$class('lg:grid-rows-[repeat(14,_32px)] lg:grid-cols-[repeat(14,_32px)]'),
+									$elm$html$Html$Attributes$class('xl:grid-rows-[repeat(14,_40px)] xl:grid-cols-[repeat(14,_40px)]')
+								]),
+							A2($elm$core$List$map, $author$project$Comparison$viewGridCell, values)),
+							A2(
+							$elm$html$Html$img,
+							_List_fromArray(
+								[
+									$elm$html$Html$Attributes$class('block w-[224px] h-[224px]'),
+									$elm$html$Html$Attributes$class('md:w-[336px] md:h-[336px]'),
+									$elm$html$Html$Attributes$class('lg:w-[448px] lg:h-[448px]'),
+									$elm$html$Html$Attributes$class('xl:w-[560px] xl:h-[560px]'),
+									$elm$html$Html$Attributes$src(
+									$author$project$Gradio$base64ImageToString(url))
+								]),
+							_List_Nil)
+						])),
+					A2(
+					$elm$html$Html$p,
+					_List_Nil,
+					_List_fromArray(
+						[
+							$elm$html$Html$text(label)
+						]))
+				]));
+	});
+var $author$project$Comparison$viewInputExample = F3(
+	function (focusedLatent, requestedSaeActivations, requestedExample) {
+		var _v0 = _Utils_Tuple3(focusedLatent, requestedSaeActivations, requestedExample);
+		_v0$3:
+		while (true) {
+			switch (_v0.c.$) {
+				case 'Initial':
+					var _v1 = _v0.c;
+					return A2(
+						$elm$html$Html$p,
+						_List_Nil,
+						_List_fromArray(
+							[
+								$elm$html$Html$text('Loading initial example...')
+							]));
+				case 'Loading':
+					var _v2 = _v0.c;
+					return A2(
+						$elm$html$Html$p,
+						_List_Nil,
+						_List_fromArray(
+							[
+								$elm$html$Html$text('Loading example...')
+							]));
+				case 'Failed':
+					var err = _v0.c.a;
+					return $author$project$Comparison$viewErr(err);
+				default:
+					switch (_v0.b.$) {
+						case 'Initial':
+							if (_v0.a.$ === 'Nothing') {
+								break _v0$3;
+							} else {
+								var _v4 = _v0.b;
+								var example = _v0.c.a;
+								return A2($author$project$Comparison$viewGriddedImage, _List_Nil, example);
+							}
+						case 'Loading':
+							if (_v0.a.$ === 'Nothing') {
+								break _v0$3;
+							} else {
+								var _v5 = _v0.b;
+								var example = _v0.c.a;
+								return A2($author$project$Comparison$viewGriddedImage, _List_Nil, example);
+							}
+						case 'Failed':
+							if (_v0.a.$ === 'Nothing') {
+								break _v0$3;
+							} else {
+								var example = _v0.c.a;
+								return A2($author$project$Comparison$viewGriddedImage, _List_Nil, example);
+							}
+						default:
+							if (_v0.a.$ === 'Nothing') {
+								break _v0$3;
+							} else {
+								var _v6 = _v0.a.a;
+								var model = _v6.a;
+								var latent = _v6.b;
+								var activations = _v0.b.a;
+								var example = _v0.c.a;
+								var values = A2(
+									$elm$core$Maybe$withDefault,
+									_List_Nil,
+									A2(
+										$elm$core$Maybe$map,
+										function ($) {
+											return $.activations;
+										},
+										A2(
+											$elm$core$Maybe$andThen,
+											$elm$core$List$head,
+											A2(
+												$elm$core$Maybe$map,
+												$elm$core$List$filter(
+													function (act) {
+														return _Utils_eq(act.latent, latent);
+													}),
+												A2($elm$core$Dict$get, model, activations)))));
+								return A2($author$project$Comparison$viewGriddedImage, values, example);
+							}
+					}
+			}
+		}
+		var _v3 = _v0.a;
+		var example = _v0.c.a;
+		return A2($author$project$Comparison$viewGriddedImage, _List_Nil, example);
+	});
 var $author$project$Comparison$uncurry = F2(
 	function (f, _v0) {
 		var a = _v0.a;
 		var b = _v0.b;
 		return A2(f, a, b);
 	});
+var $author$project$Comparison$BlurLatent = F2(
+	function (a, b) {
+		return {$: 'BlurLatent', a: a, b: b};
+	});
+var $author$project$Comparison$FocusLatent = F2(
+	function (a, b) {
+		return {$: 'FocusLatent', a: a, b: b};
+	});
+var $elm$html$Html$Attributes$attribute = $elm$virtual_dom$VirtualDom$attribute;
 var $elm$html$Html$details = _VirtualDom_node('details');
+var $elm$html$Html$Events$onMouseEnter = function (msg) {
+	return A2(
+		$elm$html$Html$Events$on,
+		'mouseenter',
+		$elm$json$Json$Decode$succeed(msg));
+};
+var $elm$html$Html$Events$onMouseLeave = function (msg) {
+	return A2(
+		$elm$html$Html$Events$on,
+		'mouseleave',
+		$elm$json$Json$Decode$succeed(msg));
+};
 var $elm$html$Html$summary = _VirtualDom_node('summary');
-var $author$project$Comparison$viewHighlightedExample = function (_v0) {
-	var original = _v0.original;
-	var highlighted = _v0.highlighted;
-	var label = _v0.label;
-	return A2(
-		$elm$html$Html$div,
-		_List_fromArray(
-			[
-				$elm$html$Html$Attributes$class('relative group')
-			]),
-		_List_fromArray(
-			[
-				A2(
-				$elm$html$Html$img,
-				_List_fromArray(
-					[
-						$elm$html$Html$Attributes$class('transition-opacity duration-100 group-hover:opacity-0'),
-						$elm$html$Html$Attributes$src(
-						$author$project$Gradio$base64ImageToString(original))
-					]),
-				_List_Nil),
-				A2(
-				$elm$html$Html$img,
-				_List_fromArray(
-					[
-						$elm$html$Html$Attributes$class('absolute inset-0 opacity-0 transition-opacity duration-100 group-hover:opacity-100'),
-						$elm$html$Html$Attributes$src(
-						$author$project$Gradio$base64ImageToString(highlighted))
-					]),
-				_List_Nil)
-			]));
+var $author$project$Comparison$SelectExample = function (a) {
+	return {$: 'SelectExample', a: a};
 };
-var $author$project$Comparison$viewSaeActivation = function (_v0) {
-	var latent = _v0.latent;
-	var activations = _v0.activations;
-	var examples = _v0.examples;
-	return A2(
-		$elm$html$Html$div,
-		_List_Nil,
-		_List_fromArray(
-			[
-				A2(
-				$elm$html$Html$details,
-				_List_fromArray(
-					[
-						$elm$html$Html$Attributes$class('cursor-pointer rounded-lg border border-gray-200 bg-white shadow-sm hover:shadow-md transition-shadow duration-200 dark:border-gray-700 dark:bg-gray-800 ')
-					]),
-				_List_fromArray(
-					[
-						A2(
-						$elm$html$Html$summary,
-						_List_fromArray(
-							[
-								$elm$html$Html$Attributes$class('cursor-pointer select-none px-4 py-3 hover:bg-gray-50 text-gray-900')
-							]),
-						_List_fromArray(
-							[
-								A2(
-								$elm$html$Html$span,
-								_List_Nil,
-								_List_fromArray(
-									[
-										$elm$html$Html$text(
-										'Latent: ' + $elm$core$String$fromInt(latent))
-									]))
-							])),
-						A2(
-						$elm$html$Html$div,
-						_List_fromArray(
-							[
-								$elm$html$Html$Attributes$class('p-1 text-gray-600 border-t border-gray-200 grid gap-1 grid-cols-2 md:grid-cols-4')
-							]),
-						A2($elm$core$List$map, $author$project$Comparison$viewHighlightedExample, examples))
-					]))
-			]));
-};
-var $author$project$Comparison$viewModelSaeActivations = F2(
-	function (model, saeActivations) {
+var $author$project$Comparison$viewHighlightedExample = F2(
+	function (active, _v0) {
+		var original = _v0.original;
+		var highlighted = _v0.highlighted;
+		var label = _v0.label;
+		var exampleId = _v0.exampleId;
+		var _v1 = active ? _Utils_Tuple2('opacity-0', 'opacity-100') : _Utils_Tuple2('opacity-100', 'opacity-0');
+		var classOriginal = _v1.a;
+		var classHighlighted = _v1.b;
+		return A2(
+			$elm$html$Html$div,
+			_List_fromArray(
+				[
+					$elm$html$Html$Attributes$class('relative'),
+					$elm$html$Html$Events$onClick(
+					$author$project$Comparison$SelectExample(exampleId))
+				]),
+			_List_fromArray(
+				[
+					A2(
+					$elm$html$Html$img,
+					_List_fromArray(
+						[
+							$elm$html$Html$Attributes$class('transition-opacity duration-100'),
+							$elm$html$Html$Attributes$class(classOriginal),
+							$elm$html$Html$Attributes$src(
+							$author$project$Gradio$base64ImageToString(original))
+						]),
+					_List_Nil),
+					A2(
+					$elm$html$Html$img,
+					_List_fromArray(
+						[
+							$elm$html$Html$Attributes$class('absolute inset-0 transition-opacity duration-100'),
+							$elm$html$Html$Attributes$class(classHighlighted),
+							$elm$html$Html$Attributes$src(
+							$author$project$Gradio$base64ImageToString(highlighted))
+						]),
+					_List_Nil)
+				]));
+	});
+var $author$project$Comparison$viewSaeActivation = F2(
+	function (focusedLatent, _v0) {
+		var model = _v0.model;
+		var latent = _v0.latent;
+		var activations = _v0.activations;
+		var examples = _v0.examples;
+		var active = function () {
+			if (focusedLatent.$ === 'Nothing') {
+				return false;
+			} else {
+				var _v2 = focusedLatent.a;
+				var name = _v2.a;
+				var l = _v2.b;
+				return _Utils_eq(name, model) && _Utils_eq(l, latent);
+			}
+		}();
+		return A2(
+			$elm$html$Html$div,
+			_List_Nil,
+			_List_fromArray(
+				[
+					A2(
+					$elm$html$Html$details,
+					_List_fromArray(
+						[
+							$elm$html$Html$Attributes$class('cursor-pointer rounded-lg border border-gray-200 bg-white shadow-sm hover:shadow-md transition-shadow duration-200 dark:border-gray-700 dark:bg-gray-800'),
+							A2($elm$html$Html$Attributes$attribute, 'open', ''),
+							$elm$html$Html$Events$onMouseEnter(
+							A2($author$project$Comparison$FocusLatent, model, latent)),
+							$elm$html$Html$Events$onMouseLeave(
+							A2($author$project$Comparison$BlurLatent, model, latent))
+						]),
+					_List_fromArray(
+						[
+							A2(
+							$elm$html$Html$summary,
+							_List_fromArray(
+								[
+									$elm$html$Html$Attributes$class('cursor-pointer select-none px-4 py-3 hover:bg-gray-50 text-gray-900')
+								]),
+							_List_fromArray(
+								[
+									A2(
+									$elm$html$Html$span,
+									_List_Nil,
+									_List_fromArray(
+										[
+											$elm$html$Html$text(
+											'Latent: ' + $elm$core$String$fromInt(latent))
+										]))
+								])),
+							A2(
+							$elm$html$Html$div,
+							_List_fromArray(
+								[
+									$elm$html$Html$Attributes$class('p-1 text-gray-600 border-t border-gray-200 grid gap-1 grid-cols-2 md:grid-cols-4')
+								]),
+							A2(
+								$elm$core$List$map,
+								$author$project$Comparison$viewHighlightedExample(active),
+								examples))
+						]))
+				]));
+	});
+var $author$project$Comparison$viewModelSaeActivations = F3(
+	function (focusedLatent, model, saeActivations) {
 		return A2(
 			$elm$html$Html$div,
 			_List_Nil,
@@ -12122,46 +12380,51 @@ var $author$project$Comparison$viewModelSaeActivations = F2(
 					$elm$html$Html$div,
 					_List_fromArray(
 						[
-							$elm$html$Html$Attributes$class('grid grid-cols-1 lg:grid-cols-2')
+							$elm$html$Html$Attributes$class('grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3')
 						]),
-					A2($elm$core$List$map, $author$project$Comparison$viewSaeActivation, saeActivations))
+					A2(
+						$elm$core$List$map,
+						$author$project$Comparison$viewSaeActivation(focusedLatent),
+						saeActivations))
 				]));
 	});
-var $author$project$Comparison$viewSaeActivations = function (requestedActivations) {
-	switch (requestedActivations.$) {
-		case 'Initial':
-			return A2(
-				$elm$html$Html$p,
-				_List_fromArray(
-					[
-						$elm$html$Html$Attributes$class('italic')
-					]),
-				_List_fromArray(
-					[
-						$elm$html$Html$text('Load an image to see SAE activations.')
-					]));
-		case 'Loading':
-			return A2(
-				$elm$html$Html$p,
-				_List_Nil,
-				_List_fromArray(
-					[
-						$elm$html$Html$text('Loading SAE activations...')
-					]));
-		case 'Loaded':
-			var activations = requestedActivations.a;
-			return A2(
-				$elm$html$Html$div,
-				_List_Nil,
-				A2(
-					$elm$core$List$map,
-					$author$project$Comparison$uncurry($author$project$Comparison$viewModelSaeActivations),
-					$elm$core$Dict$toList(activations)));
-		default:
-			var err = requestedActivations.a;
-			return $author$project$Comparison$viewErr(err);
-	}
-};
+var $author$project$Comparison$viewSaeActivations = F2(
+	function (focusedLatent, requestedActivations) {
+		switch (requestedActivations.$) {
+			case 'Initial':
+				return A2(
+					$elm$html$Html$p,
+					_List_fromArray(
+						[
+							$elm$html$Html$Attributes$class('italic')
+						]),
+					_List_fromArray(
+						[
+							$elm$html$Html$text('Load an image to see SAE activations.')
+						]));
+			case 'Loading':
+				return A2(
+					$elm$html$Html$p,
+					_List_Nil,
+					_List_fromArray(
+						[
+							$elm$html$Html$text('Loading SAE activations...')
+						]));
+			case 'Loaded':
+				var activations = requestedActivations.a;
+				return A2(
+					$elm$html$Html$div,
+					_List_Nil,
+					A2(
+						$elm$core$List$map,
+						$author$project$Comparison$uncurry(
+							$author$project$Comparison$viewModelSaeActivations(focusedLatent)),
+						$elm$core$Dict$toList(activations)));
+			default:
+				var err = requestedActivations.a;
+				return $author$project$Comparison$viewErr(err);
+		}
+	});
 var $author$project$Comparison$view = function (model) {
 	return {
 		body: _List_fromArray(
@@ -12178,11 +12441,11 @@ var $author$project$Comparison$view = function (model) {
 						$elm$html$Html$div,
 						_List_fromArray(
 							[
-								$elm$html$Html$Attributes$class('flex flex-col flex-1')
+								$elm$html$Html$Attributes$class('flex flex-col')
 							]),
 						_List_fromArray(
 							[
-								$author$project$Comparison$viewInputExample(model.inputExample),
+								A3($author$project$Comparison$viewInputExample, model.focusedLatent, model.saeActivations, model.inputExample),
 								A2(
 								$elm$html$Html$p,
 								_List_Nil,
@@ -12199,7 +12462,7 @@ var $author$project$Comparison$view = function (model) {
 							]),
 						_List_fromArray(
 							[
-								$author$project$Comparison$viewSaeActivations(model.saeActivations)
+								A2($author$project$Comparison$viewSaeActivations, model.focusedLatent, model.saeActivations)
 							]))
 					]))
 			]),
@@ -12218,4 +12481,4 @@ var $author$project$Comparison$main = $elm$browser$Browser$application(
 		view: $author$project$Comparison$view
 	});
 _Platform_export({'Comparison':{'init':$author$project$Comparison$main(
-	$elm$json$Json$Decode$succeed(_Utils_Tuple0))({"versions":{"elm":"0.19.1"},"types":{"message":"Comparison.Msg","aliases":{"Comparison.Example":{"args":[],"type":"{ url : Gradio.Base64Image, label : String.String }"},"Comparison.HighlightedExample":{"args":[],"type":"{ original : Gradio.Base64Image, highlighted : Gradio.Base64Image, label : String.String }"},"Comparison.SaeActivation":{"args":[],"type":"{ latent : Basics.Int, activations : List.List Basics.Float, examples : List.List Comparison.HighlightedExample }"}},"unions":{"Comparison.Msg":{"args":[],"tags":{"NoOp":[],"GotImage":["Requests.Id","Result.Result Gradio.Error Comparison.Example"],"GotSaeActivations":["Requests.Id","Result.Result Gradio.Error (Dict.Dict String.String (List.List Comparison.SaeActivation))"]}},"Gradio.Base64Image":{"args":[],"tags":{"Base64Image":["String.String"]}},"Dict.Dict":{"args":["k","v"],"tags":{"RBNode_elm_builtin":["Dict.NColor","k","v","Dict.Dict k v","Dict.Dict k v"],"RBEmpty_elm_builtin":[]}},"Gradio.Error":{"args":[],"tags":{"NetworkError":["String.String"],"ParsingError":["String.String"],"JsonError":["String.String"],"ApiError":["String.String"]}},"Basics.Float":{"args":[],"tags":{"Float":[]}},"Requests.Id":{"args":[],"tags":{"Id":["Basics.Int"]}},"Basics.Int":{"args":[],"tags":{"Int":[]}},"List.List":{"args":["a"],"tags":{}},"Result.Result":{"args":["error","value"],"tags":{"Ok":["value"],"Err":["error"]}},"String.String":{"args":[],"tags":{"String":[]}},"Dict.NColor":{"args":[],"tags":{"Red":[],"Black":[]}}}}})}});}(this));
+	$elm$json$Json$Decode$succeed(_Utils_Tuple0))({"versions":{"elm":"0.19.1"},"types":{"message":"Comparison.Msg","aliases":{"Comparison.Example":{"args":[],"type":"{ url : Gradio.Base64Image, label : String.String }"},"Comparison.HighlightedExample":{"args":[],"type":"{ original : Gradio.Base64Image, highlighted : Gradio.Base64Image, label : String.String, exampleId : String.String }"},"Comparison.SaeActivation":{"args":[],"type":"{ model : String.String, latent : Basics.Int, activations : List.List Basics.Float, examples : List.List Comparison.HighlightedExample }"}},"unions":{"Comparison.Msg":{"args":[],"tags":{"NoOp":[],"GotImage":["Requests.Id","Result.Result Gradio.Error Comparison.Example"],"GotSaeActivations":["Requests.Id","Result.Result Gradio.Error (Dict.Dict String.String (List.List Comparison.SaeActivation))"],"SelectExample":["String.String"],"FocusLatent":["String.String","Basics.Int"],"BlurLatent":["String.String","Basics.Int"]}},"Gradio.Base64Image":{"args":[],"tags":{"Base64Image":["String.String"]}},"Dict.Dict":{"args":["k","v"],"tags":{"RBNode_elm_builtin":["Dict.NColor","k","v","Dict.Dict k v","Dict.Dict k v"],"RBEmpty_elm_builtin":[]}},"Gradio.Error":{"args":[],"tags":{"NetworkError":["String.String"],"ParsingError":["String.String"],"JsonError":["String.String"],"ApiError":["String.String"]}},"Basics.Float":{"args":[],"tags":{"Float":[]}},"Requests.Id":{"args":[],"tags":{"Id":["Basics.Int"]}},"Basics.Int":{"args":[],"tags":{"Int":[]}},"List.List":{"args":["a"],"tags":{}},"Result.Result":{"args":["error","value"],"tags":{"Ok":["value"],"Err":["error"]}},"String.String":{"args":[],"tags":{"String":[]}},"Dict.NColor":{"args":[],"tags":{"Red":[],"Black":[]}}}}})}});}(this));

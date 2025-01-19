@@ -963,27 +963,86 @@ Studying models again!
 * `24K/61`: Open animal mouths (very general)
 * `24K/1848`: moth heads
 
+* 4661: wings from white-spotted butterflies (Nymphalidae)
+* 565: very similar to the feature above---not sure what the difference is
+* 3339: yellow flower bunches
+* 10860: birds perched on branch
+* 5317: moths from the back (overwing). Lots of different families.
+* 9411: birds with spread feathers in flight
+* 12722: bird heads, specifically behind the eye/neck area
+* 11239: purple flower bunches
+* 17051: white/purple flowers with big petals
+* 14910: birds
+* 23048: insect legs (stink bugs, beetles, longhorns)
+* 8540: tusk looking things (elephant tusks, mushroom stalks)
+* 21860: Lions (great localization)
+* 15918: insects, both moths and beetles
+* 4004: power lines and windmills
+* 4331: wing tips of moths
+* 4594: bird reflection in water
+* 14525: lizard tails
+* 9405: human hands, not subject matter
+* 2142: camoflage patterning, on snakes, owls, hyenas and frogs
+* 18268: ridge on a white surface, like sea shells, mushrooms
+* 24103: mountains in background
+* 909: mammal ears
+
 ## rscsjxgd - CLIP + iNat21
 
 
 ## gpnn7x3p - BioCLIP + iNat21
 
-* `24K/7`: All birds of order "Caprimulgiformes".
-* `24K/29`: all sort of "long" things, like spider legs, grasses, long leaves, etc.
-* `24K/417`: all spiny thigs, like furry caterpillars, or the underside of mushrooms.
-* `24K/449`: Moths from "Lepidoptera Geometridae".
-* `24K/451`: Moths from "Lepidoptera Pieridae"
-* `24K/459`: Legs of insects AND a fish?
-* `24K/468`: Bowls that humming birds are sitting on.
-* `24K/473`: Spottled neck of birds (TRAIT)
-* `24K/480`: Mammal ears (TRAIT)
-* `24K/504`: Squirrel tails (but also a bird head).
-* `24K/508`: Moth wings/bird feathers
-* `24K/518`: MOth wings with white stripe (TRAIT)
-* `24K/4465`: Plant stems (TRAIT)
-* `24K/4467`: Leaves of plants from family Asteraceae (+ mislabeld arachnid)
-* `24K/4468`: Purple (petals, insect body)
-* `24K/4509`: Leaf midribs (part of leaf)
+* 7: All birds of order "Caprimulgiformes".
+* 29: all sort of "long" things, like spider legs, grasses, long leaves, etc.
+* 417: all spiny thigs, like furry caterpillars, or the underside of mushrooms.
+* 449: Moths from "Lepidoptera Geometridae".
+* 451: Moths from "Lepidoptera Pieridae"
+* 459: Legs of insects AND a fish?
+* 468: Bowls that humming birds are sitting on.
+* 473: Spottled neck of birds (TRAIT)
+* 480: Mammal ears (TRAIT)
+* 504: Squirrel tails (but also a bird head).
+* 508: Moth wings/bird feathers
+* 518: Moth wings with white stripe (TRAIT)
+* 3205: Moth antennae
+* 6448: Moth antennae again
+* 13270: Noctuidae, owlet moths, with wings closed
+* 9587: Purple flowers on top of grassy plants.
+* 13156: Bird chests
+* 23K/24104: Rounded to kidney-shaped leaves
+* 7672: gall wasp "galls"
+* 18380: moth wings with "eye"s
+* 13917: purple flowers
+* 873: belly-up rodents and shrews
+* 21542: wings of birds with spots on their bellies
+* 18444: hanging, bell-like flower (purple)
+* 17435: owl heads
+* 1677: striped insect thorax (TRAIT?)
+* 16938: hanging bell-like flower (yellow)
+* 10185: butterfly spotted wings, white with speckled dark spots
+* 20085: butterflies with orange wings with black rims
+* 10412: moth wings again
+* 17920: dragonfly bodies
+* 4465: Plant stems (TRAIT)
+* 4467: Leaves of plants from family Asteraceae (+ mislabeld arachnid)
+* 4468: Purple (petals, insect body)
+* 4509: Leaf midribs (part of leaf)
+* 18076: Bird crests (across different families)
+* 18494: Bird tails (across different families)
+* 5388: Beetle legs
+* 10598: Beetles
+* 19870: Bird legs
+* 5435: moth wing edges
+* 16081: more moth wings
+* 5804: squirrels (great localization)
+* 23215: Longhorn beetles (great localization)
+* 18591: Canis (great localization)
+* 24239: Cervidae (deer, great localization)
+* 15393: Cheetahs, (great localization)
+* 19155: Accipitridae (hawks, great localization)
+* 16357: Starfish (great localization)
+* 19505: Crabs!
+* 12067: flowers, but mostly flowers with butterflies
 
 In general, for both of these checkpoints, the features do not tend to look very monosemantic.
 I would expect checkpoints with a higher sparsity contraint, and thus lower eval/L0, to be more monosemantic.
@@ -1057,4 +1116,119 @@ connect interpretable features -> representation space
 
 counting + remove features for object
          + colors?
+
+# 12/20/2024
+
+Update for Yu
+
+Progress:
+
+* Further refined story based on feedback from others: SAEs enable the scientific method in interpretability.
+* Got a preliminary version of the semantic segmentation figure. Focusing on classification figure now.
+
+To Dos:
+
+* Finish Figure 1 and 2 in "understanding"
+* Make figure demonstrating trait-based image classification
+* Train SAE on VLM vision encoder
+* Make figure for language generation
+* Improve introduction so no reader asks for quantitative results
+
+Questions:
+
+* Which VLM should I use? Moondream2, Phi 3.5 vision, Llama 3.2 11B? -> Go with Qwen 2.5 VL 7B
+
+Unknowns (scary):
+
+* How to write the intro effectively
+
+How Yu can help:
+
+* Add Harry and Tanya's overleaf accounts to the preprint
+* Think about intro; share any weaknesses (as concrete as possible) via Teams.
+* [done] Provide concrete feedback on semantic segmentation figure
+
+# 01/08/2025
+
+Comparing BioCLIP and CLIP: I think BioCLIP probably learns very highly specific features compared to CLIP.
+I think we can show this with moth and butterfly wings.
+If we can demonstrate BioCLIP has different features for different traits of butterfly wings, and that CLIP doesn't, then we can show that BioCLIP can classify those species and CLIP cannot.
+
+* 449: Moths from "Lepidoptera Geometridae" (.
+* 508: Moth wings/bird feathers
+* 518: butterfly wings with white stripe (TRAIT)
+* 10185: butterfly spotted wings, white with speckled dark spots
+* 10412: moth wings again (Lepidoptera Hesperiidae Erynnis)
+* 18380: moth wings with "eye"s (all but one are Lepidoptera Nymphalidae, all are underwings)
+* 5435: moth wing edges
+* 16081: more moth wings
+
+* 451: Moths from "Lepidoptera Pieridae"
+* 20085: butterflies with orange wings with black rims (all but one are Lepidoptera Nymphalidae Danaus, all are "overwing")
+
+
+# 01/13/2025
+
+usvhngx4: CLIP + ImageNet
+
+* 4988: smoking/cigarettes, text/image alignment
+* 21009: low-res images
+* 7368: sorry, apologize text AND lighhouses/seawalls
+* 20604: pawprint graphics
+* 15731: cancel symbol
+* 5573: black and white stripes
+* 20652: damaged machinery (crack, accident, dent)
+* 7622: america/united states
+* 21366: bison horns
+* 12182: BMW logo
+* 11106: plant stems with animal
+* 7840: gloved hands
+* 22136: tongues, both human and animal
+* 17910: chopsticks
+* 6923: sea animal head?
+* 24456: sunglasses and "cool", both gisual and text and photographic styles
+* 6909: brazil
+* 11579: Maple leaves
+* 11965: mustaches
+* 17966: swastikas
+* 15901: knives or blades
+* 6252: gas, smoke, vapors
+* 6114: baseballs (great localization)
+* 18670: rifles
+* 218: adidas
+* 611: pencils
+* 20735: lightsabers
+* 9664: sheep
+* 18085: aprons, vests, body armor
+* 11560: red setter heads
+* 5725: pillows
+
+# 01/15/2025
+
+Getting DINOv2 visuals did not work very well (vqn8tscm-high-freq).
+I need to double check that I picked the correct checkpiont for ImageNet, etc.
+I will double check and then run it again.
+
+The DINOv2 checkpoint is actually oebd6e6i.
+This one has:
+
+* 4002: photographs of human teeth
+* 21856, 20471, 22680: dog ears
+* 18174, 2190: text (generic, no OCR)
+* 13263: human lips
+* 11025: clasps
+* 14605: olympic rings -> can CLIP detect this across visual styles?
+* 24034: statues of virgin mary?
+* 15371: rolling chair legs
+
+I think I need to find some test sets.
+Otherwise I won't really have good comparisons.
+
+
+# 01/17/2025
+
+Construct  train/test split by automatically finding images that maximally activate "Brazil".
+Then make the split by putting similar images from DINOv2 in the train set and different images in test set.
+This hopefully leads to a train/test split where semantic concepts are in different splits: brazil flags in the test set, the rio jesus statue is in the test set.
+This hopefully makes it hard for models that cannot reliably identify semantic concepts (DINOv2).
 
