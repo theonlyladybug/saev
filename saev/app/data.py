@@ -105,15 +105,18 @@ def to_sized(
     img_v_raw: pyvips.Image, max_px: int, crop_px: tuple[int, int]
 ) -> pyvips.Image:
     """Convert raw vips image to standard model input size (resize + crop)."""
-    # Calculate scaling factors to reach RESIZE_SIZE
-    breakpoint()
-    # Scale the min side to max_px, keep the aspect ratio, then center crop to crop_px. You will need to calculate crop_coords based on the updated width/height. AI!
-    hscale = RESIZE_SIZE[0] / img_v_raw.width
-    vscale = RESIZE_SIZE[1] / img_v_raw.height
-
-    # Resize then crop to CROP_COORDS
-    resized = img_v_raw.resize(hscale, vscale=vscale)
-    return resized.crop(*CROP_COORDS)
+    # Calculate scale factor to make smallest dimension = max_px
+    scale = max_px / min(img_v_raw.width, img_v_raw.height)
+    
+    # Resize maintaining aspect ratio
+    resized = img_v_raw.resize(scale)
+    
+    # Calculate crop coordinates to center crop
+    left = (resized.width - crop_px[0]) // 2
+    top = (resized.height - crop_px[1]) // 2
+    
+    # Crop to final size
+    return resized.crop(left, top, crop_px[0], crop_px[1])
 
 
 @beartype.beartype
