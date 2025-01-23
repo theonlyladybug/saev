@@ -1,10 +1,8 @@
 import base64
 import concurrent.futures
-import dataclasses
 import functools
 import logging
 import math
-import os
 import pathlib
 import time
 import typing
@@ -13,16 +11,14 @@ import beartype
 import einops.layers.torch
 import gradio as gr
 import numpy as np
-import open_clip
 import PIL.Image
 import pyvips
 import torch
-import torchvision.datasets
 from jaxtyping import Float, Int, jaxtyped
 from torch import Tensor
 
-import saev.activations
-import saev.nn
+from .. import activations, nn
+from . import data, modeling
 
 log_format = "[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s"
 logging.basicConfig(level=logging.INFO, format=log_format)
@@ -36,16 +32,9 @@ logging.getLogger("pyvips").setLevel(logging.WARNING)
 ###########
 
 
-RESIZE_SIZE = (512, 512)
+RESIZE_SIZE = 512
 
 CROP_SIZE = (448, 448)
-
-CROP_COORDS = (
-    (RESIZE_SIZE[0] - CROP_SIZE[0]) // 2,
-    (RESIZE_SIZE[1] - CROP_SIZE[1]) // 2,
-    (RESIZE_SIZE[0] + CROP_SIZE[0]) // 2,
-    (RESIZE_SIZE[1] + CROP_SIZE[1]) // 2,
-)
 
 DEBUG = True
 """Whether we are debugging."""
@@ -55,120 +44,9 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 CWD = pathlib.Path(".")
 
-
-@beartype.beartype
-@dataclasses.dataclass(frozen=True)
-class ModelConfig:
-    """Configuration for a Vision Transformer (ViT) and Sparse Autoencoder (SAE) model pair.
-
-    Stores paths and configuration needed to load and run a specific ViT+SAE combination.
-    """
-
-    vit_family: str
-    """The family of ViT model, e.g. 'clip' for CLIP models."""
-
-    vit_ckpt: str
-    """Checkpoint identifier for the ViT model, either as HuggingFace path or model/checkpoint pair."""
-
-    sae_ckpt: str
-    """Identifier for the SAE checkpoint to load."""
-
-    tensor_dpath: pathlib.Path
-    """Directory containing precomputed tensors for this model combination."""
-
-    dataset_name: str
-    """Which dataset to use."""
-
-
-MODEL_LOOKUP: dict[str, ModelConfig] = {
-    "bioclip/inat21": ModelConfig(
-        "clip",
-        "hf-hub:imageomics/bioclip",
-        "gpnn7x3p",
-        pathlib.Path(
-            "/research/nfs_su_809/workspace/stevens.994/saev/features/gpnn7x3p-high-freq/sort_by_patch/"
-        ),
-        "inat21__train_mini",
-    ),
-    "clip/inat21": ModelConfig(
-        "clip",
-        "ViT-B-16/openai",
-        "rscsjxgd",
-        pathlib.Path(
-            "/research/nfs_su_809/workspace/stevens.994/saev/features/rscsjxgd-high-freq/sort_by_patch/"
-        ),
-        "inat21__train_mini",
-    ),
-}
-
+MODEL_LOOKUP = modeling.get_model_lookup()
 
 logger.info("Set global constants.")
-
-###########
-# Helpers #
-###########
-
-
-@beartype.beartype
-def get_cache_dir() -> str:
-    """
-    Get cache directory from environment variables, defaulting to the current working directory (.)
-
-    Returns:
-        A path to a cache directory (might not exist yet).
-    """
-    cache_dir = ""
-    for var in ("HF_HOME", "HF_HUB_CACHE"):
-        cache_dir = cache_dir or os.environ.get(var, "")
-    return cache_dir or CWD
-
-
-class VipsImageFolder(torchvision.datasets.ImageFolder):
-    """
-    Clone of ImageFolder that returns pyvips.Image instead of PIL.Image.Image.
-    """
-
-    def __init__(
-        self,
-        root: str,
-        transform: typing.Callable | None = None,
-        target_transform: typing.Callable | None = None,
-    ):
-        super().__init__(
-            root,
-            transform=transform,
-            target_transform=target_transform,
-            loader=self._vips_loader,
-        )
-
-    @staticmethod
-    def _vips_loader(path: str) -> torch.Tensor:
-        """Load and convert image to tensor using pyvips."""
-        image = pyvips.Image.new_from_file(path, access="random")
-        return image
-
-
-datasets = {
-    "inat21__train_mini": VipsImageFolder(
-        root="/research/nfs_su_809/workspace/stevens.994/datasets/inat21/train_mini/"
-    )
-}
-
-
-@beartype.beartype
-def get_dataset_image(key: str, i: int) -> tuple[pyvips.Image, str]:
-    """
-    Get raw image and processed label from dataset.
-
-    Returns:
-        Tuple of pyvips.Image and classname.
-    """
-    dataset = datasets[key]
-    img, tgt = dataset[i]
-    species_label = dataset.classes[tgt]
-    # iNat21 specific: Remove taxonomy prefix
-    species_name = " ".join(species_label.split("_")[1:])
-    return img, species_name
 
 
 ##########
@@ -177,84 +55,44 @@ def get_dataset_image(key: str, i: int) -> tuple[pyvips.Image, str]:
 
 
 @jaxtyped(typechecker=beartype.beartype)
-class SplitClip(torch.nn.Module):
-    def __init__(self, vit_ckpt: str, *, n_end_layers: int):
-        super().__init__()
-
-        if vit_ckpt.startswith("hf-hub:"):
-            clip, _ = open_clip.create_model_from_pretrained(
-                vit_ckpt, cache_dir=get_cache_dir()
-            )
-        else:
-            arch, ckpt = vit_ckpt.split("/")
-            clip, _ = open_clip.create_model_from_pretrained(
-                arch, pretrained=ckpt, cache_dir=get_cache_dir()
-            )
-        model = clip.visual
-        model.proj = None
-        model.output_tokens = True  # type: ignore
-        self.vit = model.eval()
-        assert not isinstance(self.vit, open_clip.timm_model.TimmModel)
-
-        self.n_end_layers = n_end_layers
-
-    @staticmethod
-    def _expand_token(token, batch_size: int):
-        return token.view(1, 1, -1).expand(batch_size, -1, -1)
-
-    def forward_start(self, x: Float[Tensor, "batch channels width height"]):
-        x = self.vit.conv1(x)  # shape = [*, width, grid, grid]
-        x = x.reshape(x.shape[0], x.shape[1], -1)  # shape = [*, width, grid ** 2]
-        x = x.permute(0, 2, 1)  # shape = [*, grid ** 2, width]
-
-        # class embeddings and positional embeddings
-        x = torch.cat(
-            [self._expand_token(self.vit.class_embedding, x.shape[0]).to(x.dtype), x],
-            dim=1,
-        )
-        # shape = [*, grid ** 2 + 1, width]
-        x = x + self.vit.positional_embedding.to(x.dtype)
-
-        x = self.vit.patch_dropout(x)
-        x = self.vit.ln_pre(x)
-        for r in self.vit.transformer.resblocks[: -self.n_end_layers]:
-            x = r(x)
-        return x
-
-    def forward_end(self, x: Float[Tensor, "batch n_patches dim"]):
-        for r in self.vit.transformer.resblocks[-self.n_end_layers :]:
-            x = r(x)
-
-        x = self.vit.ln_post(x)
-        pooled, _ = self.vit._global_pool(x)
-        if self.vit.proj is not None:
-            pooled = pooled @ self.vit.proj
-
-        return pooled
-
-
-@beartype.beartype
 @functools.cache
-def load_split_vit(model_name: str) -> tuple[SplitClip, object]:
-    # Translate model key to ckpt. Use the model as the default.
-    model_cfg = MODEL_LOOKUP[model_name]
-    split_vit = SplitClip(model_cfg.vit_ckpt, n_end_layers=1).to(DEVICE).eval()
-    vit_transform = saev.activations.make_img_transform(
+def load_vit(
+    model_cfg: modeling.Config,
+) -> tuple[
+    activations.WrappedVisionTransformer,
+    typing.Callable,
+    float,
+    Float[Tensor, " d_vit"],
+]:
+    """
+    Returns the wrapped ViT, the vit transform, the activation scalar and the activation mean to normalize the activations.
+    """
+    vit = activations.WrappedVisionTransformer(model_cfg.wrapped_cfg).to(DEVICE).eval()
+    vit_transform = activations.make_img_transform(
         model_cfg.vit_family, model_cfg.vit_ckpt
     )
-    logger.info("Loaded Split ViT: %s.", model_name)
-    return split_vit, vit_transform
+    logger.info("Loaded ViT: %s.", model_cfg.key)
+
+    # Normalizing constants
+    acts_dataset = activations.Dataset(model_cfg.acts_cfg)
+    logger.info("Loaded dataset norms: %s.", model_cfg.key)
+
+    return vit, vit_transform, acts_dataset.scalar.item(), acts_dataset.act_mean
 
 
 @beartype.beartype
 @functools.cache
-def load_sae(model_name: str) -> saev.nn.SparseAutoencoder:
-    model_cfg = MODEL_LOOKUP[model_name]
+def load_sae(model_cfg: modeling.Config) -> nn.SparseAutoencoder:
     sae_ckpt_fpath = CWD / "checkpoints" / model_cfg.sae_ckpt / "sae.pt"
-    sae = saev.nn.load(sae_ckpt_fpath.as_posix())
+    sae = nn.load(sae_ckpt_fpath.as_posix())
     sae.to(DEVICE).eval()
-    logger.info("Loaded SAE: %s -> %s.", model_name, model_cfg.sae_ckpt)
+    logger.info("Loaded SAE: %s.", model_cfg.sae_ckpt)
     return sae
+
+
+############
+# Datasets #
+############
 
 
 @beartype.beartype
@@ -265,49 +103,21 @@ def load_tensor(path: str | pathlib.Path) -> Tensor:
 @beartype.beartype
 @functools.cache
 def load_tensors(
-    model_name: str,
+    model_cfg: modeling.Config,
 ) -> tuple[Int[Tensor, "d_sae top_k"], Float[Tensor, "d_sae top_k n_patches"]]:
-    model_cfg = MODEL_LOOKUP[model_name]
     top_img_i = load_tensor(model_cfg.tensor_dpath / "top_img_i.pt")
     top_values = load_tensor(model_cfg.tensor_dpath / "top_values.pt")
     return top_img_i, top_values
-
-
-############
-# Datasets #
-############
-
-
-def to_sized(img_v_raw: pyvips.Image) -> pyvips.Image:
-    """Convert raw vips image to standard model input size (resize + crop)."""
-    # Calculate scaling factors to reach RESIZE_SIZE
-    hscale = RESIZE_SIZE[0] / img_v_raw.width
-    vscale = RESIZE_SIZE[1] / img_v_raw.height
-
-    # Resize then crop to CROP_COORDS
-    resized = img_v_raw.resize(hscale, vscale=vscale)
-    return resized.crop(*CROP_COORDS)
-
-
-logger.info("Loaded all datasets.")
-
-
-@beartype.beartype
-def vips_to_base64(img_v: pyvips.Image) -> str:
-    buf = img_v.write_to_buffer(".webp")
-    b64 = base64.b64encode(buf)
-    s64 = b64.decode("utf8")
-    return "data:image/webp;base64," + s64
 
 
 @beartype.beartype
 def get_image(example_id: str) -> list[str]:
     dataset, split, i_str = example_id.split("__")
     i = int(i_str)
-    img_v_raw, label = get_dataset_image(f"{dataset}__{split}", i)
-    img_v_sized = to_sized(img_v_raw)
+    img_v_raw, label = data.get_img_v_raw(f"{dataset}__{split}", i)
+    img_v_sized = data.to_sized(img_v_raw, RESIZE_SIZE, CROP_SIZE)
 
-    return [vips_to_base64(img_v_sized), label]
+    return [data.vips_to_base64(img_v_sized), label]
 
 
 @jaxtyped(typechecker=beartype.beartype)
@@ -386,8 +196,8 @@ class SaeActivation(typing.TypedDict):
     This captures how strongly a particular SAE latent fires on different patches of an input image.
     """
 
-    model_name: str
-    """The model key."""
+    model_cfg: modeling.Config
+    """The model config."""
 
     latent: int
     """The index of the SAE latent being measured."""
@@ -460,22 +270,21 @@ def bufferinfo_to_base64(bufferinfo: BufferInfo) -> str:
 
 @jaxtyped(typechecker=beartype.beartype)
 def make_sae_activation(
-    model_name: str,
+    model_cfg: modeling.Config,
     latent: int,
     acts: list[float],
     top_img_i: list[int],
     top_values: Float[Tensor, "top_k n_patches"],
     pool: concurrent.futures.Executor,
 ) -> SaeActivation:
-    dataset_name = MODEL_LOOKUP[model_name].dataset_name
     raw_examples: list[tuple[int, pyvips.Image, Float[np.ndarray, "..."], str]] = []
     seen_i_im = set()
     for i_im, values_p in zip(top_img_i, top_values):
         if i_im in seen_i_im:
             continue
 
-        ex_img_v_raw, ex_label = get_dataset_image(dataset_name, i_im)
-        ex_img_v_sized = to_sized(ex_img_v_raw)
+        ex_img_v_raw, ex_label = data.get_img_v_raw(model_cfg.dataset_name, i_im)
+        ex_img_v_sized = data.to_sized(ex_img_v_raw, RESIZE_SIZE, CROP_SIZE)
         raw_examples.append((i_im, ex_img_v_sized, values_p.numpy(), ex_label))
 
         seen_i_im.add(i_im)
@@ -490,8 +299,8 @@ def make_sae_activation(
     for i_im, ex_img, values_p, ex_label in raw_examples:
         highlighted_img = add_highlights(ex_img, values_p, upper=upper)
         # Submit both conversions to the thread pool
-        orig_future = pool.submit(vips_to_base64, ex_img)
-        highlight_future = pool.submit(vips_to_base64, highlighted_img)
+        orig_future = pool.submit(data.vips_to_base64, ex_img)
+        highlight_future = pool.submit(data.vips_to_base64, highlighted_img)
         futures.append((i_im, orig_future, highlight_future, ex_label))
 
     # Wait for all conversions to complete and build examples
@@ -501,12 +310,12 @@ def make_sae_activation(
             orig_url=orig_future.result(),
             highlighted_url=highlight_future.result(),
             label=ex_label,
-            example_id=f"inat21__train_mini__{i_im}",
+            example_id=f"{model_cfg.dataset_name}__{i_im}",
         )
         examples.append(example)
 
     return SaeActivation(
-        model_name=model_name, latent=latent, activations=acts, examples=examples
+        model_cfg=model_cfg, latent=latent, activations=acts, examples=examples
     )
 
 
@@ -527,24 +336,29 @@ def get_sae_activations(
     with concurrent.futures.ThreadPoolExecutor(max_workers=16) as pool:
         for model_name, requested_latents in latents.items():
             sae_activations = []
-            split_vit, vit_transform = load_split_vit(model_name)
-            sae = load_sae(model_name)
+            model_cfg = MODEL_LOOKUP[model_name]
+            vit, vit_transform, scalar, mean = load_vit(model_cfg)
+            sae = load_sae(model_cfg)
+
+            mean = mean.to(DEVICE)
             x = vit_transform(img_p)[None, ...].to(DEVICE)
-            vit_acts_PD = split_vit.forward_start(x)[0]
+
+            _, vit_acts_BLPD = vit(x)
+            vit_acts_PD = (
+                vit_acts_BLPD[0, 0, 1:].to(DEVICE).clamp(-1e-5, 1e5) - mean
+            ) / scalar
 
             _, f_x_PS, _ = sae(vit_acts_PD)
             # Ignore [CLS] token and get just the requested latents.
-            acts_SP = einops.rearrange(
-                f_x_PS[1:], "patches n_latents -> n_latents patches"
-            )
+            acts_SP = einops.rearrange(f_x_PS, "patches n_latents -> n_latents patches")
             logger.info("Got SAE activations for '%s'.", model_name)
-            top_img_i, top_values = load_tensors(model_name)
+            top_img_i, top_values = load_tensors(model_cfg)
             logger.info("Loaded top SAE activations for '%s'.", model_name)
 
             for latent in requested_latents:
                 sae_activations.append(
                     make_sae_activation(
-                        model_name,
+                        model_cfg,
                         latent,
                         acts_SP[latent].cpu().tolist(),
                         top_img_i[latent].tolist(),

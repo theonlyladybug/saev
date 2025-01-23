@@ -1,9 +1,10 @@
-import torchvision.datasets
 import base64
 import typing
-import torch
-import pyvips
+
 import beartype
+import pyvips
+import torch
+import torchvision.datasets
 
 from .. import activations, config
 
@@ -102,21 +103,22 @@ def get_img_v_raw(key: str, i: int) -> tuple[pyvips.Image, str]:
 
 
 def to_sized(
-    img_v_raw: pyvips.Image, max_px: int, crop_px: tuple[int, int]
+    img_v_raw: pyvips.Image, min_px: int, crop_px: tuple[int, int]
 ) -> pyvips.Image:
     """Convert raw vips image to standard model input size (resize + crop)."""
-    # Calculate scale factor to make smallest dimension = max_px
-    scale = max_px / min(img_v_raw.width, img_v_raw.height)
-    
+    # Calculate scale factor to make smallest dimension = min_px
+    scale = min_px / min(img_v_raw.width, img_v_raw.height)
+
     # Resize maintaining aspect ratio
-    resized = img_v_raw.resize(scale)
-    
+    img_v_raw = img_v_raw.resize(scale)
+    assert min(img_v_raw.width, img_v_raw.height) == min_px
+
     # Calculate crop coordinates to center crop
-    left = (resized.width - crop_px[0]) // 2
-    top = (resized.height - crop_px[1]) // 2
-    
+    left = (img_v_raw.width - crop_px[0]) // 2
+    top = (img_v_raw.height - crop_px[1]) // 2
+
     # Crop to final size
-    return resized.crop(left, top, crop_px[0], crop_px[1])
+    return img_v_raw.crop(left, top, crop_px[0], crop_px[1])
 
 
 @beartype.beartype
