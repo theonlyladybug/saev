@@ -1,0 +1,732 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
+<meta name="generator" content="pdoc3 0.11.3">
+<title>saev.app API documentation</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/sanitize.min.css" integrity="sha512-y1dtMcuvtTMJc1yPgEqF0ZjQbhnc/bFhyvIyVNb9Zk5mIGtqVaAB1Ttl28su8AvFMOY0EwRbAe+HCLqj6W7/KA==" crossorigin>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/typography.min.css" integrity="sha512-Y1DYSb995BAfxobCkKepB1BqJJTPrOp3zPL74AWFugHHmmdcvO+C48WLrUOlhGMc0QG7AE3f7gmvvcrmX2fDoA==" crossorigin>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css" crossorigin>
+<style>:root{--highlight-color:#fe9}.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:1.5em;overflow:hidden}#sidebar > *:last-child{margin-bottom:2cm}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:2em 0 .50em 0}h3{font-size:1.4em;margin:1.6em 0 .7em 0}h4{margin:0;font-size:105%}h1:target,h2:target,h3:target,h4:target,h5:target,h6:target{background:var(--highlight-color);padding:.2em 0}a{color:#058;text-decoration:none;transition:color .2s ease-in-out}a:visited{color:#503}a:hover{color:#b62}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900;font-weight:bold}pre code{font-size:.8em;line-height:1.4em;padding:1em;display:block}code{background:#f3f3f3;font-family:"DejaVu Sans Mono",monospace;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{margin-top:.6em;font-weight:bold}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}dt:target .name{background:var(--highlight-color)}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}td{padding:0 .5em}.admonition{padding:.1em 1em;margin:1em 0}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
+<style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%;height:100vh;overflow:auto;position:sticky;top:0}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul ul{padding-left:1em}.toc > ul > li{margin-top:.5em}}</style>
+<style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
+<script type="text/x-mathjax-config">MathJax.Hub.Config({ tex2jax: { inlineMath: [ ['$','$'], ["\\(","\\)"] ], processEscapes: true } });</script>
+<script async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS_CHTML" integrity="sha256-kZafAc6mZvK3W3v1pHOcUix30OHQN6pU/NO2oFkqZVw=" crossorigin></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js" integrity="sha512-D9gUyxqja7hBtkWpPWGt9wfbfaMGVt9gnyCvYa+jojwwPHLCzUm5i8rpk7vD7wNee9bA35eYIjobYPaQuKS1MQ==" crossorigin></script>
+<script>window.addEventListener('DOMContentLoaded', () => {
+hljs.configure({languages: ['bash', 'css', 'diff', 'graphql', 'ini', 'javascript', 'json', 'plaintext', 'python', 'python-repl', 'rust', 'shell', 'sql', 'typescript', 'xml', 'yaml']});
+hljs.highlightAll();
+})</script>
+</head>
+<body>
+<main>
+<article id="content">
+<header>
+<h1 class="title">Module <code>saev.app</code></h1>
+</header>
+<section id="section-intro">
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-variables">Global variables</h2>
+<dl>
+<dt id="saev.app.DEBUG"><code class="name">var <span class="ident">DEBUG</span></code></dt>
+<dd>
+<div class="desc"><p>Whether we are debugging.</p></div>
+</dd>
+<dt id="saev.app.DEVICE"><code class="name">var <span class="ident">DEVICE</span></code></dt>
+<dd>
+<div class="desc"><p>Hardware accelerator, if any.</p></div>
+</dd>
+</dl>
+</section>
+<section>
+<h2 class="section-title" id="header-functions">Functions</h2>
+<dl>
+<dt id="saev.app.add_highlights"><code class="name flex">
+<span>def <span class="ident">add_highlights</span></span>(<span>img_v_sized: pyvips.vimage.Image,<br>patches: numpy.ndarray,<br>*,<br>upper: float | None = None,<br>opacity: float = 0.9) ‑> pyvips.vimage.Image</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Add colored highlights to an image based on patch activation values.</p>
+<p>Overlays a colored highlight on each patch of the image, with intensity proportional
+to the activation value for that patch. Used to visualize which parts of an image
+most strongly activated a particular SAE latent.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>img</code></strong></dt>
+<dd>The base image to highlight</dd>
+<dt><strong><code>patches</code></strong></dt>
+<dd>Array of activation values, one per patch</dd>
+<dt><strong><code>upper</code></strong></dt>
+<dd>Optional maximum value to normalize activations against</dd>
+<dt><strong><code>opacity</code></strong></dt>
+<dd>Opacity of the highlight overlay (0-1)</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>A new image with colored highlights overlaid on the original</p></div>
+</dd>
+<dt id="saev.app.bufferinfo_to_base64"><code class="name flex">
+<span>def <span class="ident">bufferinfo_to_base64</span></span>(<span>bufferinfo: <a title="saev.app.BufferInfo" href="#saev.app.BufferInfo">BufferInfo</a>) ‑> str</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="saev.app.get_cache_dir"><code class="name flex">
+<span>def <span class="ident">get_cache_dir</span></span>(<span>) ‑> str</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Get cache directory from environment variables, defaulting to the current working directory (.)</p>
+<h2 id="returns">Returns</h2>
+<p>A path to a cache directory (might not exist yet).</p></div>
+</dd>
+<dt id="saev.app.get_dataset_image"><code class="name flex">
+<span>def <span class="ident">get_dataset_image</span></span>(<span>key: str, i: int) ‑> tuple[pyvips.vimage.Image, str]</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Get raw image and processed label from dataset.</p>
+<h2 id="returns">Returns</h2>
+<p>Tuple of pyvips.Image and classname.</p></div>
+</dd>
+<dt id="saev.app.get_image"><code class="name flex">
+<span>def <span class="ident">get_image</span></span>(<span>example_id: str) ‑> list[str]</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="saev.app.get_sae_activations"><code class="name flex">
+<span>def <span class="ident">get_sae_activations</span></span>(<span>img_p: PIL.Image.Image, latents: dict[str, list[int]]) ‑> dict[str, list[<a title="saev.app.SaeActivation" href="#saev.app.SaeActivation">SaeActivation</a>]]</span>
+</code></dt>
+<dd>
+<div class="desc"><h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>image</code></strong></dt>
+<dd>Image to get SAE activations for.</dd>
+<dt><strong><code>latents</code></strong></dt>
+<dd>A lookup from model name (string) to a list of latents to report latents for (integers).</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>A lookup from model name (string) to a list of SaeActivations, one for each latent in the <code>latents</code> argument.</p></div>
+</dd>
+<dt id="saev.app.load_sae"><code class="name flex">
+<span>def <span class="ident">load_sae</span></span>(<span>model_name: str) ‑> <a title="saev.nn.SparseAutoencoder" href="nn.html#saev.nn.SparseAutoencoder">SparseAutoencoder</a></span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="saev.app.load_split_vit"><code class="name flex">
+<span>def <span class="ident">load_split_vit</span></span>(<span>model_name: str) ‑> tuple[<a title="saev.app.SplitClip" href="#saev.app.SplitClip">SplitClip</a>, object]</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="saev.app.load_tensor"><code class="name flex">
+<span>def <span class="ident">load_tensor</span></span>(<span>path: str | pathlib.Path) ‑> torch.Tensor</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="saev.app.load_tensors"><code class="name flex">
+<span>def <span class="ident">load_tensors</span></span>(<span>model_name: str) ‑> tuple[jaxtyping.Int[Tensor, 'd_sae top_k'], jaxtyping.Float[Tensor, 'd_sae top_k n_patches']]</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="saev.app.make_sae_activation"><code class="name flex">
+<span>def <span class="ident">make_sae_activation</span></span>(<span>model_name: str,<br>latent: int,<br>acts: list[float],<br>top_img_i: list[int],<br>top_values: jaxtyping.Float[Tensor, 'top_k n_patches'],<br>pool: concurrent.futures._base.Executor) ‑> <a title="saev.app.SaeActivation" href="#saev.app.SaeActivation">SaeActivation</a></span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="saev.app.pil_to_vips"><code class="name flex">
+<span>def <span class="ident">pil_to_vips</span></span>(<span>pil_img: PIL.Image.Image) ‑> pyvips.vimage.Image</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="saev.app.to_sized"><code class="name flex">
+<span>def <span class="ident">to_sized</span></span>(<span>img_v_raw: pyvips.vimage.Image) ‑> pyvips.vimage.Image</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Convert raw vips image to standard model input size (resize + crop).</p></div>
+</dd>
+<dt id="saev.app.vips_to_base64"><code class="name flex">
+<span>def <span class="ident">vips_to_base64</span></span>(<span>img_v: pyvips.vimage.Image) ‑> str</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="saev.app.vips_to_pil"><code class="name flex">
+<span>def <span class="ident">vips_to_pil</span></span>(<span>vips_img: PIL.Image.Image) ‑> PIL.Image.Image</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+</section>
+<section>
+<h2 class="section-title" id="header-classes">Classes</h2>
+<dl>
+<dt id="saev.app.BufferInfo"><code class="flex name class">
+<span>class <span class="ident">BufferInfo</span></span>
+<span>(</span><span>buffer: bytes, width: int, height: int, bands: int, format: object)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>BufferInfo(buffer, width, height, bands, format)</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@beartype.beartype
+class BufferInfo(typing.NamedTuple):
+    buffer: bytes
+    width: int
+    height: int
+    bands: int
+    format: object
+
+    @classmethod
+    def from_img_v(cls, img_v: pyvips.Image) -&gt; &#34;BufferInfo&#34;:
+        return cls(
+            img_v.write_to_memory(),
+            img_v.width,
+            img_v.height,
+            img_v.bands,
+            img_v.format,
+        )</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>builtins.tuple</li>
+</ul>
+<h3>Static methods</h3>
+<dl>
+<dt id="saev.app.BufferInfo.from_img_v"><code class="name flex">
+<span>def <span class="ident">from_img_v</span></span>(<span>cls, img_v: pyvips.vimage.Image) ‑> <a title="saev.app.BufferInfo" href="#saev.app.BufferInfo">BufferInfo</a></span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+<h3>Instance variables</h3>
+<dl>
+<dt id="saev.app.BufferInfo.bands"><code class="name">var <span class="ident">bands</span> : int</code></dt>
+<dd>
+<div class="desc"><p>Alias for field number 3</p></div>
+</dd>
+<dt id="saev.app.BufferInfo.buffer"><code class="name">var <span class="ident">buffer</span> : bytes</code></dt>
+<dd>
+<div class="desc"><p>Alias for field number 0</p></div>
+</dd>
+<dt id="saev.app.BufferInfo.format"><code class="name">var <span class="ident">format</span> : object</code></dt>
+<dd>
+<div class="desc"><p>Alias for field number 4</p></div>
+</dd>
+<dt id="saev.app.BufferInfo.height"><code class="name">var <span class="ident">height</span> : int</code></dt>
+<dd>
+<div class="desc"><p>Alias for field number 2</p></div>
+</dd>
+<dt id="saev.app.BufferInfo.width"><code class="name">var <span class="ident">width</span> : int</code></dt>
+<dd>
+<div class="desc"><p>Alias for field number 1</p></div>
+</dd>
+</dl>
+</dd>
+<dt id="saev.app.Example"><code class="flex name class">
+<span>class <span class="ident">Example</span></span>
+<span>(</span><span>*args, **kwargs)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Represents an example image and its associated label.</p>
+<p>Used to store examples of SAE latent activations for visualization.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@beartype.beartype
+class Example(typing.TypedDict):
+    &#34;&#34;&#34;Represents an example image and its associated label.
+
+    Used to store examples of SAE latent activations for visualization.
+    &#34;&#34;&#34;
+
+    orig_url: str
+    &#34;&#34;&#34;The URL or path to access the original example image.&#34;&#34;&#34;
+    highlighted_url: str
+    &#34;&#34;&#34;The URL or path to access the SAE-highlighted image.&#34;&#34;&#34;
+    label: str
+    &#34;&#34;&#34;The class label or description associated with this example.&#34;&#34;&#34;
+    example_id: str
+    &#34;&#34;&#34;Unique ID to idenfify the original dataset instance.&#34;&#34;&#34;</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>builtins.dict</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="saev.app.Example.example_id"><code class="name">var <span class="ident">example_id</span> : str</code></dt>
+<dd>
+<div class="desc"><p>Unique ID to idenfify the original dataset instance.</p></div>
+</dd>
+<dt id="saev.app.Example.highlighted_url"><code class="name">var <span class="ident">highlighted_url</span> : str</code></dt>
+<dd>
+<div class="desc"><p>The URL or path to access the SAE-highlighted image.</p></div>
+</dd>
+<dt id="saev.app.Example.label"><code class="name">var <span class="ident">label</span> : str</code></dt>
+<dd>
+<div class="desc"><p>The class label or description associated with this example.</p></div>
+</dd>
+<dt id="saev.app.Example.orig_url"><code class="name">var <span class="ident">orig_url</span> : str</code></dt>
+<dd>
+<div class="desc"><p>The URL or path to access the original example image.</p></div>
+</dd>
+</dl>
+</dd>
+<dt id="saev.app.ModelConfig"><code class="flex name class">
+<span>class <span class="ident">ModelConfig</span></span>
+<span>(</span><span>vit_family: str,<br>vit_ckpt: str,<br>sae_ckpt: str,<br>tensor_dpath: pathlib.Path,<br>dataset_name: str)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Configuration for a Vision Transformer (ViT) and Sparse Autoencoder (SAE) model pair.</p>
+<p>Stores paths and configuration needed to load and run a specific ViT+SAE combination.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@beartype.beartype
+@dataclasses.dataclass(frozen=True)
+class ModelConfig:
+    &#34;&#34;&#34;Configuration for a Vision Transformer (ViT) and Sparse Autoencoder (SAE) model pair.
+
+    Stores paths and configuration needed to load and run a specific ViT+SAE combination.
+    &#34;&#34;&#34;
+
+    vit_family: str
+    &#34;&#34;&#34;The family of ViT model, e.g. &#39;clip&#39; for CLIP models.&#34;&#34;&#34;
+
+    vit_ckpt: str
+    &#34;&#34;&#34;Checkpoint identifier for the ViT model, either as HuggingFace path or model/checkpoint pair.&#34;&#34;&#34;
+
+    sae_ckpt: str
+    &#34;&#34;&#34;Identifier for the SAE checkpoint to load.&#34;&#34;&#34;
+
+    tensor_dpath: pathlib.Path
+    &#34;&#34;&#34;Directory containing precomputed tensors for this model combination.&#34;&#34;&#34;
+
+    dataset_name: str
+    &#34;&#34;&#34;Which dataset to use.&#34;&#34;&#34;</code></pre>
+</details>
+<h3>Class variables</h3>
+<dl>
+<dt id="saev.app.ModelConfig.dataset_name"><code class="name">var <span class="ident">dataset_name</span> : str</code></dt>
+<dd>
+<div class="desc"><p>Which dataset to use.</p></div>
+</dd>
+<dt id="saev.app.ModelConfig.sae_ckpt"><code class="name">var <span class="ident">sae_ckpt</span> : str</code></dt>
+<dd>
+<div class="desc"><p>Identifier for the SAE checkpoint to load.</p></div>
+</dd>
+<dt id="saev.app.ModelConfig.tensor_dpath"><code class="name">var <span class="ident">tensor_dpath</span> : pathlib.Path</code></dt>
+<dd>
+<div class="desc"><p>Directory containing precomputed tensors for this model combination.</p></div>
+</dd>
+<dt id="saev.app.ModelConfig.vit_ckpt"><code class="name">var <span class="ident">vit_ckpt</span> : str</code></dt>
+<dd>
+<div class="desc"><p>Checkpoint identifier for the ViT model, either as HuggingFace path or model/checkpoint pair.</p></div>
+</dd>
+<dt id="saev.app.ModelConfig.vit_family"><code class="name">var <span class="ident">vit_family</span> : str</code></dt>
+<dd>
+<div class="desc"><p>The family of ViT model, e.g. 'clip' for CLIP models.</p></div>
+</dd>
+</dl>
+</dd>
+<dt id="saev.app.SaeActivation"><code class="flex name class">
+<span>class <span class="ident">SaeActivation</span></span>
+<span>(</span><span>*args, **kwargs)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Represents the activation pattern of a single SAE latent across patches.</p>
+<p>This captures how strongly a particular SAE latent fires on different patches of an input image.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@beartype.beartype
+class SaeActivation(typing.TypedDict):
+    &#34;&#34;&#34;Represents the activation pattern of a single SAE latent across patches.
+
+    This captures how strongly a particular SAE latent fires on different patches of an input image.
+    &#34;&#34;&#34;
+
+    model_name: str
+    &#34;&#34;&#34;The model key.&#34;&#34;&#34;
+
+    latent: int
+    &#34;&#34;&#34;The index of the SAE latent being measured.&#34;&#34;&#34;
+
+    activations: list[float]
+    &#34;&#34;&#34;The activation values of this latent across different patches. Each value represents how strongly this latent fired on a particular patch.&#34;&#34;&#34;
+
+    examples: list[Example]
+    &#34;&#34;&#34;Top examples for this latent.&#34;&#34;&#34;</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>builtins.dict</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="saev.app.SaeActivation.activations"><code class="name">var <span class="ident">activations</span> : list[float]</code></dt>
+<dd>
+<div class="desc"><p>The activation values of this latent across different patches. Each value represents how strongly this latent fired on a particular patch.</p></div>
+</dd>
+<dt id="saev.app.SaeActivation.examples"><code class="name">var <span class="ident">examples</span> : list[<a title="saev.app.Example" href="#saev.app.Example">Example</a>]</code></dt>
+<dd>
+<div class="desc"><p>Top examples for this latent.</p></div>
+</dd>
+<dt id="saev.app.SaeActivation.latent"><code class="name">var <span class="ident">latent</span> : int</code></dt>
+<dd>
+<div class="desc"><p>The index of the SAE latent being measured.</p></div>
+</dd>
+<dt id="saev.app.SaeActivation.model_name"><code class="name">var <span class="ident">model_name</span> : str</code></dt>
+<dd>
+<div class="desc"><p>The model key.</p></div>
+</dd>
+</dl>
+</dd>
+<dt id="saev.app.SplitClip"><code class="flex name class">
+<span>class <span class="ident">SplitClip</span></span>
+<span>(</span><span>vit_ckpt: str, *, n_end_layers: int)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Base class for all neural network modules.</p>
+<p>Your models should also subclass this class.</p>
+<p>Modules can also contain other Modules, allowing to nest them in
+a tree structure. You can assign the submodules as regular attributes::</p>
+<pre><code>import torch.nn as nn
+import torch.nn.functional as F
+
+class Model(nn.Module):
+    def __init__(self) -&gt; None:
+        super().__init__()
+        self.conv1 = nn.Conv2d(1, 20, 5)
+        self.conv2 = nn.Conv2d(20, 20, 5)
+
+    def forward(self, x):
+        x = F.relu(self.conv1(x))
+        return F.relu(self.conv2(x))
+</code></pre>
+<p>Submodules assigned in this way will be registered, and will have their
+parameters converted too when you call :meth:<code>to</code>, etc.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>As per the example above, an <code>__init__()</code> call to the parent class
+must be made before assignment on the child.</p>
+</div>
+<p>:ivar training: Boolean represents whether this module is in training or
+evaluation mode.
+:vartype training: bool</p>
+<p>Initialize internal Module state, shared by both nn.Module and ScriptModule.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@jaxtyped(typechecker=beartype.beartype)
+class SplitClip(torch.nn.Module):
+    def __init__(self, vit_ckpt: str, *, n_end_layers: int):
+        super().__init__()
+
+        if vit_ckpt.startswith(&#34;hf-hub:&#34;):
+            clip, _ = open_clip.create_model_from_pretrained(
+                vit_ckpt, cache_dir=get_cache_dir()
+            )
+        else:
+            arch, ckpt = vit_ckpt.split(&#34;/&#34;)
+            clip, _ = open_clip.create_model_from_pretrained(
+                arch, pretrained=ckpt, cache_dir=get_cache_dir()
+            )
+        model = clip.visual
+        model.proj = None
+        model.output_tokens = True  # type: ignore
+        self.vit = model.eval()
+        assert not isinstance(self.vit, open_clip.timm_model.TimmModel)
+
+        self.n_end_layers = n_end_layers
+
+    @staticmethod
+    def _expand_token(token, batch_size: int):
+        return token.view(1, 1, -1).expand(batch_size, -1, -1)
+
+    def forward_start(self, x: Float[Tensor, &#34;batch channels width height&#34;]):
+        x = self.vit.conv1(x)  # shape = [*, width, grid, grid]
+        x = x.reshape(x.shape[0], x.shape[1], -1)  # shape = [*, width, grid ** 2]
+        x = x.permute(0, 2, 1)  # shape = [*, grid ** 2, width]
+
+        # class embeddings and positional embeddings
+        x = torch.cat(
+            [self._expand_token(self.vit.class_embedding, x.shape[0]).to(x.dtype), x],
+            dim=1,
+        )
+        # shape = [*, grid ** 2 + 1, width]
+        x = x + self.vit.positional_embedding.to(x.dtype)
+
+        x = self.vit.patch_dropout(x)
+        x = self.vit.ln_pre(x)
+        for r in self.vit.transformer.resblocks[: -self.n_end_layers]:
+            x = r(x)
+        return x
+
+    def forward_end(self, x: Float[Tensor, &#34;batch n_patches dim&#34;]):
+        for r in self.vit.transformer.resblocks[-self.n_end_layers :]:
+            x = r(x)
+
+        x = self.vit.ln_post(x)
+        pooled, _ = self.vit._global_pool(x)
+        if self.vit.proj is not None:
+            pooled = pooled @ self.vit.proj
+
+        return pooled</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>torch.nn.modules.module.Module</li>
+</ul>
+<h3>Methods</h3>
+<dl>
+<dt id="saev.app.SplitClip.forward_end"><code class="name flex">
+<span>def <span class="ident">forward_end</span></span>(<span>self, x: jaxtyping.Float[Tensor, 'batch n_patches dim'])</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="saev.app.SplitClip.forward_start"><code class="name flex">
+<span>def <span class="ident">forward_start</span></span>(<span>self, x: jaxtyping.Float[Tensor, 'batch channels width height'])</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+</dd>
+<dt id="saev.app.VipsImageFolder"><code class="flex name class">
+<span>class <span class="ident">VipsImageFolder</span></span>
+<span>(</span><span>root: str,<br>transform: Callable | None = None,<br>target_transform: Callable | None = None)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Clone of ImageFolder that returns pyvips.Image instead of PIL.Image.Image.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class VipsImageFolder(torchvision.datasets.ImageFolder):
+    &#34;&#34;&#34;
+    Clone of ImageFolder that returns pyvips.Image instead of PIL.Image.Image.
+    &#34;&#34;&#34;
+
+    def __init__(
+        self,
+        root: str,
+        transform: typing.Callable | None = None,
+        target_transform: typing.Callable | None = None,
+    ):
+        super().__init__(
+            root,
+            transform=transform,
+            target_transform=target_transform,
+            loader=self._vips_loader,
+        )
+
+    @staticmethod
+    def _vips_loader(path: str) -&gt; torch.Tensor:
+        &#34;&#34;&#34;Load and convert image to tensor using pyvips.&#34;&#34;&#34;
+        image = pyvips.Image.new_from_file(path, access=&#34;random&#34;)
+        return image</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>torchvision.datasets.folder.ImageFolder</li>
+<li>torchvision.datasets.folder.DatasetFolder</li>
+<li>torchvision.datasets.vision.VisionDataset</li>
+<li>torch.utils.data.dataset.Dataset</li>
+<li>typing.Generic</li>
+</ul>
+</dd>
+<dt id="saev.app.progress"><code class="flex name class">
+<span>class <span class="ident">progress</span></span>
+<span>(</span><span>it, *, every: int = 10, desc: str = 'progress', total: int = 0)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Wraps an iterable with a logger like tqdm but doesn't use any control codes to manipulate a progress bar, which doesn't work well when your output is redirected to a file. Instead, simple logging statements are used, but it includes quality-of-life features like iteration speed and predicted time to finish.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>it</code></strong></dt>
+<dd>Iterable to wrap.</dd>
+<dt><strong><code>every</code></strong></dt>
+<dd>How many iterations between logging progress.</dd>
+<dt><strong><code>desc</code></strong></dt>
+<dd>What to name the logger.</dd>
+<dt><strong><code>total</code></strong></dt>
+<dd>If non-zero, how long the iterable is.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@beartype.beartype
+class progress:
+    def __init__(self, it, *, every: int = 10, desc: str = &#34;progress&#34;, total: int = 0):
+        &#34;&#34;&#34;
+        Wraps an iterable with a logger like tqdm but doesn&#39;t use any control codes to manipulate a progress bar, which doesn&#39;t work well when your output is redirected to a file. Instead, simple logging statements are used, but it includes quality-of-life features like iteration speed and predicted time to finish.
+
+        Args:
+            it: Iterable to wrap.
+            every: How many iterations between logging progress.
+            desc: What to name the logger.
+            total: If non-zero, how long the iterable is.
+        &#34;&#34;&#34;
+        self.it = it
+        self.every = every
+        self.logger = logging.getLogger(desc)
+        self.total = total
+
+    def __iter__(self):
+        start = time.time()
+
+        try:
+            total = len(self)
+        except TypeError:
+            total = None
+
+        for i, obj in enumerate(self.it):
+            yield obj
+
+            if (i + 1) % self.every == 0:
+                now = time.time()
+                duration_s = now - start
+                per_min = (i + 1) / (duration_s / 60)
+
+                if total is not None:
+                    pred_min = (total - (i + 1)) / per_min
+                    self.logger.info(
+                        &#34;%d/%d (%.1f%%) | %.1f it/m (expected finish in %.1fm)&#34;,
+                        i + 1,
+                        total,
+                        (i + 1) / total * 100,
+                        per_min,
+                        pred_min,
+                    )
+                else:
+                    self.logger.info(&#34;%d/? | %.1f it/m&#34;, i + 1, per_min)
+
+    def __len__(self) -&gt; int:
+        if self.total &gt; 0:
+            return self.total
+
+        # Will throw exception.
+        return len(self.it)</code></pre>
+</details>
+</dd>
+</dl>
+</section>
+</article>
+<nav id="sidebar">
+<div class="toc">
+<ul></ul>
+</div>
+<ul id="index">
+<li><h3>Super-module</h3>
+<ul>
+<li><code><a title="saev" href="index.html">saev</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-variables">Global variables</a></h3>
+<ul class="">
+<li><code><a title="saev.app.DEBUG" href="#saev.app.DEBUG">DEBUG</a></code></li>
+<li><code><a title="saev.app.DEVICE" href="#saev.app.DEVICE">DEVICE</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-functions">Functions</a></h3>
+<ul class="">
+<li><code><a title="saev.app.add_highlights" href="#saev.app.add_highlights">add_highlights</a></code></li>
+<li><code><a title="saev.app.bufferinfo_to_base64" href="#saev.app.bufferinfo_to_base64">bufferinfo_to_base64</a></code></li>
+<li><code><a title="saev.app.get_cache_dir" href="#saev.app.get_cache_dir">get_cache_dir</a></code></li>
+<li><code><a title="saev.app.get_dataset_image" href="#saev.app.get_dataset_image">get_dataset_image</a></code></li>
+<li><code><a title="saev.app.get_image" href="#saev.app.get_image">get_image</a></code></li>
+<li><code><a title="saev.app.get_sae_activations" href="#saev.app.get_sae_activations">get_sae_activations</a></code></li>
+<li><code><a title="saev.app.load_sae" href="#saev.app.load_sae">load_sae</a></code></li>
+<li><code><a title="saev.app.load_split_vit" href="#saev.app.load_split_vit">load_split_vit</a></code></li>
+<li><code><a title="saev.app.load_tensor" href="#saev.app.load_tensor">load_tensor</a></code></li>
+<li><code><a title="saev.app.load_tensors" href="#saev.app.load_tensors">load_tensors</a></code></li>
+<li><code><a title="saev.app.make_sae_activation" href="#saev.app.make_sae_activation">make_sae_activation</a></code></li>
+<li><code><a title="saev.app.pil_to_vips" href="#saev.app.pil_to_vips">pil_to_vips</a></code></li>
+<li><code><a title="saev.app.to_sized" href="#saev.app.to_sized">to_sized</a></code></li>
+<li><code><a title="saev.app.vips_to_base64" href="#saev.app.vips_to_base64">vips_to_base64</a></code></li>
+<li><code><a title="saev.app.vips_to_pil" href="#saev.app.vips_to_pil">vips_to_pil</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-classes">Classes</a></h3>
+<ul>
+<li>
+<h4><code><a title="saev.app.BufferInfo" href="#saev.app.BufferInfo">BufferInfo</a></code></h4>
+<ul class="two-column">
+<li><code><a title="saev.app.BufferInfo.bands" href="#saev.app.BufferInfo.bands">bands</a></code></li>
+<li><code><a title="saev.app.BufferInfo.buffer" href="#saev.app.BufferInfo.buffer">buffer</a></code></li>
+<li><code><a title="saev.app.BufferInfo.format" href="#saev.app.BufferInfo.format">format</a></code></li>
+<li><code><a title="saev.app.BufferInfo.from_img_v" href="#saev.app.BufferInfo.from_img_v">from_img_v</a></code></li>
+<li><code><a title="saev.app.BufferInfo.height" href="#saev.app.BufferInfo.height">height</a></code></li>
+<li><code><a title="saev.app.BufferInfo.width" href="#saev.app.BufferInfo.width">width</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="saev.app.Example" href="#saev.app.Example">Example</a></code></h4>
+<ul class="">
+<li><code><a title="saev.app.Example.example_id" href="#saev.app.Example.example_id">example_id</a></code></li>
+<li><code><a title="saev.app.Example.highlighted_url" href="#saev.app.Example.highlighted_url">highlighted_url</a></code></li>
+<li><code><a title="saev.app.Example.label" href="#saev.app.Example.label">label</a></code></li>
+<li><code><a title="saev.app.Example.orig_url" href="#saev.app.Example.orig_url">orig_url</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="saev.app.ModelConfig" href="#saev.app.ModelConfig">ModelConfig</a></code></h4>
+<ul class="">
+<li><code><a title="saev.app.ModelConfig.dataset_name" href="#saev.app.ModelConfig.dataset_name">dataset_name</a></code></li>
+<li><code><a title="saev.app.ModelConfig.sae_ckpt" href="#saev.app.ModelConfig.sae_ckpt">sae_ckpt</a></code></li>
+<li><code><a title="saev.app.ModelConfig.tensor_dpath" href="#saev.app.ModelConfig.tensor_dpath">tensor_dpath</a></code></li>
+<li><code><a title="saev.app.ModelConfig.vit_ckpt" href="#saev.app.ModelConfig.vit_ckpt">vit_ckpt</a></code></li>
+<li><code><a title="saev.app.ModelConfig.vit_family" href="#saev.app.ModelConfig.vit_family">vit_family</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="saev.app.SaeActivation" href="#saev.app.SaeActivation">SaeActivation</a></code></h4>
+<ul class="">
+<li><code><a title="saev.app.SaeActivation.activations" href="#saev.app.SaeActivation.activations">activations</a></code></li>
+<li><code><a title="saev.app.SaeActivation.examples" href="#saev.app.SaeActivation.examples">examples</a></code></li>
+<li><code><a title="saev.app.SaeActivation.latent" href="#saev.app.SaeActivation.latent">latent</a></code></li>
+<li><code><a title="saev.app.SaeActivation.model_name" href="#saev.app.SaeActivation.model_name">model_name</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="saev.app.SplitClip" href="#saev.app.SplitClip">SplitClip</a></code></h4>
+<ul class="">
+<li><code><a title="saev.app.SplitClip.forward_end" href="#saev.app.SplitClip.forward_end">forward_end</a></code></li>
+<li><code><a title="saev.app.SplitClip.forward_start" href="#saev.app.SplitClip.forward_start">forward_start</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="saev.app.VipsImageFolder" href="#saev.app.VipsImageFolder">VipsImageFolder</a></code></h4>
+</li>
+<li>
+<h4><code><a title="saev.app.progress" href="#saev.app.progress">progress</a></code></h4>
+</li>
+</ul>
+</li>
+</ul>
+</nav>
+</main>
+<footer id="footer">
+<p>Generated by <a href="https://pdoc3.github.io/pdoc" title="pdoc: Python API documentation generator"><cite>pdoc</cite> 0.11.3</a>.</p>
+</footer>
+</body>
+</html>

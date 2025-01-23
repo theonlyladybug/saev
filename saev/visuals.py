@@ -535,7 +535,7 @@ def main(cfg: config.Visuals):
             "log10_freq": torch.log10(sparsity[i]).item(),
             "log10_value": torch.log10(mean_values[i]).item(),
         }
-        with open(f"{neuron_dir}/metadata.json", "w") as fd:
+        with open(os.path.join(neuron_dir, "metadata.json"), "w") as fd:
             json.dump(metadata, fd)
 
 

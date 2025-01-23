@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
 <meta name="generator" content="pdoc3 0.11.3">
-<title>contrib API documentation</title>
+<title>contrib.semprobe.config API documentation</title>
 <meta name="description" content="">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/sanitize.min.css" integrity="sha512-y1dtMcuvtTMJc1yPgEqF0ZjQbhnc/bFhyvIyVNb9Zk5mIGtqVaAB1Ttl28su8AvFMOY0EwRbAe+HCLqj6W7/KA==" crossorigin>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/typography.min.css" integrity="sha512-Y1DYSb995BAfxobCkKepB1BqJJTPrOp3zPL74AWFugHHmmdcvO+C48WLrUOlhGMc0QG7AE3f7gmvvcrmX2fDoA==" crossorigin>
@@ -24,36 +24,99 @@ hljs.highlightAll();
 <main>
 <article id="content">
 <header>
-<h1 class="title">Namespace <code>contrib</code></h1>
+<h1 class="title">Module <code>contrib.semprobe.config</code></h1>
 </header>
 <section id="section-intro">
 </section>
 <section>
-<h2 class="section-title" id="header-submodules">Sub-modules</h2>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-classes">Classes</h2>
 <dl>
-<dt><code class="name"><a title="contrib.classification" href="classification/index.html">contrib.classification</a></code></dt>
+<dt id="contrib.semprobe.config.Score"><code class="flex name class">
+<span>class <span class="ident">Score</span></span>
+<span>(</span><span>sae_ckpt: str = './checkpoints/abcdefg/sae.pt',<br>batch_size: int = 2048,<br>n_workers: int = 32,<br>threshold: float = 0.0,<br>top_k: int = 5,<br>imgs: <a title="saev.config.ImageFolderDataset" href="../../saev/config.html#saev.config.ImageFolderDataset">ImageFolderDataset</a> = &lt;factory&gt;,<br>acts: <a title="saev.config.DataLoad" href="../../saev/config.html#saev.config.DataLoad">DataLoad</a> = &lt;factory&gt;,<br>dump_to: str = './logs/contrib/semprobe',<br>device: str = 'cuda')</span>
+</code></dt>
 <dd>
-<div class="desc"><p>Reproduce …</p></div>
+<div class="desc"><p>Score(sae_ckpt: str = './checkpoints/abcdefg/sae.pt', batch_size: int = 2048, n_workers: int = 32, threshold: float = 0.0, top_k: int = 5, imgs: saev.config.ImageFolderDataset = <factory>, acts: saev.config.DataLoad = <factory>, dump_to: str = './logs/contrib/semprobe', device: str = 'cuda')</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@dataclasses.dataclass(frozen=True)
+class Score:
+    sae_ckpt: str = os.path.join(&#34;.&#34;, &#34;checkpoints&#34;, &#34;abcdefg&#34;, &#34;sae.pt&#34;)
+    &#34;&#34;&#34;Path to SAE checkpoint&#34;&#34;&#34;
+
+    batch_size: int = 2048
+    &#34;&#34;&#34;Batch size for SAE inference.&#34;&#34;&#34;
+    n_workers: int = 32
+    &#34;&#34;&#34;Number of dataloader workers.&#34;&#34;&#34;
+
+    threshold: float = 0.0
+    &#34;&#34;&#34;Threshold for feature activation.&#34;&#34;&#34;
+    top_k: int = 5
+    &#34;&#34;&#34;Number of top features to manually analyze.&#34;&#34;&#34;
+
+    imgs: saev.config.ImageFolderDataset = dataclasses.field(
+        default_factory=saev.config.ImageFolderDataset
+    )
+    &#34;&#34;&#34;Where curated examples are stored&#34;&#34;&#34;
+    acts: saev.config.DataLoad = dataclasses.field(default_factory=saev.config.DataLoad)
+    &#34;&#34;&#34;SAE activations for the curated examples.&#34;&#34;&#34;
+
+    # Where to save analysis results
+    dump_to: str = os.path.join(&#34;.&#34;, &#34;logs&#34;, &#34;contrib&#34;, &#34;semprobe&#34;)
+    &#34;&#34;&#34;Where to save results/visualizations.&#34;&#34;&#34;
+
+    device: str = &#34;cuda&#34;
+    &#34;&#34;&#34;Hardware device.&#34;&#34;&#34;</code></pre>
+</details>
+<h3>Class variables</h3>
+<dl>
+<dt id="contrib.semprobe.config.Score.acts"><code class="name">var <span class="ident">acts</span> : <a title="saev.config.DataLoad" href="../../saev/config.html#saev.config.DataLoad">DataLoad</a></code></dt>
+<dd>
+<div class="desc"><p>SAE activations for the curated examples.</p></div>
 </dd>
-<dt><code class="name"><a title="contrib.mae" href="mae/index.html">contrib.mae</a></code></dt>
+<dt id="contrib.semprobe.config.Score.batch_size"><code class="name">var <span class="ident">batch_size</span> : int</code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Batch size for SAE inference.</p></div>
 </dd>
-<dt><code class="name"><a title="contrib.semprobe" href="semprobe/index.html">contrib.semprobe</a></code></dt>
+<dt id="contrib.semprobe.config.Score.device"><code class="name">var <span class="ident">device</span> : str</code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Hardware device.</p></div>
 </dd>
-<dt><code class="name"><a title="contrib.semseg" href="semseg/index.html">contrib.semseg</a></code></dt>
+<dt id="contrib.semprobe.config.Score.dump_to"><code class="name">var <span class="ident">dump_to</span> : str</code></dt>
 <dd>
-<div class="desc"><p>You can reproduce our semantic segmentation control experiments from our preprint by following these instructions …</p></div>
+<div class="desc"><p>Where to save results/visualizations.</p></div>
+</dd>
+<dt id="contrib.semprobe.config.Score.imgs"><code class="name">var <span class="ident">imgs</span> : <a title="saev.config.ImageFolderDataset" href="../../saev/config.html#saev.config.ImageFolderDataset">ImageFolderDataset</a></code></dt>
+<dd>
+<div class="desc"><p>Where curated examples are stored</p></div>
+</dd>
+<dt id="contrib.semprobe.config.Score.n_workers"><code class="name">var <span class="ident">n_workers</span> : int</code></dt>
+<dd>
+<div class="desc"><p>Number of dataloader workers.</p></div>
+</dd>
+<dt id="contrib.semprobe.config.Score.sae_ckpt"><code class="name">var <span class="ident">sae_ckpt</span> : str</code></dt>
+<dd>
+<div class="desc"><p>Path to SAE checkpoint</p></div>
+</dd>
+<dt id="contrib.semprobe.config.Score.threshold"><code class="name">var <span class="ident">threshold</span> : float</code></dt>
+<dd>
+<div class="desc"><p>Threshold for feature activation.</p></div>
+</dd>
+<dt id="contrib.semprobe.config.Score.top_k"><code class="name">var <span class="ident">top_k</span> : int</code></dt>
+<dd>
+<div class="desc"><p>Number of top features to manually analyze.</p></div>
 </dd>
 </dl>
-</section>
-<section>
-</section>
-<section>
-</section>
-<section>
+</dd>
+</dl>
 </section>
 </article>
 <nav id="sidebar">
@@ -61,12 +124,27 @@ hljs.highlightAll();
 <ul></ul>
 </div>
 <ul id="index">
-<li><h3><a href="#header-submodules">Sub-modules</a></h3>
+<li><h3>Super-module</h3>
 <ul>
-<li><code><a title="contrib.classification" href="classification/index.html">contrib.classification</a></code></li>
-<li><code><a title="contrib.mae" href="mae/index.html">contrib.mae</a></code></li>
-<li><code><a title="contrib.semprobe" href="semprobe/index.html">contrib.semprobe</a></code></li>
-<li><code><a title="contrib.semseg" href="semseg/index.html">contrib.semseg</a></code></li>
+<li><code><a title="contrib.semprobe" href="index.html">contrib.semprobe</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-classes">Classes</a></h3>
+<ul>
+<li>
+<h4><code><a title="contrib.semprobe.config.Score" href="#contrib.semprobe.config.Score">Score</a></code></h4>
+<ul class="two-column">
+<li><code><a title="contrib.semprobe.config.Score.acts" href="#contrib.semprobe.config.Score.acts">acts</a></code></li>
+<li><code><a title="contrib.semprobe.config.Score.batch_size" href="#contrib.semprobe.config.Score.batch_size">batch_size</a></code></li>
+<li><code><a title="contrib.semprobe.config.Score.device" href="#contrib.semprobe.config.Score.device">device</a></code></li>
+<li><code><a title="contrib.semprobe.config.Score.dump_to" href="#contrib.semprobe.config.Score.dump_to">dump_to</a></code></li>
+<li><code><a title="contrib.semprobe.config.Score.imgs" href="#contrib.semprobe.config.Score.imgs">imgs</a></code></li>
+<li><code><a title="contrib.semprobe.config.Score.n_workers" href="#contrib.semprobe.config.Score.n_workers">n_workers</a></code></li>
+<li><code><a title="contrib.semprobe.config.Score.sae_ckpt" href="#contrib.semprobe.config.Score.sae_ckpt">sae_ckpt</a></code></li>
+<li><code><a title="contrib.semprobe.config.Score.threshold" href="#contrib.semprobe.config.Score.threshold">threshold</a></code></li>
+<li><code><a title="contrib.semprobe.config.Score.top_k" href="#contrib.semprobe.config.Score.top_k">top_k</a></code></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>

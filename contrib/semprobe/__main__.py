@@ -49,6 +49,8 @@ def score(cfg: typing.Annotated[config.Score, tyro.conf.arg(name="")]):
     task_N = torch.zeros((len(imgs_dataset)))
     task_lookup = {}
 
+    all_latents = []
+
     for batch in dataloader:
         vit_acts_BD = batch["act"].to(cfg.device)
         i_im = torch.sort(torch.unique(batch["image_i"])).values
@@ -96,23 +98,34 @@ def score(cfg: typing.Annotated[config.Score, tyro.conf.arg(name="")]):
             "sum",
         )
         f1_S = (2 * true_pos_S) / (2 * true_pos_S + false_pos_S + false_neg_S)
-        print(f1_S.max(), task_name)
-        breakpoint()
         # TODO
-        # 1. Pick out the top K features.
         # 2. Save visuals for these example images.
-        # 3. Print command to save the topk images from the original training set using `saev visuals`.
 
         # Get top performing features
         topk_scores, topk_indices = torch.topk(f1_S, k=cfg.top_k)
-        
-        # Construct command to visualize top features
-        features_str = ",".join(map(str, topk_indices.tolist()))
-        cmd = f"uv run python -m saev visuals --ckpt {cfg.sae_ckpt} --features {features_str}"
-        print(f"\nTop {cfg.top_k} features for {task_name}:")
-        print(f"F1 scores: {topk_scores.tolist()}")
-        print(f"Feature indices: {topk_indices.tolist()}")
-        print(f"To visualize, run: {cmd}")
+
+        print(f"Top {cfg.top_k} features for {task_name}:")
+        for score, i in zip(topk_scores, topk_indices):
+            print(f"{i:>6}: {score:.3f}")
+
+        all_latents.extend(topk_indices.tolist())
+
+    # Construct command to visualize top features
+    latents_str = " ".join(str(i) for i in all_latents)
+    # cmd = f"uv run python -m saev visuals \\\n\t--ckpt {cfg.sae_ckpt} \\\n\t--include-latents {latents_str} \\\n\t--log-freq-range -4.0 -1.0 \\\n\t--log-value-range -1.0 1.0 \\\n\t--n-latents 1000 \\\n\t--data.shard-root {cfg.acts.shard_root} \\\nimages:image-folder-dataset \\\n\t--images.root {cfg.imgs.root}"
+    cmd = f"""
+uv run python -m saev visuals \
+    --ckpt {cfg.sae_ckpt} \
+    --include-latents {latents_str} \
+    --log-freq-range -4.0 -1.0 \
+    --log-value-range -1.0 1.0 \
+    --n-latents {len(topk_indices) + 10}\
+    --dump-to $DUMP_TO
+""".strip()
+    print(f"\nTo visualize, run:\n\n{cmd}")
+    print(
+        "\nNote that you need to update/add:\n* $DUMP_TO\n* --data.shard-root\n* images:*\n*--images."
+    )
 
 
 if __name__ == "__main__":
