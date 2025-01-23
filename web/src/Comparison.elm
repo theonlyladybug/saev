@@ -5,6 +5,7 @@ import Browser
 import Browser.Navigation
 import Dict
 import File
+import File.Select
 import Gradio
 import Html
 import Html.Attributes
@@ -12,6 +13,8 @@ import Html.Events
 import Json.Decode as D
 import Json.Encode as E
 import Requests
+import Set
+import Task
 import Url
 
 
@@ -33,10 +36,30 @@ main =
 type Msg
     = NoOp
     | GotImage Requests.Id (Result Gradio.Error Example)
-    | GotSaeActivations Requests.Id (Result Gradio.Error (Dict.Dict String (List SaeActivation)))
+    | GotSaeActivations Requests.Id (Result Gradio.Error (Dict.Dict VitKey (List SaeActivation)))
     | SelectExample String
     | FocusLatent String Int
     | BlurLatent String Int
+      -- See https://elm-lang.org/examples/image-previews for examples of how to implement this.
+    | ImageUploader ImageUploaderMsg
+      -- For latent picker
+    | LatentPicker LatentPickerMsg
+
+
+type ImageUploaderMsg
+    = Upload
+    | DragEnter
+    | DragLeave
+    | GotFile File.File
+    | GotPreview String
+
+
+type LatentPickerMsg
+    = Pick
+    | SelectVit VitKey
+    | ToggleDropdown
+    | UpdateSearch String
+    | SelectLatent Int
 
 
 
@@ -49,10 +72,18 @@ type alias Model =
 
     -- State
     , inputExample : Requests.Requested Example
+    , imageUploaderHover : Bool
 
     -- Mapping from ViT name (string) to a list of activations. Changes as the input image changes.
-    , saeActivations : Requests.Requested (Dict.Dict String (List SaeActivation))
-    , focusedLatent : Maybe ( String, Int )
+    , saeActivations : Requests.Requested (Dict.Dict VitKey (List SaeActivation))
+    , focusedLatent : Maybe ( VitKey, Int )
+
+    -- Latent picker
+    , latents : Dict.Dict VitKey (Set.Set Int)
+    , latentPickerSearch : String
+    , latentPickerLatent : Maybe Int
+    , latentPickerOpen : Bool
+    , latentPickerVitKey : String
 
     -- APIs
     , gradio : Gradio.Config
@@ -61,8 +92,12 @@ type alias Model =
     }
 
 
+type alias VitKey =
+    String
+
+
 type alias SaeActivation =
-    { model : String
+    { vit : VitKey
     , latent : Int
     , activations : List Float -- Has nPatches floats
 
@@ -94,6 +129,12 @@ init _ url key =
             , inputExample = Requests.Initial
             , saeActivations = Requests.Initial
             , focusedLatent = Nothing
+            , imageUploaderHover = False
+            , latents = Dict.empty
+            , latentPickerSearch = ""
+            , latentPickerLatent = Nothing
+            , latentPickerOpen = False
+            , latentPickerVitKey = ""
 
             -- APIs
             , gradio =
@@ -133,6 +174,7 @@ update msg model =
                           }
                         , getSaeActivations model.gradio
                             saeActivationsRequestId
+                            model.latents
                             example.url
                         )
 
@@ -194,6 +236,115 @@ update msg model =
                 exampleId
             )
 
+        ImageUploader imageMsg ->
+            imageUploaderUpdate model imageMsg
+
+        LatentPicker latentMsg ->
+            latentPickerUpdate model latentMsg
+
+
+imageUploaderUpdate : Model -> ImageUploaderMsg -> ( Model, Cmd Msg )
+imageUploaderUpdate model msg =
+    case msg of
+        Upload ->
+            ( model, File.Select.file [ "image/*" ] (GotFile >> ImageUploader) )
+
+        DragEnter ->
+            ( { model | imageUploaderHover = True }, Cmd.none )
+
+        DragLeave ->
+            ( { model | imageUploaderHover = False }, Cmd.none )
+
+        GotFile file ->
+            ( { model | imageUploaderHover = False }
+            , Task.perform (GotPreview >> ImageUploader) <| File.toUrl file
+            )
+
+        GotPreview preview ->
+            case Gradio.base64Image preview of
+                Just url ->
+                    let
+                        saeActivationsRequestId =
+                            Requests.next model.saeActivationsRequestId
+                    in
+                    ( { model
+                        | inputExample = Requests.Loaded { url = url, label = "User Example" }
+                        , saeActivationsRequestId = saeActivationsRequestId
+                        , saeActivations = Requests.Loading
+                      }
+                    , getSaeActivations model.gradio
+                        saeActivationsRequestId
+                        model.latents
+                        url
+                    )
+
+                Nothing ->
+                    ( { model | inputExample = Requests.Failed "Uploaded image was not base64." }
+                    , Cmd.none
+                    )
+
+
+latentPickerUpdate : Model -> LatentPickerMsg -> ( Model, Cmd Msg )
+latentPickerUpdate model msg =
+    case msg of
+        Pick ->
+            case ( model.latentPickerLatent, model.inputExample ) of
+                ( Just latent, Requests.Loaded example ) ->
+                    let
+                        saeActivationsRequestId =
+                            Requests.next model.saeActivationsRequestId
+
+                        latents =
+                            updateDictSet model.latentPickerVitKey latent model.latents
+                    in
+                    ( { model
+                        | saeActivationsRequestId = saeActivationsRequestId
+                        , saeActivations = Requests.Loading
+                        , latentPickerSearch = ""
+                        , latentPickerOpen = False
+                        , latents = latents
+                      }
+                    , getSaeActivations model.gradio
+                        saeActivationsRequestId
+                        latents
+                        example.url
+                    )
+
+                ( Nothing, _ ) ->
+                    ( model, Cmd.none )
+
+                ( _, Requests.Loading ) ->
+                    ( model, Cmd.none )
+
+                ( _, Requests.Failed _ ) ->
+                    ( model, Cmd.none )
+
+                ( _, Requests.Initial ) ->
+                    ( model, Cmd.none )
+
+        UpdateSearch str ->
+            ( { model | latentPickerSearch = str, latentPickerOpen = True }
+            , Cmd.none
+            )
+
+        SelectLatent number ->
+            ( { model
+                | latentPickerLatent = Just number
+                , latentPickerOpen = False
+              }
+            , Cmd.none
+            )
+
+        SelectVit key ->
+            ( { model | latentPickerVitKey = key }
+            , Cmd.none
+            )
+
+        ToggleDropdown ->
+            ( { model | latentPickerOpen = True }
+            , Cmd.none
+            )
+
 
 onUrlRequest : Browser.UrlRequest -> Msg
 onUrlRequest request =
@@ -225,22 +376,6 @@ explainGradioError err =
             "Error in the API: " ++ msg
 
 
-updateIds : String -> Dict.Dict String Requests.Id -> ( Requests.Id, Dict.Dict String Requests.Id )
-updateIds path ids =
-    let
-        id =
-            Dict.get path ids |> nextId
-    in
-    ( id, Dict.insert path id ids )
-
-
-nextId : Maybe Requests.Id -> Requests.Id
-nextId maybeId =
-    maybeId
-        |> Maybe.withDefault Requests.init
-        |> Requests.next
-
-
 getImage : Gradio.Config -> Requests.Id -> String -> Cmd Msg
 getImage cfg id exampleId =
     Gradio.get cfg
@@ -253,30 +388,17 @@ getImage cfg id exampleId =
         (GotImage id)
 
 
-getSaeActivations : Gradio.Config -> Requests.Id -> Gradio.Base64Image -> Cmd Msg
-getSaeActivations cfg id image =
-    let
-        latents =
-            E.object
-                [ ( "bioclip/inat21"
-                  , E.list E.int
-                        [ 449, 451, 518, 6448, 18380, 10185, 20085, 5435, 16081 ]
-                  )
-                , ( "clip/inat21"
-                  , E.list E.int
-                        [ 4661, 565, 5317 ]
-                  )
-                ]
-    in
+getSaeActivations : Gradio.Config -> Requests.Id -> Dict.Dict VitKey (Set.Set Int) -> Gradio.Base64Image -> Cmd Msg
+getSaeActivations cfg id latents image =
     Gradio.get cfg
         "get-sae-activations"
-        [ Gradio.encodeImg image, latents ]
+        [ Gradio.encodeImg image, encodeLatents latents ]
         (Gradio.decodeOne
             (D.dict
                 (D.list
                     (D.map4
                         SaeActivation
-                        (D.field "model_name" D.string)
+                        (D.field "model_cfg" (D.field "key" D.string))
                         (D.field "latent" D.int)
                         (D.field "activations" (D.list D.float))
                         (D.field "examples" (D.list highlightedExampleDecoder))
@@ -285,6 +407,15 @@ getSaeActivations cfg id image =
             )
         )
         (GotSaeActivations id)
+
+
+encodeLatents : Dict.Dict VitKey (Set.Set Int) -> E.Value
+encodeLatents latents =
+    E.dict identity (E.list E.int) (Dict.map (\_ set -> Set.toList set) latents)
+
+
+
+-- Debug.todo "encodelatents"
 
 
 highlightedExampleDecoder : D.Decoder HighlightedExample
@@ -312,6 +443,13 @@ view model =
                 [ Html.Attributes.class "flex flex-col" ]
                 [ viewInputExample model.focusedLatent model.saeActivations model.inputExample
                 , Html.p [] [ Html.text "TODO: other example images here" ]
+                , viewGenericButton (ImageUploader Upload) "Upload Image"
+                , viewLatentPicker
+                    model.latentPickerOpen
+                    model.latentPickerSearch
+                    model.latentPickerLatent
+                , viewModelPicker
+                , viewGenericButton (LatentPicker Pick) "Add Latent"
                 ]
 
             -- SAE stuff, right column
@@ -323,7 +461,7 @@ view model =
     }
 
 
-viewInputExample : Maybe ( String, Int ) -> Requests.Requested (Dict.Dict String (List SaeActivation)) -> Requests.Requested Example -> Html.Html Msg
+viewInputExample : Maybe ( VitKey, Int ) -> Requests.Requested (Dict.Dict VitKey (List SaeActivation)) -> Requests.Requested Example -> Html.Html Msg
 viewInputExample focusedLatent requestedSaeActivations requestedExample =
     case ( focusedLatent, requestedSaeActivations, requestedExample ) of
         ( _, _, Requests.Initial ) ->
@@ -441,7 +579,7 @@ bucket value =
     out
 
 
-viewSaeActivations : Maybe ( String, Int ) -> Requests.Requested (Dict.Dict String (List SaeActivation)) -> Html.Html Msg
+viewSaeActivations : Maybe ( VitKey, Int ) -> Requests.Requested (Dict.Dict VitKey (List SaeActivation)) -> Html.Html Msg
 viewSaeActivations focusedLatent requestedActivations =
     case requestedActivations of
         Requests.Initial ->
@@ -465,7 +603,7 @@ viewSaeActivations focusedLatent requestedActivations =
             viewErr err
 
 
-viewModelSaeActivations : Maybe ( String, Int ) -> String -> List SaeActivation -> Html.Html Msg
+viewModelSaeActivations : Maybe ( VitKey, Int ) -> String -> List SaeActivation -> Html.Html Msg
 viewModelSaeActivations focusedLatent model saeActivations =
     Html.div
         []
@@ -481,8 +619,8 @@ viewModelSaeActivations focusedLatent model saeActivations =
         ]
 
 
-viewSaeActivation : Maybe ( String, Int ) -> SaeActivation -> Html.Html Msg
-viewSaeActivation focusedLatent { model, latent, activations, examples } =
+viewSaeActivation : Maybe ( VitKey, Int ) -> SaeActivation -> Html.Html Msg
+viewSaeActivation focusedLatent { vit, latent, activations, examples } =
     let
         active =
             case focusedLatent of
@@ -490,14 +628,14 @@ viewSaeActivation focusedLatent { model, latent, activations, examples } =
                     False
 
                 Just ( name, l ) ->
-                    name == model && l == latent
+                    name == vit && l == latent
     in
     Html.div []
         [ Html.details
             [ Html.Attributes.class "cursor-pointer rounded-lg border border-gray-200 bg-white shadow-sm hover:shadow-md transition-shadow duration-200 dark:border-gray-700 dark:bg-gray-800"
             , Html.Attributes.attribute "open" ""
-            , Html.Events.onMouseEnter (FocusLatent model latent)
-            , Html.Events.onMouseLeave (BlurLatent model latent)
+            , Html.Events.onMouseEnter (FocusLatent vit latent)
+            , Html.Events.onMouseLeave (BlurLatent vit latent)
             ]
             [ Html.summary
                 [ Html.Attributes.class "cursor-pointer select-none px-4 py-3 hover:bg-gray-50 text-gray-900" ]
@@ -558,6 +696,110 @@ viewErr err =
 
 
 
+-- TODO: configure 24000
+
+
+viewLatentPicker : Bool -> String -> Maybe Int -> Html.Html Msg
+viewLatentPicker open search maybeLatent =
+    Html.div
+        [ Html.Attributes.class "relative" ]
+        [ Html.input
+            [ Html.Attributes.type_ "text"
+            , Html.Attributes.placeholder "Search numbers (1-24576)..."
+            , Html.Attributes.value search
+            , Html.Events.onInput (UpdateSearch >> LatentPicker)
+            , Html.Events.onClick (LatentPicker ToggleDropdown)
+            , Html.Attributes.class "w-100"
+
+            -- , style "width" "100%"
+            -- , style "padding" "8px"
+            -- , style "border" "1px solid #ccc"
+            -- , style "border-radius" "4px"
+            ]
+            []
+        , viewDropdown open search
+        , viewSelection maybeLatent
+        ]
+
+
+viewDropdown : Bool -> String -> Html.Html Msg
+viewDropdown open search =
+    if open then
+        let
+            filteredNumbers =
+                List.filter
+                    (\n -> String.contains search (String.fromInt n))
+                    (List.range 1 24576)
+                    |> List.take 100
+
+            -- Only show first 100 matches for performance
+        in
+        Html.div
+            []
+            (List.map viewNumberOption filteredNumbers)
+
+    else
+        Html.text ""
+
+
+viewNumberOption : Int -> Html.Html Msg
+viewNumberOption number =
+    Html.div
+        [ Html.Events.onClick (LatentPicker (SelectLatent number))
+
+        -- , style "padding" "8px 16px"
+        -- , style "cursor" "pointer"
+        -- , style "hover:background-color" "#f3f4f6"
+        ]
+        [ Html.text (String.fromInt number) ]
+
+
+viewSelection : Maybe Int -> Html.Html Msg
+viewSelection maybeLatent =
+    case maybeLatent of
+        Just latent ->
+            Html.div
+                [ Html.Attributes.class "mt-1"
+                ]
+                [ Html.text ("Selected: " ++ String.fromInt latent) ]
+
+        Nothing ->
+            Html.text ""
+
+
+viewModelPicker : Html.Html Msg
+viewModelPicker =
+    Html.div
+        []
+        [ Html.label
+            []
+            [ Html.text "Choose a model:" ]
+        , Html.select
+            [ Html.Events.onInput (SelectVit >> LatentPicker) ]
+            (List.map viewVitOption (Dict.keys vits))
+        ]
+
+
+viewVitOption : VitKey -> Html.Html Msg
+viewVitOption key =
+    Html.option [ Html.Attributes.value key ] [ Html.text (viewVitName key) ]
+
+
+viewGenericButton : Msg -> String -> Html.Html Msg
+viewGenericButton msg name =
+    Html.button
+        [ Html.Attributes.class "rounded-lg px-2 py-1 transition-colors"
+        , Html.Attributes.class "border border-sky-300 hover:border-sky-400"
+        , Html.Attributes.class "bg-sky-100 hover:bg-sky-200"
+        , Html.Attributes.class "text-gray-700 hover:text-gray-900"
+        , Html.Attributes.class "focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2"
+        , Html.Attributes.class "active:bg-gray-300"
+        , Html.Events.onClick msg
+        ]
+        [ Html.text name ]
+
+
+
 -- HELPERS
 
 
@@ -566,11 +808,39 @@ uncurry f ( a, b ) =
     f a b
 
 
+updateDictSet : comparable -> comparable2 -> Dict.Dict comparable (Set.Set comparable2) -> Dict.Dict comparable (Set.Set comparable2)
+updateDictSet key value dict =
+    Dict.update key
+        (\maybeSet ->
+            case maybeSet of
+                Just set ->
+                    Just (Set.insert value set)
+
+                Nothing ->
+                    Just (Set.singleton value)
+        )
+        dict
+
+
 
 -- CONSTANTS
 
 
-clipImagenetLatents : List Int
-clipImagenetLatents =
-    [ 4988
-    ]
+viewVitName : VitKey -> String
+viewVitName key =
+    case Dict.get key vits of
+        Just name ->
+            name
+
+        Nothing ->
+            "Unknown ViT key: " ++ key
+
+
+vits : Dict.Dict VitKey String
+vits =
+    Dict.fromList
+        [ ( "clip/imagenet", "CLIP & ImageNet-1K" )
+        , ( "dinov2/imagenet", "DINOv2 & ImageNet-1K" )
+        , ( "bioclip/inat21", "BioCLIP & iNat21" )
+        , ( "clip/inat21", "CLIP & iNat21" )
+        ]

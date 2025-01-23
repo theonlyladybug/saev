@@ -1,4 +1,4 @@
-module Gradio exposing (Base64Image, Config, Error(..), HttpUrlImage, base64ImageDecoder, base64ImageToString, decodeOne, encodeImg, get, httpUrlImageDecoder)
+module Gradio exposing (Base64Image, Config, Error(..), HttpUrlImage, base64Image, base64ImageDecoder, base64ImageToString, decodeOne, encodeImg, get, httpUrlImageDecoder)
 
 import Http
 import Json.Decode as D
