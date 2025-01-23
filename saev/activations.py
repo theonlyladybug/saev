@@ -387,10 +387,11 @@ class Dataset(torch.utils.data.Dataset):
 
                 self.scalar = l2_mean / math.sqrt(self.d_vit)
         elif isinstance(self.cfg.scale_mean, str):
-            # Load self.act_mean from disk from scale_mean path. AI!
-            pass
+            # Load mean activations from disk
+            self.act_mean = torch.load(self.cfg.scale_mean)
         elif isinstance(self.cfg.scale_norm, str):
-            # Load self.scalar from disk from scale_norm path.
+            # Load scalar normalization from disk
+            self.scalar = torch.load(self.cfg.scale_norm).item()
             pass
 
     def transform(self, act: Float[np.ndarray, " d_vit"]) -> Float[Tensor, " d_vit"]:
