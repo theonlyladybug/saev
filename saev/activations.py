@@ -275,7 +275,6 @@ def make_img_transform(model_family: str, model_ckpt: str) -> Callable:
             _, img_transform = open_clip.create_model_from_pretrained(
                 arch, pretrained=ckpt, cache_dir=helpers.get_cache_dir()
             )
-
         return img_transform
 
     elif model_family == "dinov2":
@@ -352,8 +351,8 @@ class Dataset(torch.utils.data.Dataset):
         self.scalar = 1.0
         self.act_mean = torch.zeros(self.d_vit)
 
-        # If neither of these are true, we can skip this work.
-        if self.cfg.scale_mean or self.cfg.scale_norm:
+        # If either of these are true, we must do this work.
+        if self.cfg.scale_mean is True or self.cfg.scale_norm is True:
             # Load a random subset of samples to calculate the mean activation and mean L2 norm.
             perm = np.random.default_rng(seed=42).permutation(len(self))
             perm = perm[: cfg.n_random_samples]
@@ -387,6 +386,12 @@ class Dataset(torch.utils.data.Dataset):
                     )
 
                 self.scalar = l2_mean / math.sqrt(self.d_vit)
+        elif isinstance(self.cfg.scale_mean, str):
+            # Load self.act_mean from disk from scale_mean path. AI!
+            pass
+        elif isinstance(self.cfg.scale_norm, str):
+            # Load self.scalar from disk from scale_norm path.
+            pass
 
     def transform(self, act: Float[np.ndarray, " d_vit"]) -> Float[Tensor, " d_vit"]:
         """
