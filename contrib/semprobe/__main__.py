@@ -1,4 +1,6 @@
 import logging
+import os.path
+import random
 import typing
 
 import beartype
@@ -54,7 +56,7 @@ def score(cfg: typing.Annotated[config.Score, tyro.conf.arg(name="")]):
     for batch in dataloader:
         vit_acts_BD = batch["act"].to(cfg.device)
         i_im = torch.sort(torch.unique(batch["image_i"])).values
-        assert len(i_im) == n_imgs_per_batch
+        assert len(i_im) <= n_imgs_per_batch
         _, sae_acts_BS, _ = sae(vit_acts_BD)
         sae_acts_SB = einops.rearrange(sae_acts_BS, "batch d_sae -> d_sae batch")
         sae_acts_SIP = sae_acts_SB.view(
@@ -108,18 +110,22 @@ def score(cfg: typing.Annotated[config.Score, tyro.conf.arg(name="")]):
         for score, i in zip(topk_scores, topk_indices):
             print(f"{i:>6}: {score:.3f}")
 
+        print(f"Manually included features for {task_name}:")
+        for i in cfg.include_latents:
+            print(f"{i:>6}: {f1_S[i]:.3f}")
+
         all_latents.extend(topk_indices.tolist())
+        all_latents.extend(cfg.include_latents)
 
     # Construct command to visualize top features
     latents_str = " ".join(str(i) for i in all_latents)
-    # cmd = f"uv run python -m saev visuals \\\n\t--ckpt {cfg.sae_ckpt} \\\n\t--include-latents {latents_str} \\\n\t--log-freq-range -4.0 -1.0 \\\n\t--log-value-range -1.0 1.0 \\\n\t--n-latents 1000 \\\n\t--data.shard-root {cfg.acts.shard_root} \\\nimages:image-folder-dataset \\\n\t--images.root {cfg.imgs.root}"
     cmd = f"""
-uv run python -m saev visuals \
-    --ckpt {cfg.sae_ckpt} \
-    --include-latents {latents_str} \
-    --log-freq-range -4.0 -1.0 \
-    --log-value-range -1.0 1.0 \
-    --n-latents {len(topk_indices) + 10}\
+uv run python -m saev visuals \\
+    --ckpt {cfg.sae_ckpt} \\
+    --include-latents {latents_str} \\
+    --log-freq-range -4.0 -1.0 \\
+    --log-value-range -1.0 1.0 \\
+    --n-latents {len(topk_indices) + 10} \\
     --dump-to $DUMP_TO
 """.strip()
     print(f"\nTo visualize, run:\n\n{cmd}")
@@ -128,8 +134,36 @@ uv run python -m saev visuals \
     )
 
 
+@beartype.beartype
+def negatives(cfg: typing.Annotated[config.Negatives, tyro.conf.arg(name="")]):
+    """
+    Sample negative images for each class.
+    """
+    imgs = saev.activations.get_dataset(cfg.imgs, img_transform=None)
+
+    indices = list(range(len(imgs)))
+    random.seed(cfg.seed)
+
+    for cls in cfg.classes:
+        random.shuffle(indices)
+        dpath = os.path.join(cfg.dump_to, f"{cls}-negative")
+        os.makedirs(dpath, exist_ok=True)
+        n_saved = 0
+        for i in indices:
+            if i in cfg.skip:
+                continue
+
+            sample = imgs[i]
+            fpath = os.path.join(dpath, f"example_{cls}_{i}.png")
+            sample["image"].save(fpath)
+            n_saved += 1
+
+            if n_saved >= cfg.n_imgs:
+                break
+
+
 if __name__ == "__main__":
     tyro.extras.subcommand_cli_from_dict({
         "score": score,
-        "noop": lambda: None,
+        "negatives": negatives,
     })
