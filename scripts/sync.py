@@ -36,17 +36,31 @@ def from_remote(
             "rsync",
             "-avz",  # archive mode, verbose, compress
             "--progress",  # show progress
+            "--include=*.jpg",  # include jpg
+            "--include=*.jpeg",  # include jpeg
+            "--include=*.png",  # include png
+            "--include=*/",  # include directories
+            "--exclude=*",  # exclude everything else
+            "--exclude=.DS_Store",  # explicitly exclude DS_Store
             f"{ssh_host}:{remote_path}/",  # source with trailing slash
             f"{local_path}/",  # destination with trailing slash
         ]
     # Fall back to scp if rsync isn't available
     elif shutil.which("scp"):
-        cmd = [
-            "scp",
-            "-r",  # recursive
-            f"{ssh_host}:{remote_path}/*",  # source with glob
-            local_path,  # destination
-        ]
+        # For scp, we'll need to run multiple commands for each extension
+        for ext in ["jpg", "jpeg", "png"]:
+            cmd = [
+                "scp",
+                "-r",  # recursive
+                f"{ssh_host}:{remote_path}/**/*.{ext}",  # source with glob
+                local_path,  # destination
+            ]
+            try:
+                subprocess.run(cmd, check=True)
+            except subprocess.CalledProcessError:
+                # Ignore errors from no matches for an extension
+                pass
+        return  # Return early since we've already handled the scp case
     else:
         raise RuntimeError("Neither rsync nor scp found in PATH")
 
@@ -88,17 +102,31 @@ def to_remote(
             "rsync",
             "-avz",  # archive mode, verbose, compress
             "--progress",  # show progress
+            "--include=*.jpg",  # include jpg
+            "--include=*.jpeg",  # include jpeg
+            "--include=*.png",  # include png
+            "--include=*/",  # include directories
+            "--exclude=*",  # exclude everything else
+            "--exclude=.DS_Store",  # explicitly exclude DS_Store
             f"{local_path}/",  # source with trailing slash
             f"{ssh_host}:{remote_path}/",  # destination with trailing slash
         ]
     # Fall back to scp if rsync isn't available
     elif shutil.which("scp"):
-        cmd = [
-            "scp",
-            "-r",  # recursive
-            f"{local_path}/*",  # source with glob
-            f"{ssh_host}:{remote_path}",  # destination
-        ]
+        # For scp, we'll need to run multiple commands for each extension
+        for ext in ["jpg", "jpeg", "png"]:
+            cmd = [
+                "scp",
+                "-r",  # recursive
+                f"{local_path}/**/*.{ext}",  # source with glob
+                f"{ssh_host}:{remote_path}",  # destination
+            ]
+            try:
+                subprocess.run(cmd, check=True)
+            except subprocess.CalledProcessError:
+                # Ignore errors from no matches for an extension
+                pass
+        return  # Return early since we've already handled the scp case
     else:
         raise RuntimeError("Neither rsync nor scp found in PATH")
 
