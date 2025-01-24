@@ -22,7 +22,35 @@ def from_remote(
         remote_path: The path on the remote machine containing the data to sync
         local_path: The local destination path where data will be copied to
     """
-    # Write this function. AI!
+    import os
+    import shutil
+    import subprocess
+
+    # Create local directory if it doesn't exist
+    os.makedirs(local_path, exist_ok=True)
+
+    # Try rsync first since it's more efficient
+    if shutil.which("rsync"):
+        cmd = [
+            "rsync",
+            "-avz",  # archive mode, verbose, compress
+            "--progress",  # show progress
+            f"{ssh_host}:{remote_path}/",  # source with trailing slash
+            f"{local_path}/",  # destination with trailing slash
+        ]
+    # Fall back to scp if rsync isn't available
+    elif shutil.which("scp"):
+        cmd = [
+            "scp",
+            "-r",  # recursive
+            f"{ssh_host}:{remote_path}/*",  # source with glob
+            local_path,  # destination
+        ]
+    else:
+        raise RuntimeError("Neither rsync nor scp found in PATH")
+
+    # Execute the sync command
+    subprocess.run(cmd, check=True)
 
 
 @beartype.beartype
