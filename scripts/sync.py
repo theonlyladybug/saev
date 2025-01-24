@@ -4,6 +4,10 @@ Syncs all semprobe data between two machines.
 Must run on the machine with remote access permission.
 """
 
+import os
+import shutil
+import subprocess
+
 import beartype
 import tyro
 
@@ -22,9 +26,6 @@ def from_remote(
         remote_path: The path on the remote machine containing the data to sync
         local_path: The local destination path where data will be copied to
     """
-    import os
-    import shutil
-    import subprocess
 
     # Create local directory if it doesn't exist
     os.makedirs(local_path, exist_ok=True)
@@ -54,8 +55,20 @@ def from_remote(
 
 
 @beartype.beartype
-def to_remote():
-    pass
+def to_remote(
+    ssh_host: str = "strawberry0",
+    remote_path: str = "~/projects/saev/data/semprobe/test",
+    local_path: str = "./data/semprobe/test",
+):
+    """
+    Syncs all data from local_path to ssh_host:remote_path using rsync or scp, depending on what is available on your system.
+
+    Args:
+        ssh_host: The hostname or IP address of the remote machine to sync to. Can be a user@host, or a HostName found in your .ssh/config file.
+        remote_path: The destination path on the remote machine where data will be copied to.
+        local_path: The local source path with the data to sync
+    """
+    # Write this function. AI!
 
 
 if __name__ == "__main__":
