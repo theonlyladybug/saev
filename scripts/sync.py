@@ -15,7 +15,7 @@ import tyro
 @beartype.beartype
 def from_remote(
     ssh_host: str = "strawberry0",
-    remote_path: str = "~/projects/saev/data/semprobe/test",
+    remote_path: str = "~/projects/saev/data/contrib/semprobe/test",
     local_path: str = "./data/semprobe/test",
 ):
     """
@@ -57,7 +57,7 @@ def from_remote(
 @beartype.beartype
 def to_remote(
     ssh_host: str = "strawberry0",
-    remote_path: str = "~/projects/saev/data/semprobe/test",
+    remote_path: str = "~/projects/saev/data/contrib/semprobe/test",
     local_path: str = "./data/semprobe/test",
 ):
     """
