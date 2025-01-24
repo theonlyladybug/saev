@@ -18,11 +18,11 @@ def from_remote(
     Syncs all data from ssh_host:remote_path to local_path using rsync or scp, depending on what is available on your system.
 
     Args:
-        ssh_host: The hostname or IP address of the remote machine to sync from
+        ssh_host: The hostname or IP address of the remote machine to sync from. Can be a user@host, or a HostName found in your .ssh/config file.
         remote_path: The path on the remote machine containing the data to sync
         local_path: The local destination path where data will be copied to
     """
-    pass
+    # Write this function. AI!
 
 
 @beartype.beartype
@@ -32,6 +32,6 @@ def to_remote():
 
 if __name__ == "__main__":
     tyro.extras.subcommand_cli_from_dict({
-        "to-remote": from_remote,
-        "from-remote": to_remote,
+        "to-remote": to_remote,
+        "from-remote": from_remote,
     })
