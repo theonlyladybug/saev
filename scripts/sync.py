@@ -72,6 +72,16 @@ def to_remote(
     if not os.path.exists(local_path):
         raise RuntimeError(f"Local path does not exist: {local_path}")
 
+    # Create remote directory first
+    mkdir_cmd = ["ssh", ssh_host, f"mkdir -p {remote_path}"]
+    subprocess.run(mkdir_cmd, check=True)
+
+    # Expand ~ in remote path if present
+    if remote_path.startswith("~"):
+        get_home_cmd = ["ssh", ssh_host, "echo $HOME"]
+        home = subprocess.check_output(get_home_cmd).decode().strip()
+        remote_path = remote_path.replace("~", home)
+
     # Try rsync first since it's more efficient
     if shutil.which("rsync"):
         cmd = [
