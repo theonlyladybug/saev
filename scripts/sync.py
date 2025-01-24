@@ -18,11 +18,10 @@ def from_remote(
     Syncs all data from ssh_host:remote_path to local_path using rsync or scp, depending on what is available on your system.
 
     Args:
-        ssh_host:
-        remote_path:
-        local_path:
+        ssh_host: The hostname or IP address of the remote machine to sync from
+        remote_path: The path on the remote machine containing the data to sync
+        local_path: The local destination path where data will be copied to
     """
-    # Fill in this docstring. AI!
     pass
 
 
