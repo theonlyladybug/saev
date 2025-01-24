@@ -68,7 +68,32 @@ def to_remote(
         remote_path: The destination path on the remote machine where data will be copied to.
         local_path: The local source path with the data to sync
     """
-    # Write this function. AI!
+    # Ensure local path exists and is readable
+    if not os.path.exists(local_path):
+        raise RuntimeError(f"Local path does not exist: {local_path}")
+
+    # Try rsync first since it's more efficient
+    if shutil.which("rsync"):
+        cmd = [
+            "rsync",
+            "-avz",  # archive mode, verbose, compress
+            "--progress",  # show progress
+            f"{local_path}/",  # source with trailing slash
+            f"{ssh_host}:{remote_path}/",  # destination with trailing slash
+        ]
+    # Fall back to scp if rsync isn't available
+    elif shutil.which("scp"):
+        cmd = [
+            "scp",
+            "-r",  # recursive
+            f"{local_path}/*",  # source with glob
+            f"{ssh_host}:{remote_path}",  # destination
+        ]
+    else:
+        raise RuntimeError("Neither rsync nor scp found in PATH")
+
+    # Execute the sync command
+    subprocess.run(cmd, check=True)
 
 
 if __name__ == "__main__":
