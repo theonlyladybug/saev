@@ -5,6 +5,7 @@ import beartype
 import pyvips
 import torch
 import torchvision.datasets
+from PIL import Image
 
 from .. import activations, config
 
@@ -123,7 +124,18 @@ def to_sized(
 
 @beartype.beartype
 def pil_to_vips(img_p: Image.Image) -> pyvips.Image:
-    # Write this function. AI!
+    """Convert a PIL Image to a pyvips Image."""
+    # Convert PIL image to bytes
+    img_bytes = img_p.tobytes()
+    # Create new pyvips image from memory buffer
+    return pyvips.Image.new_from_memory(
+        img_bytes,
+        img_p.width,
+        img_p.height,
+        len(img_p.getbands()),  # Number of bands (channels)
+        "uchar",  # 8-bit unsigned data
+    )
+
 
 @beartype.beartype
 def vips_to_base64(img_v: pyvips.Image) -> str:
