@@ -122,6 +122,10 @@ def to_sized(
 
 
 @beartype.beartype
+def pil_to_vips(img_p: Image.Image) -> pyvips.Image:
+    # Write this function. AI!
+
+@beartype.beartype
 def vips_to_base64(img_v: pyvips.Image) -> str:
     buf = img_v.write_to_buffer(".webp")
     b64 = base64.b64encode(buf)
