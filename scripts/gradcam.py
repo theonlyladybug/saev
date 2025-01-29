@@ -95,11 +95,22 @@ if __name__ == "__main__":
     if args.method not in list(methods.keys()):
         raise Exception(f"method should be one of {list(methods.keys())}")
 
-    model = (
-        torch.hub.load("facebookresearch/dinov2", "dinov2_vitb14")
-        .to(torch.device(args.device))
-        .eval()
-    )
+    # Load base DINOv2 model
+    base_model = torch.hub.load("facebookresearch/dinov2", "dinov2_vitb14")
+    
+    # Create a wrapper model that includes the classifier
+    class ModelWithLinear(torch.nn.Module):
+        def __init__(self, base_model):
+            super().__init__()
+            self.base_model = base_model
+            self.linear = torch.nn.Linear(768, 200)  # 768 -> 200 CUB classes
+            self.blocks = base_model.blocks  # Expose blocks for GradCAM
+            
+        def forward(self, x):
+            x = self.base_model(x)
+            return self.linear(x)
+    
+    model = ModelWithLinear(base_model).to(torch.device(args.device)).eval()
 
     target_layers = [model.blocks[-1].norm1]
 
