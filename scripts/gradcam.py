@@ -27,7 +27,17 @@ class Args:
     device: str = "cpu"
     """Torch device to use."""
 
-    # Add fields to Args for all --args in get_args(). AI!
+    image_path: str = "./examples/both.png"
+    """Input image path"""
+
+    aug_smooth: bool = False
+    """Apply test time augmentation to smooth the CAM"""
+
+    eigen_smooth: bool = False
+    """Reduce noise by taking the first principle component of cam_weights*activations"""
+
+    method: str = "gradcam"
+    """Can be gradcam/gradcam++/scorecam/xgradcam/ablationcam"""
 
 
 def get_args():
