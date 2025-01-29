@@ -69,7 +69,15 @@ class Args:
 
 
 def reshape_transform(tensor, height=14, width=14):
-    result = tensor[:, 1:, :].reshape(tensor.size(0), height, width, tensor.size(2))
+    # DINOv2 outputs a different tensor shape than ViT
+    # First, get the correct number of patches
+    patches = tensor.size(1)
+    # Calculate the feature dimension
+    features = tensor.size(2)
+    # The -1 is for the CLS token
+    grid_size = int((patches - 1) ** 0.5)
+    
+    result = tensor[:, 1:, :].reshape(tensor.size(0), grid_size, grid_size, features)
 
     # Bring the channels to the first dimension,
     # like in CNNs.
