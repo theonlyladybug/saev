@@ -1,4 +1,20 @@
-import argparse
+# /// script
+# requires-python = ">=3.10"
+# dependencies = [
+#     "beartype",
+#     "grad-cam",
+#     "numpy",
+#     "opencv-python",
+#     "timm",
+#     "torch",
+#     "tyro",
+# ]
+# ///
+"""
+Downloads the Begula whale dataset from lila.science.
+"""
+
+import tyro
 import beartype
 import dataclasses
 import cv2
@@ -20,6 +36,18 @@ from pytorch_grad_cam import (
 from pytorch_grad_cam.utils.image import show_cam_on_image, preprocess_image
 from pytorch_grad_cam.ablation_layer import AblationLayerVit
 
+methods = {
+    "gradcam": GradCAM,
+    "scorecam": ScoreCAM,
+    "gradcam++": GradCAMPlusPlus,
+    "ablationcam": AblationCAM,
+    "xgradcam": XGradCAM,
+    "eigencam": EigenCAM,
+    "eigengradcam": EigenGradCAM,
+    "layercam": LayerCAM,
+    "fullgrad": FullGrad,
+}
+
 
 @beartype.beartype
 @dataclasses.dataclass(frozen=True)
@@ -40,41 +68,6 @@ class Args:
     """Can be gradcam/gradcam++/scorecam/xgradcam/ablationcam"""
 
 
-def get_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--device", type=str, default="cpu", help="Torch device to use")
-
-    parser.add_argument(
-        "--image-path", type=str, default="./examples/both.png", help="Input image path"
-    )
-    parser.add_argument(
-        "--aug_smooth",
-        action="store_true",
-        help="Apply test time augmentation to smooth the CAM",
-    )
-    parser.add_argument(
-        "--eigen_smooth",
-        action="store_true",
-        help="Reduce noise by taking the first principle componenet"
-        "of cam_weights*activations",
-    )
-
-    parser.add_argument(
-        "--method",
-        type=str,
-        default="gradcam",
-        help="Can be gradcam/gradcam++/scorecam/xgradcam/ablationcam",
-    )
-
-    args = parser.parse_args()
-    if args.device:
-        print(f'Using device "{args.device}" for acceleration')
-    else:
-        print("Using CPU for computation")
-
-    return args
-
-
 def reshape_transform(tensor, height=14, width=14):
     result = tensor[:, 1:, :].reshape(tensor.size(0), height, width, tensor.size(2))
 
@@ -85,31 +78,17 @@ def reshape_transform(tensor, height=14, width=14):
 
 
 if __name__ == "__main__":
-    """ python vit_gradcam.py --image-path <path_to_image>
+    """
     Example usage of using cam-methods on a VIT network.
-
     """
 
-    args = get_args()
-    methods = {
-        "gradcam": GradCAM,
-        "scorecam": ScoreCAM,
-        "gradcam++": GradCAMPlusPlus,
-        "ablationcam": AblationCAM,
-        "xgradcam": XGradCAM,
-        "eigencam": EigenCAM,
-        "eigengradcam": EigenGradCAM,
-        "layercam": LayerCAM,
-        "fullgrad": FullGrad,
-    }
+    args = tyro.cli(Args)
 
     if args.method not in list(methods.keys()):
         raise Exception(f"method should be one of {list(methods.keys())}")
 
     model = (
-        torch.hub.load(
-            "facebookresearch/deit:main", "deit_tiny_patch16_224", pretrained=True
-        )
+        torch.hub.load("facebookresearch/dinov2", "dinov2_vitb14")
         .to(torch.device(args.device))
         .eval()
     )
