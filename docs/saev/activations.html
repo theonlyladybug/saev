@@ -465,8 +465,8 @@ class Dataset(torch.utils.data.Dataset):
         self.scalar = 1.0
         self.act_mean = torch.zeros(self.d_vit)
 
-        # If neither of these are true, we can skip this work.
-        if self.cfg.scale_mean or self.cfg.scale_norm:
+        # If either of these are true, we must do this work.
+        if self.cfg.scale_mean is True or self.cfg.scale_norm is True:
             # Load a random subset of samples to calculate the mean activation and mean L2 norm.
             perm = np.random.default_rng(seed=42).permutation(len(self))
             perm = perm[: cfg.n_random_samples]
@@ -500,6 +500,12 @@ class Dataset(torch.utils.data.Dataset):
                     )
 
                 self.scalar = l2_mean / math.sqrt(self.d_vit)
+        elif isinstance(self.cfg.scale_mean, str):
+            # Load mean activations from disk
+            self.act_mean = torch.load(self.cfg.scale_mean)
+        elif isinstance(self.cfg.scale_norm, str):
+            # Load scalar normalization from disk
+            self.scalar = torch.load(self.cfg.scale_norm).item()
 
     def transform(self, act: Float[np.ndarray, &#34; d_vit&#34;]) -&gt; Float[Tensor, &#34; d_vit&#34;]:
         &#34;&#34;&#34;
@@ -953,6 +959,10 @@ class Imagenet(torch.utils.data.Dataset):
 <ul class="hlist">
 <li>torch.utils.data.dataset.Dataset</li>
 <li>typing.Generic</li>
+</ul>
+<h3>Subclasses</h3>
+<ul class="hlist">
+<li><a title="saev.app.data.VipsImagenet" href="app/data.html#saev.app.data.VipsImagenet">VipsImagenet</a></li>
 </ul>
 </dd>
 <dt id="saev.activations.Metadata"><code class="flex name class">

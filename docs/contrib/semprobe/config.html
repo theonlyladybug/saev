@@ -37,17 +37,77 @@ hljs.highlightAll();
 <section>
 <h2 class="section-title" id="header-classes">Classes</h2>
 <dl>
-<dt id="contrib.semprobe.config.Score"><code class="flex name class">
-<span>class <span class="ident">Score</span></span>
-<span>(</span><span>sae_ckpt: str = './checkpoints/abcdefg/sae.pt',<br>batch_size: int = 2048,<br>n_workers: int = 32,<br>threshold: float = 0.0,<br>top_k: int = 5,<br>imgs: <a title="saev.config.ImageFolderDataset" href="../../saev/config.html#saev.config.ImageFolderDataset">ImageFolderDataset</a> = &lt;factory&gt;,<br>acts: <a title="saev.config.DataLoad" href="../../saev/config.html#saev.config.DataLoad">DataLoad</a> = &lt;factory&gt;,<br>dump_to: str = './logs/contrib/semprobe',<br>device: str = 'cuda')</span>
+<dt id="contrib.semprobe.config.Negatives"><code class="flex name class">
+<span>class <span class="ident">Negatives</span></span>
+<span>(</span><span>dump_to: str = './data/contrib/semprobe/test',<br>imgs: <a title="saev.config.ImagenetDataset" href="../../saev/config.html#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.ImageFolderDataset" href="../../saev/config.html#saev.config.ImageFolderDataset">ImageFolderDataset</a> | <a title="saev.config.Ade20kDataset" href="../../saev/config.html#saev.config.Ade20kDataset">Ade20kDataset</a> = &lt;factory&gt;,<br>classes: list[str] = &lt;factory&gt;,<br>n_imgs: int = 20,<br>skip: list[str] = &lt;factory&gt;,<br>seed: int = 42)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Score(sae_ckpt: str = './checkpoints/abcdefg/sae.pt', batch_size: int = 2048, n_workers: int = 32, threshold: float = 0.0, top_k: int = 5, imgs: saev.config.ImageFolderDataset = <factory>, acts: saev.config.DataLoad = <factory>, dump_to: str = './logs/contrib/semprobe', device: str = 'cuda')</p></div>
+<div class="desc"><p>Negatives(dump_to: str = './data/contrib/semprobe/test', imgs: saev.config.ImagenetDataset | saev.config.ImageFolderDataset | saev.config.Ade20kDataset = <factory>, classes: list[str] = <factory>, n_imgs: int = 20, skip: list[str] = <factory>, seed: int = 42)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">@dataclasses.dataclass(frozen=True)
+<pre><code class="python">@beartype.beartype
+@dataclasses.dataclass(frozen=True)
+class Negatives:
+    dump_to: str = os.path.join(&#34;.&#34;, &#34;data&#34;, &#34;contrib&#34;, &#34;semprobe&#34;, &#34;test&#34;)
+    &#34;&#34;&#34;Where to save negative samples.&#34;&#34;&#34;
+    imgs: saev.config.DatasetConfig = dataclasses.field(
+        default_factory=saev.config.ImagenetDataset
+    )
+    &#34;&#34;&#34;Where to sample images from.&#34;&#34;&#34;
+    classes: list[str] = dataclasses.field(
+        default_factory=lambda: [&#34;brazil&#34;, &#34;cool&#34;, &#34;germany&#34;, &#34;crash&#34;]
+    )
+    &#34;&#34;&#34;Which classes to randomly sample.&#34;&#34;&#34;
+    n_imgs: int = 20
+    &#34;&#34;&#34;Number of negative images.&#34;&#34;&#34;
+    skip: list[str] = dataclasses.field(default_factory=lambda: [])
+    &#34;&#34;&#34;Which images to skip.&#34;&#34;&#34;
+
+    seed: int = 42
+    &#34;&#34;&#34;Random seed.&#34;&#34;&#34;</code></pre>
+</details>
+<h3>Class variables</h3>
+<dl>
+<dt id="contrib.semprobe.config.Negatives.classes"><code class="name">var <span class="ident">classes</span> : list[str]</code></dt>
+<dd>
+<div class="desc"><p>Which classes to randomly sample.</p></div>
+</dd>
+<dt id="contrib.semprobe.config.Negatives.dump_to"><code class="name">var <span class="ident">dump_to</span> : str</code></dt>
+<dd>
+<div class="desc"><p>Where to save negative samples.</p></div>
+</dd>
+<dt id="contrib.semprobe.config.Negatives.imgs"><code class="name">var <span class="ident">imgs</span> : <a title="saev.config.ImagenetDataset" href="../../saev/config.html#saev.config.ImagenetDataset">ImagenetDataset</a> | <a title="saev.config.ImageFolderDataset" href="../../saev/config.html#saev.config.ImageFolderDataset">ImageFolderDataset</a> | <a title="saev.config.Ade20kDataset" href="../../saev/config.html#saev.config.Ade20kDataset">Ade20kDataset</a></code></dt>
+<dd>
+<div class="desc"><p>Where to sample images from.</p></div>
+</dd>
+<dt id="contrib.semprobe.config.Negatives.n_imgs"><code class="name">var <span class="ident">n_imgs</span> : int</code></dt>
+<dd>
+<div class="desc"><p>Number of negative images.</p></div>
+</dd>
+<dt id="contrib.semprobe.config.Negatives.seed"><code class="name">var <span class="ident">seed</span> : int</code></dt>
+<dd>
+<div class="desc"><p>Random seed.</p></div>
+</dd>
+<dt id="contrib.semprobe.config.Negatives.skip"><code class="name">var <span class="ident">skip</span> : list[str]</code></dt>
+<dd>
+<div class="desc"><p>Which images to skip.</p></div>
+</dd>
+</dl>
+</dd>
+<dt id="contrib.semprobe.config.Score"><code class="flex name class">
+<span>class <span class="ident">Score</span></span>
+<span>(</span><span>sae_ckpt: str = './checkpoints/abcdefg/sae.pt',<br>batch_size: int = 2048,<br>n_workers: int = 32,<br>thresholds: list[float] = &lt;factory&gt;,<br>top_k: int = 5,<br>imgs: <a title="saev.config.ImageFolderDataset" href="../../saev/config.html#saev.config.ImageFolderDataset">ImageFolderDataset</a> = &lt;factory&gt;,<br>acts: <a title="saev.config.DataLoad" href="../../saev/config.html#saev.config.DataLoad">DataLoad</a> = &lt;factory&gt;,<br>dump_to: str = './logs/contrib/semprobe',<br>include_latents: list[int] = &lt;factory&gt;,<br>device: str = 'cuda')</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Score(sae_ckpt: str = './checkpoints/abcdefg/sae.pt', batch_size: int = 2048, n_workers: int = 32, thresholds: list[float] = <factory>, top_k: int = 5, imgs: saev.config.ImageFolderDataset = <factory>, acts: saev.config.DataLoad = <factory>, dump_to: str = './logs/contrib/semprobe', include_latents: list[int] = <factory>, device: str = 'cuda')</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@beartype.beartype
+@dataclasses.dataclass(frozen=True)
 class Score:
     sae_ckpt: str = os.path.join(&#34;.&#34;, &#34;checkpoints&#34;, &#34;abcdefg&#34;, &#34;sae.pt&#34;)
     &#34;&#34;&#34;Path to SAE checkpoint&#34;&#34;&#34;
@@ -57,8 +117,10 @@ class Score:
     n_workers: int = 32
     &#34;&#34;&#34;Number of dataloader workers.&#34;&#34;&#34;
 
-    threshold: float = 0.0
-    &#34;&#34;&#34;Threshold for feature activation.&#34;&#34;&#34;
+    thresholds: list[float] = dataclasses.field(
+        default_factory=lambda: [0.0, 1.0, 3.0, 10.0, 30.0, 100.0]
+    )
+    &#34;&#34;&#34;Threshold(s) for feature activation.&#34;&#34;&#34;
     top_k: int = 5
     &#34;&#34;&#34;Number of top features to manually analyze.&#34;&#34;&#34;
 
@@ -69,9 +131,11 @@ class Score:
     acts: saev.config.DataLoad = dataclasses.field(default_factory=saev.config.DataLoad)
     &#34;&#34;&#34;SAE activations for the curated examples.&#34;&#34;&#34;
 
-    # Where to save analysis results
     dump_to: str = os.path.join(&#34;.&#34;, &#34;logs&#34;, &#34;contrib&#34;, &#34;semprobe&#34;)
     &#34;&#34;&#34;Where to save results/visualizations.&#34;&#34;&#34;
+
+    include_latents: list[int] = dataclasses.field(default_factory=list)
+    &#34;&#34;&#34;Latents to manually include.&#34;&#34;&#34;
 
     device: str = &#34;cuda&#34;
     &#34;&#34;&#34;Hardware device.&#34;&#34;&#34;</code></pre>
@@ -98,6 +162,10 @@ class Score:
 <dd>
 <div class="desc"><p>Where curated examples are stored</p></div>
 </dd>
+<dt id="contrib.semprobe.config.Score.include_latents"><code class="name">var <span class="ident">include_latents</span> : list[int]</code></dt>
+<dd>
+<div class="desc"><p>Latents to manually include.</p></div>
+</dd>
 <dt id="contrib.semprobe.config.Score.n_workers"><code class="name">var <span class="ident">n_workers</span> : int</code></dt>
 <dd>
 <div class="desc"><p>Number of dataloader workers.</p></div>
@@ -106,9 +174,9 @@ class Score:
 <dd>
 <div class="desc"><p>Path to SAE checkpoint</p></div>
 </dd>
-<dt id="contrib.semprobe.config.Score.threshold"><code class="name">var <span class="ident">threshold</span> : float</code></dt>
+<dt id="contrib.semprobe.config.Score.thresholds"><code class="name">var <span class="ident">thresholds</span> : list[float]</code></dt>
 <dd>
-<div class="desc"><p>Threshold for feature activation.</p></div>
+<div class="desc"><p>Threshold(s) for feature activation.</p></div>
 </dd>
 <dt id="contrib.semprobe.config.Score.top_k"><code class="name">var <span class="ident">top_k</span> : int</code></dt>
 <dd>
@@ -132,6 +200,17 @@ class Score:
 <li><h3><a href="#header-classes">Classes</a></h3>
 <ul>
 <li>
+<h4><code><a title="contrib.semprobe.config.Negatives" href="#contrib.semprobe.config.Negatives">Negatives</a></code></h4>
+<ul class="two-column">
+<li><code><a title="contrib.semprobe.config.Negatives.classes" href="#contrib.semprobe.config.Negatives.classes">classes</a></code></li>
+<li><code><a title="contrib.semprobe.config.Negatives.dump_to" href="#contrib.semprobe.config.Negatives.dump_to">dump_to</a></code></li>
+<li><code><a title="contrib.semprobe.config.Negatives.imgs" href="#contrib.semprobe.config.Negatives.imgs">imgs</a></code></li>
+<li><code><a title="contrib.semprobe.config.Negatives.n_imgs" href="#contrib.semprobe.config.Negatives.n_imgs">n_imgs</a></code></li>
+<li><code><a title="contrib.semprobe.config.Negatives.seed" href="#contrib.semprobe.config.Negatives.seed">seed</a></code></li>
+<li><code><a title="contrib.semprobe.config.Negatives.skip" href="#contrib.semprobe.config.Negatives.skip">skip</a></code></li>
+</ul>
+</li>
+<li>
 <h4><code><a title="contrib.semprobe.config.Score" href="#contrib.semprobe.config.Score">Score</a></code></h4>
 <ul class="two-column">
 <li><code><a title="contrib.semprobe.config.Score.acts" href="#contrib.semprobe.config.Score.acts">acts</a></code></li>
@@ -139,9 +218,10 @@ class Score:
 <li><code><a title="contrib.semprobe.config.Score.device" href="#contrib.semprobe.config.Score.device">device</a></code></li>
 <li><code><a title="contrib.semprobe.config.Score.dump_to" href="#contrib.semprobe.config.Score.dump_to">dump_to</a></code></li>
 <li><code><a title="contrib.semprobe.config.Score.imgs" href="#contrib.semprobe.config.Score.imgs">imgs</a></code></li>
+<li><code><a title="contrib.semprobe.config.Score.include_latents" href="#contrib.semprobe.config.Score.include_latents">include_latents</a></code></li>
 <li><code><a title="contrib.semprobe.config.Score.n_workers" href="#contrib.semprobe.config.Score.n_workers">n_workers</a></code></li>
 <li><code><a title="contrib.semprobe.config.Score.sae_ckpt" href="#contrib.semprobe.config.Score.sae_ckpt">sae_ckpt</a></code></li>
-<li><code><a title="contrib.semprobe.config.Score.threshold" href="#contrib.semprobe.config.Score.threshold">threshold</a></code></li>
+<li><code><a title="contrib.semprobe.config.Score.thresholds" href="#contrib.semprobe.config.Score.thresholds">thresholds</a></code></li>
 <li><code><a title="contrib.semprobe.config.Score.top_k" href="#contrib.semprobe.config.Score.top_k">top_k</a></code></li>
 </ul>
 </li>

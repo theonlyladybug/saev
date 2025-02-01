@@ -202,6 +202,7 @@ Choose one of the checkpoints in the dropdown and click through the different ne
 Sub-modules
 -----------
 * saev.activations
+* saev.app
 * saev.config
 * saev.helpers
 * saev.imaging
@@ -553,6 +554,10 @@ Classes
     * torch.utils.data.dataset.Dataset
     * typing.Generic
 
+    ### Descendants
+
+    * saev.app.data.VipsImagenet
+
 `Metadata(model_family: str, model_ckpt: str, layers: tuple[int, ...], n_patches_per_img: int, cls_token: bool, d_vit: int, seed: int, n_imgs: int, n_patches_per_shard: int, data: str)`
 :   Metadata(model_family: str, model_ckpt: str, layers: tuple[int, ...], n_patches_per_img: int, cls_token: bool, d_vit: int, seed: int, n_imgs: int, n_patches_per_shard: int, data: str)
 
@@ -832,6 +837,121 @@ Classes
             instead of this since the former takes care of running the
             registered hooks while the latter silently ignores them.
 
+Namespace saev.app
+==================
+
+Sub-modules
+-----------
+* saev.app.data
+* saev.app.modeling
+
+Module saev.app.data
+====================
+
+Functions
+---------
+
+`get_datasets()`
+:   
+
+`get_img_v_raw(key: str, i: int) ‑> tuple[pyvips.vimage.Image, str]`
+:   Get raw image and processed label from dataset.
+    
+    Returns:
+        Tuple of pyvips.Image and classname.
+
+`pil_to_vips(img_p: PIL.Image.Image) ‑> pyvips.vimage.Image`
+:   Convert a PIL Image to a pyvips Image.
+
+`to_sized(img_v_raw: pyvips.vimage.Image, min_px: int, crop_px: tuple[int, int]) ‑> pyvips.vimage.Image`
+:   Convert raw vips image to standard model input size (resize + crop).
+
+`vips_to_base64(img_v: pyvips.vimage.Image) ‑> str`
+:   
+
+Classes
+-------
+
+`VipsImageFolder(root: str, transform: Callable | None = None, target_transform: Callable | None = None)`
+:   Clone of ImageFolder that returns pyvips.Image instead of PIL.Image.Image.
+
+    ### Ancestors (in MRO)
+
+    * torchvision.datasets.folder.ImageFolder
+    * torchvision.datasets.folder.DatasetFolder
+    * torchvision.datasets.vision.VisionDataset
+    * torch.utils.data.dataset.Dataset
+    * typing.Generic
+
+`VipsImagenet(cfg: saev.config.ImagenetDataset, *, img_transform=None)`
+:   An abstract class representing a :class:`Dataset`.
+    
+    All datasets that represent a map from keys to data samples should subclass
+    it. All subclasses should overwrite :meth:`__getitem__`, supporting fetching a
+    data sample for a given key. Subclasses could also optionally overwrite
+    :meth:`__len__`, which is expected to return the size of the dataset by many
+    :class:`~torch.utils.data.Sampler` implementations and the default options
+    of :class:`~torch.utils.data.DataLoader`. Subclasses could also
+    optionally implement :meth:`__getitems__`, for speedup batched samples
+    loading. This method accepts list of indices of samples of batch and returns
+    list of samples.
+    
+    .. note::
+      :class:`~torch.utils.data.DataLoader` by default constructs an index
+      sampler that yields integral indices.  To make it work with a map-style
+      dataset with non-integral indices/keys, a custom sampler must be provided.
+
+    ### Ancestors (in MRO)
+
+    * saev.activations.Imagenet
+    * torch.utils.data.dataset.Dataset
+    * typing.Generic
+
+Module saev.app.modeling
+========================
+
+Functions
+---------
+
+`get_model_lookup() ‑> dict[str, saev.app.modeling.Config]`
+:   
+
+Classes
+-------
+
+`Config(key: str, vit_family: str, vit_ckpt: str, sae_ckpt: str, tensor_dpath: pathlib.Path, dataset_name: str, acts_cfg: saev.config.DataLoad)`
+:   Configuration for a Vision Transformer (ViT) and Sparse Autoencoder (SAE) model pair.
+    
+    Stores paths and configuration needed to load and run a specific ViT+SAE combination.
+
+    ### Class variables
+
+    `acts_cfg: saev.config.DataLoad`
+    :   Which activations to load for normalizing.
+
+    `dataset_name: str`
+    :   Which dataset to use.
+
+    `key: str`
+    :   The lookup key.
+
+    `sae_ckpt: str`
+    :   Identifier for the SAE checkpoint to load.
+
+    `tensor_dpath: pathlib.Path`
+    :   Directory containing precomputed tensors for this model combination.
+
+    `vit_ckpt: str`
+    :   Checkpoint identifier for the ViT model, either as HuggingFace path or model/checkpoint pair.
+
+    `vit_family: str`
+    :   The family of ViT model, e.g. 'clip' for CLIP models.
+
+    ### Instance variables
+
+    `wrapped_cfg: saev.config.Activations`
+    :
+
 Module saev.config
 ==================
 All configs for all saev jobs.
@@ -929,7 +1049,7 @@ Classes
     `n_imgs: int`
     :
 
-`DataLoad(shard_root: str = './shards', patches: Literal['cls', 'patches', 'meanpool'] = 'patches', layer: int | Literal['all', 'meanpool'] = -2, clamp: float = 100000.0, n_random_samples: int = 524288, scale_mean: bool = True, scale_norm: bool = True)`
+`DataLoad(shard_root: str = './shards', patches: Literal['cls', 'patches', 'meanpool'] = 'patches', layer: int | Literal['all', 'meanpool'] = -2, clamp: float = 100000.0, n_random_samples: int = 524288, scale_mean: bool | str = True, scale_norm: bool | str = True)`
 :   Configuration for loading activation data from disk.
 
     ### Class variables
@@ -946,11 +1066,11 @@ Classes
     `patches: Literal['cls', 'patches', 'meanpool']`
     :   Which kinds of patches to use. 'cls' indicates just the [CLS] token (if any). 'patches' indicates it will return all patches. 'meanpool' returns the mean of all image patches.
 
-    `scale_mean: bool`
-    :   Whether to subtract approximate dataset means from examples.
+    `scale_mean: bool | str`
+    :   Whether to subtract approximate dataset means from examples. If a string, manually load from the filepath.
 
-    `scale_norm: bool`
-    :   Whether to scale average dataset norm to sqrt(d_vit).
+    `scale_norm: bool | str`
+    :   Whether to scale average dataset norm to sqrt(d_vit). If a string, manually load from the filepath.
 
     `shard_root: str`
     :   Directory with .bin shards and a metadata.json file.
@@ -1691,6 +1811,7 @@ Sub-modules
 -----------
 * contrib.classification
 * contrib.mae
+* contrib.semprobe
 * contrib.semseg
 
 Module contrib.classification
@@ -2054,7 +2175,6 @@ Module contrib.mae
 
 Sub-modules
 -----------
-* contrib.mae.example
 * contrib.mae.modeling
 
 Functions
@@ -2063,9 +2183,6 @@ Functions
 `load_ckpt(ckpt: str, *, chunk_size_kb: int = 1024) ‑> contrib.mae.modeling.MaskedAutoencoder`
 :   Loads a pre-trained MAE ViT from disk.
     If it's not on disk, downloads the checkpoint from huggingface and then loads it into the `MaskedAutoencoder` class.
-
-Module contrib.mae.example
-==========================
 
 Module contrib.mae.modeling
 ===========================
@@ -2527,6 +2644,77 @@ Classes
             this function, one should call the :class:`Module` instance afterwards
             instead of this since the former takes care of running the
             registered hooks while the latter silently ignores them.
+
+Namespace contrib.semprobe
+==========================
+
+Sub-modules
+-----------
+* contrib.semprobe.config
+
+Module contrib.semprobe.config
+==============================
+
+Classes
+-------
+
+`Negatives(dump_to: str = './data/contrib/semprobe/test', imgs: saev.config.ImagenetDataset | saev.config.ImageFolderDataset | saev.config.Ade20kDataset = <factory>, classes: list[str] = <factory>, n_imgs: int = 20, skip: list[str] = <factory>, seed: int = 42)`
+:   Negatives(dump_to: str = './data/contrib/semprobe/test', imgs: saev.config.ImagenetDataset | saev.config.ImageFolderDataset | saev.config.Ade20kDataset = <factory>, classes: list[str] = <factory>, n_imgs: int = 20, skip: list[str] = <factory>, seed: int = 42)
+
+    ### Class variables
+
+    `classes: list[str]`
+    :   Which classes to randomly sample.
+
+    `dump_to: str`
+    :   Where to save negative samples.
+
+    `imgs: saev.config.ImagenetDataset | saev.config.ImageFolderDataset | saev.config.Ade20kDataset`
+    :   Where to sample images from.
+
+    `n_imgs: int`
+    :   Number of negative images.
+
+    `seed: int`
+    :   Random seed.
+
+    `skip: list[str]`
+    :   Which images to skip.
+
+`Score(sae_ckpt: str = './checkpoints/abcdefg/sae.pt', batch_size: int = 2048, n_workers: int = 32, thresholds: list[float] = <factory>, top_k: int = 5, imgs: saev.config.ImageFolderDataset = <factory>, acts: saev.config.DataLoad = <factory>, dump_to: str = './logs/contrib/semprobe', include_latents: list[int] = <factory>, device: str = 'cuda')`
+:   Score(sae_ckpt: str = './checkpoints/abcdefg/sae.pt', batch_size: int = 2048, n_workers: int = 32, thresholds: list[float] = <factory>, top_k: int = 5, imgs: saev.config.ImageFolderDataset = <factory>, acts: saev.config.DataLoad = <factory>, dump_to: str = './logs/contrib/semprobe', include_latents: list[int] = <factory>, device: str = 'cuda')
+
+    ### Class variables
+
+    `acts: saev.config.DataLoad`
+    :   SAE activations for the curated examples.
+
+    `batch_size: int`
+    :   Batch size for SAE inference.
+
+    `device: str`
+    :   Hardware device.
+
+    `dump_to: str`
+    :   Where to save results/visualizations.
+
+    `imgs: saev.config.ImageFolderDataset`
+    :   Where curated examples are stored
+
+    `include_latents: list[int]`
+    :   Latents to manually include.
+
+    `n_workers: int`
+    :   Number of dataloader workers.
+
+    `sae_ckpt: str`
+    :   Path to SAE checkpoint
+
+    `thresholds: list[float]`
+    :   Threshold(s) for feature activation.
+
+    `top_k: int`
+    :   Number of top features to manually analyze.
 
 Module contrib.semseg
 =====================

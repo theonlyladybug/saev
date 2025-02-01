@@ -245,7 +245,7 @@ def n_imgs(self) -&gt; int:
 </dd>
 <dt id="saev.config.DataLoad"><code class="flex name class">
 <span>class <span class="ident">DataLoad</span></span>
-<span>(</span><span>shard_root: str = './shards',<br>patches: Literal['cls', 'patches', 'meanpool'] = 'patches',<br>layer: int | Literal['all', 'meanpool'] = -2,<br>clamp: float = 100000.0,<br>n_random_samples: int = 524288,<br>scale_mean: bool = True,<br>scale_norm: bool = True)</span>
+<span>(</span><span>shard_root: str = './shards',<br>patches: Literal['cls', 'patches', 'meanpool'] = 'patches',<br>layer: int | Literal['all', 'meanpool'] = -2,<br>clamp: float = 100000.0,<br>n_random_samples: int = 524288,<br>scale_mean: bool | str = True,<br>scale_norm: bool | str = True)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Configuration for loading activation data from disk.</p></div>
@@ -270,10 +270,10 @@ class DataLoad:
     &#34;&#34;&#34;Maximum value for activations; activations will be clamped to within [-clamp, clamp]`.&#34;&#34;&#34;
     n_random_samples: int = 2**19
     &#34;&#34;&#34;Number of random samples used to calculate approximate dataset means at startup.&#34;&#34;&#34;
-    scale_mean: bool = True
-    &#34;&#34;&#34;Whether to subtract approximate dataset means from examples.&#34;&#34;&#34;
-    scale_norm: bool = True
-    &#34;&#34;&#34;Whether to scale average dataset norm to sqrt(d_vit).&#34;&#34;&#34;</code></pre>
+    scale_mean: bool | str = True
+    &#34;&#34;&#34;Whether to subtract approximate dataset means from examples. If a string, manually load from the filepath.&#34;&#34;&#34;
+    scale_norm: bool | str = True
+    &#34;&#34;&#34;Whether to scale average dataset norm to sqrt(d_vit). If a string, manually load from the filepath.&#34;&#34;&#34;</code></pre>
 </details>
 <h3>Class variables</h3>
 <dl>
@@ -293,13 +293,13 @@ class DataLoad:
 <dd>
 <div class="desc"><p>Which kinds of patches to use. 'cls' indicates just the [CLS] token (if any). 'patches' indicates it will return all patches. 'meanpool' returns the mean of all image patches.</p></div>
 </dd>
-<dt id="saev.config.DataLoad.scale_mean"><code class="name">var <span class="ident">scale_mean</span> : bool</code></dt>
+<dt id="saev.config.DataLoad.scale_mean"><code class="name">var <span class="ident">scale_mean</span> : bool | str</code></dt>
 <dd>
-<div class="desc"><p>Whether to subtract approximate dataset means from examples.</p></div>
+<div class="desc"><p>Whether to subtract approximate dataset means from examples. If a string, manually load from the filepath.</p></div>
 </dd>
-<dt id="saev.config.DataLoad.scale_norm"><code class="name">var <span class="ident">scale_norm</span> : bool</code></dt>
+<dt id="saev.config.DataLoad.scale_norm"><code class="name">var <span class="ident">scale_norm</span> : bool | str</code></dt>
 <dd>
-<div class="desc"><p>Whether to scale average dataset norm to sqrt(d_vit).</p></div>
+<div class="desc"><p>Whether to scale average dataset norm to sqrt(d_vit). If a string, manually load from the filepath.</p></div>
 </dd>
 <dt id="saev.config.DataLoad.shard_root"><code class="name">var <span class="ident">shard_root</span> : str</code></dt>
 <dd>
