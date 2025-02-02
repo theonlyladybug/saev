@@ -4,6 +4,7 @@ module Requests exposing
     , Result
     , init
     , isStale
+    , map
     , next
     )
 
@@ -39,8 +40,28 @@ isStale (Id id) (Id last) =
     id < last
 
 
+
+-- Requested
+
+
 type Requested a
     = Initial
     | Loading
     | Loaded a
     | Failed String
+
+
+map : (a -> b) -> Requested a -> Requested b
+map fn requested =
+    case requested of
+        Initial ->
+            Initial
+
+        Loading ->
+            Loading
+
+        Failed err ->
+            Failed err
+
+        Loaded a ->
+            Loaded (fn a)

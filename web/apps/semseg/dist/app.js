@@ -5258,52 +5258,6 @@ var _Parser_findSubString = F5(function(smallString, offset, row, col, bigString
 
 	return _Utils_Tuple3(newOffset, row, col);
 });
-
-
-
-function _Time_now(millisToPosix)
-{
-	return _Scheduler_binding(function(callback)
-	{
-		callback(_Scheduler_succeed(millisToPosix(Date.now())));
-	});
-}
-
-var _Time_setInterval = F2(function(interval, task)
-{
-	return _Scheduler_binding(function(callback)
-	{
-		var id = setInterval(function() { _Scheduler_rawSpawn(task); }, interval);
-		return function() { clearInterval(id); };
-	});
-});
-
-function _Time_here()
-{
-	return _Scheduler_binding(function(callback)
-	{
-		callback(_Scheduler_succeed(
-			A2($elm$time$Time$customZone, -(new Date().getTimezoneOffset()), _List_Nil)
-		));
-	});
-}
-
-
-function _Time_getZoneName()
-{
-	return _Scheduler_binding(function(callback)
-	{
-		try
-		{
-			var name = $elm$time$Time$Name(Intl.DateTimeFormat().resolvedOptions().timeZone);
-		}
-		catch (e)
-		{
-			var name = $elm$time$Time$Offset(new Date().getTimezoneOffset());
-		}
-		callback(_Scheduler_succeed(name));
-	});
-}
 var $elm$core$Basics$EQ = {$: 'EQ'};
 var $elm$core$Basics$GT = {$: 'GT'};
 var $elm$core$Basics$LT = {$: 'LT'};
@@ -10904,25 +10858,95 @@ var $elm$core$Basics$never = function (_v0) {
 		continue never;
 	}
 };
-var $elm$browser$Browser$document = _Browser_document;
+var $elm$browser$Browser$application = _Browser_application;
+var $author$project$Requests$Initial = {$: 'Initial'};
 var $elm$core$Set$Set_elm_builtin = function (a) {
 	return {$: 'Set_elm_builtin', a: a};
 };
 var $elm$core$Set$empty = $elm$core$Set$Set_elm_builtin($elm$core$Dict$empty);
-var $author$project$Main$GotEventId = F2(
+var $author$project$Semseg$GotInputExample = F2(
 	function (a, b) {
-		return {$: 'GotEventId', a: a, b: b};
+		return {$: 'GotInputExample', a: a, b: b};
 	});
-var $author$project$Main$encodeArgs = function (args) {
-	return $elm$json$Json$Encode$object(
-		_List_fromArray(
-			[
-				_Utils_Tuple2(
-				'data',
-				A2($elm$json$Json$Encode$list, $elm$core$Basics$identity, args))
-			]));
+var $author$project$Semseg$Example = F2(
+	function (image, labels) {
+		return {image: image, labels: labels};
+	});
+var $elm$json$Json$Decode$andThen = _Json_andThen;
+var $author$project$Gradio$Base64Image = function (a) {
+	return {$: 'Base64Image', a: a};
 };
-var $author$project$Main$eventIdDecoder = A2($elm$json$Json$Decode$field, 'event_id', $elm$json$Json$Decode$string);
+var $author$project$Gradio$base64Image = function (str) {
+	return A2($elm$core$String$startsWith, 'data:image/', str) ? $elm$core$Maybe$Just(
+		$author$project$Gradio$Base64Image(str)) : $elm$core$Maybe$Nothing;
+};
+var $elm$json$Json$Decode$fail = _Json_fail;
+var $author$project$Gradio$base64ImageDecoder = A2(
+	$elm$json$Json$Decode$andThen,
+	function (str) {
+		var _v0 = $author$project$Gradio$base64Image(str);
+		if (_v0.$ === 'Just') {
+			var img = _v0.a;
+			return $elm$json$Json$Decode$succeed(img);
+		} else {
+			return $elm$json$Json$Decode$fail('Invalid base64 image format');
+		}
+	},
+	$elm$json$Json$Decode$string);
+var $elm$json$Json$Decode$index = _Json_decodeIndex;
+var $author$project$Semseg$exampleDecoder = A3(
+	$elm$json$Json$Decode$map2,
+	$author$project$Semseg$Example,
+	A2($elm$json$Json$Decode$index, 0, $author$project$Gradio$base64ImageDecoder),
+	A2($elm$json$Json$Decode$index, 1, $author$project$Gradio$base64ImageDecoder));
+var $elm$core$Task$onError = _Scheduler_onError;
+var $elm$core$Task$attempt = F2(
+	function (resultToMessage, task) {
+		return $elm$core$Task$command(
+			$elm$core$Task$Perform(
+				A2(
+					$elm$core$Task$onError,
+					A2(
+						$elm$core$Basics$composeL,
+						A2($elm$core$Basics$composeL, $elm$core$Task$succeed, resultToMessage),
+						$elm$core$Result$Err),
+					A2(
+						$elm$core$Task$andThen,
+						A2(
+							$elm$core$Basics$composeL,
+							A2($elm$core$Basics$composeL, $elm$core$Task$succeed, resultToMessage),
+							$elm$core$Result$Ok),
+						task))));
+	});
+var $elm$core$Result$andThen = F2(
+	function (callback, result) {
+		if (result.$ === 'Ok') {
+			var value = result.a;
+			return callback(value);
+		} else {
+			var msg = result.a;
+			return $elm$core$Result$Err(msg);
+		}
+	});
+var $elm$url$Url$Builder$toQueryPair = function (_v0) {
+	var key = _v0.a;
+	var value = _v0.b;
+	return key + ('=' + value);
+};
+var $elm$url$Url$Builder$toQuery = function (parameters) {
+	if (!parameters.b) {
+		return '';
+	} else {
+		return '?' + A2(
+			$elm$core$String$join,
+			'&',
+			A2($elm$core$List$map, $elm$url$Url$Builder$toQueryPair, parameters));
+	}
+};
+var $elm$url$Url$Builder$crossOrigin = F3(
+	function (prePath, pathSegments, parameters) {
+		return prePath + ('/' + (A2($elm$core$String$join, '/', pathSegments) + $elm$url$Url$Builder$toQuery(parameters)));
+	});
 var $elm$http$Http$BadStatus_ = F2(
 	function (a, b) {
 		return {$: 'BadStatus_', a: a, b: b};
@@ -10950,14 +10974,37 @@ var $elm$core$Maybe$isJust = function (maybe) {
 	}
 };
 var $elm$core$Platform$sendToSelf = _Platform_sendToSelf;
-var $elm$http$Http$expectStringResponse = F2(
-	function (toMsg, toResult) {
-		return A3(
-			_Http_expect,
-			'',
-			$elm$core$Basics$identity,
-			A2($elm$core$Basics$composeR, toResult, toMsg));
-	});
+var $elm$http$Http$emptyBody = _Http_emptyBody;
+var $author$project$Gradio$ApiError = function (a) {
+	return {$: 'ApiError', a: a};
+};
+var $author$project$Gradio$NetworkError = function (a) {
+	return {$: 'NetworkError', a: a};
+};
+var $author$project$Gradio$httpResolver = function (response) {
+	switch (response.$) {
+		case 'GoodStatus_':
+			var body = response.b;
+			return $elm$core$Result$Ok(body);
+		case 'BadUrl_':
+			var url = response.a;
+			return $elm$core$Result$Err(
+				$author$project$Gradio$ApiError('Bad URL: ' + url));
+		case 'Timeout_':
+			return $elm$core$Result$Err(
+				$author$project$Gradio$NetworkError('Timed out'));
+		case 'NetworkError_':
+			return $elm$core$Result$Err(
+				$author$project$Gradio$NetworkError('Unknown network error'));
+		default:
+			var body = response.b;
+			return $elm$core$Result$Err(
+				$author$project$Gradio$ApiError(body));
+	}
+};
+var $author$project$Gradio$JsonError = function (a) {
+	return {$: 'JsonError', a: a};
+};
 var $elm$core$Result$mapError = F2(
 	function (f, result) {
 		if (result.$ === 'Ok') {
@@ -10969,367 +11016,70 @@ var $elm$core$Result$mapError = F2(
 				f(e));
 		}
 	});
-var $elm$http$Http$BadBody = function (a) {
-	return {$: 'BadBody', a: a};
-};
-var $elm$http$Http$BadStatus = function (a) {
-	return {$: 'BadStatus', a: a};
-};
-var $elm$http$Http$BadUrl = function (a) {
-	return {$: 'BadUrl', a: a};
-};
-var $elm$http$Http$NetworkError = {$: 'NetworkError'};
-var $elm$http$Http$Timeout = {$: 'Timeout'};
-var $elm$http$Http$resolve = F2(
-	function (toResult, response) {
-		switch (response.$) {
-			case 'BadUrl_':
-				var url = response.a;
-				return $elm$core$Result$Err(
-					$elm$http$Http$BadUrl(url));
-			case 'Timeout_':
-				return $elm$core$Result$Err($elm$http$Http$Timeout);
-			case 'NetworkError_':
-				return $elm$core$Result$Err($elm$http$Http$NetworkError);
-			case 'BadStatus_':
-				var metadata = response.a;
-				return $elm$core$Result$Err(
-					$elm$http$Http$BadStatus(metadata.statusCode));
-			default:
-				var body = response.b;
-				return A2(
-					$elm$core$Result$mapError,
-					$elm$http$Http$BadBody,
-					toResult(body));
-		}
-	});
-var $elm$http$Http$expectJson = F2(
-	function (toMsg, decoder) {
+var $author$project$Gradio$jsonResolver = F2(
+	function (decoder, body) {
 		return A2(
-			$elm$http$Http$expectStringResponse,
-			toMsg,
-			$elm$http$Http$resolve(
-				function (string) {
-					return A2(
-						$elm$core$Result$mapError,
-						$elm$json$Json$Decode$errorToString,
-						A2($elm$json$Json$Decode$decodeString, decoder, string));
-				}));
+			$elm$core$Result$mapError,
+			A2($elm$core$Basics$composeR, $elm$json$Json$Decode$errorToString, $author$project$Gradio$JsonError),
+			A2($elm$json$Json$Decode$decodeString, decoder, body));
 	});
-var $author$project$Main$GotEventData = F2(
-	function (a, b) {
-		return {$: 'GotEventData', a: a, b: b};
-	});
-var $author$project$Main$ParsedImageUrl = function (a) {
-	return {$: 'ParsedImageUrl', a: a};
+var $author$project$Gradio$ParsingError = function (a) {
+	return {$: 'ParsingError', a: a};
 };
-var $elm$http$Http$expectString = function (toMsg) {
-	return A2(
-		$elm$http$Http$expectStringResponse,
-		toMsg,
-		$elm$http$Http$resolve($elm$core$Result$Ok));
+var $elm$core$String$concat = function (strings) {
+	return A2($elm$core$String$join, '', strings);
 };
-var $elm$http$Http$emptyBody = _Http_emptyBody;
-var $elm$http$Http$Request = function (a) {
-	return {$: 'Request', a: a};
-};
-var $elm$http$Http$State = F2(
-	function (reqs, subs) {
-		return {reqs: reqs, subs: subs};
-	});
-var $elm$http$Http$init = $elm$core$Task$succeed(
-	A2($elm$http$Http$State, $elm$core$Dict$empty, _List_Nil));
-var $elm$core$Process$kill = _Scheduler_kill;
-var $elm$core$Process$spawn = _Scheduler_spawn;
-var $elm$http$Http$updateReqs = F3(
-	function (router, cmds, reqs) {
-		updateReqs:
-		while (true) {
-			if (!cmds.b) {
-				return $elm$core$Task$succeed(reqs);
-			} else {
-				var cmd = cmds.a;
-				var otherCmds = cmds.b;
-				if (cmd.$ === 'Cancel') {
-					var tracker = cmd.a;
-					var _v2 = A2($elm$core$Dict$get, tracker, reqs);
-					if (_v2.$ === 'Nothing') {
-						var $temp$router = router,
-							$temp$cmds = otherCmds,
-							$temp$reqs = reqs;
-						router = $temp$router;
-						cmds = $temp$cmds;
-						reqs = $temp$reqs;
-						continue updateReqs;
-					} else {
-						var pid = _v2.a;
-						return A2(
-							$elm$core$Task$andThen,
-							function (_v3) {
-								return A3(
-									$elm$http$Http$updateReqs,
-									router,
-									otherCmds,
-									A2($elm$core$Dict$remove, tracker, reqs));
-							},
-							$elm$core$Process$kill(pid));
-					}
-				} else {
-					var req = cmd.a;
-					return A2(
-						$elm$core$Task$andThen,
-						function (pid) {
-							var _v4 = req.tracker;
-							if (_v4.$ === 'Nothing') {
-								return A3($elm$http$Http$updateReqs, router, otherCmds, reqs);
-							} else {
-								var tracker = _v4.a;
-								return A3(
-									$elm$http$Http$updateReqs,
-									router,
-									otherCmds,
-									A3($elm$core$Dict$insert, tracker, pid, reqs));
-							}
-						},
-						$elm$core$Process$spawn(
-							A3(
-								_Http_toTask,
-								router,
-								$elm$core$Platform$sendToApp(router),
-								req)));
-				}
-			}
-		}
-	});
-var $elm$http$Http$onEffects = F4(
-	function (router, cmds, subs, state) {
-		return A2(
-			$elm$core$Task$andThen,
-			function (reqs) {
-				return $elm$core$Task$succeed(
-					A2($elm$http$Http$State, reqs, subs));
-			},
-			A3($elm$http$Http$updateReqs, router, cmds, state.reqs));
-	});
-var $elm$http$Http$maybeSend = F4(
-	function (router, desiredTracker, progress, _v0) {
-		var actualTracker = _v0.a;
-		var toMsg = _v0.b;
-		return _Utils_eq(desiredTracker, actualTracker) ? $elm$core$Maybe$Just(
-			A2(
-				$elm$core$Platform$sendToApp,
-				router,
-				toMsg(progress))) : $elm$core$Maybe$Nothing;
-	});
-var $elm$http$Http$onSelfMsg = F3(
-	function (router, _v0, state) {
-		var tracker = _v0.a;
-		var progress = _v0.b;
-		return A2(
-			$elm$core$Task$andThen,
-			function (_v1) {
-				return $elm$core$Task$succeed(state);
-			},
-			$elm$core$Task$sequence(
-				A2(
-					$elm$core$List$filterMap,
-					A3($elm$http$Http$maybeSend, router, tracker, progress),
-					state.subs)));
-	});
-var $elm$http$Http$Cancel = function (a) {
-	return {$: 'Cancel', a: a};
-};
-var $elm$http$Http$cmdMap = F2(
-	function (func, cmd) {
-		if (cmd.$ === 'Cancel') {
-			var tracker = cmd.a;
-			return $elm$http$Http$Cancel(tracker);
-		} else {
-			var r = cmd.a;
-			return $elm$http$Http$Request(
-				{
-					allowCookiesFromOtherDomains: r.allowCookiesFromOtherDomains,
-					body: r.body,
-					expect: A2(_Http_mapExpect, func, r.expect),
-					headers: r.headers,
-					method: r.method,
-					timeout: r.timeout,
-					tracker: r.tracker,
-					url: r.url
-				});
-		}
-	});
-var $elm$http$Http$MySub = F2(
-	function (a, b) {
-		return {$: 'MySub', a: a, b: b};
-	});
-var $elm$http$Http$subMap = F2(
-	function (func, _v0) {
-		var tracker = _v0.a;
-		var toMsg = _v0.b;
-		return A2(
-			$elm$http$Http$MySub,
-			tracker,
-			A2($elm$core$Basics$composeR, toMsg, func));
-	});
-_Platform_effectManagers['Http'] = _Platform_createManager($elm$http$Http$init, $elm$http$Http$onEffects, $elm$http$Http$onSelfMsg, $elm$http$Http$cmdMap, $elm$http$Http$subMap);
-var $elm$http$Http$command = _Platform_leaf('Http');
-var $elm$http$Http$subscription = _Platform_leaf('Http');
-var $elm$http$Http$request = function (r) {
-	return $elm$http$Http$command(
-		$elm$http$Http$Request(
-			{allowCookiesFromOtherDomains: false, body: r.body, expect: r.expect, headers: r.headers, method: r.method, timeout: r.timeout, tracker: r.tracker, url: r.url}));
-};
-var $elm$http$Http$get = function (r) {
-	return $elm$http$Http$request(
-		{body: $elm$http$Http$emptyBody, expect: r.expect, headers: _List_Nil, method: 'GET', timeout: $elm$core$Maybe$Nothing, tracker: $elm$core$Maybe$Nothing, url: r.url});
-};
-var $elm$core$List$head = function (list) {
-	if (list.b) {
-		var x = list.a;
-		var xs = list.b;
-		return $elm$core$Maybe$Just(x);
-	} else {
-		return $elm$core$Maybe$Nothing;
+var $author$project$Gradio$problemToString = function (p) {
+	switch (p.$) {
+		case 'Expecting':
+			var s = p.a;
+			return 'expecting \'' + (s + '\'');
+		case 'ExpectingInt':
+			return 'expecting int';
+		case 'ExpectingHex':
+			return 'expecting hex';
+		case 'ExpectingOctal':
+			return 'expecting octal';
+		case 'ExpectingBinary':
+			return 'expecting binary';
+		case 'ExpectingFloat':
+			return 'expecting float';
+		case 'ExpectingNumber':
+			return 'expecting number';
+		case 'ExpectingVariable':
+			return 'expecting variable';
+		case 'ExpectingSymbol':
+			var s = p.a;
+			return 'expecting symbol \'' + (s + '\'');
+		case 'ExpectingKeyword':
+			var s = p.a;
+			return 'expecting keyword \'' + (s + '\'');
+		case 'ExpectingEnd':
+			return 'expecting end';
+		case 'UnexpectedChar':
+			return 'unexpected char';
+		case 'Problem':
+			var s = p.a;
+			return 'problem ' + s;
+		default:
+			return 'bad repeat';
 	}
 };
-var $elm$core$String$replace = F3(
-	function (before, after, string) {
-		return A2(
-			$elm$core$String$join,
-			after,
-			A2($elm$core$String$split, before, string));
-	});
-var $author$project$Main$imgUrlDecoder = A2(
-	$elm$json$Json$Decode$map,
-	A2($elm$core$String$replace, 'gradio_api/ca/gradio_api', 'gradio_api'),
-	A2(
-		$elm$json$Json$Decode$map,
-		A2($elm$core$String$replace, 'gradio_ap/gradio_api', 'gradio_api'),
+var $author$project$Gradio$deadEndToString = function (deadend) {
+	return $author$project$Gradio$problemToString(deadend.problem) + (' at row ' + ($elm$core$String$fromInt(deadend.row) + (', col ' + $elm$core$String$fromInt(deadend.col))));
+};
+var $author$project$Gradio$deadEndsToString = function (deadEnds) {
+	return $elm$core$String$concat(
 		A2(
-			$elm$json$Json$Decode$map,
-			A2($elm$core$String$replace, 'gra/gradio_api', 'gradio_api'),
-			A2(
-				$elm$json$Json$Decode$map,
-				A2($elm$core$String$replace, 'gradio_api/gradio_api', 'gradio_api'),
-				A2($elm$json$Json$Decode$field, 'url', $elm$json$Json$Decode$string)))));
-var $elm$core$Result$map = F2(
-	function (func, ra) {
-		if (ra.$ === 'Ok') {
-			var a = ra.a;
-			return $elm$core$Result$Ok(
-				func(a));
-		} else {
-			var e = ra.a;
-			return $elm$core$Result$Err(e);
-		}
-	});
-var $author$project$Main$getImageUrlResult = function (id) {
-	return $elm$http$Http$get(
-		{
-			expect: $elm$http$Http$expectString(
-				$author$project$Main$GotEventData(
-					A2(
-						$elm$core$Basics$composeR,
-						$elm$json$Json$Decode$decodeString(
-							$elm$json$Json$Decode$list($author$project$Main$imgUrlDecoder)),
-						A2(
-							$elm$core$Basics$composeR,
-							$elm$core$Result$map($elm$core$List$head),
-							$author$project$Main$ParsedImageUrl)))),
-			url: 'http://127.0.0.1:7860/gradio_api/call/get-image/' + id
-		});
+			$elm$core$List$intersperse,
+			'; ',
+			A2($elm$core$List$map, $author$project$Gradio$deadEndToString, deadEnds)));
 };
-var $elm$json$Json$Encode$int = _Json_wrap;
-var $elm$http$Http$jsonBody = function (value) {
-	return A2(
-		_Http_pair,
-		'application/json',
-		A2($elm$json$Json$Encode$encode, 0, value));
+var $elm$parser$Parser$Done = function (a) {
+	return {$: 'Done', a: a};
 };
-var $elm$http$Http$post = function (r) {
-	return $elm$http$Http$request(
-		{body: r.body, expect: r.expect, headers: _List_Nil, method: 'POST', timeout: $elm$core$Maybe$Nothing, tracker: $elm$core$Maybe$Nothing, url: r.url});
-};
-var $author$project$Main$getImageUrl = function (img) {
-	return $elm$http$Http$post(
-		{
-			body: $elm$http$Http$jsonBody(
-				$author$project$Main$encodeArgs(
-					_List_fromArray(
-						[
-							$elm$json$Json$Encode$int(img)
-						]))),
-			expect: A2(
-				$elm$http$Http$expectJson,
-				$author$project$Main$GotEventId($author$project$Main$getImageUrlResult),
-				$author$project$Main$eventIdDecoder),
-			url: 'http://127.0.0.1:7860/gradio_api/call/get-image'
-		});
-};
-var $author$project$Main$ParsedPredLabels = function (a) {
-	return {$: 'ParsedPredLabels', a: a};
-};
-var $author$project$Main$SegmentationLabels = function (a) {
-	return {$: 'SegmentationLabels', a: a};
-};
-var $author$project$Main$SegmentationUrl = function (a) {
-	return {$: 'SegmentationUrl', a: a};
-};
-var $elm$json$Json$Decode$oneOf = _Json_oneOf;
-var $author$project$Main$segmentationResultDecoder = $elm$json$Json$Decode$oneOf(
-	_List_fromArray(
-		[
-			A2($elm$json$Json$Decode$map, $author$project$Main$SegmentationUrl, $author$project$Main$imgUrlDecoder),
-			A2(
-			$elm$json$Json$Decode$map,
-			$author$project$Main$SegmentationLabels,
-			$elm$json$Json$Decode$list($elm$json$Json$Decode$int))
-		]));
-var $author$project$Main$getPredLabelsResult = function (id) {
-	return $elm$http$Http$get(
-		{
-			expect: $elm$http$Http$expectString(
-				$author$project$Main$GotEventData(
-					A2(
-						$elm$core$Basics$composeR,
-						$elm$json$Json$Decode$decodeString(
-							$elm$json$Json$Decode$list($author$project$Main$segmentationResultDecoder)),
-						$author$project$Main$ParsedPredLabels))),
-			url: 'http://127.0.0.1:7860/gradio_api/call/get-pred-labels/' + id
-		});
-};
-var $author$project$Main$getPredLabels = function (img) {
-	return $elm$http$Http$post(
-		{
-			body: $elm$http$Http$jsonBody(
-				$author$project$Main$encodeArgs(
-					_List_fromArray(
-						[
-							$elm$json$Json$Encode$int(img)
-						]))),
-			expect: A2(
-				$elm$http$Http$expectJson,
-				$author$project$Main$GotEventId($author$project$Main$getPredLabelsResult),
-				$author$project$Main$eventIdDecoder),
-			url: 'http://127.0.0.1:7860/gradio_api/call/get-pred-labels'
-		});
-};
-var $author$project$Main$init = function (_v0) {
-	var example = 3122;
-	return _Utils_Tuple2(
-		{err: $elm$core$Maybe$Nothing, exampleIndex: example, hoveredPatchIndex: $elm$core$Maybe$Nothing, imageUrl: $elm$core$Maybe$Nothing, modifiedLabels: _List_Nil, modifiedLabelsUrl: $elm$core$Maybe$Nothing, nImagesExplored: 0, nPatchResets: 0, nPatchesExplored: 0, predLabels: _List_Nil, predLabelsUrl: $elm$core$Maybe$Nothing, saeLatents: _List_Nil, selectedPatchIndices: $elm$core$Set$empty, sliders: $elm$core$Dict$empty, trueLabelsUrl: $elm$core$Maybe$Nothing},
-		$elm$core$Platform$Cmd$batch(
-			_List_fromArray(
-				[
-					$author$project$Main$getImageUrl(example),
-					$author$project$Main$getPredLabels(example)
-				])));
-};
-var $elm$core$Platform$Sub$batch = _Platform_batch;
-var $elm$core$Platform$Sub$none = $elm$core$Platform$Sub$batch(_List_Nil);
-var $author$project$Main$SetExample = function (a) {
-	return {$: 'SetExample', a: a};
+var $elm$parser$Parser$Loop = function (a) {
+	return {$: 'Loop', a: a};
 };
 var $elm$parser$Parser$ExpectingEnd = {$: 'ExpectingEnd'};
 var $elm$parser$Parser$Advanced$Bad = F2(
@@ -11458,6 +11208,49 @@ var $elm$parser$Parser$keyword = function (kwd) {
 			kwd,
 			$elm$parser$Parser$ExpectingKeyword(kwd)));
 };
+var $elm$parser$Parser$Advanced$Append = F2(
+	function (a, b) {
+		return {$: 'Append', a: a, b: b};
+	});
+var $elm$parser$Parser$Advanced$oneOfHelp = F3(
+	function (s0, bag, parsers) {
+		oneOfHelp:
+		while (true) {
+			if (!parsers.b) {
+				return A2($elm$parser$Parser$Advanced$Bad, false, bag);
+			} else {
+				var parse = parsers.a.a;
+				var remainingParsers = parsers.b;
+				var _v1 = parse(s0);
+				if (_v1.$ === 'Good') {
+					var step = _v1;
+					return step;
+				} else {
+					var step = _v1;
+					var p = step.a;
+					var x = step.b;
+					if (p) {
+						return step;
+					} else {
+						var $temp$s0 = s0,
+							$temp$bag = A2($elm$parser$Parser$Advanced$Append, bag, x),
+							$temp$parsers = remainingParsers;
+						s0 = $temp$s0;
+						bag = $temp$bag;
+						parsers = $temp$parsers;
+						continue oneOfHelp;
+					}
+				}
+			}
+		}
+	});
+var $elm$parser$Parser$Advanced$oneOf = function (parsers) {
+	return $elm$parser$Parser$Advanced$Parser(
+		function (s) {
+			return A3($elm$parser$Parser$Advanced$oneOfHelp, s, $elm$parser$Parser$Advanced$Empty, parsers);
+		});
+};
+var $elm$parser$Parser$oneOf = $elm$parser$Parser$Advanced$oneOf;
 var $elm$parser$Parser$Advanced$chompUntilEndOr = function (str) {
 	return $elm$parser$Parser$Advanced$Parser(
 		function (s) {
@@ -11510,7 +11303,7 @@ var $elm$parser$Parser$Advanced$succeed = function (a) {
 		});
 };
 var $elm$parser$Parser$succeed = $elm$parser$Parser$Advanced$succeed;
-var $author$project$Main$restParser = $elm$parser$Parser$getChompedString(
+var $author$project$Gradio$restParser = $elm$parser$Parser$getChompedString(
 	A2(
 		$elm$parser$Parser$ignorer,
 		$elm$parser$Parser$succeed(_Utils_Tuple0),
@@ -11603,15 +11396,23 @@ var $elm$parser$Parser$symbol = function (str) {
 			str,
 			$elm$parser$Parser$ExpectingSymbol(str)));
 };
-var $author$project$Main$eventDataParser = A2(
-	$elm$parser$Parser$keeper,
-	A2(
-		$elm$parser$Parser$ignorer,
+var $author$project$Gradio$eventParserHelper = function (_v0) {
+	return A2(
+		$elm$parser$Parser$keeper,
 		A2(
 			$elm$parser$Parser$ignorer,
 			A2(
 				$elm$parser$Parser$ignorer,
 				A2(
+					$elm$parser$Parser$ignorer,
+					$elm$parser$Parser$succeed($elm$core$Basics$identity),
+					$elm$parser$Parser$keyword('event')),
+				$elm$parser$Parser$symbol(':')),
+			$elm$parser$Parser$spaces),
+		$elm$parser$Parser$oneOf(
+			_List_fromArray(
+				[
+					A2(
 					$elm$parser$Parser$ignorer,
 					A2(
 						$elm$parser$Parser$ignorer,
@@ -11621,551 +11422,137 @@ var $author$project$Main$eventDataParser = A2(
 								$elm$parser$Parser$ignorer,
 								A2(
 									$elm$parser$Parser$ignorer,
-									$elm$parser$Parser$succeed($elm$core$Basics$identity),
-									$elm$parser$Parser$keyword('event')),
+									A2(
+										$elm$parser$Parser$ignorer,
+										A2(
+											$elm$parser$Parser$ignorer,
+											$elm$parser$Parser$succeed(
+												$elm$parser$Parser$Loop(_Utils_Tuple0)),
+											$elm$parser$Parser$keyword('heartbeat')),
+										$elm$parser$Parser$spaces),
+									$elm$parser$Parser$keyword('data')),
 								$elm$parser$Parser$symbol(':')),
 							$elm$parser$Parser$spaces),
-						$elm$parser$Parser$keyword('complete')),
+						$elm$parser$Parser$keyword('null')),
 					$elm$parser$Parser$spaces),
-				$elm$parser$Parser$keyword('data')),
-			$elm$parser$Parser$symbol(':')),
-		$elm$parser$Parser$spaces),
-	A2(
-		$elm$parser$Parser$ignorer,
-		A2($elm$parser$Parser$ignorer, $author$project$Main$restParser, $elm$parser$Parser$spaces),
-		$elm$parser$Parser$end));
-var $elm$random$Random$Generate = function (a) {
-	return {$: 'Generate', a: a};
-};
-var $elm$random$Random$Seed = F2(
-	function (a, b) {
-		return {$: 'Seed', a: a, b: b};
-	});
-var $elm$random$Random$next = function (_v0) {
-	var state0 = _v0.a;
-	var incr = _v0.b;
-	return A2($elm$random$Random$Seed, ((state0 * 1664525) + incr) >>> 0, incr);
-};
-var $elm$random$Random$initialSeed = function (x) {
-	var _v0 = $elm$random$Random$next(
-		A2($elm$random$Random$Seed, 0, 1013904223));
-	var state1 = _v0.a;
-	var incr = _v0.b;
-	var state2 = (state1 + x) >>> 0;
-	return $elm$random$Random$next(
-		A2($elm$random$Random$Seed, state2, incr));
-};
-var $elm$time$Time$Name = function (a) {
-	return {$: 'Name', a: a};
-};
-var $elm$time$Time$Offset = function (a) {
-	return {$: 'Offset', a: a};
-};
-var $elm$time$Time$Zone = F2(
-	function (a, b) {
-		return {$: 'Zone', a: a, b: b};
-	});
-var $elm$time$Time$customZone = $elm$time$Time$Zone;
-var $elm$time$Time$Posix = function (a) {
-	return {$: 'Posix', a: a};
-};
-var $elm$time$Time$millisToPosix = $elm$time$Time$Posix;
-var $elm$time$Time$now = _Time_now($elm$time$Time$millisToPosix);
-var $elm$time$Time$posixToMillis = function (_v0) {
-	var millis = _v0.a;
-	return millis;
-};
-var $elm$random$Random$init = A2(
-	$elm$core$Task$andThen,
-	function (time) {
-		return $elm$core$Task$succeed(
-			$elm$random$Random$initialSeed(
-				$elm$time$Time$posixToMillis(time)));
-	},
-	$elm$time$Time$now);
-var $elm$random$Random$step = F2(
-	function (_v0, seed) {
-		var generator = _v0.a;
-		return generator(seed);
-	});
-var $elm$random$Random$onEffects = F3(
-	function (router, commands, seed) {
-		if (!commands.b) {
-			return $elm$core$Task$succeed(seed);
-		} else {
-			var generator = commands.a.a;
-			var rest = commands.b;
-			var _v1 = A2($elm$random$Random$step, generator, seed);
-			var value = _v1.a;
-			var newSeed = _v1.b;
-			return A2(
-				$elm$core$Task$andThen,
-				function (_v2) {
-					return A3($elm$random$Random$onEffects, router, rest, newSeed);
-				},
-				A2($elm$core$Platform$sendToApp, router, value));
-		}
-	});
-var $elm$random$Random$onSelfMsg = F3(
-	function (_v0, _v1, seed) {
-		return $elm$core$Task$succeed(seed);
-	});
-var $elm$random$Random$Generator = function (a) {
-	return {$: 'Generator', a: a};
-};
-var $elm$random$Random$map = F2(
-	function (func, _v0) {
-		var genA = _v0.a;
-		return $elm$random$Random$Generator(
-			function (seed0) {
-				var _v1 = genA(seed0);
-				var a = _v1.a;
-				var seed1 = _v1.b;
-				return _Utils_Tuple2(
-					func(a),
-					seed1);
-			});
-	});
-var $elm$random$Random$cmdMap = F2(
-	function (func, _v0) {
-		var generator = _v0.a;
-		return $elm$random$Random$Generate(
-			A2($elm$random$Random$map, func, generator));
-	});
-_Platform_effectManagers['Random'] = _Platform_createManager($elm$random$Random$init, $elm$random$Random$onEffects, $elm$random$Random$onSelfMsg, $elm$random$Random$cmdMap);
-var $elm$random$Random$command = _Platform_leaf('Random');
-var $elm$random$Random$generate = F2(
-	function (tagger, generator) {
-		return $elm$random$Random$command(
-			$elm$random$Random$Generate(
-				A2($elm$random$Random$map, tagger, generator)));
-	});
-var $elm$json$Json$Encode$float = _Json_wrap;
-var $author$project$Main$ParsedModifiedLabels = function (a) {
-	return {$: 'ParsedModifiedLabels', a: a};
-};
-var $author$project$Main$getModifiedLabelsResult = function (id) {
-	return $elm$http$Http$get(
-		{
-			expect: $elm$http$Http$expectString(
-				$author$project$Main$GotEventData(
 					A2(
-						$elm$core$Basics$composeR,
-						$elm$json$Json$Decode$decodeString(
-							$elm$json$Json$Decode$list($author$project$Main$segmentationResultDecoder)),
-						$author$project$Main$ParsedModifiedLabels))),
-			url: 'http://127.0.0.1:7860/gradio_api/call/get-modified-labels/' + id
-		});
-};
-var $elm$core$Tuple$mapBoth = F3(
-	function (funcA, funcB, _v0) {
-		var x = _v0.a;
-		var y = _v0.b;
-		return _Utils_Tuple2(
-			funcA(x),
-			funcB(y));
-	});
-var $elm$core$List$unzip = function (pairs) {
-	var step = F2(
-		function (_v0, _v1) {
-			var x = _v0.a;
-			var y = _v0.b;
-			var xs = _v1.a;
-			var ys = _v1.b;
-			return _Utils_Tuple2(
-				A2($elm$core$List$cons, x, xs),
-				A2($elm$core$List$cons, y, ys));
-		});
-	return A3(
-		$elm$core$List$foldr,
-		step,
-		_Utils_Tuple2(_List_Nil, _List_Nil),
-		pairs);
-};
-var $author$project$Main$getModifiedLabels = F2(
-	function (img, sliders) {
-		var _v0 = A3(
-			$elm$core$Tuple$mapBoth,
-			$elm$core$Array$fromList,
-			$elm$core$Array$fromList,
-			$elm$core$List$unzip(
-				$elm$core$Dict$toList(sliders)));
-		var latents = _v0.a;
-		var values = _v0.b;
-		return $elm$http$Http$post(
-			{
-				body: $elm$http$Http$jsonBody(
-					$author$project$Main$encodeArgs(
-						_List_fromArray(
-							[
-								$elm$json$Json$Encode$int(img),
-								$elm$json$Json$Encode$int(
-								A2(
-									$elm$core$Maybe$withDefault,
-									-1,
-									A2($elm$core$Array$get, 0, latents))),
-								$elm$json$Json$Encode$int(
-								A2(
-									$elm$core$Maybe$withDefault,
-									-1,
-									A2($elm$core$Array$get, 1, latents))),
-								$elm$json$Json$Encode$int(
-								A2(
-									$elm$core$Maybe$withDefault,
-									-1,
-									A2($elm$core$Array$get, 2, latents))),
-								$elm$json$Json$Encode$float(
-								A2(
-									$elm$core$Maybe$withDefault,
-									0.0,
-									A2($elm$core$Array$get, 0, values))),
-								$elm$json$Json$Encode$float(
-								A2(
-									$elm$core$Maybe$withDefault,
-									0.0,
-									A2($elm$core$Array$get, 1, values))),
-								$elm$json$Json$Encode$float(
-								A2(
-									$elm$core$Maybe$withDefault,
-									0.0,
-									A2($elm$core$Array$get, 2, values)))
-							]))),
-				expect: A2(
-					$elm$http$Http$expectJson,
-					$author$project$Main$GotEventId($author$project$Main$getModifiedLabelsResult),
-					$author$project$Main$eventIdDecoder),
-				url: 'http://127.0.0.1:7860/gradio_api/call/get-modified-labels'
-			});
-	});
-var $author$project$Main$ParsedSaeExamples = function (a) {
-	return {$: 'ParsedSaeExamples', a: a};
-};
-var $author$project$Main$SaeExampleLatent = function (a) {
-	return {$: 'SaeExampleLatent', a: a};
-};
-var $author$project$Main$SaeExampleMissing = {$: 'SaeExampleMissing'};
-var $author$project$Main$SaeExampleUrl = function (a) {
-	return {$: 'SaeExampleUrl', a: a};
-};
-var $elm$json$Json$Decode$null = _Json_decodeNull;
-var $author$project$Main$saeExampleResultDecoder = $elm$json$Json$Decode$oneOf(
-	_List_fromArray(
-		[
-			A2($elm$json$Json$Decode$map, $author$project$Main$SaeExampleUrl, $author$project$Main$imgUrlDecoder),
-			A2($elm$json$Json$Decode$map, $author$project$Main$SaeExampleLatent, $elm$json$Json$Decode$int),
-			$elm$json$Json$Decode$null($author$project$Main$SaeExampleMissing)
-		]));
-var $author$project$Main$getSaeExamplesResult = function (id) {
-	return $elm$http$Http$get(
-		{
-			expect: $elm$http$Http$expectString(
-				$author$project$Main$GotEventData(
+					$elm$parser$Parser$keeper,
 					A2(
-						$elm$core$Basics$composeR,
-						$elm$json$Json$Decode$decodeString(
-							$elm$json$Json$Decode$list($author$project$Main$saeExampleResultDecoder)),
-						$author$project$Main$ParsedSaeExamples))),
-			url: 'http://127.0.0.1:7860/gradio_api/call/get-sae-examples/' + id
-		});
-};
-var $author$project$Main$getSaeExamples = F2(
-	function (img, patches) {
-		return $elm$http$Http$post(
-			{
-				body: $elm$http$Http$jsonBody(
-					$author$project$Main$encodeArgs(
-						_List_fromArray(
-							[
-								$elm$json$Json$Encode$int(img),
+						$elm$parser$Parser$ignorer,
+						A2(
+							$elm$parser$Parser$ignorer,
+							A2(
+								$elm$parser$Parser$ignorer,
 								A2(
-								$elm$json$Json$Encode$list,
-								$elm$json$Json$Encode$int,
-								$elm$core$Set$toList(patches))
-							]))),
-				expect: A2(
-					$elm$http$Http$expectJson,
-					$author$project$Main$GotEventId($author$project$Main$getSaeExamplesResult),
-					$author$project$Main$eventIdDecoder),
-				url: 'http://127.0.0.1:7860/gradio_api/call/get-sae-examples'
+									$elm$parser$Parser$ignorer,
+									A2(
+										$elm$parser$Parser$ignorer,
+										$elm$parser$Parser$succeed(
+											function (rest) {
+												return $elm$parser$Parser$Done(rest);
+											}),
+										$elm$parser$Parser$keyword('complete')),
+									$elm$parser$Parser$spaces),
+								$elm$parser$Parser$keyword('data')),
+							$elm$parser$Parser$symbol(':')),
+						$elm$parser$Parser$spaces),
+					A2(
+						$elm$parser$Parser$ignorer,
+						A2($elm$parser$Parser$ignorer, $author$project$Gradio$restParser, $elm$parser$Parser$spaces),
+						$elm$parser$Parser$end))
+				])));
+};
+var $elm$parser$Parser$Advanced$loopHelp = F4(
+	function (p, state, callback, s0) {
+		loopHelp:
+		while (true) {
+			var _v0 = callback(state);
+			var parse = _v0.a;
+			var _v1 = parse(s0);
+			if (_v1.$ === 'Good') {
+				var p1 = _v1.a;
+				var step = _v1.b;
+				var s1 = _v1.c;
+				if (step.$ === 'Loop') {
+					var newState = step.a;
+					var $temp$p = p || p1,
+						$temp$state = newState,
+						$temp$callback = callback,
+						$temp$s0 = s1;
+					p = $temp$p;
+					state = $temp$state;
+					callback = $temp$callback;
+					s0 = $temp$s0;
+					continue loopHelp;
+				} else {
+					var result = step.a;
+					return A3($elm$parser$Parser$Advanced$Good, p || p1, result, s1);
+				}
+			} else {
+				var p1 = _v1.a;
+				var x = _v1.b;
+				return A2($elm$parser$Parser$Advanced$Bad, p || p1, x);
+			}
+		}
+	});
+var $elm$parser$Parser$Advanced$loop = F2(
+	function (state, callback) {
+		return $elm$parser$Parser$Advanced$Parser(
+			function (s) {
+				return A4($elm$parser$Parser$Advanced$loopHelp, false, state, callback, s);
 			});
 	});
-var $author$project$Main$httpErrToString = F2(
-	function (err, description) {
-		switch (err.$) {
-			case 'BadUrl':
-				var url = err.a;
-				return 'Could not ' + (description + (' because URL \'' + (url + '\' was wrong.')));
-			case 'Timeout':
-				return 'Could not ' + (description + ' because request timed out.');
-			case 'NetworkError':
-				return 'Could not ' + (description + ' because of a generic network error.');
-			case 'BadStatus':
-				var status = err.a;
-				return 'Could not ' + (description + (': Status ' + ($elm$core$String$fromInt(status) + '.')));
-			default:
-				var explanation = err.a;
-				return 'Could not ' + (description + (': ' + (explanation + '.')));
-		}
-	});
-var $elm$core$Set$insert = F2(
-	function (key, _v0) {
-		var dict = _v0.a;
-		return $elm$core$Set$Set_elm_builtin(
-			A3($elm$core$Dict$insert, key, _Utils_Tuple0, dict));
-	});
-var $elm$core$Dict$member = F2(
-	function (key, dict) {
-		var _v0 = A2($elm$core$Dict$get, key, dict);
-		if (_v0.$ === 'Just') {
-			return true;
-		} else {
-			return false;
-		}
-	});
-var $elm$core$Set$member = F2(
-	function (key, _v0) {
-		var dict = _v0.a;
-		return A2($elm$core$Dict$member, key, dict);
-	});
-var $author$project$Main$nSaeExamplesPerLatent = 4;
-var $elm$core$List$takeReverse = F3(
-	function (n, list, kept) {
-		takeReverse:
-		while (true) {
-			if (n <= 0) {
-				return kept;
-			} else {
-				if (!list.b) {
-					return kept;
+var $elm$parser$Parser$Advanced$map = F2(
+	function (func, _v0) {
+		var parse = _v0.a;
+		return $elm$parser$Parser$Advanced$Parser(
+			function (s0) {
+				var _v1 = parse(s0);
+				if (_v1.$ === 'Good') {
+					var p = _v1.a;
+					var a = _v1.b;
+					var s1 = _v1.c;
+					return A3(
+						$elm$parser$Parser$Advanced$Good,
+						p,
+						func(a),
+						s1);
 				} else {
-					var x = list.a;
-					var xs = list.b;
-					var $temp$n = n - 1,
-						$temp$list = xs,
-						$temp$kept = A2($elm$core$List$cons, x, kept);
-					n = $temp$n;
-					list = $temp$list;
-					kept = $temp$kept;
-					continue takeReverse;
-				}
-			}
-		}
-	});
-var $elm$core$List$takeTailRec = F2(
-	function (n, list) {
-		return $elm$core$List$reverse(
-			A3($elm$core$List$takeReverse, n, list, _List_Nil));
-	});
-var $elm$core$List$takeFast = F3(
-	function (ctr, n, list) {
-		if (n <= 0) {
-			return _List_Nil;
-		} else {
-			var _v0 = _Utils_Tuple2(n, list);
-			_v0$1:
-			while (true) {
-				_v0$5:
-				while (true) {
-					if (!_v0.b.b) {
-						return list;
-					} else {
-						if (_v0.b.b.b) {
-							switch (_v0.a) {
-								case 1:
-									break _v0$1;
-								case 2:
-									var _v2 = _v0.b;
-									var x = _v2.a;
-									var _v3 = _v2.b;
-									var y = _v3.a;
-									return _List_fromArray(
-										[x, y]);
-								case 3:
-									if (_v0.b.b.b.b) {
-										var _v4 = _v0.b;
-										var x = _v4.a;
-										var _v5 = _v4.b;
-										var y = _v5.a;
-										var _v6 = _v5.b;
-										var z = _v6.a;
-										return _List_fromArray(
-											[x, y, z]);
-									} else {
-										break _v0$5;
-									}
-								default:
-									if (_v0.b.b.b.b && _v0.b.b.b.b.b) {
-										var _v7 = _v0.b;
-										var x = _v7.a;
-										var _v8 = _v7.b;
-										var y = _v8.a;
-										var _v9 = _v8.b;
-										var z = _v9.a;
-										var _v10 = _v9.b;
-										var w = _v10.a;
-										var tl = _v10.b;
-										return (ctr > 1000) ? A2(
-											$elm$core$List$cons,
-											x,
-											A2(
-												$elm$core$List$cons,
-												y,
-												A2(
-													$elm$core$List$cons,
-													z,
-													A2(
-														$elm$core$List$cons,
-														w,
-														A2($elm$core$List$takeTailRec, n - 4, tl))))) : A2(
-											$elm$core$List$cons,
-											x,
-											A2(
-												$elm$core$List$cons,
-												y,
-												A2(
-													$elm$core$List$cons,
-													z,
-													A2(
-														$elm$core$List$cons,
-														w,
-														A3($elm$core$List$takeFast, ctr + 1, n - 4, tl)))));
-									} else {
-										break _v0$5;
-									}
-							}
-						} else {
-							if (_v0.a === 1) {
-								break _v0$1;
-							} else {
-								break _v0$5;
-							}
-						}
-					}
-				}
-				return list;
-			}
-			var _v1 = _v0.b;
-			var x = _v1.a;
-			return _List_fromArray(
-				[x]);
-		}
-	});
-var $elm$core$List$take = F2(
-	function (n, list) {
-		return A3($elm$core$List$takeFast, 0, n, list);
-	});
-var $author$project$Main$parseSaeExampleResultsHelper = F3(
-	function (unparsed, urls, parsed) {
-		parseSaeExampleResultsHelper:
-		while (true) {
-			if (!unparsed.b) {
-				return _Utils_Tuple3(_List_Nil, urls, parsed);
-			} else {
-				switch (unparsed.a.$) {
-					case 'SaeExampleUrl':
-						var url = unparsed.a.a;
-						var rest = unparsed.b;
-						var $temp$unparsed = rest,
-							$temp$urls = _Utils_ap(
-							urls,
-							_List_fromArray(
-								[
-									$elm$core$Maybe$Just(url)
-								])),
-							$temp$parsed = parsed;
-						unparsed = $temp$unparsed;
-						urls = $temp$urls;
-						parsed = $temp$parsed;
-						continue parseSaeExampleResultsHelper;
-					case 'SaeExampleLatent':
-						var latent = unparsed.a.a;
-						var rest = unparsed.b;
-						var $temp$unparsed = rest,
-							$temp$urls = A2($elm$core$List$drop, $author$project$Main$nSaeExamplesPerLatent, urls),
-							$temp$parsed = _Utils_ap(
-							parsed,
-							_List_fromArray(
-								[
-									{
-									latent: latent,
-									urls: A2(
-										$elm$core$List$filterMap,
-										$elm$core$Basics$identity,
-										A2($elm$core$List$take, $author$project$Main$nSaeExamplesPerLatent, urls))
-								}
-								]));
-						unparsed = $temp$unparsed;
-						urls = $temp$urls;
-						parsed = $temp$parsed;
-						continue parseSaeExampleResultsHelper;
-					default:
-						var _v1 = unparsed.a;
-						var rest = unparsed.b;
-						var $temp$unparsed = rest,
-							$temp$urls = _Utils_ap(
-							urls,
-							_List_fromArray(
-								[$elm$core$Maybe$Nothing])),
-							$temp$parsed = parsed;
-						unparsed = $temp$unparsed;
-						urls = $temp$urls;
-						parsed = $temp$parsed;
-						continue parseSaeExampleResultsHelper;
-				}
-			}
-		}
-	});
-var $author$project$Main$parseSaeExampleResults = function (results) {
-	var _v0 = A3($author$project$Main$parseSaeExampleResultsHelper, results, _List_Nil, _List_Nil);
-	var parsed = _v0.c;
-	return parsed;
-};
-var $elm$core$Bitwise$xor = _Bitwise_xor;
-var $elm$random$Random$peel = function (_v0) {
-	var state = _v0.a;
-	var word = (state ^ (state >>> ((state >>> 28) + 4))) * 277803737;
-	return ((word >>> 22) ^ word) >>> 0;
-};
-var $elm$random$Random$int = F2(
-	function (a, b) {
-		return $elm$random$Random$Generator(
-			function (seed0) {
-				var _v0 = (_Utils_cmp(a, b) < 0) ? _Utils_Tuple2(a, b) : _Utils_Tuple2(b, a);
-				var lo = _v0.a;
-				var hi = _v0.b;
-				var range = (hi - lo) + 1;
-				if (!((range - 1) & range)) {
-					return _Utils_Tuple2(
-						(((range - 1) & $elm$random$Random$peel(seed0)) >>> 0) + lo,
-						$elm$random$Random$next(seed0));
-				} else {
-					var threshhold = (((-range) >>> 0) % range) >>> 0;
-					var accountForBias = function (seed) {
-						accountForBias:
-						while (true) {
-							var x = $elm$random$Random$peel(seed);
-							var seedN = $elm$random$Random$next(seed);
-							if (_Utils_cmp(x, threshhold) < 0) {
-								var $temp$seed = seedN;
-								seed = $temp$seed;
-								continue accountForBias;
-							} else {
-								return _Utils_Tuple2((x % range) + lo, seedN);
-							}
-						}
-					};
-					return accountForBias(seed0);
+					var p = _v1.a;
+					var x = _v1.b;
+					return A2($elm$parser$Parser$Advanced$Bad, p, x);
 				}
 			});
 	});
-var $author$project$Main$nExamples = 20210;
-var $author$project$Main$randomExample = A2($elm$random$Random$int, 0, $author$project$Main$nExamples - 1);
-var $elm$core$Set$remove = F2(
-	function (key, _v0) {
-		var dict = _v0.a;
-		return $elm$core$Set$Set_elm_builtin(
-			A2($elm$core$Dict$remove, key, dict));
+var $elm$parser$Parser$map = $elm$parser$Parser$Advanced$map;
+var $elm$parser$Parser$Advanced$Done = function (a) {
+	return {$: 'Done', a: a};
+};
+var $elm$parser$Parser$Advanced$Loop = function (a) {
+	return {$: 'Loop', a: a};
+};
+var $elm$parser$Parser$toAdvancedStep = function (step) {
+	if (step.$ === 'Loop') {
+		var s = step.a;
+		return $elm$parser$Parser$Advanced$Loop(s);
+	} else {
+		var a = step.a;
+		return $elm$parser$Parser$Advanced$Done(a);
+	}
+};
+var $elm$parser$Parser$loop = F2(
+	function (state, callback) {
+		return A2(
+			$elm$parser$Parser$Advanced$loop,
+			state,
+			function (s) {
+				return A2(
+					$elm$parser$Parser$map,
+					$elm$parser$Parser$toAdvancedStep,
+					callback(s));
+			});
 	});
+var $author$project$Gradio$eventParser = A2($elm$parser$Parser$loop, _Utils_Tuple0, $author$project$Gradio$eventParserHelper);
 var $elm$parser$Parser$DeadEnd = F3(
 	function (row, col, problem) {
 		return {col: col, problem: problem, row: row};
@@ -12225,379 +11612,322 @@ var $elm$parser$Parser$run = F2(
 				A2($elm$core$List$map, $elm$parser$Parser$problemToDeadEnd, problems));
 		}
 	});
-var $author$project$Main$segmentationResultToLabels = function (result) {
-	if (result.$ === 'SegmentationLabels') {
-		var labels = result.a;
-		return $elm$core$Maybe$Just(labels);
-	} else {
-		return $elm$core$Maybe$Nothing;
-	}
-};
-var $author$project$Main$segmentationResultToUrl = function (result) {
-	if (result.$ === 'SegmentationUrl') {
-		var url = result.a;
-		return $elm$core$Maybe$Just(url);
-	} else {
-		return $elm$core$Maybe$Nothing;
-	}
-};
-var $elm$core$Set$size = function (_v0) {
-	var dict = _v0.a;
-	return $elm$core$Dict$size(dict);
-};
-var $elm$core$String$toFloat = _String_toFloat;
-var $author$project$Main$update = F2(
-	function (msg, model) {
-		update:
-		while (true) {
-			switch (msg.$) {
-				case 'HoverPatch':
-					var i = msg.a;
-					return _Utils_Tuple2(
-						_Utils_update(
-							model,
-							{
-								hoveredPatchIndex: $elm$core$Maybe$Just(i)
-							}),
-						$elm$core$Platform$Cmd$none);
-				case 'ResetHoveredPatch':
-					return _Utils_Tuple2(
-						_Utils_update(
-							model,
-							{hoveredPatchIndex: $elm$core$Maybe$Nothing}),
-						$elm$core$Platform$Cmd$none);
-				case 'ToggleSelectedPatch':
-					var i = msg.a;
-					var _v1 = A2($elm$core$Set$member, i, model.selectedPatchIndices) ? _Utils_Tuple3(
-						A2($elm$core$Set$remove, i, model.selectedPatchIndices),
-						model.nPatchesExplored,
-						($elm$core$Set$size(model.selectedPatchIndices) === 1) ? (model.nPatchResets + 1) : model.nPatchResets) : _Utils_Tuple3(
-						A2($elm$core$Set$insert, i, model.selectedPatchIndices),
-						model.nPatchesExplored + 1,
-						model.nPatchResets);
-					var patchIndices = _v1.a;
-					var nPatchesExplored = _v1.b;
-					var nPatchResets = _v1.c;
-					return _Utils_Tuple2(
-						_Utils_update(
-							model,
-							{modifiedLabelsUrl: $elm$core$Maybe$Nothing, nPatchResets: nPatchResets, nPatchesExplored: nPatchesExplored, saeLatents: _List_Nil, selectedPatchIndices: patchIndices}),
-						A2($author$project$Main$getSaeExamples, model.exampleIndex, patchIndices));
-				case 'ResetSelectedPatches':
-					return _Utils_Tuple2(
-						_Utils_update(
-							model,
-							{modifiedLabelsUrl: $elm$core$Maybe$Nothing, nPatchResets: model.nPatchResets + 1, saeLatents: _List_Nil, selectedPatchIndices: $elm$core$Set$empty}),
-						$elm$core$Platform$Cmd$none);
-				case 'GotEventId':
-					var fn = msg.a;
-					var result = msg.b;
-					if (result.$ === 'Ok') {
-						var id = result.a;
-						return _Utils_Tuple2(
-							model,
-							fn(id));
-					} else {
-						var err = result.a;
-						var errMsg = A2($author$project$Main$httpErrToString, err, 'get event id');
-						return _Utils_Tuple2(
-							_Utils_update(
-								model,
-								{
-									err: $elm$core$Maybe$Just(errMsg)
-								}),
-							$elm$core$Platform$Cmd$none);
-					}
-				case 'GotEventData':
-					var decoderFn = msg.a;
-					var result = msg.b;
-					if (result.$ === 'Ok') {
-						var raw = result.a;
-						var _v4 = A2($elm$parser$Parser$run, $author$project$Main$eventDataParser, raw);
-						if (_v4.$ === 'Ok') {
-							var json = _v4.a;
-							var $temp$msg = decoderFn(json),
-								$temp$model = model;
-							msg = $temp$msg;
-							model = $temp$model;
-							continue update;
-						} else {
-							return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
-						}
-					} else {
-						var err = result.a;
-						var errMsg = A2($author$project$Main$httpErrToString, err, 'get event result');
-						return _Utils_Tuple2(
-							_Utils_update(
-								model,
-								{
-									err: $elm$core$Maybe$Just(errMsg)
-								}),
-							$elm$core$Platform$Cmd$none);
-					}
-				case 'ParsedSaeExamples':
-					var result = msg.a;
-					if (result.$ === 'Ok') {
-						var results = result.a;
-						var latents = $author$project$Main$parseSaeExampleResults(results);
-						var sliders = $elm$core$Dict$fromList(
-							A2(
-								$elm$core$List$map,
-								function (latent) {
-									return _Utils_Tuple2(latent.latent, 0.0);
-								},
-								latents));
-						return _Utils_Tuple2(
-							_Utils_update(
-								model,
-								{saeLatents: latents, sliders: sliders}),
-							$elm$core$Platform$Cmd$none);
-					} else {
-						var err = result.a;
-						return _Utils_Tuple2(
-							_Utils_update(
-								model,
-								{
-									err: $elm$core$Maybe$Just(
-										$elm$json$Json$Decode$errorToString(err))
-								}),
-							$elm$core$Platform$Cmd$none);
-					}
-				case 'ParsedTrueLabels':
-					var result = msg.a;
-					if (result.$ === 'Ok') {
-						var results = result.a;
-						var url = $elm$core$List$head(
-							A2($elm$core$List$filterMap, $author$project$Main$segmentationResultToUrl, results));
-						return _Utils_Tuple2(
-							_Utils_update(
-								model,
-								{trueLabelsUrl: url}),
-							$elm$core$Platform$Cmd$none);
-					} else {
-						var err = result.a;
-						return _Utils_Tuple2(
-							_Utils_update(
-								model,
-								{
-									err: $elm$core$Maybe$Just(
-										$elm$json$Json$Decode$errorToString(err)),
-									trueLabelsUrl: $elm$core$Maybe$Nothing
-								}),
-							$elm$core$Platform$Cmd$none);
-					}
-				case 'ParsedPredLabels':
-					var result = msg.a;
-					if (result.$ === 'Ok') {
-						var results = result.a;
-						var url = $elm$core$List$head(
-							A2($elm$core$List$filterMap, $author$project$Main$segmentationResultToUrl, results));
-						var labels = A2(
-							$elm$core$Maybe$withDefault,
-							_List_Nil,
-							$elm$core$List$head(
-								A2($elm$core$List$filterMap, $author$project$Main$segmentationResultToLabels, results)));
-						return _Utils_Tuple2(
-							_Utils_update(
-								model,
-								{predLabels: labels, predLabelsUrl: url}),
-							$elm$core$Platform$Cmd$none);
-					} else {
-						var err = result.a;
-						return _Utils_Tuple2(
-							_Utils_update(
-								model,
-								{
-									err: $elm$core$Maybe$Just(
-										$elm$json$Json$Decode$errorToString(err)),
-									predLabelsUrl: $elm$core$Maybe$Nothing
-								}),
-							$elm$core$Platform$Cmd$none);
-					}
-				case 'ParsedModifiedLabels':
-					var result = msg.a;
-					if (result.$ === 'Ok') {
-						var results = result.a;
-						var url = $elm$core$List$head(
-							A2($elm$core$List$filterMap, $author$project$Main$segmentationResultToUrl, results));
-						var labels = A2(
-							$elm$core$Maybe$withDefault,
-							_List_Nil,
-							$elm$core$List$head(
-								A2($elm$core$List$filterMap, $author$project$Main$segmentationResultToLabels, results)));
-						return _Utils_Tuple2(
-							_Utils_update(
-								model,
-								{modifiedLabels: labels, modifiedLabelsUrl: url}),
-							$elm$core$Platform$Cmd$none);
-					} else {
-						var err = result.a;
-						return _Utils_Tuple2(
-							_Utils_update(
-								model,
-								{
-									err: $elm$core$Maybe$Just(
-										$elm$json$Json$Decode$errorToString(err)),
-									modifiedLabelsUrl: $elm$core$Maybe$Nothing
-								}),
-							$elm$core$Platform$Cmd$none);
-					}
-				case 'ParsedImageUrl':
-					var result = msg.a;
-					if (result.$ === 'Ok') {
-						var maybeUrl = result.a;
-						return _Utils_Tuple2(
-							_Utils_update(
-								model,
-								{imageUrl: maybeUrl}),
-							$elm$core$Platform$Cmd$none);
-					} else {
-						var err = result.a;
-						return _Utils_Tuple2(
-							_Utils_update(
-								model,
-								{
-									err: $elm$core$Maybe$Just(
-										$elm$json$Json$Decode$errorToString(err)),
-									imageUrl: $elm$core$Maybe$Nothing
-								}),
-							$elm$core$Platform$Cmd$none);
-					}
-				case 'SetExample':
-					var i = msg.a;
-					return _Utils_Tuple2(
-						_Utils_update(
-							model,
-							{exampleIndex: i}),
-						$elm$core$Platform$Cmd$batch(
-							_List_fromArray(
-								[
-									$author$project$Main$getImageUrl(i),
-									$author$project$Main$getPredLabels(i)
-								])));
-				case 'SetExampleInput':
-					var str = msg.a;
-					var _v10 = $elm$core$String$toInt(str);
-					if (_v10.$ === 'Just') {
-						var i = _v10.a;
-						return _Utils_Tuple2(
-							_Utils_update(
-								model,
-								{exampleIndex: i}),
-							$elm$core$Platform$Cmd$batch(
-								_List_fromArray(
-									[
-										$author$project$Main$getImageUrl(i),
-										$author$project$Main$getPredLabels(i)
-									])));
-					} else {
-						return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
-					}
-				case 'GetRandomExample':
-					return _Utils_Tuple2(
-						_Utils_update(
-							model,
-							{imageUrl: $elm$core$Maybe$Nothing, saeLatents: _List_Nil, selectedPatchIndices: $elm$core$Set$empty}),
-						A2($elm$random$Random$generate, $author$project$Main$SetExample, $author$project$Main$randomExample));
-				default:
-					var i = msg.a;
-					var str = msg.b;
-					var _v11 = $elm$core$String$toFloat(str);
-					if (_v11.$ === 'Just') {
-						var f = _v11.a;
-						var sliders = A3($elm$core$Dict$insert, i, f, model.sliders);
-						return _Utils_Tuple2(
-							_Utils_update(
-								model,
-								{sliders: sliders}),
-							A2($author$project$Main$getModifiedLabels, model.exampleIndex, sliders));
-					} else {
-						return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
-					}
-			}
-		}
-	});
-var $elm$core$Set$fromList = function (list) {
-	return A3($elm$core$List$foldl, $elm$core$Set$insert, $elm$core$Set$empty, list);
-};
-var $elm$html$Html$header = _VirtualDom_node('header');
-var $elm$html$Html$main_ = _VirtualDom_node('main');
-var $author$project$Main$viewAnimatedNeuralNetwork = function (model) {
+var $author$project$Gradio$parsingResolver = function (raw) {
 	return A2(
-		$elm$html$Html$div,
-		_List_Nil,
+		$elm$core$Result$mapError,
+		A2($elm$core$Basics$composeR, $author$project$Gradio$deadEndsToString, $author$project$Gradio$ParsingError),
+		A2($elm$parser$Parser$run, $author$project$Gradio$eventParser, raw));
+};
+var $elm$http$Http$stringResolver = A2(_Http_expect, '', $elm$core$Basics$identity);
+var $elm$core$Task$fail = _Scheduler_fail;
+var $elm$http$Http$resultToTask = function (result) {
+	if (result.$ === 'Ok') {
+		var a = result.a;
+		return $elm$core$Task$succeed(a);
+	} else {
+		var x = result.a;
+		return $elm$core$Task$fail(x);
+	}
+};
+var $elm$http$Http$task = function (r) {
+	return A3(
+		_Http_toTask,
+		_Utils_Tuple0,
+		$elm$http$Http$resultToTask,
+		{allowCookiesFromOtherDomains: false, body: r.body, expect: r.resolver, headers: r.headers, method: r.method, timeout: r.timeout, tracker: $elm$core$Maybe$Nothing, url: r.url});
+};
+var $author$project$Gradio$finish = F4(
+	function (cfg, path, decoder, eventId) {
+		return $elm$http$Http$task(
+			{
+				body: $elm$http$Http$emptyBody,
+				headers: _List_Nil,
+				method: 'GET',
+				resolver: $elm$http$Http$stringResolver(
+					A2(
+						$elm$core$Basics$composeR,
+						$author$project$Gradio$httpResolver,
+						A2(
+							$elm$core$Basics$composeR,
+							$elm$core$Result$andThen($author$project$Gradio$parsingResolver),
+							$elm$core$Result$andThen(
+								$author$project$Gradio$jsonResolver(decoder))))),
+				timeout: $elm$core$Maybe$Nothing,
+				url: A3(
+					$elm$url$Url$Builder$crossOrigin,
+					cfg.host,
+					_List_fromArray(
+						['gradio_api', 'call', path, eventId]),
+					_List_Nil)
+			});
+	});
+var $author$project$Gradio$encodeArgs = function (args) {
+	return $elm$json$Json$Encode$object(
 		_List_fromArray(
 			[
-				$elm$html$Html$text(' -> [ Neural Network ] -> ')
+				_Utils_Tuple2(
+				'data',
+				A2($elm$json$Json$Encode$list, $elm$core$Basics$identity, args))
 			]));
 };
-var $author$project$Main$GetRandomExample = {$: 'GetRandomExample'};
-var $author$project$Main$ResetSelectedPatches = {$: 'ResetSelectedPatches'};
-var $author$project$Main$SetExampleInput = function (a) {
-	return {$: 'SetExampleInput', a: a};
-};
-var $author$project$Main$viewControls = function (model) {
-	var buttons = _Utils_ap(
-		(model.nPatchesExplored >= 3) ? _List_fromArray(
-			[
-				A2(
-				$elm$html$Html$button,
-				_List_fromArray(
-					[
-						$elm$html$Html$Attributes$class(''),
-						$elm$html$Html$Events$onClick($author$project$Main$ResetSelectedPatches)
-					]),
-				_List_fromArray(
-					[
-						$elm$html$Html$text('Clear Patches')
-					]))
-			]) : _List_Nil,
-		(((model.nPatchResets > 1) && ($elm$core$Set$size(model.selectedPatchIndices) > 1)) || ((model.nPatchResets > 3) || (model.nImagesExplored > 1))) ? _List_fromArray(
-			[
-				A2(
-				$elm$html$Html$button,
-				_List_fromArray(
-					[
-						$elm$html$Html$Events$onClick($author$project$Main$GetRandomExample)
-					]),
-				_List_fromArray(
-					[
-						$elm$html$Html$text('New Image')
-					]))
-			]) : _List_Nil);
+var $author$project$Gradio$eventIdDecoder = A2($elm$json$Json$Decode$field, 'event_id', $elm$json$Json$Decode$string);
+var $elm$http$Http$jsonBody = function (value) {
 	return A2(
-		$elm$html$Html$div,
-		_List_Nil,
-		A2(
-			$elm$core$List$cons,
+		_Http_pair,
+		'application/json',
+		A2($elm$json$Json$Encode$encode, 0, value));
+};
+var $author$project$Gradio$start = F3(
+	function (cfg, path, args) {
+		return $elm$http$Http$task(
+			{
+				body: $elm$http$Http$jsonBody(
+					$author$project$Gradio$encodeArgs(args)),
+				headers: _List_Nil,
+				method: 'POST',
+				resolver: $elm$http$Http$stringResolver(
+					A2(
+						$elm$core$Basics$composeR,
+						$author$project$Gradio$httpResolver,
+						$elm$core$Result$andThen(
+							$author$project$Gradio$jsonResolver($author$project$Gradio$eventIdDecoder)))),
+				timeout: $elm$core$Maybe$Nothing,
+				url: A3(
+					$elm$url$Url$Builder$crossOrigin,
+					cfg.host,
+					_List_fromArray(
+						['gradio_api', 'call', path]),
+					_List_Nil)
+			});
+	});
+var $author$project$Gradio$get = F5(
+	function (cfg, path, args, decoder, msg) {
+		return A2(
+			$elm$core$Task$attempt,
+			msg,
 			A2(
-				$elm$html$Html$input,
+				$elm$core$Task$andThen,
+				A3($author$project$Gradio$finish, cfg, path, decoder),
+				A3($author$project$Gradio$start, cfg, path, args)));
+	});
+var $elm$json$Json$Encode$int = _Json_wrap;
+var $author$project$Semseg$getInputExample = F3(
+	function (cfg, id, img) {
+		return A5(
+			$author$project$Gradio$get,
+			cfg,
+			'get-image',
+			_List_fromArray(
+				[
+					$elm$json$Json$Encode$int(img)
+				]),
+			$author$project$Semseg$exampleDecoder,
+			$author$project$Semseg$GotInputExample(id));
+	});
+var $author$project$Requests$Id = function (a) {
+	return {$: 'Id', a: a};
+};
+var $author$project$Requests$init = $author$project$Requests$Id(0);
+var $author$project$Semseg$init = F3(
+	function (_v0, url, key) {
+		var model = {
+			gradio: {host: 'http://127.0.0.1:7860'},
+			hoveredPatchIndex: $elm$core$Maybe$Nothing,
+			inputExample: $author$project$Requests$Initial,
+			inputExampleReqId: $author$project$Requests$init,
+			key: key,
+			modPreds: $author$project$Requests$Initial,
+			origPreds: $author$project$Requests$Initial,
+			origPredsReqId: $author$project$Requests$init,
+			saeLatents: _List_Nil,
+			selectedPatchIndices: $elm$core$Set$empty,
+			sliders: $elm$core$Dict$empty,
+			trueLabels: $author$project$Requests$Initial
+		};
+		var example = 0;
+		return _Utils_Tuple2(
+			model,
+			$elm$core$Platform$Cmd$batch(
 				_List_fromArray(
 					[
-						$elm$html$Html$Attributes$type_('number'),
-						$elm$html$Html$Attributes$value(
-						$elm$core$String$fromInt(model.exampleIndex)),
-						$elm$html$Html$Events$onInput($author$project$Main$SetExampleInput)
-					]),
-				_List_Nil),
-			buttons));
+						A3($author$project$Semseg$getInputExample, model.gradio, model.inputExampleReqId, example)
+					])));
+	});
+var $elm$core$Platform$Sub$batch = _Platform_batch;
+var $elm$core$Platform$Sub$none = $elm$core$Platform$Sub$batch(_List_Nil);
+var $author$project$Semseg$NoOp = {$: 'NoOp'};
+var $author$project$Semseg$onUrlChange = function (url) {
+	return $author$project$Semseg$NoOp;
 };
-var $author$project$Main$viewErr = function (err) {
-	if (err.$ === 'Just') {
-		var msg = err.a;
-		return A2(
-			$elm$html$Html$p,
-			_List_fromArray(
-				[
-					$elm$html$Html$Attributes$id('err-msg')
-				]),
-			_List_fromArray(
-				[
-					$elm$html$Html$text(msg)
-				]));
-	} else {
-		return A2($elm$html$Html$span, _List_Nil, _List_Nil);
+var $author$project$Semseg$onUrlRequest = function (request) {
+	return $author$project$Semseg$NoOp;
+};
+var $author$project$Requests$Failed = function (a) {
+	return {$: 'Failed', a: a};
+};
+var $author$project$Requests$Loaded = function (a) {
+	return {$: 'Loaded', a: a};
+};
+var $author$project$Semseg$explainGradioError = function (err) {
+	switch (err.$) {
+		case 'NetworkError':
+			var msg = err.a;
+			return 'Network error: ' + msg;
+		case 'JsonError':
+			var msg = err.a;
+			return 'Error decoding JSON: ' + msg;
+		case 'ParsingError':
+			var msg = err.a;
+			return 'Error parsing API response: ' + msg;
+		default:
+			var msg = err.a;
+			return 'Error in the API: ' + msg;
 	}
+};
+var $elm$core$Set$insert = F2(
+	function (key, _v0) {
+		var dict = _v0.a;
+		return $elm$core$Set$Set_elm_builtin(
+			A3($elm$core$Dict$insert, key, _Utils_Tuple0, dict));
+	});
+var $author$project$Requests$isStale = F2(
+	function (_v0, _v1) {
+		var id = _v0.a;
+		var last = _v1.a;
+		return _Utils_cmp(id, last) < 0;
+	});
+var $elm$core$Dict$member = F2(
+	function (key, dict) {
+		var _v0 = A2($elm$core$Dict$get, key, dict);
+		if (_v0.$ === 'Just') {
+			return true;
+		} else {
+			return false;
+		}
+	});
+var $elm$core$Set$member = F2(
+	function (key, _v0) {
+		var dict = _v0.a;
+		return A2($elm$core$Dict$member, key, dict);
+	});
+var $elm$core$Set$remove = F2(
+	function (key, _v0) {
+		var dict = _v0.a;
+		return $elm$core$Set$Set_elm_builtin(
+			A2($elm$core$Dict$remove, key, dict));
+	});
+var $author$project$Semseg$update = F2(
+	function (msg, model) {
+		switch (msg.$) {
+			case 'NoOp':
+				return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
+			case 'HoverPatch':
+				var i = msg.a;
+				return _Utils_Tuple2(
+					_Utils_update(
+						model,
+						{
+							hoveredPatchIndex: $elm$core$Maybe$Just(i)
+						}),
+					$elm$core$Platform$Cmd$none);
+			case 'ResetHoveredPatch':
+				return _Utils_Tuple2(
+					_Utils_update(
+						model,
+						{hoveredPatchIndex: $elm$core$Maybe$Nothing}),
+					$elm$core$Platform$Cmd$none);
+			case 'ToggleSelectedPatch':
+				var i = msg.a;
+				var patchIndices = A2($elm$core$Set$member, i, model.selectedPatchIndices) ? A2($elm$core$Set$remove, i, model.selectedPatchIndices) : A2($elm$core$Set$insert, i, model.selectedPatchIndices);
+				return _Utils_Tuple2(
+					_Utils_update(
+						model,
+						{modPreds: $author$project$Requests$Initial, saeLatents: _List_Nil, selectedPatchIndices: patchIndices}),
+					$elm$core$Platform$Cmd$none);
+			case 'ResetSelectedPatches':
+				return _Utils_Tuple2(
+					_Utils_update(
+						model,
+						{modPreds: $author$project$Requests$Initial, saeLatents: _List_Nil, selectedPatchIndices: $elm$core$Set$empty}),
+					$elm$core$Platform$Cmd$none);
+			case 'GotInputExample':
+				var id = msg.a;
+				var result = msg.b;
+				if (A2($author$project$Requests$isStale, id, model.inputExampleReqId)) {
+					return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
+				} else {
+					if (result.$ === 'Ok') {
+						var example = result.a;
+						return _Utils_Tuple2(
+							_Utils_update(
+								model,
+								{
+									inputExample: $author$project$Requests$Loaded(example)
+								}),
+							$elm$core$Platform$Cmd$none);
+					} else {
+						var err = result.a;
+						return _Utils_Tuple2(
+							_Utils_update(
+								model,
+								{
+									inputExample: $author$project$Requests$Failed(
+										$author$project$Semseg$explainGradioError(err))
+								}),
+							$elm$core$Platform$Cmd$none);
+					}
+				}
+			default:
+				var id = msg.a;
+				var result = msg.b;
+				if (A2($author$project$Requests$isStale, id, model.origPredsReqId)) {
+					return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
+				} else {
+					if (result.$ === 'Ok') {
+						var preds = result.a;
+						return _Utils_Tuple2(
+							_Utils_update(
+								model,
+								{
+									origPreds: $author$project$Requests$Loaded(preds)
+								}),
+							$elm$core$Platform$Cmd$none);
+					} else {
+						var err = result.a;
+						return _Utils_Tuple2(
+							_Utils_update(
+								model,
+								{
+									origPreds: $author$project$Requests$Failed(
+										$author$project$Semseg$explainGradioError(err))
+								}),
+							$elm$core$Platform$Cmd$none);
+					}
+				}
+		}
+	});
+var $elm$html$Html$header = _VirtualDom_node('header');
+var $elm$html$Html$main_ = _VirtualDom_node('main');
+var $author$project$Requests$Loading = {$: 'Loading'};
+var $author$project$Requests$map = F2(
+	function (fn, requested) {
+		switch (requested.$) {
+			case 'Initial':
+				return $author$project$Requests$Initial;
+			case 'Loading':
+				return $author$project$Requests$Loading;
+			case 'Failed':
+				var err = requested.a;
+				return $author$project$Requests$Failed(err);
+			default:
+				var a = requested.a;
+				return $author$project$Requests$Loaded(
+					fn(a));
+		}
+	});
+var $author$project$Gradio$base64ImageToString = function (_v0) {
+	var str = _v0.a;
+	return str;
 };
 var $elm$html$Html$img = _VirtualDom_node('img');
 var $elm$html$Html$Attributes$src = function (url) {
@@ -12606,11 +11936,44 @@ var $elm$html$Html$Attributes$src = function (url) {
 		'src',
 		_VirtualDom_noJavaScriptOrHtmlUri(url));
 };
-var $author$project$Main$HoverPatch = function (a) {
+var $elm$html$Html$h3 = _VirtualDom_node('h3');
+var $author$project$Semseg$viewErr = function (err) {
+	return A2(
+		$elm$html$Html$div,
+		_List_fromArray(
+			[
+				$elm$html$Html$Attributes$class('relative rounded-lg border border-red-200 bg-red-50 p-4 m-4')
+			]),
+		_List_fromArray(
+			[
+				A2($elm$html$Html$button, _List_Nil, _List_Nil),
+				A2(
+				$elm$html$Html$h3,
+				_List_fromArray(
+					[
+						$elm$html$Html$Attributes$class('font-bold text-red-800')
+					]),
+				_List_fromArray(
+					[
+						$elm$html$Html$text('Error')
+					])),
+				A2(
+				$elm$html$Html$p,
+				_List_fromArray(
+					[
+						$elm$html$Html$Attributes$class('text-red-700')
+					]),
+				_List_fromArray(
+					[
+						$elm$html$Html$text(err)
+					]))
+			]));
+};
+var $author$project$Semseg$HoverPatch = function (a) {
 	return {$: 'HoverPatch', a: a};
 };
-var $author$project$Main$ResetHoveredPatch = {$: 'ResetHoveredPatch'};
-var $author$project$Main$ToggleSelectedPatch = function (a) {
+var $author$project$Semseg$ResetHoveredPatch = {$: 'ResetHoveredPatch'};
+var $author$project$Semseg$ToggleSelectedPatch = function (a) {
 	return {$: 'ToggleSelectedPatch', a: a};
 };
 var $elm$html$Html$Events$onMouseEnter = function (msg) {
@@ -12625,7 +11988,7 @@ var $elm$html$Html$Events$onMouseLeave = function (msg) {
 		'mouseleave',
 		$elm$json$Json$Decode$succeed(msg));
 };
-var $author$project$Main$viewGridCell = F3(
+var $author$project$Semseg$viewGridCell = F3(
 	function (hovered, selected, self) {
 		var classes = _Utils_ap(
 			function () {
@@ -12646,952 +12009,138 @@ var $author$project$Main$viewGridCell = F3(
 					[
 						$elm$html$Html$Attributes$class('w-[14px] h-[14px] md:w-[21px] md:h-[21px]'),
 						$elm$html$Html$Events$onMouseEnter(
-						$author$project$Main$HoverPatch(self)),
-						$elm$html$Html$Events$onMouseLeave($author$project$Main$ResetHoveredPatch),
+						$author$project$Semseg$HoverPatch(self)),
+						$elm$html$Html$Events$onMouseLeave($author$project$Semseg$ResetHoveredPatch),
 						$elm$html$Html$Events$onClick(
-						$author$project$Main$ToggleSelectedPatch(self))
+						$author$project$Semseg$ToggleSelectedPatch(self))
 					]),
 				A2($elm$core$List$map, $elm$html$Html$Attributes$class, classes)),
 			_List_Nil);
 	});
-var $author$project$Main$viewGriddedImage = F3(
-	function (model, maybeUrl, caption) {
-		if (maybeUrl.$ === 'Nothing') {
-			return A2(
-				$elm$html$Html$div,
-				_List_Nil,
-				_List_fromArray(
-					[
-						$elm$html$Html$text('Loading...')
-					]));
-		} else {
-			var url = maybeUrl.a;
-			return A2(
-				$elm$html$Html$div,
-				_List_Nil,
-				_List_fromArray(
-					[
-						A2(
-						$elm$html$Html$div,
-						_List_fromArray(
-							[
-								$elm$html$Html$Attributes$class('relative inline-block')
-							]),
-						_List_fromArray(
-							[
-								A2(
-								$elm$html$Html$div,
-								_List_fromArray(
-									[
-										$elm$html$Html$Attributes$class('absolute grid grid-rows-[repeat(16,_14px)] grid-cols-[repeat(16,_14px)] md:grid-rows-[repeat(16,_21px)] md:grid-cols-[repeat(16,_21px)]')
-									]),
-								A2(
-									$elm$core$List$map,
-									A2($author$project$Main$viewGridCell, model.hoveredPatchIndex, model.selectedPatchIndices),
-									A2($elm$core$List$range, 0, 255))),
-								A2(
-								$elm$html$Html$img,
-								_List_fromArray(
-									[
-										$elm$html$Html$Attributes$class('block w-[224px] h-[224px] md:w-[336px] md:h-[336px]'),
-										$elm$html$Html$Attributes$src(url)
-									]),
-								_List_Nil)
-							])),
-						A2(
-						$elm$html$Html$p,
-						_List_Nil,
-						_List_fromArray(
-							[
-								$elm$html$Html$text(caption)
-							]))
-					]));
+var $author$project$Semseg$viewGriddedImage = F3(
+	function (model, reqImage, caption) {
+		switch (reqImage.$) {
+			case 'Initial':
+				return A2(
+					$elm$html$Html$div,
+					_List_Nil,
+					_List_fromArray(
+						[
+							$elm$html$Html$text('Loading...')
+						]));
+			case 'Loading':
+				return A2(
+					$elm$html$Html$div,
+					_List_Nil,
+					_List_fromArray(
+						[
+							$elm$html$Html$text('Loading...')
+						]));
+			case 'Failed':
+				var err = reqImage.a;
+				return $author$project$Semseg$viewErr(err);
+			default:
+				var image = reqImage.a;
+				return A2(
+					$elm$html$Html$div,
+					_List_Nil,
+					_List_fromArray(
+						[
+							A2(
+							$elm$html$Html$div,
+							_List_fromArray(
+								[
+									$elm$html$Html$Attributes$class('relative inline-block')
+								]),
+							_List_fromArray(
+								[
+									A2(
+									$elm$html$Html$div,
+									_List_fromArray(
+										[
+											$elm$html$Html$Attributes$class('absolute grid grid-rows-[repeat(16,_14px)] grid-cols-[repeat(16,_14px)] md:grid-rows-[repeat(16,_21px)] md:grid-cols-[repeat(16,_21px)]')
+										]),
+									A2(
+										$elm$core$List$map,
+										A2($author$project$Semseg$viewGridCell, model.hoveredPatchIndex, model.selectedPatchIndices),
+										A2($elm$core$List$range, 0, 255))),
+									A2(
+									$elm$html$Html$img,
+									_List_fromArray(
+										[
+											$elm$html$Html$Attributes$class('block w-[224px] h-[224px] md:w-[336px] md:h-[336px]'),
+											$elm$html$Html$Attributes$src(
+											$author$project$Gradio$base64ImageToString(image))
+										]),
+									_List_Nil)
+								])),
+							A2(
+							$elm$html$Html$p,
+							_List_Nil,
+							_List_fromArray(
+								[
+									$elm$html$Html$text(caption)
+								]))
+						]));
 		}
 	});
-var $elm$core$List$filter = F2(
-	function (isGood, list) {
-		return A3(
-			$elm$core$List$foldr,
-			F2(
-				function (x, xs) {
-					return isGood(x) ? A2($elm$core$List$cons, x, xs) : xs;
-				}),
-			_List_Nil,
-			list);
-	});
-var $elm$core$List$sortBy = _List_sortBy;
-var $elm$core$List$sort = function (xs) {
-	return A2($elm$core$List$sortBy, $elm$core$Basics$identity, xs);
-};
-var $author$project$Main$classnames = $elm$core$Array$fromList(
-	_List_fromArray(
-		[
-			_List_fromArray(
-			['wall']),
-			_List_fromArray(
-			['building', 'edifice']),
-			_List_fromArray(
-			['sky']),
-			_List_fromArray(
-			['floor', 'flooring']),
-			_List_fromArray(
-			['tree']),
-			_List_fromArray(
-			['ceiling']),
-			_List_fromArray(
-			['road', 'route']),
-			_List_fromArray(
-			['bed']),
-			_List_fromArray(
-			['windowpane', 'window']),
-			_List_fromArray(
-			['grass']),
-			_List_fromArray(
-			['cabinet']),
-			_List_fromArray(
-			['sidewalk', 'pavement']),
-			_List_fromArray(
-			['person', 'individual']),
-			_List_fromArray(
-			['earth', 'ground']),
-			_List_fromArray(
-			['door', 'double door']),
-			_List_fromArray(
-			['table']),
-			_List_fromArray(
-			['mountain']),
-			_List_fromArray(
-			['plant', 'flora']),
-			_List_fromArray(
-			['curtain', 'drape']),
-			_List_fromArray(
-			['chair']),
-			_List_fromArray(
-			['car', 'auto']),
-			_List_fromArray(
-			['water']),
-			_List_fromArray(
-			['painting', 'picture']),
-			_List_fromArray(
-			['sofa', 'couch']),
-			_List_fromArray(
-			['shelf']),
-			_List_fromArray(
-			['house']),
-			_List_fromArray(
-			['sea']),
-			_List_fromArray(
-			['mirror']),
-			_List_fromArray(
-			['rug', 'carpet']),
-			_List_fromArray(
-			['field']),
-			_List_fromArray(
-			['armchair']),
-			_List_fromArray(
-			['seat']),
-			_List_fromArray(
-			['fence', 'fencing']),
-			_List_fromArray(
-			['desk']),
-			_List_fromArray(
-			['rock', 'stone']),
-			_List_fromArray(
-			['wardrobe', 'closet']),
-			_List_fromArray(
-			['lamp']),
-			_List_fromArray(
-			['bathtub', 'bathing tub']),
-			_List_fromArray(
-			['railing', 'rail']),
-			_List_fromArray(
-			['cushion']),
-			_List_fromArray(
-			['base', 'pedestal']),
-			_List_fromArray(
-			['box']),
-			_List_fromArray(
-			['column', 'pillar']),
-			_List_fromArray(
-			['signboard', 'sign']),
-			_List_fromArray(
-			['chest of drawers', 'chest']),
-			_List_fromArray(
-			['counter']),
-			_List_fromArray(
-			['sand']),
-			_List_fromArray(
-			['sink']),
-			_List_fromArray(
-			['skyscraper']),
-			_List_fromArray(
-			['fireplace', 'hearth']),
-			_List_fromArray(
-			['refrigerator', 'icebox']),
-			_List_fromArray(
-			['grandstand', 'covered stand']),
-			_List_fromArray(
-			['path']),
-			_List_fromArray(
-			['stairs', 'steps']),
-			_List_fromArray(
-			['runway']),
-			_List_fromArray(
-			['case', 'display case']),
-			_List_fromArray(
-			['pool table', 'billiard table']),
-			_List_fromArray(
-			['pillow']),
-			_List_fromArray(
-			['screen door', 'screen']),
-			_List_fromArray(
-			['stairway', 'staircase']),
-			_List_fromArray(
-			['river']),
-			_List_fromArray(
-			['bridge', 'span']),
-			_List_fromArray(
-			['bookcase']),
-			_List_fromArray(
-			['blind', 'screen']),
-			_List_fromArray(
-			['coffee table', 'cocktail table']),
-			_List_fromArray(
-			['toilet', 'can']),
-			_List_fromArray(
-			['flower']),
-			_List_fromArray(
-			['book']),
-			_List_fromArray(
-			['hill']),
-			_List_fromArray(
-			['bench']),
-			_List_fromArray(
-			['countertop']),
-			_List_fromArray(
-			['stove', 'kitchen stove']),
-			_List_fromArray(
-			['palm', 'palm tree']),
-			_List_fromArray(
-			['kitchen island']),
-			_List_fromArray(
-			['computer', 'computing machine']),
-			_List_fromArray(
-			['swivel chair']),
-			_List_fromArray(
-			['boat']),
-			_List_fromArray(
-			['bar']),
-			_List_fromArray(
-			['arcade machine']),
-			_List_fromArray(
-			['hovel', 'hut']),
-			_List_fromArray(
-			['bus', 'autobus']),
-			_List_fromArray(
-			['towel']),
-			_List_fromArray(
-			['light', 'light source']),
-			_List_fromArray(
-			['truck', 'motortruck']),
-			_List_fromArray(
-			['tower']),
-			_List_fromArray(
-			['chandelier', 'pendant']),
-			_List_fromArray(
-			['awning', 'sunshade']),
-			_List_fromArray(
-			['streetlight', 'street lamp']),
-			_List_fromArray(
-			['booth', 'cubicle']),
-			_List_fromArray(
-			['television receiver', 'television']),
-			_List_fromArray(
-			['airplane', 'aeroplane']),
-			_List_fromArray(
-			['dirt track']),
-			_List_fromArray(
-			['apparel', 'wearing apparel']),
-			_List_fromArray(
-			['pole']),
-			_List_fromArray(
-			['land', 'ground']),
-			_List_fromArray(
-			['bannister', 'banister']),
-			_List_fromArray(
-			['escalator', 'moving staircase']),
-			_List_fromArray(
-			['ottoman', 'pouf']),
-			_List_fromArray(
-			['bottle']),
-			_List_fromArray(
-			['buffet', 'counter']),
-			_List_fromArray(
-			['poster', 'posting']),
-			_List_fromArray(
-			['stage']),
-			_List_fromArray(
-			['van']),
-			_List_fromArray(
-			['ship']),
-			_List_fromArray(
-			['fountain']),
-			_List_fromArray(
-			['conveyer belt', 'conveyor belt']),
-			_List_fromArray(
-			['canopy']),
-			_List_fromArray(
-			['washer', 'automatic washer']),
-			_List_fromArray(
-			['plaything', 'toy']),
-			_List_fromArray(
-			['swimming pool', 'swimming bath']),
-			_List_fromArray(
-			['stool']),
-			_List_fromArray(
-			['barrel', 'cask']),
-			_List_fromArray(
-			['basket', 'handbasket']),
-			_List_fromArray(
-			['waterfall', 'falls']),
-			_List_fromArray(
-			['tent', 'collapsible shelter']),
-			_List_fromArray(
-			['bag']),
-			_List_fromArray(
-			['minibike', 'motorbike']),
-			_List_fromArray(
-			['cradle']),
-			_List_fromArray(
-			['oven']),
-			_List_fromArray(
-			['ball']),
-			_List_fromArray(
-			['food', 'solid food']),
-			_List_fromArray(
-			['step', 'stair']),
-			_List_fromArray(
-			['tank', 'storage tank']),
-			_List_fromArray(
-			['trade name', 'brand name']),
-			_List_fromArray(
-			['microwave', 'microwave oven']),
-			_List_fromArray(
-			['pot', 'flowerpot']),
-			_List_fromArray(
-			['animal', 'animate being']),
-			_List_fromArray(
-			['bicycle', 'bike']),
-			_List_fromArray(
-			['lake']),
-			_List_fromArray(
-			['dishwasher', 'dish washer']),
-			_List_fromArray(
-			['screen', 'silver screen']),
-			_List_fromArray(
-			['blanket', 'cover']),
-			_List_fromArray(
-			['sculpture']),
-			_List_fromArray(
-			['hood', 'exhaust hood']),
-			_List_fromArray(
-			['sconce']),
-			_List_fromArray(
-			['vase']),
-			_List_fromArray(
-			['traffic light', 'traffic signal']),
-			_List_fromArray(
-			['tray']),
-			_List_fromArray(
-			['ashcan', 'trash can']),
-			_List_fromArray(
-			['fan']),
-			_List_fromArray(
-			['pier', 'wharf']),
-			_List_fromArray(
-			['crt screen']),
-			_List_fromArray(
-			['plate']),
-			_List_fromArray(
-			['monitor', 'monitoring device']),
-			_List_fromArray(
-			['bulletin board', 'notice board']),
-			_List_fromArray(
-			['shower']),
-			_List_fromArray(
-			['radiator']),
-			_List_fromArray(
-			['glass', 'drinking glass']),
-			_List_fromArray(
-			['clock']),
-			_List_fromArray(
-			['flag'])
-		]));
-var $elm$core$Array$setHelp = F4(
-	function (shift, index, value, tree) {
-		var pos = $elm$core$Array$bitMask & (index >>> shift);
-		var _v0 = A2($elm$core$Elm$JsArray$unsafeGet, pos, tree);
-		if (_v0.$ === 'SubTree') {
-			var subTree = _v0.a;
-			var newSub = A4($elm$core$Array$setHelp, shift - $elm$core$Array$shiftStep, index, value, subTree);
-			return A3(
-				$elm$core$Elm$JsArray$unsafeSet,
-				pos,
-				$elm$core$Array$SubTree(newSub),
-				tree);
-		} else {
-			var values = _v0.a;
-			var newLeaf = A3($elm$core$Elm$JsArray$unsafeSet, $elm$core$Array$bitMask & index, value, values);
-			return A3(
-				$elm$core$Elm$JsArray$unsafeSet,
-				pos,
-				$elm$core$Array$Leaf(newLeaf),
-				tree);
-		}
-	});
-var $elm$core$Array$set = F3(
-	function (index, value, array) {
-		var len = array.a;
-		var startShift = array.b;
-		var tree = array.c;
-		var tail = array.d;
-		return ((index < 0) || (_Utils_cmp(index, len) > -1)) ? array : ((_Utils_cmp(
-			index,
-			$elm$core$Array$tailIndex(len)) > -1) ? A4(
-			$elm$core$Array$Array_elm_builtin,
-			len,
-			startShift,
-			tree,
-			A3($elm$core$Elm$JsArray$unsafeSet, $elm$core$Array$bitMask & index, value, tail)) : A4(
-			$elm$core$Array$Array_elm_builtin,
-			len,
-			startShift,
-			A4($elm$core$Array$setHelp, startShift, index, value, tree),
-			tail));
-	});
-var $author$project$Main$colors = A3(
-	$elm$core$Array$set,
-	94,
-	_Utils_Tuple3(12, 15, 10),
-	A3(
-		$elm$core$Array$set,
-		72,
-		_Utils_Tuple3(76, 46, 5),
-		A3(
-			$elm$core$Array$set,
-			46,
-			_Utils_Tuple3(238, 185, 2),
-			A3(
-				$elm$core$Array$set,
-				26,
-				_Utils_Tuple3(45, 125, 210),
-				A3(
-					$elm$core$Array$set,
-					16,
-					_Utils_Tuple3(54, 48, 32),
-					A3(
-						$elm$core$Array$set,
-						4,
-						_Utils_Tuple3(151, 204, 4),
-						A3(
-							$elm$core$Array$set,
-							2,
-							_Utils_Tuple3(201, 249, 255),
-							$elm$core$Array$fromList(
-								_List_fromArray(
-									[
-										_Utils_Tuple3(51, 0, 0),
-										_Utils_Tuple3(204, 0, 102),
-										_Utils_Tuple3(0, 255, 0),
-										_Utils_Tuple3(102, 51, 51),
-										_Utils_Tuple3(153, 204, 51),
-										_Utils_Tuple3(51, 51, 153),
-										_Utils_Tuple3(102, 0, 51),
-										_Utils_Tuple3(153, 153, 0),
-										_Utils_Tuple3(51, 102, 204),
-										_Utils_Tuple3(204, 255, 0),
-										_Utils_Tuple3(204, 102, 0),
-										_Utils_Tuple3(204, 255, 153),
-										_Utils_Tuple3(102, 102, 255),
-										_Utils_Tuple3(255, 204, 255),
-										_Utils_Tuple3(51, 255, 0),
-										_Utils_Tuple3(0, 102, 51),
-										_Utils_Tuple3(102, 102, 0),
-										_Utils_Tuple3(0, 0, 255),
-										_Utils_Tuple3(255, 153, 204),
-										_Utils_Tuple3(204, 204, 0),
-										_Utils_Tuple3(0, 153, 153),
-										_Utils_Tuple3(153, 102, 204),
-										_Utils_Tuple3(255, 204, 0),
-										_Utils_Tuple3(204, 204, 153),
-										_Utils_Tuple3(255, 51, 0),
-										_Utils_Tuple3(51, 51, 0),
-										_Utils_Tuple3(153, 51, 51),
-										_Utils_Tuple3(0, 0, 102),
-										_Utils_Tuple3(102, 255, 204),
-										_Utils_Tuple3(204, 51, 255),
-										_Utils_Tuple3(255, 204, 204),
-										_Utils_Tuple3(0, 0, 153),
-										_Utils_Tuple3(0, 102, 153),
-										_Utils_Tuple3(153, 0, 51),
-										_Utils_Tuple3(51, 51, 102),
-										_Utils_Tuple3(255, 153, 0),
-										_Utils_Tuple3(204, 153, 0),
-										_Utils_Tuple3(153, 102, 153),
-										_Utils_Tuple3(51, 204, 204),
-										_Utils_Tuple3(51, 51, 255),
-										_Utils_Tuple3(153, 204, 102),
-										_Utils_Tuple3(102, 204, 153),
-										_Utils_Tuple3(153, 153, 204),
-										_Utils_Tuple3(0, 51, 204),
-										_Utils_Tuple3(204, 204, 102),
-										_Utils_Tuple3(0, 51, 153),
-										_Utils_Tuple3(0, 102, 0),
-										_Utils_Tuple3(51, 0, 102),
-										_Utils_Tuple3(153, 255, 0),
-										_Utils_Tuple3(153, 255, 102),
-										_Utils_Tuple3(102, 102, 51),
-										_Utils_Tuple3(153, 0, 255),
-										_Utils_Tuple3(204, 255, 102),
-										_Utils_Tuple3(102, 0, 255),
-										_Utils_Tuple3(255, 204, 153),
-										_Utils_Tuple3(102, 51, 0),
-										_Utils_Tuple3(102, 204, 102),
-										_Utils_Tuple3(0, 102, 204),
-										_Utils_Tuple3(51, 204, 0),
-										_Utils_Tuple3(255, 102, 102),
-										_Utils_Tuple3(153, 255, 204),
-										_Utils_Tuple3(51, 204, 51),
-										_Utils_Tuple3(0, 0, 0),
-										_Utils_Tuple3(255, 0, 255),
-										_Utils_Tuple3(153, 0, 153),
-										_Utils_Tuple3(255, 204, 51),
-										_Utils_Tuple3(51, 0, 51),
-										_Utils_Tuple3(102, 204, 255),
-										_Utils_Tuple3(153, 204, 153),
-										_Utils_Tuple3(153, 102, 0),
-										_Utils_Tuple3(102, 204, 204),
-										_Utils_Tuple3(204, 204, 204),
-										_Utils_Tuple3(255, 0, 0),
-										_Utils_Tuple3(255, 255, 51),
-										_Utils_Tuple3(0, 255, 102),
-										_Utils_Tuple3(204, 153, 102),
-										_Utils_Tuple3(204, 153, 153),
-										_Utils_Tuple3(102, 51, 153),
-										_Utils_Tuple3(51, 102, 0),
-										_Utils_Tuple3(204, 51, 153),
-										_Utils_Tuple3(153, 51, 255),
-										_Utils_Tuple3(102, 0, 204),
-										_Utils_Tuple3(204, 102, 153),
-										_Utils_Tuple3(204, 0, 204),
-										_Utils_Tuple3(102, 51, 102),
-										_Utils_Tuple3(0, 153, 51),
-										_Utils_Tuple3(153, 153, 51),
-										_Utils_Tuple3(255, 102, 0),
-										_Utils_Tuple3(255, 153, 153),
-										_Utils_Tuple3(153, 0, 102),
-										_Utils_Tuple3(51, 204, 255),
-										_Utils_Tuple3(102, 255, 102),
-										_Utils_Tuple3(255, 255, 204),
-										_Utils_Tuple3(51, 51, 204),
-										_Utils_Tuple3(153, 102, 51),
-										_Utils_Tuple3(153, 153, 255),
-										_Utils_Tuple3(51, 153, 0),
-										_Utils_Tuple3(204, 0, 255),
-										_Utils_Tuple3(102, 255, 0),
-										_Utils_Tuple3(153, 102, 255),
-										_Utils_Tuple3(204, 102, 255),
-										_Utils_Tuple3(204, 0, 0),
-										_Utils_Tuple3(102, 153, 255),
-										_Utils_Tuple3(204, 102, 204),
-										_Utils_Tuple3(204, 51, 102),
-										_Utils_Tuple3(0, 255, 153),
-										_Utils_Tuple3(153, 204, 204),
-										_Utils_Tuple3(255, 0, 102),
-										_Utils_Tuple3(102, 51, 204),
-										_Utils_Tuple3(255, 51, 204),
-										_Utils_Tuple3(51, 204, 153),
-										_Utils_Tuple3(153, 153, 102),
-										_Utils_Tuple3(153, 204, 0),
-										_Utils_Tuple3(153, 102, 102),
-										_Utils_Tuple3(204, 153, 255),
-										_Utils_Tuple3(153, 0, 204),
-										_Utils_Tuple3(102, 0, 0),
-										_Utils_Tuple3(255, 51, 255),
-										_Utils_Tuple3(0, 204, 153),
-										_Utils_Tuple3(255, 153, 51),
-										_Utils_Tuple3(0, 255, 204),
-										_Utils_Tuple3(51, 102, 153),
-										_Utils_Tuple3(255, 51, 51),
-										_Utils_Tuple3(102, 255, 51),
-										_Utils_Tuple3(0, 0, 204),
-										_Utils_Tuple3(102, 255, 153),
-										_Utils_Tuple3(0, 204, 255),
-										_Utils_Tuple3(0, 102, 102),
-										_Utils_Tuple3(102, 51, 255),
-										_Utils_Tuple3(255, 0, 204),
-										_Utils_Tuple3(51, 255, 153),
-										_Utils_Tuple3(204, 0, 51),
-										_Utils_Tuple3(153, 51, 204),
-										_Utils_Tuple3(204, 102, 51),
-										_Utils_Tuple3(255, 255, 0),
-										_Utils_Tuple3(51, 51, 51),
-										_Utils_Tuple3(0, 153, 0),
-										_Utils_Tuple3(51, 255, 102),
-										_Utils_Tuple3(51, 102, 255),
-										_Utils_Tuple3(102, 153, 0),
-										_Utils_Tuple3(102, 153, 204),
-										_Utils_Tuple3(51, 0, 255),
-										_Utils_Tuple3(102, 153, 153),
-										_Utils_Tuple3(153, 51, 102),
-										_Utils_Tuple3(204, 255, 51),
-										_Utils_Tuple3(204, 204, 51),
-										_Utils_Tuple3(0, 204, 51),
-										_Utils_Tuple3(255, 102, 153),
-										_Utils_Tuple3(204, 102, 102),
-										_Utils_Tuple3(102, 0, 102),
-										_Utils_Tuple3(51, 153, 204),
-										_Utils_Tuple3(255, 255, 255),
-										_Utils_Tuple3(0, 102, 255),
-										_Utils_Tuple3(51, 102, 51),
-										_Utils_Tuple3(204, 0, 153),
-										_Utils_Tuple3(102, 153, 102),
-										_Utils_Tuple3(102, 0, 153),
-										_Utils_Tuple3(153, 255, 153),
-										_Utils_Tuple3(0, 153, 102),
-										_Utils_Tuple3(102, 204, 0),
-										_Utils_Tuple3(0, 255, 51),
-										_Utils_Tuple3(153, 204, 255),
-										_Utils_Tuple3(153, 51, 153),
-										_Utils_Tuple3(0, 51, 255),
-										_Utils_Tuple3(51, 255, 51),
-										_Utils_Tuple3(255, 102, 51),
-										_Utils_Tuple3(102, 102, 204),
-										_Utils_Tuple3(102, 153, 51),
-										_Utils_Tuple3(0, 204, 0),
-										_Utils_Tuple3(102, 204, 51),
-										_Utils_Tuple3(255, 102, 255),
-										_Utils_Tuple3(255, 204, 102),
-										_Utils_Tuple3(102, 102, 102),
-										_Utils_Tuple3(255, 102, 204),
-										_Utils_Tuple3(51, 0, 153),
-										_Utils_Tuple3(255, 0, 51),
-										_Utils_Tuple3(102, 102, 153),
-										_Utils_Tuple3(255, 153, 102),
-										_Utils_Tuple3(204, 255, 204),
-										_Utils_Tuple3(51, 0, 204),
-										_Utils_Tuple3(0, 0, 51),
-										_Utils_Tuple3(51, 255, 255),
-										_Utils_Tuple3(204, 51, 0),
-										_Utils_Tuple3(153, 51, 0),
-										_Utils_Tuple3(51, 153, 102),
-										_Utils_Tuple3(102, 255, 255),
-										_Utils_Tuple3(255, 153, 255),
-										_Utils_Tuple3(204, 255, 255),
-										_Utils_Tuple3(204, 153, 204),
-										_Utils_Tuple3(255, 0, 153),
-										_Utils_Tuple3(51, 102, 102),
-										_Utils_Tuple3(153, 255, 255),
-										_Utils_Tuple3(255, 255, 153),
-										_Utils_Tuple3(204, 51, 204),
-										_Utils_Tuple3(153, 153, 153),
-										_Utils_Tuple3(51, 153, 255),
-										_Utils_Tuple3(51, 153, 51),
-										_Utils_Tuple3(0, 153, 255),
-										_Utils_Tuple3(0, 51, 51),
-										_Utils_Tuple3(0, 51, 102),
-										_Utils_Tuple3(153, 0, 0),
-										_Utils_Tuple3(204, 51, 51),
-										_Utils_Tuple3(0, 153, 204),
-										_Utils_Tuple3(153, 255, 51),
-										_Utils_Tuple3(255, 255, 102),
-										_Utils_Tuple3(204, 204, 255),
-										_Utils_Tuple3(0, 204, 102),
-										_Utils_Tuple3(255, 51, 102),
-										_Utils_Tuple3(0, 255, 255),
-										_Utils_Tuple3(51, 153, 153),
-										_Utils_Tuple3(51, 204, 102),
-										_Utils_Tuple3(51, 255, 204),
-										_Utils_Tuple3(255, 51, 153),
-										_Utils_Tuple3(0, 51, 0),
-										_Utils_Tuple3(0, 204, 204),
-										_Utils_Tuple3(204, 153, 51)
-									])))))))));
-var $author$project$Main$viewClassIcon = function (_class) {
-	var color = function () {
-		var _v1 = A2($elm$core$Array$get, _class - 1, $author$project$Main$colors);
-		if (_v1.$ === 'Just') {
-			var _v2 = _v1.a;
-			var r = _v2.a;
-			var g = _v2.b;
-			var b = _v2.c;
-			return 'rgb(' + ($elm$core$String$fromInt(r) + (' ' + ($elm$core$String$fromInt(g) + (' ' + ($elm$core$String$fromInt(b) + ')')))));
-		} else {
-			return 'red';
-		}
-	}();
-	var classname = function () {
-		var _v0 = A2($elm$core$Array$get, _class - 1, $author$project$Main$classnames);
-		if (_v0.$ === 'Just') {
-			var names = _v0.a;
-			return A2(
-				$elm$core$String$join,
-				', ',
-				A2($elm$core$List$take, 2, names));
-		} else {
-			return 'no classname found';
-		}
-	}();
-	return A2(
-		$elm$html$Html$div,
-		_List_fromArray(
-			[
-				$elm$html$Html$Attributes$class('flex flex-row gap-1 items-center')
-			]),
-		_List_fromArray(
-			[
-				A2(
-				$elm$html$Html$span,
-				_List_fromArray(
-					[
-						$elm$html$Html$Attributes$class('w-4 h-4'),
-						A2($elm$html$Html$Attributes$style, 'background-color', color)
-					]),
-				_List_Nil),
-				A2(
-				$elm$html$Html$span,
-				_List_Nil,
-				_List_fromArray(
-					[
-						$elm$html$Html$text(
-						classname + (' (class ' + ($elm$core$String$fromInt(_class) + ')')))
-					]))
-			]));
-};
-var $author$project$Main$viewLegend = function (classes) {
-	return A2(
-		$elm$html$Html$div,
-		_List_fromArray(
-			[
-				$elm$html$Html$Attributes$id('legend')
-			]),
-		_List_fromArray(
-			[
-				A2(
-				$elm$html$Html$p,
-				_List_Nil,
-				_List_fromArray(
-					[
-						$elm$html$Html$text('Legend')
-					])),
-				A2(
-				$elm$html$Html$div,
-				_List_Nil,
-				A2(
-					$elm$core$List$map,
-					$author$project$Main$viewClassIcon,
-					A2(
-						$elm$core$List$filter,
-						function (x) {
-							return x > 0;
-						},
-						$elm$core$List$sort(
-							$elm$core$Set$toList(classes)))))
-			]));
-};
-var $elm$core$Maybe$map = F2(
-	function (f, maybe) {
-		if (maybe.$ === 'Just') {
-			var value = maybe.a;
-			return $elm$core$Maybe$Just(
-				f(value));
-		} else {
-			return $elm$core$Maybe$Nothing;
-		}
-	});
-var $author$project$Main$SetSlider = F2(
-	function (a, b) {
-		return {$: 'SetSlider', a: a, b: b};
-	});
-var $author$project$Main$viewImage = function (url) {
-	return A2(
-		$elm$html$Html$img,
-		_List_fromArray(
-			[
-				$elm$html$Html$Attributes$src(url),
-				$elm$html$Html$Attributes$class('max-w-36 h-auto')
-			]),
-		_List_Nil);
-};
-var $author$project$Main$viewSaeLatentExamples = F2(
-	function (latent, value) {
-		return A2(
-			$elm$html$Html$div,
-			_List_fromArray(
-				[
-					$elm$html$Html$Attributes$class('flex flex-row gap-2 mt-2')
-				]),
-			_Utils_ap(
-				A2($elm$core$List$map, $author$project$Main$viewImage, latent.urls),
-				_List_fromArray(
-					[
-						A2(
-						$elm$html$Html$div,
-						_List_fromArray(
-							[
-								$elm$html$Html$Attributes$class('flex flex-col gap-2')
-							]),
-						_List_fromArray(
-							[
-								A2(
-								$elm$html$Html$input,
-								_List_fromArray(
-									[
-										$elm$html$Html$Attributes$type_('range'),
-										$elm$html$Html$Attributes$min('-10'),
-										$elm$html$Html$Attributes$max('10'),
-										$elm$html$Html$Attributes$value(
-										$elm$core$String$fromFloat(value)),
-										$elm$html$Html$Events$onInput(
-										$author$project$Main$SetSlider(latent.latent))
-									]),
-								_List_Nil),
-								A2(
-								$elm$html$Html$p,
-								_List_Nil,
-								_List_fromArray(
-									[
-										$elm$html$Html$text(
-										'Latent 24K/' + ($elm$core$String$fromInt(latent.latent) + (': ' + $elm$core$String$fromFloat(value))))
-									]))
-							]))
-					])));
-	});
-var $author$project$Main$viewSaeExamples = F3(
-	function (selected, latents, values) {
-		return ($elm$core$List$length(latents) > 0) ? A2(
-			$elm$html$Html$div,
-			_List_Nil,
-			_Utils_ap(
-				_List_fromArray(
-					[
-						A2(
-						$elm$html$Html$p,
-						_List_Nil,
-						_List_fromArray(
-							[
-								A2(
-								$elm$html$Html$span,
-								_List_fromArray(
-									[
-										$elm$html$Html$Attributes$class('bg-rose-600 p-1 rounded')
-									]),
-								_List_fromArray(
-									[
-										$elm$html$Html$text('These patches')
-									])),
-								$elm$html$Html$text(' above are like '),
-								A2(
-								$elm$html$Html$span,
-								_List_fromArray(
-									[
-										$elm$html$Html$Attributes$class('plasma-gradient text-white p-1 rounded')
-									]),
-								_List_fromArray(
-									[
-										$elm$html$Html$text('these patches')
-									])),
-								$elm$html$Html$text(' below. (Not what you expected? Add more patches and get a larger '),
-								A2(
-								$elm$html$Html$a,
-								_List_fromArray(
-									[
-										$elm$html$Html$Attributes$href('https://simple.wikipedia.org/wiki/Sampling_(statistics)'),
-										$elm$html$Html$Attributes$class('text-blue-500 underline')
-									]),
-								_List_fromArray(
-									[
-										$elm$html$Html$text('sample size')
-									])),
-								$elm$html$Html$text(')')
-							]))
-					]),
-				A2(
-					$elm$core$List$filterMap,
-					function (latent) {
-						return A2(
-							$elm$core$Maybe$map,
-							function (f) {
-								return A2($author$project$Main$viewSaeLatentExamples, latent, f);
-							},
-							A2($elm$core$Dict$get, latent.latent, values));
-					},
-					latents))) : (($elm$core$Set$size(selected) > 0) ? A2(
-			$elm$html$Html$p,
-			_List_Nil,
-			_List_fromArray(
-				[
-					$elm$html$Html$text('Loading similar patches...')
-				])) : A2(
-			$elm$html$Html$p,
-			_List_Nil,
-			_List_fromArray(
-				[
-					$elm$html$Html$text('Click on the image above to explain model predictions.')
-				])));
-	});
-var $author$project$Main$view = function (model) {
+var $author$project$Semseg$view = function (model) {
 	return {
 		body: _List_fromArray(
 			[
 				A2($elm$html$Html$header, _List_Nil, _List_Nil),
 				A2(
 				$elm$html$Html$main_,
-				_List_Nil,
+				_List_fromArray(
+					[
+						$elm$html$Html$Attributes$class('w-full min-h-screen p-1 md:p-2 lg:p-4 bg-gray-50 space-y-4')
+					]),
 				_List_fromArray(
 					[
 						A2(
 						$elm$html$Html$div,
 						_List_fromArray(
 							[
-								$elm$html$Html$Attributes$class('flex flex-row items-center')
+								$elm$html$Html$Attributes$class('flex flex-row gap-2 items-stretch')
 							]),
 						_List_fromArray(
 							[
-								A3($author$project$Main$viewGriddedImage, model, model.imageUrl, 'Input Image'),
-								$author$project$Main$viewAnimatedNeuralNetwork(model),
-								A3($author$project$Main$viewGriddedImage, model, model.predLabelsUrl, 'Predicted Semantic Segmentation'),
-								A3($author$project$Main$viewGriddedImage, model, model.modifiedLabelsUrl, 'Modified Semantic Segmentation')
-							])),
-						$author$project$Main$viewControls(model),
-						A2(
-						$elm$html$Html$div,
-						_List_fromArray(
-							[
-								A2($elm$html$Html$Attributes$style, 'display', 'flex'),
-								A2($elm$html$Html$Attributes$style, 'flex-direction', 'row')
-							]),
-						_List_fromArray(
-							[
-								A3($author$project$Main$viewSaeExamples, model.selectedPatchIndices, model.saeLatents, model.sliders),
-								$author$project$Main$viewLegend(
-								$elm$core$Set$fromList(
-									_Utils_ap(model.predLabels, model.modifiedLabels)))
-							])),
-						$author$project$Main$viewErr(model.err)
+								A3(
+								$author$project$Semseg$viewGriddedImage,
+								model,
+								A2(
+									$author$project$Requests$map,
+									function ($) {
+										return $.image;
+									},
+									model.inputExample),
+								'Input Image'),
+								A3(
+								$author$project$Semseg$viewGriddedImage,
+								model,
+								A2(
+									$author$project$Requests$map,
+									function ($) {
+										return $.labels;
+									},
+									model.inputExample),
+								'True Labels')
+							]))
 					]))
 			]),
 		title: 'Semantic Segmentation'
 	};
 };
-var $author$project$Main$main = $elm$browser$Browser$document(
+var $author$project$Semseg$main = $elm$browser$Browser$application(
 	{
-		init: $author$project$Main$init,
+		init: $author$project$Semseg$init,
+		onUrlChange: $author$project$Semseg$onUrlChange,
+		onUrlRequest: $author$project$Semseg$onUrlRequest,
 		subscriptions: function (model) {
 			return $elm$core$Platform$Sub$none;
 		},
-		update: $author$project$Main$update,
-		view: $author$project$Main$view
+		update: $author$project$Semseg$update,
+		view: $author$project$Semseg$view
 	});
-_Platform_export({'Main':{'init':$author$project$Main$main(
-	$elm$json$Json$Decode$succeed(_Utils_Tuple0))({"versions":{"elm":"0.19.1"},"types":{"message":"Main.Msg","aliases":{"Json.Decode.Value":{"args":[],"type":"Json.Encode.Value"}},"unions":{"Main.Msg":{"args":[],"tags":{"HoverPatch":["Basics.Int"],"ResetHoveredPatch":[],"ToggleSelectedPatch":["Basics.Int"],"ResetSelectedPatches":[],"GotEventId":["String.String -> Platform.Cmd.Cmd Main.Msg","Result.Result Http.Error String.String"],"GotEventData":["String.String -> Main.Msg","Result.Result Http.Error String.String"],"ParsedSaeExamples":["Result.Result Json.Decode.Error (List.List Main.SaeExampleResult)"],"ParsedImageUrl":["Result.Result Json.Decode.Error (Maybe.Maybe String.String)"],"ParsedTrueLabels":["Result.Result Json.Decode.Error (List.List Main.SegmentationResult)"],"ParsedPredLabels":["Result.Result Json.Decode.Error (List.List Main.SegmentationResult)"],"ParsedModifiedLabels":["Result.Result Json.Decode.Error (List.List Main.SegmentationResult)"],"GetRandomExample":[],"SetExample":["Basics.Int"],"SetExampleInput":["String.String"],"SetSlider":["Basics.Int","String.String"]}},"Platform.Cmd.Cmd":{"args":["msg"],"tags":{"Cmd":[]}},"Http.Error":{"args":[],"tags":{"BadUrl":["String.String"],"Timeout":[],"NetworkError":[],"BadStatus":["Basics.Int"],"BadBody":["String.String"]}},"Json.Decode.Error":{"args":[],"tags":{"Field":["String.String","Json.Decode.Error"],"Index":["Basics.Int","Json.Decode.Error"],"OneOf":["List.List Json.Decode.Error"],"Failure":["String.String","Json.Decode.Value"]}},"Basics.Int":{"args":[],"tags":{"Int":[]}},"List.List":{"args":["a"],"tags":{}},"Maybe.Maybe":{"args":["a"],"tags":{"Just":["a"],"Nothing":[]}},"Result.Result":{"args":["error","value"],"tags":{"Ok":["value"],"Err":["error"]}},"Main.SaeExampleResult":{"args":[],"tags":{"SaeExampleMissing":[],"SaeExampleUrl":["String.String"],"SaeExampleLatent":["Basics.Int"]}},"Main.SegmentationResult":{"args":[],"tags":{"SegmentationUrl":["String.String"],"SegmentationLabels":["List.List Basics.Int"]}},"String.String":{"args":[],"tags":{"String":[]}},"Json.Encode.Value":{"args":[],"tags":{"Value":[]}}}}})}});}(this));
+_Platform_export({'Semseg':{'init':$author$project$Semseg$main(
+	$elm$json$Json$Decode$succeed(_Utils_Tuple0))({"versions":{"elm":"0.19.1"},"types":{"message":"Semseg.Msg","aliases":{"Semseg.Example":{"args":[],"type":"{ image : Gradio.Base64Image, labels : Gradio.Base64Image }"}},"unions":{"Semseg.Msg":{"args":[],"tags":{"NoOp":[],"HoverPatch":["Basics.Int"],"ResetHoveredPatch":[],"ToggleSelectedPatch":["Basics.Int"],"ResetSelectedPatches":[],"GotInputExample":["Requests.Id","Result.Result Gradio.Error Semseg.Example"],"GotOrigPreds":["Requests.Id","Result.Result Gradio.Error Semseg.Example"]}},"Gradio.Base64Image":{"args":[],"tags":{"Base64Image":["String.String"]}},"Gradio.Error":{"args":[],"tags":{"NetworkError":["String.String"],"ParsingError":["String.String"],"JsonError":["String.String"],"ApiError":["String.String"]}},"Requests.Id":{"args":[],"tags":{"Id":["Basics.Int"]}},"Basics.Int":{"args":[],"tags":{"Int":[]}},"Result.Result":{"args":["error","value"],"tags":{"Ok":["value"],"Err":["error"]}},"String.String":{"args":[],"tags":{"String":[]}}}}})}});}(this));

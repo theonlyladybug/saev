@@ -22,7 +22,8 @@ import saev.config
 import saev.nn
 import saev.visuals
 
-from . import training
+from .. import training
+from . import data
 
 ####################
 # Global Constants #
@@ -47,6 +48,11 @@ n_sae_examples = 4
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 """Hardware accelerator, if any."""
 
+RESIZE_SIZE = 512
+"""Resize shorter size to this size in pixels."""
+
+CROP_SIZE = (448, 448)
+"""Crop size in pixels."""
 
 ####################
 # Helper Functions #
@@ -121,54 +127,37 @@ mask = mask & (sparsity < max_frequency)
 ############
 
 
-in1k_dataset = saev.activations.get_dataset(
-    saev.config.ImagenetDataset(),
-    img_transform=v2.Compose([
-        v2.Resize(size=(512, 512)),
-        v2.CenterCrop(size=(448, 448)),
-    ]),
-)
+# in1k_dataset = saev.activations.get_dataset(
+#     saev.config.ImagenetDataset(),
+#     img_transform=v2.Compose([
+#         v2.Resize(size=(512, 512)),
+#         v2.CenterCrop(size=(448, 448)),
+#     ]),
+# )
 
 
-acts_dataset = saev.activations.Dataset(
-    saev.config.DataLoad(
-        shard_root="/local/scratch/stevens.994/cache/saev/a1f842330bb568b2fb05c15d4fa4252fb7f5204837335000d9fd420f120cd03e",
-        scale_mean=not DEBUG,
-        scale_norm=not DEBUG,
-        layer=-2,
-    )
-)
+# acts_dataset = saev.activations.Dataset(
+#     saev.config.DataLoad(
+#         shard_root="/local/scratch/stevens.994/cache/saev/a1f842330bb568b2fb05c15d4fa4252fb7f5204837335000d9fd420f120cd03e",
+#         scale_mean=not DEBUG,
+#         scale_norm=not DEBUG,
+#         layer=-2,
+#     )
+# )
 
 
-to_array = v2.Compose([
-    v2.Resize((512, 512), interpolation=v2.InterpolationMode.NEAREST),
-    v2.CenterCrop((448, 448)),
-    v2.ToImage(),
-    einops.layers.torch.Rearrange("channels width height -> width height channels"),
-])
-
-
-human_dataset = saev.activations.Ade20k(
-    saev.config.Ade20kDataset(
-        root="/research/nfs_su_809/workspace/stevens.994/datasets/ade20k/"
-    ),
-    img_transform=to_array,
-    seg_transform=to_array,
-)
-
-
-vit_dataset = saev.activations.Ade20k(
-    saev.config.Ade20kDataset(
-        root="/research/nfs_su_809/workspace/stevens.994/datasets/ade20k/"
-    ),
-    img_transform=v2.Compose([
-        v2.Resize(size=(256, 256)),
-        v2.CenterCrop(size=(224, 224)),
-        v2.ToImage(),
-        v2.ToDtype(torch.float32, scale=True),
-        v2.Normalize(mean=[0.4850, 0.4560, 0.4060], std=[0.2290, 0.2240, 0.2250]),
-    ]),
-)
+# vit_dataset = saev.activations.Ade20k(
+#     saev.config.Ade20kDataset(
+#         root="/research/nfs_su_809/workspace/stevens.994/datasets/ade20k/"
+#     ),
+#     img_transform=v2.Compose([
+#         v2.Resize(size=(256, 256)),
+#         v2.CenterCrop(size=(224, 224)),
+#         v2.ToImage(),
+#         v2.ToDtype(torch.float32, scale=True),
+#         v2.Normalize(mean=[0.4850, 0.4560, 0.4060], std=[0.2290, 0.2240, 0.2250]),
+#     ]),
+# )
 
 
 #######################
@@ -176,9 +165,11 @@ vit_dataset = saev.activations.Ade20k(
 #######################
 
 
-def get_image(image_i: int) -> Image.Image:
-    image = human_dataset[image_i]["image"]
-    return Image.fromarray(image.numpy())
+@beartype.beartype
+def get_image(image_i: int) -> tuple[str, str]:
+    img_sized, labels_sized = data.get_sample(image_i)
+
+    return data.pil_to_base64(img_sized), data.pil_to_base64(labels_sized)
 
 
 @torch.inference_mode
@@ -337,44 +328,6 @@ def upsample(
     )
 
 
-@jaxtyped(typechecker=beartype.beartype)
-def make_colors() -> UInt8[np.ndarray, "n 3"]:
-    values = (0, 51, 102, 153, 204, 255)
-    colors = []
-    for r in values:
-        for g in values:
-            for b in values:
-                colors.append((r, g, b))
-    # Fixed seed
-    random.Random(42).shuffle(colors)
-    colors = np.array(colors, dtype=np.uint8)
-
-    # Fixed colors for example 3122
-    colors[2] = np.array([201, 249, 255], dtype=np.uint8)
-    colors[4] = np.array([151, 204, 4], dtype=np.uint8)
-    colors[13] = np.array([104, 139, 88], dtype=np.uint8)
-    colors[16] = np.array([54, 48, 32], dtype=np.uint8)
-    colors[26] = np.array([45, 125, 210], dtype=np.uint8)
-    colors[46] = np.array([238, 185, 2], dtype=np.uint8)
-    colors[52] = np.array([88, 91, 86], dtype=np.uint8)
-    colors[72] = np.array([76, 46, 5], dtype=np.uint8)
-    colors[94] = np.array([12, 15, 10], dtype=np.uint8)
-
-    return colors
-
-
-@jaxtyped(typechecker=beartype.beartype)
-def seg_to_img(map: UInt8[Tensor, "width height *channel"]) -> Image.Image:
-    map = map.cpu().numpy()
-    if map.ndim == 3:
-        map = einops.rearrange(map, "w h () -> w h")
-    colored = np.zeros((448, 448, 3), dtype=np.uint8)
-    for i, color in enumerate(make_colors()):
-        colored[map == i + 1, :] = color
-
-    return Image.fromarray(colored)
-
-
 @beartype.beartype
 def make_img(
     elem: saev.visuals.GridElement, *, upper: float | None = None
@@ -400,66 +353,75 @@ def make_img(
 
 with gr.Blocks() as demo:
     image_number = gr.Number(label="Validation Example")
-    input_image = gr.Image(label="Input Image", format="png")
+
+    input_image_base64 = gr.Text(label="Image in Base64")
+    true_labels_base64 = gr.Text(label="Labels in Base64")
+
     get_input_image_btn = gr.Button(value="Get Input Image")
     get_input_image_btn.click(
         get_image,
         inputs=[image_number],
-        outputs=input_image,
+        outputs=[input_image_base64, true_labels_base64],
         api_name="get-image",
     )
 
-    patch_numbers = gr.CheckboxGroup(label="Image Patch", choices=list(range(256)))
-    top_latent_numbers = gr.CheckboxGroup(label="Top Latents")
-    top_latent_numbers = [
-        gr.Number(label="Top Latents #{j+1}") for j in range(n_sae_latents)
-    ]
-    sae_example_images = [
-        gr.Image(label=f"Latent #{j}, Example #{i + 1}", format="png")
-        for i in range(n_sae_examples)
-        for j in range(n_sae_latents)
-    ]
+    # input_image = gr.Image(
+    #     label="Input Image",
+    #     sources=["upload", "clipboard"],
+    #     type="pil",
+    #     interactive=True,
+    # )
+    # patch_numbers = gr.CheckboxGroup(label="Image Patch", choices=list(range(256)))
+    # top_latent_numbers = gr.CheckboxGroup(label="Top Latents")
+    # top_latent_numbers = [
+    #     gr.Number(label="Top Latents #{j+1}") for j in range(n_sae_latents)
+    # ]
+    # sae_example_images = [
+    #     gr.Image(label=f"Latent #{j}, Example #{i + 1}", format="png")
+    #     for i in range(n_sae_examples)
+    #     for j in range(n_sae_latents)
+    # ]
 
-    get_sae_examples_btn = gr.Button(value="Get SAE Examples")
-    get_sae_examples_btn.click(
-        get_sae_examples,
-        inputs=[image_number, patch_numbers],
-        outputs=sae_example_images + top_latent_numbers,
-        api_name="get-sae-examples",
-    )
-    semseg_image = gr.Image(label="Semantic Segmentaions", format="png")
-    semseg_colors = gr.CheckboxGroup(
-        label="Sem Seg Colors", choices=list(range(1, 151))
-    )
+    # get_sae_examples_btn = gr.Button(value="Get SAE Examples")
+    # get_sae_examples_btn.click(
+    #     get_sae_examples,
+    #     inputs=[image_number, patch_numbers],
+    #     outputs=sae_example_images + top_latent_numbers,
+    #     api_name="get-sae-examples",
+    # )
+    # semseg_image = gr.Image(label="Semantic Segmentaions", format="png")
+    # semseg_colors = gr.CheckboxGroup(
+    #     label="Sem Seg Colors", choices=list(range(1, 151))
+    # )
 
-    get_pred_labels_btn = gr.Button(value="Get Pred. Labels")
-    get_pred_labels_btn.click(
-        get_pred_labels,
-        inputs=[image_number],
-        outputs=[semseg_image, semseg_colors],
-        api_name="get-pred-labels",
-    )
+    # get_pred_labels_btn = gr.Button(value="Get Pred. Labels")
+    # get_pred_labels_btn.click(
+    #     get_pred_labels,
+    #     inputs=[image_number],
+    #     outputs=[semseg_image, semseg_colors],
+    #     api_name="get-pred-labels",
+    # )
 
-    get_true_labels_btn = gr.Button(value="Get True Label")
-    get_true_labels_btn.click(
-        get_true_labels,
-        inputs=[image_number],
-        outputs=semseg_image,
-        api_name="get-true-labels",
-    )
+    # get_true_labels_btn = gr.Button(value="Get True Label")
+    # get_true_labels_btn.click(
+    #     get_true_labels,
+    #     inputs=[image_number],
+    #     outputs=semseg_image,
+    #     api_name="get-true-labels",
+    # )
 
-    latent_numbers = [gr.Number(label=f"Latent {i + 1}") for i in range(3)]
-    value_sliders = [
-        gr.Slider(label=f"Value {i + 1}", minimum=-10, maximum=10) for i in range(3)
-    ]
+    # latent_numbers = [gr.Number(label=f"Latent {i + 1}") for i in range(3)]
+    # value_sliders = [
+    #     gr.Slider(label=f"Value {i + 1}", minimum=-10, maximum=10) for i in range(3)
+    # ]
 
-    get_modified_labels_btn = gr.Button(value="Get Modified Label")
-    get_modified_labels_btn.click(
-        get_modified_labels,
-        inputs=[image_number] + latent_numbers + value_sliders,
-        outputs=[semseg_image, semseg_colors],
-        api_name="get-modified-labels",
-    )
+    # get_modified_labels_btn = gr.Button(value="Get Modified Label")
+    # get_modified_labels_btn.click(
+    #     get_modified_labels,
+    #     inputs=[image_number] + latent_numbers + value_sliders,
+    #     outputs=[semseg_image, semseg_colors],
+    #     api_name="get-modified-labels",
+    # )
 
 if __name__ == "__main__":
     demo.launch()
