@@ -4956,6 +4956,52 @@ function _Browser_load(url)
 
 
 
+function _Time_now(millisToPosix)
+{
+	return _Scheduler_binding(function(callback)
+	{
+		callback(_Scheduler_succeed(millisToPosix(Date.now())));
+	});
+}
+
+var _Time_setInterval = F2(function(interval, task)
+{
+	return _Scheduler_binding(function(callback)
+	{
+		var id = setInterval(function() { _Scheduler_rawSpawn(task); }, interval);
+		return function() { clearInterval(id); };
+	});
+});
+
+function _Time_here()
+{
+	return _Scheduler_binding(function(callback)
+	{
+		callback(_Scheduler_succeed(
+			A2($elm$time$Time$customZone, -(new Date().getTimezoneOffset()), _List_Nil)
+		));
+	});
+}
+
+
+function _Time_getZoneName()
+{
+	return _Scheduler_binding(function(callback)
+	{
+		try
+		{
+			var name = $elm$time$Time$Name(Intl.DateTimeFormat().resolvedOptions().timeZone);
+		}
+		catch (e)
+		{
+			var name = $elm$time$Time$Offset(new Date().getTimezoneOffset());
+		}
+		callback(_Scheduler_succeed(name));
+	});
+}
+
+
+
 // SEND REQUEST
 
 var _Http_toTask = F3(function(router, toTask, request)
@@ -5258,7 +5304,24 @@ var _Parser_findSubString = F5(function(smallString, offset, row, col, bigString
 
 	return _Utils_Tuple3(newOffset, row, col);
 });
-var $elm$core$Basics$EQ = {$: 'EQ'};
+
+
+function _Url_percentEncode(string)
+{
+	return encodeURIComponent(string);
+}
+
+function _Url_percentDecode(string)
+{
+	try
+	{
+		return $elm$core$Maybe$Just(decodeURIComponent(string));
+	}
+	catch (e)
+	{
+		return $elm$core$Maybe$Nothing;
+	}
+}var $elm$core$Basics$EQ = {$: 'EQ'};
 var $elm$core$Basics$GT = {$: 'GT'};
 var $elm$core$Basics$LT = {$: 'LT'};
 var $elm$core$List$cons = _List_cons;
@@ -10860,10 +10923,128 @@ var $elm$core$Basics$never = function (_v0) {
 };
 var $elm$browser$Browser$application = _Browser_application;
 var $author$project$Requests$Initial = {$: 'Initial'};
+var $author$project$Semseg$SetUrl = function (a) {
+	return {$: 'SetUrl', a: a};
+};
+var $elm$core$Maybe$andThen = F2(
+	function (callback, maybeValue) {
+		if (maybeValue.$ === 'Just') {
+			var value = maybeValue.a;
+			return callback(value);
+		} else {
+			return $elm$core$Maybe$Nothing;
+		}
+	});
 var $elm$core$Set$Set_elm_builtin = function (a) {
 	return {$: 'Set_elm_builtin', a: a};
 };
 var $elm$core$Set$empty = $elm$core$Set$Set_elm_builtin($elm$core$Dict$empty);
+var $elm$random$Random$Generate = function (a) {
+	return {$: 'Generate', a: a};
+};
+var $elm$random$Random$Seed = F2(
+	function (a, b) {
+		return {$: 'Seed', a: a, b: b};
+	});
+var $elm$random$Random$next = function (_v0) {
+	var state0 = _v0.a;
+	var incr = _v0.b;
+	return A2($elm$random$Random$Seed, ((state0 * 1664525) + incr) >>> 0, incr);
+};
+var $elm$random$Random$initialSeed = function (x) {
+	var _v0 = $elm$random$Random$next(
+		A2($elm$random$Random$Seed, 0, 1013904223));
+	var state1 = _v0.a;
+	var incr = _v0.b;
+	var state2 = (state1 + x) >>> 0;
+	return $elm$random$Random$next(
+		A2($elm$random$Random$Seed, state2, incr));
+};
+var $elm$time$Time$Name = function (a) {
+	return {$: 'Name', a: a};
+};
+var $elm$time$Time$Offset = function (a) {
+	return {$: 'Offset', a: a};
+};
+var $elm$time$Time$Zone = F2(
+	function (a, b) {
+		return {$: 'Zone', a: a, b: b};
+	});
+var $elm$time$Time$customZone = $elm$time$Time$Zone;
+var $elm$time$Time$Posix = function (a) {
+	return {$: 'Posix', a: a};
+};
+var $elm$time$Time$millisToPosix = $elm$time$Time$Posix;
+var $elm$time$Time$now = _Time_now($elm$time$Time$millisToPosix);
+var $elm$time$Time$posixToMillis = function (_v0) {
+	var millis = _v0.a;
+	return millis;
+};
+var $elm$random$Random$init = A2(
+	$elm$core$Task$andThen,
+	function (time) {
+		return $elm$core$Task$succeed(
+			$elm$random$Random$initialSeed(
+				$elm$time$Time$posixToMillis(time)));
+	},
+	$elm$time$Time$now);
+var $elm$random$Random$step = F2(
+	function (_v0, seed) {
+		var generator = _v0.a;
+		return generator(seed);
+	});
+var $elm$random$Random$onEffects = F3(
+	function (router, commands, seed) {
+		if (!commands.b) {
+			return $elm$core$Task$succeed(seed);
+		} else {
+			var generator = commands.a.a;
+			var rest = commands.b;
+			var _v1 = A2($elm$random$Random$step, generator, seed);
+			var value = _v1.a;
+			var newSeed = _v1.b;
+			return A2(
+				$elm$core$Task$andThen,
+				function (_v2) {
+					return A3($elm$random$Random$onEffects, router, rest, newSeed);
+				},
+				A2($elm$core$Platform$sendToApp, router, value));
+		}
+	});
+var $elm$random$Random$onSelfMsg = F3(
+	function (_v0, _v1, seed) {
+		return $elm$core$Task$succeed(seed);
+	});
+var $elm$random$Random$Generator = function (a) {
+	return {$: 'Generator', a: a};
+};
+var $elm$random$Random$map = F2(
+	function (func, _v0) {
+		var genA = _v0.a;
+		return $elm$random$Random$Generator(
+			function (seed0) {
+				var _v1 = genA(seed0);
+				var a = _v1.a;
+				var seed1 = _v1.b;
+				return _Utils_Tuple2(
+					func(a),
+					seed1);
+			});
+	});
+var $elm$random$Random$cmdMap = F2(
+	function (func, _v0) {
+		var generator = _v0.a;
+		return $elm$random$Random$Generate(
+			A2($elm$random$Random$map, func, generator));
+	});
+_Platform_effectManagers['Random'] = _Platform_createManager($elm$random$Random$init, $elm$random$Random$onEffects, $elm$random$Random$onSelfMsg, $elm$random$Random$cmdMap);
+var $elm$random$Random$command = _Platform_leaf('Random');
+var $elm$random$Random$generate = F2(
+	function (tagger, generator) {
+		return $elm$random$Random$command(
+			$elm$random$Random$Generate(
+				A2($elm$random$Random$map, tagger, generator)));
+	});
 var $author$project$Semseg$GotInputExample = F2(
 	function (a, b) {
 		return {$: 'GotInputExample', a: a, b: b};
@@ -11771,6 +11952,310 @@ var $author$project$Requests$Id = function (a) {
 	return {$: 'Id', a: a};
 };
 var $author$project$Requests$init = $author$project$Requests$Id(0);
+var $elm$url$Url$Parser$State = F5(
+	function (visited, unvisited, params, frag, value) {
+		return {frag: frag, params: params, unvisited: unvisited, value: value, visited: visited};
+	});
+var $elm$url$Url$Parser$getFirstMatch = function (states) {
+	getFirstMatch:
+	while (true) {
+		if (!states.b) {
+			return $elm$core$Maybe$Nothing;
+		} else {
+			var state = states.a;
+			var rest = states.b;
+			var _v1 = state.unvisited;
+			if (!_v1.b) {
+				return $elm$core$Maybe$Just(state.value);
+			} else {
+				if ((_v1.a === '') && (!_v1.b.b)) {
+					return $elm$core$Maybe$Just(state.value);
+				} else {
+					var $temp$states = rest;
+					states = $temp$states;
+					continue getFirstMatch;
+				}
+			}
+		}
+	}
+};
+var $elm$url$Url$Parser$removeFinalEmpty = function (segments) {
+	if (!segments.b) {
+		return _List_Nil;
+	} else {
+		if ((segments.a === '') && (!segments.b.b)) {
+			return _List_Nil;
+		} else {
+			var segment = segments.a;
+			var rest = segments.b;
+			return A2(
+				$elm$core$List$cons,
+				segment,
+				$elm$url$Url$Parser$removeFinalEmpty(rest));
+		}
+	}
+};
+var $elm$url$Url$Parser$preparePath = function (path) {
+	var _v0 = A2($elm$core$String$split, '/', path);
+	if (_v0.b && (_v0.a === '')) {
+		var segments = _v0.b;
+		return $elm$url$Url$Parser$removeFinalEmpty(segments);
+	} else {
+		var segments = _v0;
+		return $elm$url$Url$Parser$removeFinalEmpty(segments);
+	}
+};
+var $elm$url$Url$Parser$addToParametersHelp = F2(
+	function (value, maybeList) {
+		if (maybeList.$ === 'Nothing') {
+			return $elm$core$Maybe$Just(
+				_List_fromArray(
+					[value]));
+		} else {
+			var list = maybeList.a;
+			return $elm$core$Maybe$Just(
+				A2($elm$core$List$cons, value, list));
+		}
+	});
+var $elm$url$Url$percentDecode = _Url_percentDecode;
+var $elm$url$Url$Parser$addParam = F2(
+	function (segment, dict) {
+		var _v0 = A2($elm$core$String$split, '=', segment);
+		if ((_v0.b && _v0.b.b) && (!_v0.b.b.b)) {
+			var rawKey = _v0.a;
+			var _v1 = _v0.b;
+			var rawValue = _v1.a;
+			var _v2 = $elm$url$Url$percentDecode(rawKey);
+			if (_v2.$ === 'Nothing') {
+				return dict;
+			} else {
+				var key = _v2.a;
+				var _v3 = $elm$url$Url$percentDecode(rawValue);
+				if (_v3.$ === 'Nothing') {
+					return dict;
+				} else {
+					var value = _v3.a;
+					return A3(
+						$elm$core$Dict$update,
+						key,
+						$elm$url$Url$Parser$addToParametersHelp(value),
+						dict);
+				}
+			}
+		} else {
+			return dict;
+		}
+	});
+var $elm$url$Url$Parser$prepareQuery = function (maybeQuery) {
+	if (maybeQuery.$ === 'Nothing') {
+		return $elm$core$Dict$empty;
+	} else {
+		var qry = maybeQuery.a;
+		return A3(
+			$elm$core$List$foldr,
+			$elm$url$Url$Parser$addParam,
+			$elm$core$Dict$empty,
+			A2($elm$core$String$split, '&', qry));
+	}
+};
+var $elm$url$Url$Parser$parse = F2(
+	function (_v0, url) {
+		var parser = _v0.a;
+		return $elm$url$Url$Parser$getFirstMatch(
+			parser(
+				A5(
+					$elm$url$Url$Parser$State,
+					_List_Nil,
+					$elm$url$Url$Parser$preparePath(url.path),
+					$elm$url$Url$Parser$prepareQuery(url.query),
+					url.fragment,
+					$elm$core$Basics$identity)));
+	});
+var $elm$core$Bitwise$xor = _Bitwise_xor;
+var $elm$random$Random$peel = function (_v0) {
+	var state = _v0.a;
+	var word = (state ^ (state >>> ((state >>> 28) + 4))) * 277803737;
+	return ((word >>> 22) ^ word) >>> 0;
+};
+var $elm$random$Random$int = F2(
+	function (a, b) {
+		return $elm$random$Random$Generator(
+			function (seed0) {
+				var _v0 = (_Utils_cmp(a, b) < 0) ? _Utils_Tuple2(a, b) : _Utils_Tuple2(b, a);
+				var lo = _v0.a;
+				var hi = _v0.b;
+				var range = (hi - lo) + 1;
+				if (!((range - 1) & range)) {
+					return _Utils_Tuple2(
+						(((range - 1) & $elm$random$Random$peel(seed0)) >>> 0) + lo,
+						$elm$random$Random$next(seed0));
+				} else {
+					var threshhold = (((-range) >>> 0) % range) >>> 0;
+					var accountForBias = function (seed) {
+						accountForBias:
+						while (true) {
+							var x = $elm$random$Random$peel(seed);
+							var seedN = $elm$random$Random$next(seed);
+							if (_Utils_cmp(x, threshhold) < 0) {
+								var $temp$seed = seedN;
+								seed = $temp$seed;
+								continue accountForBias;
+							} else {
+								return _Utils_Tuple2((x % range) + lo, seedN);
+							}
+						}
+					};
+					return accountForBias(seed0);
+				}
+			});
+	});
+var $author$project$Semseg$nImages = 2000;
+var $author$project$Semseg$randomExample = A2($elm$random$Random$int, 0, $author$project$Semseg$nImages - 1);
+var $author$project$Semseg$QueryParams = function (example) {
+	return {example: example};
+};
+var $elm$url$Url$Parser$Internal$Parser = function (a) {
+	return {$: 'Parser', a: a};
+};
+var $elm$url$Url$Parser$Query$custom = F2(
+	function (key, func) {
+		return $elm$url$Url$Parser$Internal$Parser(
+			function (dict) {
+				return func(
+					A2(
+						$elm$core$Maybe$withDefault,
+						_List_Nil,
+						A2($elm$core$Dict$get, key, dict)));
+			});
+	});
+var $elm$url$Url$Parser$Query$int = function (key) {
+	return A2(
+		$elm$url$Url$Parser$Query$custom,
+		key,
+		function (stringList) {
+			if (stringList.b && (!stringList.b.b)) {
+				var str = stringList.a;
+				return $elm$core$String$toInt(str);
+			} else {
+				return $elm$core$Maybe$Nothing;
+			}
+		});
+};
+var $elm$url$Url$Parser$Parser = function (a) {
+	return {$: 'Parser', a: a};
+};
+var $elm$url$Url$Parser$mapState = F2(
+	function (func, _v0) {
+		var visited = _v0.visited;
+		var unvisited = _v0.unvisited;
+		var params = _v0.params;
+		var frag = _v0.frag;
+		var value = _v0.value;
+		return A5(
+			$elm$url$Url$Parser$State,
+			visited,
+			unvisited,
+			params,
+			frag,
+			func(value));
+	});
+var $elm$url$Url$Parser$map = F2(
+	function (subValue, _v0) {
+		var parseArg = _v0.a;
+		return $elm$url$Url$Parser$Parser(
+			function (_v1) {
+				var visited = _v1.visited;
+				var unvisited = _v1.unvisited;
+				var params = _v1.params;
+				var frag = _v1.frag;
+				var value = _v1.value;
+				return A2(
+					$elm$core$List$map,
+					$elm$url$Url$Parser$mapState(value),
+					parseArg(
+						A5($elm$url$Url$Parser$State, visited, unvisited, params, frag, subValue)));
+			});
+	});
+var $elm$url$Url$Parser$query = function (_v0) {
+	var queryParser = _v0.a;
+	return $elm$url$Url$Parser$Parser(
+		function (_v1) {
+			var visited = _v1.visited;
+			var unvisited = _v1.unvisited;
+			var params = _v1.params;
+			var frag = _v1.frag;
+			var value = _v1.value;
+			return _List_fromArray(
+				[
+					A5(
+					$elm$url$Url$Parser$State,
+					visited,
+					unvisited,
+					params,
+					frag,
+					value(
+						queryParser(params)))
+				]);
+		});
+};
+var $elm$url$Url$Parser$slash = F2(
+	function (_v0, _v1) {
+		var parseBefore = _v0.a;
+		var parseAfter = _v1.a;
+		return $elm$url$Url$Parser$Parser(
+			function (state) {
+				return A2(
+					$elm$core$List$concatMap,
+					parseAfter,
+					parseBefore(state));
+			});
+	});
+var $elm$url$Url$Parser$questionMark = F2(
+	function (parser, queryParser) {
+		return A2(
+			$elm$url$Url$Parser$slash,
+			parser,
+			$elm$url$Url$Parser$query(queryParser));
+	});
+var $elm$url$Url$Parser$s = function (str) {
+	return $elm$url$Url$Parser$Parser(
+		function (_v0) {
+			var visited = _v0.visited;
+			var unvisited = _v0.unvisited;
+			var params = _v0.params;
+			var frag = _v0.frag;
+			var value = _v0.value;
+			if (!unvisited.b) {
+				return _List_Nil;
+			} else {
+				var next = unvisited.a;
+				var rest = unvisited.b;
+				return _Utils_eq(next, str) ? _List_fromArray(
+					[
+						A5(
+						$elm$url$Url$Parser$State,
+						A2($elm$core$List$cons, next, visited),
+						rest,
+						params,
+						frag,
+						value)
+					]) : _List_Nil;
+			}
+		});
+};
+var $author$project$Semseg$urlParser = A2(
+	$elm$url$Url$Parser$map,
+	$author$project$Semseg$QueryParams,
+	A2(
+		$elm$url$Url$Parser$slash,
+		$elm$url$Url$Parser$s('web'),
+		A2(
+			$elm$url$Url$Parser$slash,
+			$elm$url$Url$Parser$s('apps'),
+			A2(
+				$elm$url$Url$Parser$questionMark,
+				$elm$url$Url$Parser$s('semseg'),
+				$elm$url$Url$Parser$Query$int('example')))));
 var $author$project$Semseg$init = F3(
 	function (_v0, url, key) {
 		var model = {
@@ -11788,22 +12273,51 @@ var $author$project$Semseg$init = F3(
 			sliders: $elm$core$Dict$empty,
 			trueLabels: $author$project$Requests$Initial
 		};
-		var example = 0;
-		return _Utils_Tuple2(
-			model,
-			$elm$core$Platform$Cmd$batch(
-				_List_fromArray(
-					[
-						A3($author$project$Semseg$getInputExample, model.gradio, model.inputExampleReqId, example),
-						A3($author$project$Semseg$getOrigPreds, model.gradio, model.origPredsReqId, example)
-					])));
+		var _v1 = function () {
+			var _v2 = A2(
+				$elm$core$Maybe$andThen,
+				function ($) {
+					return $.example;
+				},
+				A2($elm$url$Url$Parser$parse, $author$project$Semseg$urlParser, url));
+			if (_v2.$ === 'Just') {
+				var example = _v2.a;
+				return _Utils_Tuple2(
+					example,
+					$elm$core$Platform$Cmd$batch(
+						_List_fromArray(
+							[
+								A3($author$project$Semseg$getInputExample, model.gradio, model.inputExampleReqId, example),
+								A3($author$project$Semseg$getOrigPreds, model.gradio, model.origPredsReqId, example)
+							])));
+			} else {
+				return _Utils_Tuple2(
+					0,
+					A2($elm$random$Random$generate, $author$project$Semseg$SetUrl, $author$project$Semseg$randomExample));
+			}
+		}();
+		var index = _v1.a;
+		var cmd = _v1.b;
+		return _Utils_Tuple2(model, cmd);
 	});
 var $elm$core$Platform$Sub$batch = _Platform_batch;
 var $elm$core$Platform$Sub$none = $elm$core$Platform$Sub$batch(_List_Nil);
-var $author$project$Semseg$NoOp = {$: 'NoOp'};
-var $author$project$Semseg$onUrlChange = function (url) {
-	return $author$project$Semseg$NoOp;
+var $author$project$Semseg$SetExample = function (a) {
+	return {$: 'SetExample', a: a};
 };
+var $author$project$Semseg$onUrlChange = function (url) {
+	return $author$project$Semseg$SetExample(
+		A2(
+			$elm$core$Maybe$withDefault,
+			0,
+			A2(
+				$elm$core$Maybe$andThen,
+				function ($) {
+					return $.example;
+				},
+				A2($elm$url$Url$Parser$parse, $author$project$Semseg$urlParser, url))));
+};
+var $author$project$Semseg$NoOp = {$: 'NoOp'};
 var $author$project$Semseg$onUrlRequest = function (request) {
 	return $author$project$Semseg$NoOp;
 };
@@ -11882,6 +12396,18 @@ var $elm$core$Set$insert = F2(
 		return $elm$core$Set$Set_elm_builtin(
 			A3($elm$core$Dict$insert, key, _Utils_Tuple0, dict));
 	});
+var $elm$url$Url$Builder$QueryParameter = F2(
+	function (a, b) {
+		return {$: 'QueryParameter', a: a, b: b};
+	});
+var $elm$url$Url$percentEncode = _Url_percentEncode;
+var $elm$url$Url$Builder$int = F2(
+	function (key, value) {
+		return A2(
+			$elm$url$Url$Builder$QueryParameter,
+			$elm$url$Url$percentEncode(key),
+			$elm$core$String$fromInt(value));
+	});
 var $elm$core$Set$isEmpty = function (_v0) {
 	var dict = _v0.a;
 	return $elm$core$Dict$isEmpty(dict);
@@ -11892,6 +12418,7 @@ var $author$project$Requests$isStale = F2(
 		var last = _v1.a;
 		return _Utils_cmp(id, last) < 0;
 	});
+var $elm$core$Debug$log = _Debug_log;
 var $elm$core$Dict$member = F2(
 	function (key, dict) {
 		var _v0 = A2($elm$core$Dict$get, key, dict);
@@ -11906,10 +12433,18 @@ var $elm$core$Set$member = F2(
 		var dict = _v0.a;
 		return A2($elm$core$Dict$member, key, dict);
 	});
+var $elm$core$Basics$modBy = _Basics_modBy;
 var $author$project$Requests$next = function (_v0) {
 	var id = _v0.a;
 	return $author$project$Requests$Id(id + 1);
 };
+var $elm$browser$Browser$Navigation$pushUrl = _Browser_pushUrl;
+var $elm$url$Url$Builder$relative = F2(
+	function (pathSegments, parameters) {
+		return _Utils_ap(
+			A2($elm$core$String$join, '/', pathSegments),
+			$elm$url$Url$Builder$toQuery(parameters));
+	});
 var $elm$core$Set$remove = F2(
 	function (key, _v0) {
 		var dict = _v0.a;
@@ -11921,6 +12456,42 @@ var $author$project$Semseg$update = F2(
 		switch (msg.$) {
 			case 'NoOp':
 				return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
+			case 'SetUrl':
+				var i = msg.a;
+				var url = A2(
+					$elm$url$Url$Builder$relative,
+					_List_Nil,
+					_List_fromArray(
+						[
+							A2($elm$url$Url$Builder$int, 'example', i)
+						]));
+				return _Utils_Tuple2(
+					model,
+					A2($elm$browser$Browser$Navigation$pushUrl, model.key, url));
+			case 'SetExample':
+				var i = msg.a;
+				var origPredsReqId = $author$project$Requests$next(model.origPredsReqId);
+				var inputExampleReqId = $author$project$Requests$next(model.inputExampleReqId);
+				var example = A2(
+					$elm$core$Debug$log,
+					'example',
+					A2($elm$core$Basics$modBy, $author$project$Semseg$nImages, i));
+				return _Utils_Tuple2(
+					_Utils_update(
+						model,
+						{inputExample: $author$project$Requests$Loading, inputExampleReqId: inputExampleReqId, modPreds: $author$project$Requests$Initial, origPreds: $author$project$Requests$Loading, origPredsReqId: origPredsReqId, saeLatents: $author$project$Requests$Initial, selectedPatchIndices: $elm$core$Set$empty, trueLabels: $author$project$Requests$Loading}),
+					$elm$core$Platform$Cmd$batch(
+						_List_fromArray(
+							[
+								A3($author$project$Semseg$getInputExample, model.gradio, inputExampleReqId, example),
+								A3($author$project$Semseg$getOrigPreds, model.gradio, origPredsReqId, example)
+							])));
+			case 'GetRandomExample':
+				return _Utils_Tuple2(
+					_Utils_update(
+						model,
+						{inputExample: $author$project$Requests$Loading, modPreds: $author$project$Requests$Initial, origPreds: $author$project$Requests$Loading, saeLatents: $author$project$Requests$Initial, selectedPatchIndices: $elm$core$Set$empty, trueLabels: $author$project$Requests$Loading}),
+					A2($elm$random$Random$generate, $author$project$Semseg$SetUrl, $author$project$Semseg$randomExample));
 			case 'HoverPatch':
 				var i = msg.a;
 				return _Utils_Tuple2(
@@ -12044,6 +12615,7 @@ var $author$project$Semseg$update = F2(
 				}
 		}
 	});
+var $elm$html$Html$h2 = _VirtualDom_node('h2');
 var $elm$html$Html$header = _VirtualDom_node('header');
 var $elm$html$Html$main_ = _VirtualDom_node('main');
 var $author$project$Requests$map = F2(
@@ -12062,6 +12634,117 @@ var $author$project$Requests$map = F2(
 					fn(a));
 		}
 	});
+var $author$project$Semseg$GetRandomExample = {$: 'GetRandomExample'};
+var $author$project$Semseg$viewButton = F2(
+	function (onClick, title) {
+		return A2(
+			$elm$html$Html$button,
+			_List_fromArray(
+				[
+					$elm$html$Html$Events$onClick(onClick),
+					$elm$html$Html$Attributes$class('flex-1 rounded-lg px-2 py-1 transition-colors'),
+					$elm$html$Html$Attributes$class('border border-sky-300 hover:border-sky-400'),
+					$elm$html$Html$Attributes$class('bg-sky-100 hover:bg-sky-200'),
+					$elm$html$Html$Attributes$class('text-gray-700 hover:text-gray-900'),
+					$elm$html$Html$Attributes$class('focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2'),
+					$elm$html$Html$Attributes$class('active:bg-gray-300')
+				]),
+			_List_fromArray(
+				[
+					$elm$html$Html$text(title)
+				]));
+	});
+var $elm$json$Json$Encode$bool = _Json_wrap;
+var $elm$html$Html$Attributes$boolProperty = F2(
+	function (key, bool) {
+		return A2(
+			_VirtualDom_property,
+			key,
+			$elm$json$Json$Encode$bool(bool));
+	});
+var $elm$html$Html$Attributes$disabled = $elm$html$Html$Attributes$boolProperty('disabled');
+var $author$project$Semseg$viewButtonDisabled = function (title) {
+	return A2(
+		$elm$html$Html$button,
+		_List_fromArray(
+			[
+				$elm$html$Html$Attributes$disabled(true),
+				$elm$html$Html$Attributes$class('flex-1 rounded-lg px-2 py-1 transition-colors'),
+				$elm$html$Html$Attributes$class('border border-sky-300 hover:border-sky-400'),
+				$elm$html$Html$Attributes$class('bg-sky-100 hover:bg-sky-200'),
+				$elm$html$Html$Attributes$class('text-gray-700 hover:text-gray-900'),
+				$elm$html$Html$Attributes$class('focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2'),
+				$elm$html$Html$Attributes$class('active:bg-gray-300')
+			]),
+		_List_fromArray(
+			[
+				$elm$html$Html$text(title)
+			]));
+};
+var $author$project$Semseg$viewControls = function (requestedExample) {
+	switch (requestedExample.$) {
+		case 'Initial':
+			return A2(
+				$elm$html$Html$div,
+				_List_fromArray(
+					[
+						$elm$html$Html$Attributes$class('flex flex-row gap-2')
+					]),
+				_List_fromArray(
+					[
+						$author$project$Semseg$viewButtonDisabled('Previous'),
+						A2($author$project$Semseg$viewButton, $author$project$Semseg$GetRandomExample, 'Random'),
+						$author$project$Semseg$viewButtonDisabled('Next')
+					]));
+		case 'Loading':
+			return A2(
+				$elm$html$Html$div,
+				_List_fromArray(
+					[
+						$elm$html$Html$Attributes$class('flex flex-row gap-2')
+					]),
+				_List_fromArray(
+					[
+						$author$project$Semseg$viewButtonDisabled('Previous'),
+						A2($author$project$Semseg$viewButton, $author$project$Semseg$GetRandomExample, 'Random'),
+						$author$project$Semseg$viewButtonDisabled('Next')
+					]));
+		case 'Loaded':
+			var example = requestedExample.a;
+			return A2(
+				$elm$html$Html$div,
+				_List_fromArray(
+					[
+						$elm$html$Html$Attributes$class('flex flex-row gap-2')
+					]),
+				_List_fromArray(
+					[
+						A2(
+						$author$project$Semseg$viewButton,
+						$author$project$Semseg$SetUrl(example.index - 1),
+						'Previous'),
+						A2($author$project$Semseg$viewButton, $author$project$Semseg$GetRandomExample, 'Random'),
+						A2(
+						$author$project$Semseg$viewButton,
+						$author$project$Semseg$SetUrl(example.index + 1),
+						'Next')
+					]));
+		default:
+			var err = requestedExample.a;
+			return A2(
+				$elm$html$Html$div,
+				_List_fromArray(
+					[
+						$elm$html$Html$Attributes$class('flex flex-row gap-2')
+					]),
+				_List_fromArray(
+					[
+						$author$project$Semseg$viewButtonDisabled('Previous'),
+						A2($author$project$Semseg$viewButton, $author$project$Semseg$GetRandomExample, 'Random'),
+						$author$project$Semseg$viewButtonDisabled('Next')
+					]));
+	}
+};
 var $author$project$Gradio$base64ImageToString = function (_v0) {
 	var str = _v0.a;
 	return str;
@@ -12292,51 +12975,53 @@ var $author$project$Semseg$viewSaeLatents = F3(
 				return A2(
 					$elm$html$Html$div,
 					_List_Nil,
-					_Utils_ap(
-						_List_fromArray(
-							[
-								A2(
-								$elm$html$Html$p,
-								_List_Nil,
-								_List_fromArray(
-									[
-										A2(
-										$elm$html$Html$span,
-										_List_fromArray(
-											[
-												$elm$html$Html$Attributes$class('bg-rose-600 p-1 rounded')
-											]),
-										_List_fromArray(
-											[
-												$elm$html$Html$text('These patches')
-											])),
-										$elm$html$Html$text(' above are like '),
-										A2(
-										$elm$html$Html$span,
-										_List_fromArray(
-											[
-												$elm$html$Html$Attributes$class('bg-rose-600 p-1 rounded')
-											]),
-										_List_fromArray(
-											[
-												$elm$html$Html$text('these patches')
-											])),
-										$elm$html$Html$text(' below. (Not what you expected? Add more patches and get a larger '),
-										A2(
-										$elm$html$Html$a,
-										_List_fromArray(
-											[
-												$elm$html$Html$Attributes$href('https://simple.wikipedia.org/wiki/Sampling_(statistics)'),
-												$elm$html$Html$Attributes$class('text-blue-500 underline')
-											]),
-										_List_fromArray(
-											[
-												$elm$html$Html$text('sample size')
-											])),
-										$elm$html$Html$text(')')
-									]))
-							]),
-						A2($elm$core$List$map, $author$project$Semseg$viewSaeLatent, latents)));
+					_List_fromArray(
+						[
+							A2(
+							$elm$html$Html$p,
+							_List_Nil,
+							_List_fromArray(
+								[
+									A2(
+									$elm$html$Html$span,
+									_List_fromArray(
+										[
+											$elm$html$Html$Attributes$class('bg-rose-600 p-1 rounded')
+										]),
+									_List_fromArray(
+										[
+											$elm$html$Html$text('These patches')
+										])),
+									$elm$html$Html$text(' above are like '),
+									A2(
+									$elm$html$Html$span,
+									_List_fromArray(
+										[
+											$elm$html$Html$Attributes$class('bg-rose-600 p-1 rounded')
+										]),
+									_List_fromArray(
+										[
+											$elm$html$Html$text('these patches')
+										])),
+									$elm$html$Html$text(' below. (Not what you expected? Add more patches and get a larger '),
+									A2(
+									$elm$html$Html$a,
+									_List_fromArray(
+										[
+											$elm$html$Html$Attributes$href('https://simple.wikipedia.org/wiki/Sampling_(statistics)'),
+											$elm$html$Html$Attributes$class('text-blue-500 underline')
+										]),
+									_List_fromArray(
+										[
+											$elm$html$Html$text('sample size')
+										])),
+									$elm$html$Html$text(')')
+								])),
+							A2(
+							$elm$html$Html$div,
+							_List_Nil,
+							A2($elm$core$List$map, $author$project$Semseg$viewSaeLatent, latents))
+						]));
 		}
 	});
 var $author$project$Semseg$view = function (model) {
@@ -12352,6 +13037,14 @@ var $author$project$Semseg$view = function (model) {
 					]),
 				_List_fromArray(
 					[
+						A2(
+						$elm$html$Html$h2,
+						_List_Nil,
+						_List_fromArray(
+							[
+								$elm$html$Html$text('SAEs for Scientifically Rigorous Interpretation of Semantic Segmentation Models')
+							])),
+						$author$project$Semseg$viewControls(model.inputExample),
 						A2(
 						$elm$html$Html$div,
 						_List_fromArray(
@@ -12432,4 +13125,4 @@ var $author$project$Semseg$main = $elm$browser$Browser$application(
 		view: $author$project$Semseg$view
 	});
 _Platform_export({'Semseg':{'init':$author$project$Semseg$main(
-	$elm$json$Json$Decode$succeed(_Utils_Tuple0))({"versions":{"elm":"0.19.1"},"types":{"message":"Semseg.Msg","aliases":{"Semseg.Example":{"args":[],"type":"{ image : Gradio.Base64Image, labels : Gradio.Base64Image, index : Basics.Int }"},"Semseg.HighlightedExample":{"args":[],"type":"{ original : Gradio.Base64Image, highlighted : Gradio.Base64Image, labels : Gradio.Base64Image, index : Basics.Int }"},"Semseg.SaeLatent":{"args":[],"type":"{ latent : Basics.Int, examples : List.List Semseg.HighlightedExample }"}},"unions":{"Semseg.Msg":{"args":[],"tags":{"NoOp":[],"HoverPatch":["Basics.Int"],"ResetHoveredPatch":[],"ToggleSelectedPatch":["Basics.Int"],"ResetSelectedPatches":[],"GotInputExample":["Requests.Id","Result.Result Gradio.Error Semseg.Example"],"GotSaeLatents":["Requests.Id","Result.Result Gradio.Error (List.List Semseg.SaeLatent)"],"GotOrigPreds":["Requests.Id","Result.Result Gradio.Error Semseg.Example"]}},"Gradio.Base64Image":{"args":[],"tags":{"Base64Image":["String.String"]}},"Gradio.Error":{"args":[],"tags":{"NetworkError":["String.String"],"ParsingError":["String.String"],"JsonError":["String.String"],"ApiError":["String.String"]}},"Requests.Id":{"args":[],"tags":{"Id":["Basics.Int"]}},"Basics.Int":{"args":[],"tags":{"Int":[]}},"List.List":{"args":["a"],"tags":{}},"Result.Result":{"args":["error","value"],"tags":{"Ok":["value"],"Err":["error"]}},"String.String":{"args":[],"tags":{"String":[]}}}}})}});}(this));
+	$elm$json$Json$Decode$succeed(_Utils_Tuple0))({"versions":{"elm":"0.19.1"},"types":{"message":"Semseg.Msg","aliases":{"Semseg.Example":{"args":[],"type":"{ image : Gradio.Base64Image, labels : Gradio.Base64Image, index : Basics.Int }"},"Semseg.HighlightedExample":{"args":[],"type":"{ original : Gradio.Base64Image, highlighted : Gradio.Base64Image, labels : Gradio.Base64Image, index : Basics.Int }"},"Semseg.SaeLatent":{"args":[],"type":"{ latent : Basics.Int, examples : List.List Semseg.HighlightedExample }"}},"unions":{"Semseg.Msg":{"args":[],"tags":{"NoOp":[],"SetUrl":["Basics.Int"],"SetExample":["Basics.Int"],"GetRandomExample":[],"HoverPatch":["Basics.Int"],"ResetHoveredPatch":[],"ToggleSelectedPatch":["Basics.Int"],"ResetSelectedPatches":[],"GotInputExample":["Requests.Id","Result.Result Gradio.Error Semseg.Example"],"GotSaeLatents":["Requests.Id","Result.Result Gradio.Error (List.List Semseg.SaeLatent)"],"GotOrigPreds":["Requests.Id","Result.Result Gradio.Error Semseg.Example"]}},"Gradio.Base64Image":{"args":[],"tags":{"Base64Image":["String.String"]}},"Gradio.Error":{"args":[],"tags":{"NetworkError":["String.String"],"ParsingError":["String.String"],"JsonError":["String.String"],"ApiError":["String.String"]}},"Requests.Id":{"args":[],"tags":{"Id":["Basics.Int"]}},"Basics.Int":{"args":[],"tags":{"Int":[]}},"List.List":{"args":["a"],"tags":{}},"Result.Result":{"args":["error","value"],"tags":{"Ok":["value"],"Err":["error"]}},"String.String":{"args":[],"tags":{"String":[]}}}}})}});}(this));

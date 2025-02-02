@@ -20,6 +20,9 @@ import Random
 import Requests
 import Set
 import Url
+import Url.Builder
+import Url.Parser exposing ((</>), (<?>))
+import Url.Parser.Query
 
 
 main =
@@ -39,6 +42,9 @@ main =
 
 type Msg
     = NoOp
+    | SetUrl Int
+    | SetExample Int
+    | GetRandomExample
     | HoverPatch Int
     | ResetHoveredPatch
     | ToggleSelectedPatch Int
@@ -58,7 +64,6 @@ type Msg
 -- | ParsedPredLabels (Result D.Error (List SegmentationResult))
 -- | ParsedModifiedLabels (Result D.Error (List SegmentationResult))
 -- | GetRandomExample
--- | SetExample Int
 -- | SetExampleInput String
 -- | SetSlider Int String
 
@@ -126,8 +131,22 @@ type alias HighlightedExample =
 init : () -> Url.Url -> Browser.Navigation.Key -> ( Model, Cmd Msg )
 init _ url key =
     let
-        example =
-            0
+        ( index, cmd ) =
+            case Maybe.andThen .example (Url.Parser.parse urlParser url) of
+                Just example ->
+                    ( example
+                    , Cmd.batch
+                        [ getInputExample model.gradio
+                            model.inputExampleReqId
+                            example
+                        , getOrigPreds model.gradio
+                            model.origPredsReqId
+                            example
+                        ]
+                    )
+
+                Nothing ->
+                    ( 0, Random.generate SetUrl randomExample )
 
         model =
             { key = key
@@ -152,12 +171,7 @@ init _ url key =
             , origPredsReqId = Requests.init
             }
     in
-    ( model
-    , Cmd.batch
-        [ getInputExample model.gradio model.inputExampleReqId example
-        , getOrigPreds model.gradio model.origPredsReqId example
-        ]
-    )
+    ( model, cmd )
 
 
 
@@ -169,6 +183,52 @@ update msg model =
     case msg of
         NoOp ->
             ( model, Cmd.none )
+
+        SetUrl i ->
+            let
+                url =
+                    Url.Builder.relative [] [ Url.Builder.int "example" i ]
+            in
+            ( model, Browser.Navigation.pushUrl model.key url )
+
+        SetExample i ->
+            let
+                example =
+                    Debug.log "example" (modBy nImages i)
+
+                inputExampleReqId =
+                    Requests.next model.inputExampleReqId
+
+                origPredsReqId =
+                    Requests.next model.origPredsReqId
+            in
+            ( { model
+                | inputExample = Requests.Loading
+                , selectedPatchIndices = Set.empty
+                , saeLatents = Requests.Initial
+                , trueLabels = Requests.Loading
+                , origPreds = Requests.Loading
+                , modPreds = Requests.Initial
+                , inputExampleReqId = inputExampleReqId
+                , origPredsReqId = origPredsReqId
+              }
+            , Cmd.batch
+                [ getInputExample model.gradio inputExampleReqId example
+                , getOrigPreds model.gradio origPredsReqId example
+                ]
+            )
+
+        GetRandomExample ->
+            ( { model
+                | inputExample = Requests.Loading
+                , selectedPatchIndices = Set.empty
+                , saeLatents = Requests.Initial
+                , trueLabels = Requests.Loading
+                , origPreds = Requests.Loading
+                , modPreds = Requests.Initial
+              }
+            , Random.generate SetUrl randomExample
+            )
 
         HoverPatch i ->
             ( { model | hoveredPatchIndex = Just i }, Cmd.none )
@@ -362,14 +422,6 @@ update msg model =
 --             ( { model | imageUrl = maybeUrl }, Cmd.none )
 --         Err err ->
 --             ( { model | imageUrl = Nothing, err = Just (D.errorToString err) }, Cmd.none )
--- SetExample i ->
---     ( { model | exampleIndex = i }
---     , Cmd.batch
---         [ getImageUrl i
---         -- , getTrueLabels i
---         , getPredLabels i
---         ]
---     )
 -- SetExampleInput str ->
 --     case String.toInt str of
 --         Just i ->
@@ -411,7 +463,25 @@ onUrlRequest request =
 
 onUrlChange : Url.Url -> Msg
 onUrlChange url =
-    NoOp
+    Url.Parser.parse urlParser url
+        |> Maybe.andThen .example
+        |> Maybe.withDefault 0
+        |> SetExample
+
+
+type alias QueryParams =
+    { example : Maybe Int
+    }
+
+
+urlParser : Url.Parser.Parser (QueryParams -> a) a
+urlParser =
+    -- Need to change this when I deploy it.
+    Url.Parser.s "web"
+        </> Url.Parser.s "apps"
+        </> Url.Parser.s "semseg"
+        <?> Url.Parser.Query.int "example"
+        |> Url.Parser.map QueryParams
 
 
 
@@ -674,7 +744,11 @@ view model =
         [ Html.header [] []
         , Html.main_
             [ Html.Attributes.class "w-full min-h-screen p-1 md:p-2 lg:p-4 bg-gray-50 space-y-4" ]
-            [ Html.div
+            [ Html.h2
+                []
+                [ Html.text "SAEs for Scientifically Rigorous Interpretation of Semantic Segmentation Models" ]
+            , viewControls model.inputExample
+            , Html.div
                 [ Html.Attributes.class "flex flex-row gap-2 items-stretch" ]
                 [ viewGriddedImage model
                     (Requests.map .image model.inputExample)
@@ -693,8 +767,6 @@ view model =
                     "Modified Segmentation"
                     "Modify the ViT's representations using the sliders below."
                 ]
-
-            -- , viewControls model
             , Html.div
                 [ Html.Attributes.class "flex flex-row" ]
                 [ viewSaeLatents model.selectedPatchIndices model.saeLatents model.sliders
@@ -722,50 +794,68 @@ viewErr err =
         ]
 
 
+viewControls : Requests.Requested Example -> Html.Html Msg
+viewControls requestedExample =
+    case requestedExample of
+        Requests.Initial ->
+            Html.div
+                [ Html.Attributes.class "flex flex-row gap-2" ]
+                [ viewButtonDisabled "Previous"
+                , viewButton GetRandomExample "Random"
+                , viewButtonDisabled "Next"
+                ]
 
--- viewControls : Model -> Html.Html Msg
--- viewControls model =
---     -- TODO: add https://thinkdobecreate.com/articles/css-animating-newly-added-element/ to new buttons
---     let
---         buttons =
---             (if model.nPatchesExplored >= 3 then
---                 [ Html.button
---                     [ Html.Attributes.class ""
---                     , Html.Events.onClick ResetSelectedPatches
---                     ]
---                     [ Html.text "Clear Patches" ]
---                 ]
---              else
---                 []
---             )
---                 ++ (if
---                         (model.nPatchResets
---                             > 1
---                             && Set.size model.selectedPatchIndices
---                             > 1
---                         )
---                             || model.nPatchResets
---                             > 3
---                             || model.nImagesExplored
---                             > 1
---                     then
---                         [ Html.button
---                             [ Html.Events.onClick GetRandomExample ]
---                             [ Html.text "New Image" ]
---                         ]
---                     else
---                         []
---                    )
---     in
---     Html.div []
---         (Html.input
---             [ Html.Attributes.type_ "number"
---             , Html.Attributes.value (String.fromInt model.exampleIndex)
---             , Html.Events.onInput SetExampleInput
---             ]
---             []
---             :: buttons
---         )
+        Requests.Loading ->
+            Html.div
+                [ Html.Attributes.class "flex flex-row gap-2" ]
+                [ viewButtonDisabled "Previous"
+                , viewButton GetRandomExample "Random"
+                , viewButtonDisabled "Next"
+                ]
+
+        Requests.Loaded example ->
+            Html.div
+                [ Html.Attributes.class "flex flex-row gap-2" ]
+                [ viewButton (SetUrl (example.index - 1)) "Previous"
+                , viewButton GetRandomExample "Random"
+                , viewButton (SetUrl (example.index + 1)) "Next"
+                ]
+
+        Requests.Failed err ->
+            Html.div
+                [ Html.Attributes.class "flex flex-row gap-2" ]
+                [ viewButtonDisabled "Previous"
+                , viewButton GetRandomExample "Random"
+                , viewButtonDisabled "Next"
+                ]
+
+
+viewButton : Msg -> String -> Html.Html Msg
+viewButton onClick title =
+    Html.button
+        [ Html.Events.onClick onClick
+        , Html.Attributes.class "flex-1 rounded-lg px-2 py-1 transition-colors"
+        , Html.Attributes.class "border border-sky-300 hover:border-sky-400"
+        , Html.Attributes.class "bg-sky-100 hover:bg-sky-200"
+        , Html.Attributes.class "text-gray-700 hover:text-gray-900"
+        , Html.Attributes.class "focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2"
+        , Html.Attributes.class "active:bg-gray-300"
+        ]
+        [ Html.text title ]
+
+
+viewButtonDisabled : String -> Html.Html Msg
+viewButtonDisabled title =
+    Html.button
+        [ Html.Attributes.disabled True
+        , Html.Attributes.class "flex-1 rounded-lg px-2 py-1 transition-colors"
+        , Html.Attributes.class "border border-sky-300 hover:border-sky-400"
+        , Html.Attributes.class "bg-sky-100 hover:bg-sky-200"
+        , Html.Attributes.class "text-gray-700 hover:text-gray-900"
+        , Html.Attributes.class "focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2"
+        , Html.Attributes.class "active:bg-gray-300"
+        ]
+        [ Html.text title ]
 
 
 viewGriddedImage : Model -> Requests.Requested Gradio.Base64Image -> String -> String -> Html.Html Msg
@@ -920,7 +1010,7 @@ viewSaeLatents selected requestedLatents values =
 
         Requests.Loaded latents ->
             Html.div []
-                ([ Html.p []
+                [ Html.p []
                     [ Html.span [ Html.Attributes.class "bg-rose-600 p-1 rounded" ] [ Html.text "These patches" ]
                     , Html.text " above are like "
                     , Html.span [ Html.Attributes.class "bg-rose-600 p-1 rounded" ] [ Html.text "these patches" ]
@@ -928,12 +1018,13 @@ viewSaeLatents selected requestedLatents values =
                     , Html.a [ Html.Attributes.href "https://simple.wikipedia.org/wiki/Sampling_(statistics)", Html.Attributes.class "text-blue-500 underline" ] [ Html.text "sample size" ]
                     , Html.text ")"
                     ]
-                 ]
-                    ++ List.map
+                , Html.div []
+                    (List.map
                         viewSaeLatent
                         -- (\latent -> Maybe.map (\f -> viewSaeLatent latent f) (Dict.get latent.latent values))
                         latents
-                )
+                    )
+                ]
 
 
 viewSaeLatent : SaeLatent -> Html.Html Msg
@@ -969,36 +1060,27 @@ viewHighlightedExample { original, highlighted } =
 
 
 
--- -- GRADIO API PARSER
--- eventDataParser : Parser.Parser String
--- eventDataParser =
---     Parser.succeed identity
---         |. Parser.keyword "event"
---         |. Parser.symbol ":"
---         |. Parser.spaces
---         |. Parser.keyword "complete"
---         |. Parser.spaces
---         |. Parser.keyword "data"
---         |. Parser.symbol ":"
---         |. Parser.spaces
---         |= restParser
---         |. Parser.spaces
---         |. Parser.end
--- restParser : Parser.Parser String
--- restParser =
---     Parser.getChompedString <|
---         Parser.succeed ()
---             |. Parser.chompUntilEndOr "\n"
--- -- CONSTANTS
--- nExamples =
---     20210
--- nSaeLatents =
---     3
--- nSaeExamplesPerLatent =
---     4
--- randomExample : Random.Generator Int
--- randomExample =
---     Random.int 0 (nExamples - 1)
+-- CONSTANTS
+
+
+nImages =
+    2000
+
+
+nSaeLatents =
+    3
+
+
+nSaeExamplesPerLatent =
+    4
+
+
+randomExample : Random.Generator Int
+randomExample =
+    Random.int 0 (nImages - 1)
+
+
+
 -- colors : Array.Array ( Int, Int, Int )
 -- colors =
 --     [ ( 51, 0, 0 ), ( 204, 0, 102 ), ( 0, 255, 0 ), ( 102, 51, 51 ), ( 153, 204, 51 ), ( 51, 51, 153 ), ( 102, 0, 51 ), ( 153, 153, 0 ), ( 51, 102, 204 ), ( 204, 255, 0 ), ( 204, 102, 0 ), ( 204, 255, 153 ), ( 102, 102, 255 ), ( 255, 204, 255 ), ( 51, 255, 0 ), ( 0, 102, 51 ), ( 102, 102, 0 ), ( 0, 0, 255 ), ( 255, 153, 204 ), ( 204, 204, 0 ), ( 0, 153, 153 ), ( 153, 102, 204 ), ( 255, 204, 0 ), ( 204, 204, 153 ), ( 255, 51, 0 ), ( 51, 51, 0 ), ( 153, 51, 51 ), ( 0, 0, 102 ), ( 102, 255, 204 ), ( 204, 51, 255 ), ( 255, 204, 204 ), ( 0, 0, 153 ), ( 0, 102, 153 ), ( 153, 0, 51 ), ( 51, 51, 102 ), ( 255, 153, 0 ), ( 204, 153, 0 ), ( 153, 102, 153 ), ( 51, 204, 204 ), ( 51, 51, 255 ), ( 153, 204, 102 ), ( 102, 204, 153 ), ( 153, 153, 204 ), ( 0, 51, 204 ), ( 204, 204, 102 ), ( 0, 51, 153 ), ( 0, 102, 0 ), ( 51, 0, 102 ), ( 153, 255, 0 ), ( 153, 255, 102 ), ( 102, 102, 51 ), ( 153, 0, 255 ), ( 204, 255, 102 ), ( 102, 0, 255 ), ( 255, 204, 153 ), ( 102, 51, 0 ), ( 102, 204, 102 ), ( 0, 102, 204 ), ( 51, 204, 0 ), ( 255, 102, 102 ), ( 153, 255, 204 ), ( 51, 204, 51 ), ( 0, 0, 0 ), ( 255, 0, 255 ), ( 153, 0, 153 ), ( 255, 204, 51 ), ( 51, 0, 51 ), ( 102, 204, 255 ), ( 153, 204, 153 ), ( 153, 102, 0 ), ( 102, 204, 204 ), ( 204, 204, 204 ), ( 255, 0, 0 ), ( 255, 255, 51 ), ( 0, 255, 102 ), ( 204, 153, 102 ), ( 204, 153, 153 ), ( 102, 51, 153 ), ( 51, 102, 0 ), ( 204, 51, 153 ), ( 153, 51, 255 ), ( 102, 0, 204 ), ( 204, 102, 153 ), ( 204, 0, 204 ), ( 102, 51, 102 ), ( 0, 153, 51 ), ( 153, 153, 51 ), ( 255, 102, 0 ), ( 255, 153, 153 ), ( 153, 0, 102 ), ( 51, 204, 255 ), ( 102, 255, 102 ), ( 255, 255, 204 ), ( 51, 51, 204 ), ( 153, 102, 51 ), ( 153, 153, 255 ), ( 51, 153, 0 ), ( 204, 0, 255 ), ( 102, 255, 0 ), ( 153, 102, 255 ), ( 204, 102, 255 ), ( 204, 0, 0 ), ( 102, 153, 255 ), ( 204, 102, 204 ), ( 204, 51, 102 ), ( 0, 255, 153 ), ( 153, 204, 204 ), ( 255, 0, 102 ), ( 102, 51, 204 ), ( 255, 51, 204 ), ( 51, 204, 153 ), ( 153, 153, 102 ), ( 153, 204, 0 ), ( 153, 102, 102 ), ( 204, 153, 255 ), ( 153, 0, 204 ), ( 102, 0, 0 ), ( 255, 51, 255 ), ( 0, 204, 153 ), ( 255, 153, 51 ), ( 0, 255, 204 ), ( 51, 102, 153 ), ( 255, 51, 51 ), ( 102, 255, 51 ), ( 0, 0, 204 ), ( 102, 255, 153 ), ( 0, 204, 255 ), ( 0, 102, 102 ), ( 102, 51, 255 ), ( 255, 0, 204 ), ( 51, 255, 153 ), ( 204, 0, 51 ), ( 153, 51, 204 ), ( 204, 102, 51 ), ( 255, 255, 0 ), ( 51, 51, 51 ), ( 0, 153, 0 ), ( 51, 255, 102 ), ( 51, 102, 255 ), ( 102, 153, 0 ), ( 102, 153, 204 ), ( 51, 0, 255 ), ( 102, 153, 153 ), ( 153, 51, 102 ), ( 204, 255, 51 ), ( 204, 204, 51 ), ( 0, 204, 51 ), ( 255, 102, 153 ), ( 204, 102, 102 ), ( 102, 0, 102 ), ( 51, 153, 204 ), ( 255, 255, 255 ), ( 0, 102, 255 ), ( 51, 102, 51 ), ( 204, 0, 153 ), ( 102, 153, 102 ), ( 102, 0, 153 ), ( 153, 255, 153 ), ( 0, 153, 102 ), ( 102, 204, 0 ), ( 0, 255, 51 ), ( 153, 204, 255 ), ( 153, 51, 153 ), ( 0, 51, 255 ), ( 51, 255, 51 ), ( 255, 102, 51 ), ( 102, 102, 204 ), ( 102, 153, 51 ), ( 0, 204, 0 ), ( 102, 204, 51 ), ( 255, 102, 255 ), ( 255, 204, 102 ), ( 102, 102, 102 ), ( 255, 102, 204 ), ( 51, 0, 153 ), ( 255, 0, 51 ), ( 102, 102, 153 ), ( 255, 153, 102 ), ( 204, 255, 204 ), ( 51, 0, 204 ), ( 0, 0, 51 ), ( 51, 255, 255 ), ( 204, 51, 0 ), ( 153, 51, 0 ), ( 51, 153, 102 ), ( 102, 255, 255 ), ( 255, 153, 255 ), ( 204, 255, 255 ), ( 204, 153, 204 ), ( 255, 0, 153 ), ( 51, 102, 102 ), ( 153, 255, 255 ), ( 255, 255, 153 ), ( 204, 51, 204 ), ( 153, 153, 153 ), ( 51, 153, 255 ), ( 51, 153, 51 ), ( 0, 153, 255 ), ( 0, 51, 51 ), ( 0, 51, 102 ), ( 153, 0, 0 ), ( 204, 51, 51 ), ( 0, 153, 204 ), ( 153, 255, 51 ), ( 255, 255, 102 ), ( 204, 204, 255 ), ( 0, 204, 102 ), ( 255, 51, 102 ), ( 0, 255, 255 ), ( 51, 153, 153 ), ( 51, 204, 102 ), ( 51, 255, 204 ), ( 255, 51, 153 ), ( 0, 51, 0 ), ( 0, 204, 204 ), ( 204, 153, 51 ) ]
