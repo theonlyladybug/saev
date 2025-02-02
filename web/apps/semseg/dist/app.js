@@ -10868,11 +10868,38 @@ var $author$project$Semseg$GotInputExample = F2(
 	function (a, b) {
 		return {$: 'GotInputExample', a: a, b: b};
 	});
-var $author$project$Semseg$Example = F2(
-	function (image, labels) {
-		return {image: image, labels: labels};
-	});
 var $elm$json$Json$Decode$andThen = _Json_andThen;
+var $elm$json$Json$Decode$fail = _Json_fail;
+var $author$project$Gradio$decodeOneHelper = function (maybe) {
+	if (maybe.$ === 'Just') {
+		var something = maybe.a;
+		return $elm$json$Json$Decode$succeed(something);
+	} else {
+		return $elm$json$Json$Decode$fail('No result');
+	}
+};
+var $elm$core$List$head = function (list) {
+	if (list.b) {
+		var x = list.a;
+		var xs = list.b;
+		return $elm$core$Maybe$Just(x);
+	} else {
+		return $elm$core$Maybe$Nothing;
+	}
+};
+var $author$project$Gradio$decodeOne = function (decoder) {
+	return A2(
+		$elm$json$Json$Decode$andThen,
+		$author$project$Gradio$decodeOneHelper,
+		A2(
+			$elm$json$Json$Decode$map,
+			$elm$core$List$head,
+			$elm$json$Json$Decode$list(decoder)));
+};
+var $author$project$Semseg$Example = F3(
+	function (image, labels, index) {
+		return {image: image, index: index, labels: labels};
+	});
 var $author$project$Gradio$Base64Image = function (a) {
 	return {$: 'Base64Image', a: a};
 };
@@ -10880,7 +10907,6 @@ var $author$project$Gradio$base64Image = function (str) {
 	return A2($elm$core$String$startsWith, 'data:image/', str) ? $elm$core$Maybe$Just(
 		$author$project$Gradio$Base64Image(str)) : $elm$core$Maybe$Nothing;
 };
-var $elm$json$Json$Decode$fail = _Json_fail;
 var $author$project$Gradio$base64ImageDecoder = A2(
 	$elm$json$Json$Decode$andThen,
 	function (str) {
@@ -10893,12 +10919,12 @@ var $author$project$Gradio$base64ImageDecoder = A2(
 		}
 	},
 	$elm$json$Json$Decode$string);
-var $elm$json$Json$Decode$index = _Json_decodeIndex;
-var $author$project$Semseg$exampleDecoder = A3(
-	$elm$json$Json$Decode$map2,
+var $author$project$Semseg$exampleDecoder = A4(
+	$elm$json$Json$Decode$map3,
 	$author$project$Semseg$Example,
-	A2($elm$json$Json$Decode$index, 0, $author$project$Gradio$base64ImageDecoder),
-	A2($elm$json$Json$Decode$index, 1, $author$project$Gradio$base64ImageDecoder));
+	A2($elm$json$Json$Decode$field, 'orig_url', $author$project$Gradio$base64ImageDecoder),
+	A2($elm$json$Json$Decode$field, 'seg_url', $author$project$Gradio$base64ImageDecoder),
+	A2($elm$json$Json$Decode$field, 'index', $elm$json$Json$Decode$int));
 var $elm$core$Task$onError = _Scheduler_onError;
 var $elm$core$Task$attempt = F2(
 	function (resultToMessage, task) {
@@ -11716,13 +11742,30 @@ var $author$project$Semseg$getInputExample = F3(
 		return A5(
 			$author$project$Gradio$get,
 			cfg,
-			'get-image',
+			'get-img',
 			_List_fromArray(
 				[
 					$elm$json$Json$Encode$int(img)
 				]),
-			$author$project$Semseg$exampleDecoder,
+			$author$project$Gradio$decodeOne($author$project$Semseg$exampleDecoder),
 			$author$project$Semseg$GotInputExample(id));
+	});
+var $author$project$Semseg$GotOrigPreds = F2(
+	function (a, b) {
+		return {$: 'GotOrigPreds', a: a, b: b};
+	});
+var $author$project$Semseg$getOrigPreds = F3(
+	function (cfg, id, img) {
+		return A5(
+			$author$project$Gradio$get,
+			cfg,
+			'get-preds',
+			_List_fromArray(
+				[
+					$elm$json$Json$Encode$int(img)
+				]),
+			$author$project$Gradio$decodeOne($author$project$Semseg$exampleDecoder),
+			$author$project$Semseg$GotOrigPreds(id));
 	});
 var $author$project$Requests$Id = function (a) {
 	return {$: 'Id', a: a};
@@ -11739,7 +11782,8 @@ var $author$project$Semseg$init = F3(
 			modPreds: $author$project$Requests$Initial,
 			origPreds: $author$project$Requests$Initial,
 			origPredsReqId: $author$project$Requests$init,
-			saeLatents: _List_Nil,
+			saeLatents: $author$project$Requests$Initial,
+			saeLatentsReqId: $author$project$Requests$init,
 			selectedPatchIndices: $elm$core$Set$empty,
 			sliders: $elm$core$Dict$empty,
 			trueLabels: $author$project$Requests$Initial
@@ -11750,7 +11794,8 @@ var $author$project$Semseg$init = F3(
 			$elm$core$Platform$Cmd$batch(
 				_List_fromArray(
 					[
-						A3($author$project$Semseg$getInputExample, model.gradio, model.inputExampleReqId, example)
+						A3($author$project$Semseg$getInputExample, model.gradio, model.inputExampleReqId, example),
+						A3($author$project$Semseg$getOrigPreds, model.gradio, model.origPredsReqId, example)
 					])));
 	});
 var $elm$core$Platform$Sub$batch = _Platform_batch;
@@ -11768,6 +11813,7 @@ var $author$project$Requests$Failed = function (a) {
 var $author$project$Requests$Loaded = function (a) {
 	return {$: 'Loaded', a: a};
 };
+var $author$project$Requests$Loading = {$: 'Loading'};
 var $author$project$Semseg$explainGradioError = function (err) {
 	switch (err.$) {
 		case 'NetworkError':
@@ -11784,12 +11830,62 @@ var $author$project$Semseg$explainGradioError = function (err) {
 			return 'Error in the API: ' + msg;
 	}
 };
+var $author$project$Semseg$GotSaeLatents = F2(
+	function (a, b) {
+		return {$: 'GotSaeLatents', a: a, b: b};
+	});
+var $author$project$Semseg$SaeLatent = F2(
+	function (latent, examples) {
+		return {examples: examples, latent: latent};
+	});
+var $author$project$Semseg$HighlightedExample = F4(
+	function (original, highlighted, labels, index) {
+		return {highlighted: highlighted, index: index, labels: labels, original: original};
+	});
+var $elm$json$Json$Decode$map4 = _Json_map4;
+var $author$project$Semseg$highlightedExampleDecoder = A5(
+	$elm$json$Json$Decode$map4,
+	$author$project$Semseg$HighlightedExample,
+	A2($elm$json$Json$Decode$field, 'orig_url', $author$project$Gradio$base64ImageDecoder),
+	A2($elm$json$Json$Decode$field, 'highlighted_url', $author$project$Gradio$base64ImageDecoder),
+	A2($elm$json$Json$Decode$field, 'seg_url', $author$project$Gradio$base64ImageDecoder),
+	A2($elm$json$Json$Decode$field, 'index', $elm$json$Json$Decode$int));
+var $author$project$Semseg$getSaeLatents = F4(
+	function (cfg, id, img, patches) {
+		return A5(
+			$author$project$Gradio$get,
+			cfg,
+			'get-sae-latents',
+			_List_fromArray(
+				[
+					$elm$json$Json$Encode$int(img),
+					A2(
+					$elm$json$Json$Encode$list,
+					$elm$json$Json$Encode$int,
+					$elm$core$Set$toList(patches))
+				]),
+			$author$project$Gradio$decodeOne(
+				$elm$json$Json$Decode$list(
+					A3(
+						$elm$json$Json$Decode$map2,
+						$author$project$Semseg$SaeLatent,
+						A2($elm$json$Json$Decode$field, 'latent', $elm$json$Json$Decode$int),
+						A2(
+							$elm$json$Json$Decode$field,
+							'examples',
+							$elm$json$Json$Decode$list($author$project$Semseg$highlightedExampleDecoder))))),
+			$author$project$Semseg$GotSaeLatents(id));
+	});
 var $elm$core$Set$insert = F2(
 	function (key, _v0) {
 		var dict = _v0.a;
 		return $elm$core$Set$Set_elm_builtin(
 			A3($elm$core$Dict$insert, key, _Utils_Tuple0, dict));
 	});
+var $elm$core$Set$isEmpty = function (_v0) {
+	var dict = _v0.a;
+	return $elm$core$Dict$isEmpty(dict);
+};
 var $author$project$Requests$isStale = F2(
 	function (_v0, _v1) {
 		var id = _v0.a;
@@ -11810,6 +11906,10 @@ var $elm$core$Set$member = F2(
 		var dict = _v0.a;
 		return A2($elm$core$Dict$member, key, dict);
 	});
+var $author$project$Requests$next = function (_v0) {
+	var id = _v0.a;
+	return $author$project$Requests$Id(id + 1);
+};
 var $elm$core$Set$remove = F2(
 	function (key, _v0) {
 		var dict = _v0.a;
@@ -11838,17 +11938,28 @@ var $author$project$Semseg$update = F2(
 					$elm$core$Platform$Cmd$none);
 			case 'ToggleSelectedPatch':
 				var i = msg.a;
+				var saeLatentsReqId = $author$project$Requests$next(model.saeLatentsReqId);
 				var patchIndices = A2($elm$core$Set$member, i, model.selectedPatchIndices) ? A2($elm$core$Set$remove, i, model.selectedPatchIndices) : A2($elm$core$Set$insert, i, model.selectedPatchIndices);
+				var saeLatents = $elm$core$Set$isEmpty(patchIndices) ? $author$project$Requests$Initial : $author$project$Requests$Loading;
+				var cmd = function () {
+					var _v1 = model.inputExample;
+					if (_v1.$ === 'Loaded') {
+						var index = _v1.a.index;
+						return A4($author$project$Semseg$getSaeLatents, model.gradio, saeLatentsReqId, index, patchIndices);
+					} else {
+						return $elm$core$Platform$Cmd$none;
+					}
+				}();
 				return _Utils_Tuple2(
 					_Utils_update(
 						model,
-						{modPreds: $author$project$Requests$Initial, saeLatents: _List_Nil, selectedPatchIndices: patchIndices}),
-					$elm$core$Platform$Cmd$none);
+						{modPreds: $author$project$Requests$Initial, saeLatents: saeLatents, saeLatentsReqId: saeLatentsReqId, selectedPatchIndices: patchIndices}),
+					cmd);
 			case 'ResetSelectedPatches':
 				return _Utils_Tuple2(
 					_Utils_update(
 						model,
-						{modPreds: $author$project$Requests$Initial, saeLatents: _List_Nil, selectedPatchIndices: $elm$core$Set$empty}),
+						{modPreds: $author$project$Requests$Initial, saeLatents: $author$project$Requests$Initial, selectedPatchIndices: $elm$core$Set$empty}),
 					$elm$core$Platform$Cmd$none);
 			case 'GotInputExample':
 				var id = msg.a;
@@ -11872,6 +11983,33 @@ var $author$project$Semseg$update = F2(
 								model,
 								{
 									inputExample: $author$project$Requests$Failed(
+										$author$project$Semseg$explainGradioError(err))
+								}),
+							$elm$core$Platform$Cmd$none);
+					}
+				}
+			case 'GotSaeLatents':
+				var id = msg.a;
+				var result = msg.b;
+				if (A2($author$project$Requests$isStale, id, model.saeLatentsReqId)) {
+					return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
+				} else {
+					if (result.$ === 'Ok') {
+						var latents = result.a;
+						return _Utils_Tuple2(
+							_Utils_update(
+								model,
+								{
+									saeLatents: $author$project$Requests$Loaded(latents)
+								}),
+							$elm$core$Platform$Cmd$none);
+					} else {
+						var err = result.a;
+						return _Utils_Tuple2(
+							_Utils_update(
+								model,
+								{
+									saeLatents: $author$project$Requests$Failed(
 										$author$project$Semseg$explainGradioError(err))
 								}),
 							$elm$core$Platform$Cmd$none);
@@ -11908,7 +12046,6 @@ var $author$project$Semseg$update = F2(
 	});
 var $elm$html$Html$header = _VirtualDom_node('header');
 var $elm$html$Html$main_ = _VirtualDom_node('main');
-var $author$project$Requests$Loading = {$: 'Loading'};
 var $author$project$Requests$map = F2(
 	function (fn, requested) {
 		switch (requested.$) {
@@ -12017,8 +12154,8 @@ var $author$project$Semseg$viewGridCell = F3(
 				A2($elm$core$List$map, $elm$html$Html$Attributes$class, classes)),
 			_List_Nil);
 	});
-var $author$project$Semseg$viewGriddedImage = F3(
-	function (model, reqImage, caption) {
+var $author$project$Semseg$viewGriddedImage = F4(
+	function (model, reqImage, title, callToAction) {
 		switch (reqImage.$) {
 			case 'Initial':
 				return A2(
@@ -12026,7 +12163,16 @@ var $author$project$Semseg$viewGriddedImage = F3(
 					_List_Nil,
 					_List_fromArray(
 						[
-							$elm$html$Html$text('Loading...')
+							A2(
+							$elm$html$Html$p,
+							_List_fromArray(
+								[
+									$elm$html$Html$Attributes$class('italic')
+								]),
+							_List_fromArray(
+								[
+									$elm$html$Html$text(callToAction)
+								]))
 						]));
 			case 'Loading':
 				return A2(
@@ -12034,7 +12180,16 @@ var $author$project$Semseg$viewGriddedImage = F3(
 					_List_Nil,
 					_List_fromArray(
 						[
-							$elm$html$Html$text('Loading...')
+							A2(
+							$elm$html$Html$p,
+							_List_fromArray(
+								[
+									$elm$html$Html$Attributes$class('italic')
+								]),
+							_List_fromArray(
+								[
+									$elm$html$Html$text('Loading...')
+								]))
 						]));
 			case 'Failed':
 				var err = reqImage.a;
@@ -12046,6 +12201,16 @@ var $author$project$Semseg$viewGriddedImage = F3(
 					_List_Nil,
 					_List_fromArray(
 						[
+							A2(
+							$elm$html$Html$p,
+							_List_fromArray(
+								[
+									$elm$html$Html$Attributes$class('text-center')
+								]),
+							_List_fromArray(
+								[
+									$elm$html$Html$text(title)
+								])),
 							A2(
 							$elm$html$Html$div,
 							_List_fromArray(
@@ -12070,18 +12235,108 @@ var $author$project$Semseg$viewGriddedImage = F3(
 										[
 											$elm$html$Html$Attributes$class('block w-[224px] h-[224px] md:w-[336px] md:h-[336px]'),
 											$elm$html$Html$Attributes$src(
-											$author$project$Gradio$base64ImageToString(image))
+											$author$project$Gradio$base64ImageToString(image)),
+											A2($elm$html$Html$Attributes$style, 'image-rendering', 'pixelated')
 										]),
 									_List_Nil)
-								])),
-							A2(
-							$elm$html$Html$p,
-							_List_Nil,
-							_List_fromArray(
-								[
-									$elm$html$Html$text(caption)
 								]))
 						]));
+		}
+	});
+var $author$project$Semseg$viewHighlightedExample = function (_v0) {
+	var original = _v0.original;
+	var highlighted = _v0.highlighted;
+	return A2(
+		$elm$html$Html$img,
+		_List_fromArray(
+			[
+				$elm$html$Html$Attributes$src(
+				$author$project$Gradio$base64ImageToString(highlighted)),
+				$elm$html$Html$Attributes$class('max-w-36 h-auto')
+			]),
+		_List_Nil);
+};
+var $author$project$Semseg$viewSaeLatent = function (latent) {
+	return A2(
+		$elm$html$Html$div,
+		_List_fromArray(
+			[
+				$elm$html$Html$Attributes$class('flex flex-row gap-2 mt-2')
+			]),
+		A2($elm$core$List$map, $author$project$Semseg$viewHighlightedExample, latent.examples));
+};
+var $author$project$Semseg$viewSaeLatents = F3(
+	function (selected, requestedLatents, values) {
+		switch (requestedLatents.$) {
+			case 'Initial':
+				return A2(
+					$elm$html$Html$p,
+					_List_Nil,
+					_List_fromArray(
+						[
+							$elm$html$Html$text('Click on the image above to explain model predictions.')
+						]));
+			case 'Loading':
+				return A2(
+					$elm$html$Html$p,
+					_List_Nil,
+					_List_fromArray(
+						[
+							$elm$html$Html$text('Loading similar patches...')
+						]));
+			case 'Failed':
+				var err = requestedLatents.a;
+				return $author$project$Semseg$viewErr(err);
+			default:
+				var latents = requestedLatents.a;
+				return A2(
+					$elm$html$Html$div,
+					_List_Nil,
+					_Utils_ap(
+						_List_fromArray(
+							[
+								A2(
+								$elm$html$Html$p,
+								_List_Nil,
+								_List_fromArray(
+									[
+										A2(
+										$elm$html$Html$span,
+										_List_fromArray(
+											[
+												$elm$html$Html$Attributes$class('bg-rose-600 p-1 rounded')
+											]),
+										_List_fromArray(
+											[
+												$elm$html$Html$text('These patches')
+											])),
+										$elm$html$Html$text(' above are like '),
+										A2(
+										$elm$html$Html$span,
+										_List_fromArray(
+											[
+												$elm$html$Html$Attributes$class('bg-rose-600 p-1 rounded')
+											]),
+										_List_fromArray(
+											[
+												$elm$html$Html$text('these patches')
+											])),
+										$elm$html$Html$text(' below. (Not what you expected? Add more patches and get a larger '),
+										A2(
+										$elm$html$Html$a,
+										_List_fromArray(
+											[
+												$elm$html$Html$Attributes$href('https://simple.wikipedia.org/wiki/Sampling_(statistics)'),
+												$elm$html$Html$Attributes$class('text-blue-500 underline')
+											]),
+										_List_fromArray(
+											[
+												$elm$html$Html$text('sample size')
+											])),
+										$elm$html$Html$text(')')
+									]))
+							]),
+						A2($elm$core$List$map, $author$project$Semseg$viewSaeLatent, latents)));
 		}
 	});
 var $author$project$Semseg$view = function (model) {
@@ -12105,7 +12360,7 @@ var $author$project$Semseg$view = function (model) {
 							]),
 						_List_fromArray(
 							[
-								A3(
+								A4(
 								$author$project$Semseg$viewGriddedImage,
 								model,
 								A2(
@@ -12114,8 +12369,9 @@ var $author$project$Semseg$view = function (model) {
 										return $.image;
 									},
 									model.inputExample),
-								'Input Image'),
-								A3(
+								'Input Image',
+								'Wait just a second...'),
+								A4(
 								$author$project$Semseg$viewGriddedImage,
 								model,
 								A2(
@@ -12124,7 +12380,40 @@ var $author$project$Semseg$view = function (model) {
 										return $.labels;
 									},
 									model.inputExample),
-								'True Labels')
+								'True Labels',
+								'Wait just a second...'),
+								A4(
+								$author$project$Semseg$viewGriddedImage,
+								model,
+								A2(
+									$author$project$Requests$map,
+									function ($) {
+										return $.labels;
+									},
+									model.origPreds),
+								'Predicted Segmentation',
+								'Wait just a second...'),
+								A4(
+								$author$project$Semseg$viewGriddedImage,
+								model,
+								A2(
+									$author$project$Requests$map,
+									function ($) {
+										return $.labels;
+									},
+									model.modPreds),
+								'Modified Segmentation',
+								'Modify the ViT\'s representations using the sliders below.')
+							])),
+						A2(
+						$elm$html$Html$div,
+						_List_fromArray(
+							[
+								$elm$html$Html$Attributes$class('flex flex-row')
+							]),
+						_List_fromArray(
+							[
+								A3($author$project$Semseg$viewSaeLatents, model.selectedPatchIndices, model.saeLatents, model.sliders)
 							]))
 					]))
 			]),
@@ -12143,4 +12432,4 @@ var $author$project$Semseg$main = $elm$browser$Browser$application(
 		view: $author$project$Semseg$view
 	});
 _Platform_export({'Semseg':{'init':$author$project$Semseg$main(
-	$elm$json$Json$Decode$succeed(_Utils_Tuple0))({"versions":{"elm":"0.19.1"},"types":{"message":"Semseg.Msg","aliases":{"Semseg.Example":{"args":[],"type":"{ image : Gradio.Base64Image, labels : Gradio.Base64Image }"}},"unions":{"Semseg.Msg":{"args":[],"tags":{"NoOp":[],"HoverPatch":["Basics.Int"],"ResetHoveredPatch":[],"ToggleSelectedPatch":["Basics.Int"],"ResetSelectedPatches":[],"GotInputExample":["Requests.Id","Result.Result Gradio.Error Semseg.Example"],"GotOrigPreds":["Requests.Id","Result.Result Gradio.Error Semseg.Example"]}},"Gradio.Base64Image":{"args":[],"tags":{"Base64Image":["String.String"]}},"Gradio.Error":{"args":[],"tags":{"NetworkError":["String.String"],"ParsingError":["String.String"],"JsonError":["String.String"],"ApiError":["String.String"]}},"Requests.Id":{"args":[],"tags":{"Id":["Basics.Int"]}},"Basics.Int":{"args":[],"tags":{"Int":[]}},"Result.Result":{"args":["error","value"],"tags":{"Ok":["value"],"Err":["error"]}},"String.String":{"args":[],"tags":{"String":[]}}}}})}});}(this));
+	$elm$json$Json$Decode$succeed(_Utils_Tuple0))({"versions":{"elm":"0.19.1"},"types":{"message":"Semseg.Msg","aliases":{"Semseg.Example":{"args":[],"type":"{ image : Gradio.Base64Image, labels : Gradio.Base64Image, index : Basics.Int }"},"Semseg.HighlightedExample":{"args":[],"type":"{ original : Gradio.Base64Image, highlighted : Gradio.Base64Image, labels : Gradio.Base64Image, index : Basics.Int }"},"Semseg.SaeLatent":{"args":[],"type":"{ latent : Basics.Int, examples : List.List Semseg.HighlightedExample }"}},"unions":{"Semseg.Msg":{"args":[],"tags":{"NoOp":[],"HoverPatch":["Basics.Int"],"ResetHoveredPatch":[],"ToggleSelectedPatch":["Basics.Int"],"ResetSelectedPatches":[],"GotInputExample":["Requests.Id","Result.Result Gradio.Error Semseg.Example"],"GotSaeLatents":["Requests.Id","Result.Result Gradio.Error (List.List Semseg.SaeLatent)"],"GotOrigPreds":["Requests.Id","Result.Result Gradio.Error Semseg.Example"]}},"Gradio.Base64Image":{"args":[],"tags":{"Base64Image":["String.String"]}},"Gradio.Error":{"args":[],"tags":{"NetworkError":["String.String"],"ParsingError":["String.String"],"JsonError":["String.String"],"ApiError":["String.String"]}},"Requests.Id":{"args":[],"tags":{"Id":["Basics.Int"]}},"Basics.Int":{"args":[],"tags":{"Int":[]}},"List.List":{"args":["a"],"tags":{}},"Result.Result":{"args":["error","value"],"tags":{"Ok":["value"],"Err":["error"]}},"String.String":{"args":[],"tags":{"String":[]}}}}})}});}(this));

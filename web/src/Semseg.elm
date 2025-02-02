@@ -1,3 +1,6 @@
+-- https://css-tricks.com/almanac/properties/i/image-rendering/
+
+
 module Semseg exposing (..)
 
 import Array
@@ -42,6 +45,7 @@ type Msg
     | ResetSelectedPatches
       -- API responses
     | GotInputExample Requests.Id (Result Gradio.Error Example)
+    | GotSaeLatents Requests.Id (Result Gradio.Error (List SaeLatent))
     | GotOrigPreds Requests.Id (Result Gradio.Error Example)
 
 
@@ -76,7 +80,7 @@ type alias Model =
     , inputExample : Requests.Requested Example
     , hoveredPatchIndex : Maybe Int
     , selectedPatchIndices : Set.Set Int
-    , saeLatents : List SaeLatent
+    , saeLatents : Requests.Requested (List SaeLatent)
 
     -- Semantic segmenations
     , trueLabels : Requests.Requested Example
@@ -89,6 +93,7 @@ type alias Model =
     -- API
     , gradio : Gradio.Config
     , inputExampleReqId : Requests.Id
+    , saeLatentsReqId : Requests.Id
     , origPredsReqId : Requests.Id
     }
 
@@ -98,8 +103,7 @@ type alias VitKey =
 
 
 type alias SaeLatent =
-    { vit : VitKey
-    , latent : Int
+    { latent : Int
     , examples : List HighlightedExample
     }
 
@@ -107,13 +111,14 @@ type alias SaeLatent =
 type alias Example =
     { image : Gradio.Base64Image
     , labels : Gradio.Base64Image
+    , index : Int
     }
 
 
 type alias HighlightedExample =
     { original : Gradio.Base64Image
     , highlighted : Gradio.Base64Image
-    , labels : List Int
+    , labels : Gradio.Base64Image
     , index : Int
     }
 
@@ -131,7 +136,7 @@ init _ url key =
             , inputExample = Requests.Initial
             , hoveredPatchIndex = Nothing
             , selectedPatchIndices = Set.empty
-            , saeLatents = []
+            , saeLatents = Requests.Initial
             , trueLabels = Requests.Initial
             , origPreds = Requests.Initial
             , modPreds = Requests.Initial
@@ -143,14 +148,14 @@ init _ url key =
             , gradio =
                 { host = "http://127.0.0.1:7860" }
             , inputExampleReqId = Requests.init
+            , saeLatentsReqId = Requests.init
             , origPredsReqId = Requests.init
             }
     in
     ( model
     , Cmd.batch
         [ getInputExample model.gradio model.inputExampleReqId example
-
-        -- , getOrigPreds model.gradio model.origPredsReqId example
+        , getOrigPreds model.gradio model.origPredsReqId example
         ]
     )
 
@@ -179,20 +184,41 @@ update msg model =
 
                     else
                         Set.insert i model.selectedPatchIndices
+
+                saeLatentsReqId =
+                    Requests.next model.saeLatentsReqId
+
+                cmd =
+                    case model.inputExample of
+                        Requests.Loaded { index } ->
+                            getSaeLatents model.gradio
+                                saeLatentsReqId
+                                index
+                                patchIndices
+
+                        _ ->
+                            Cmd.none
+
+                saeLatents =
+                    if Set.isEmpty patchIndices then
+                        Requests.Initial
+
+                    else
+                        Requests.Loading
             in
             ( { model
                 | selectedPatchIndices = patchIndices
-                , saeLatents = []
+                , saeLatents = saeLatents
                 , modPreds = Requests.Initial
+                , saeLatentsReqId = saeLatentsReqId
               }
-              -- , getSaeExamples model.exampleIndex patchIndices
-            , Cmd.none
+            , cmd
             )
 
         ResetSelectedPatches ->
             ( { model
                 | selectedPatchIndices = Set.empty
-                , saeLatents = []
+                , saeLatents = Requests.Initial
                 , modPreds = Requests.Initial
               }
             , Cmd.none
@@ -205,10 +231,26 @@ update msg model =
             else
                 case result of
                     Ok example ->
-                        ( { model | inputExample = Requests.Loaded example }, Cmd.none )
+                        ( { model | inputExample = Requests.Loaded example }
+                        , Cmd.none
+                        )
 
                     Err err ->
-                        ( { model | inputExample = Requests.Failed (explainGradioError err) }, Cmd.none )
+                        ( { model | inputExample = Requests.Failed (explainGradioError err) }
+                        , Cmd.none
+                        )
+
+        GotSaeLatents id result ->
+            if Requests.isStale id model.saeLatentsReqId then
+                ( model, Cmd.none )
+
+            else
+                case result of
+                    Ok latents ->
+                        ( { model | saeLatents = Requests.Loaded latents }, Cmd.none )
+
+                    Err err ->
+                        ( { model | saeLatents = Requests.Failed (explainGradioError err) }, Cmd.none )
 
         GotOrigPreds id result ->
             if Requests.isStale id model.origPredsReqId then
@@ -400,9 +442,9 @@ encodeArgs args =
 getInputExample : Gradio.Config -> Requests.Id -> Int -> Cmd Msg
 getInputExample cfg id img =
     Gradio.get cfg
-        "get-image"
+        "get-img"
         [ E.int img ]
-        exampleDecoder
+        (Gradio.decodeOne exampleDecoder)
         (GotInputExample id)
 
 
@@ -501,42 +543,27 @@ getOrigPreds cfg id img =
 --                     )
 --                 )
 --         }
--- getSaeExamples : Int -> Set.Set Int -> Cmd Msg
--- getSaeExamples img patches =
---     Http.post
---         { url = "http://127.0.0.1:7860/gradio_api/call/get-sae-examples"
---         , body =
---             Http.jsonBody
---                 (encodeArgs
---                     [ E.int img
---                     , Set.toList patches |> E.list E.int
---                     ]
---                 )
---         , expect = Http.expectJson (GotEventId getSaeExamplesResult) eventIdDecoder
---         }
--- getSaeExamplesResult : String -> Cmd Msg
--- getSaeExamplesResult id =
---     Http.get
---         { url = "http://127.0.0.1:7860/gradio_api/call/get-sae-examples/" ++ id
---         , expect =
---             Http.expectString
---                 (GotEventData
---                     (D.decodeString (D.list saeExampleResultDecoder)
---                         >> ParsedSaeExamples
---                     )
---                 )
---         }
--- type SaeExampleResult
---     = SaeExampleMissing
---     | SaeExampleUrl String
---     | SaeExampleLatent Int
--- saeExampleOutputToUrl : SaeExampleResult -> Maybe String
--- saeExampleOutputToUrl result =
---     case result of
---         SaeExampleUrl url ->
---             Just url
---         _ ->
---             Nothing
+
+
+getSaeLatents : Gradio.Config -> Requests.Id -> Int -> Set.Set Int -> Cmd Msg
+getSaeLatents cfg id img patches =
+    Gradio.get cfg
+        "get-sae-latents"
+        [ E.int img
+        , Set.toList patches |> E.list E.int
+        ]
+        (Gradio.decodeOne
+            (D.list
+                (D.map2 SaeLatent
+                    (D.field "latent" D.int)
+                    (D.field "examples" (D.list highlightedExampleDecoder))
+                )
+            )
+        )
+        (GotSaeLatents id)
+
+
+
 -- saeExampleOutputToLatent : SaeExampleResult -> Maybe Int
 -- saeExampleOutputToLatent result =
 --     case result of
@@ -615,15 +642,19 @@ segmentationResultToLabels result =
 
 exampleDecoder : D.Decoder Example
 exampleDecoder =
-    D.map2 Example
-        (D.index 0 Gradio.base64ImageDecoder)
-        (D.index 1 Gradio.base64ImageDecoder)
+    D.map3 Example
+        (D.field "orig_url" Gradio.base64ImageDecoder)
+        (D.field "seg_url" Gradio.base64ImageDecoder)
+        (D.field "index" D.int)
 
 
-
--- eventIdDecoder : D.Decoder String
--- eventIdDecoder =
---     D.field "event_id" D.string
+highlightedExampleDecoder : D.Decoder HighlightedExample
+highlightedExampleDecoder =
+    D.map4 HighlightedExample
+        (D.field "orig_url" Gradio.base64ImageDecoder)
+        (D.field "highlighted_url" Gradio.base64ImageDecoder)
+        (D.field "seg_url" Gradio.base64ImageDecoder)
+        (D.field "index" D.int)
 
 
 imgUrlDecoder : D.Decoder String
@@ -645,21 +676,31 @@ view model =
             [ Html.Attributes.class "w-full min-h-screen p-1 md:p-2 lg:p-4 bg-gray-50 space-y-4" ]
             [ Html.div
                 [ Html.Attributes.class "flex flex-row gap-2 items-stretch" ]
-                [ viewGriddedImage model (Requests.map .image model.inputExample) "Input Image"
-                , viewGriddedImage model (Requests.map .labels model.inputExample) "True Labels"
-
-                -- , viewGriddedImage model model.predExample "Predicted Semantic Segmentation"
-                -- , viewGriddedImage model model.modifiedLabelsUrl "Modified Semantic Segmentation"
+                [ viewGriddedImage model
+                    (Requests.map .image model.inputExample)
+                    "Input Image"
+                    "Wait just a second..."
+                , viewGriddedImage model
+                    (Requests.map .labels model.inputExample)
+                    "True Labels"
+                    "Wait just a second..."
+                , viewGriddedImage model
+                    (Requests.map .labels model.origPreds)
+                    "Predicted Segmentation"
+                    "Wait just a second..."
+                , viewGriddedImage model
+                    (Requests.map .labels model.modPreds)
+                    "Modified Segmentation"
+                    "Modify the ViT's representations using the sliders below."
                 ]
 
             -- , viewControls model
-            -- , Html.div
-            --     [ Html.Attributes.style "display" "flex"
-            --     , Html.Attributes.style "flex-direction" "row"
-            --     ]
-            --     [ viewSaeExamples model.selectedPatchIndices model.saeLatents model.sliders
-            --     , viewLegend (Set.fromList (model.predLabels ++ model.modifiedLabels))
-            --     ]
+            , Html.div
+                [ Html.Attributes.class "flex flex-row" ]
+                [ viewSaeLatents model.selectedPatchIndices model.saeLatents model.sliders
+
+                -- , viewLegend (Set.fromList (model.predLabels ++ model.modifiedLabels))
+                ]
             ]
         ]
     }
@@ -725,30 +766,36 @@ viewErr err =
 --             []
 --             :: buttons
 --         )
--- viewErr : Maybe String -> Html.Html Msg
--- viewErr err =
---     case err of
---         Just msg ->
---             Html.p [ Html.Attributes.id "err-msg" ] [ Html.text msg ]
---         Nothing ->
---             Html.span [] []
 
 
-viewGriddedImage : Model -> Requests.Requested Gradio.Base64Image -> String -> Html.Html Msg
-viewGriddedImage model reqImage caption =
+viewGriddedImage : Model -> Requests.Requested Gradio.Base64Image -> String -> String -> Html.Html Msg
+viewGriddedImage model reqImage title callToAction =
     case reqImage of
         Requests.Initial ->
-            Html.div [] [ Html.text "Loading..." ]
+            Html.div
+                []
+                [ Html.p
+                    [ Html.Attributes.class "italic" ]
+                    [ Html.text callToAction ]
+                ]
 
         Requests.Loading ->
-            Html.div [] [ Html.text "Loading..." ]
+            Html.div
+                []
+                [ Html.p
+                    [ Html.Attributes.class "italic" ]
+                    [ Html.text "Loading..." ]
+                ]
 
         Requests.Failed err ->
             viewErr err
 
         Requests.Loaded image ->
             Html.div []
-                [ Html.div
+                [ Html.p
+                    [ Html.Attributes.class "text-center" ]
+                    [ Html.text title ]
+                , Html.div
                     [ Html.Attributes.class "relative inline-block" ]
                     [ Html.div
                         [ Html.Attributes.class "absolute grid grid-rows-[repeat(16,_14px)] grid-cols-[repeat(16,_14px)] md:grid-rows-[repeat(16,_21px)] md:grid-cols-[repeat(16,_21px)]" ]
@@ -759,12 +806,10 @@ viewGriddedImage model reqImage caption =
                     , Html.img
                         [ Html.Attributes.class "block w-[224px] h-[224px] md:w-[336px] md:h-[336px]"
                         , Html.Attributes.src (Gradio.base64ImageToString image)
+                        , Html.Attributes.style "image-rendering" "pixelated"
                         ]
                         []
                     ]
-                , Html.p
-                    []
-                    [ Html.text caption ]
                 ]
 
 
@@ -857,57 +902,73 @@ viewGridCell hovered selected self =
 --                 ]
 --         Nothing ->
 --             Html.div [] [ Html.text ("Loading '" ++ title ++ "'...") ]
--- viewSaeExamples : Set.Set Int -> List SaeLatent -> Dict.Dict Int Float -> Html.Html Msg
--- viewSaeExamples selected latents values =
---     if List.length latents > 0 then
---         Html.div []
---             ([ Html.p []
---                 [ Html.span [ Html.Attributes.class "bg-rose-600 p-1 rounded" ] [ Html.text "These patches" ]
---                 , Html.text " above are like "
---                 , Html.span [ Html.Attributes.class "plasma-gradient text-white p-1 rounded" ] [ Html.text "these patches" ]
---                 , Html.text " below. (Not what you expected? Add more patches and get a larger "
---                 , Html.a [ Html.Attributes.href "https://simple.wikipedia.org/wiki/Sampling_(statistics)", Html.Attributes.class "text-blue-500 underline" ] [ Html.text "sample size" ]
---                 , Html.text ")"
---                 ]
---              ]
---                 ++ List.filterMap
---                     (\latent -> Maybe.map (\f -> viewSaeLatentExamples latent f) (Dict.get latent.latent values))
---                     latents
---             )
---     else if Set.size selected > 0 then
---         Html.p []
---             [ Html.text "Loading similar patches..." ]
---     else
---         Html.p []
---             [ Html.text "Click on the image above to explain model predictions." ]
--- viewSaeLatentExamples : SaeLatent -> Float -> Html.Html Msg
--- viewSaeLatentExamples latent value =
---     Html.div
---         [ Html.Attributes.class "flex flex-row gap-2 mt-2" ]
---         (List.map viewImage latent.urls
---             ++ [ Html.div
---                     [ Html.Attributes.class "flex flex-col gap-2" ]
---                     [ Html.input
---                         [ Html.Attributes.type_ "range"
---                         , Html.Attributes.min "-10"
---                         , Html.Attributes.max "10"
---                         , Html.Attributes.value (String.fromFloat value)
---                         , Html.Events.onInput (SetSlider latent.latent)
---                         ]
---                         []
---                     , Html.p
---                         []
---                         [ Html.text ("Latent 24K/" ++ String.fromInt latent.latent ++ ": " ++ String.fromFloat value) ]
---                     ]
---                ]
---         )
--- viewImage : String -> Html.Html Msg
--- viewImage url =
---     Html.img
---         [ Html.Attributes.src url
---         , Html.Attributes.class "max-w-36 h-auto"
---         ]
---         []
+
+
+viewSaeLatents : Set.Set Int -> Requests.Requested (List SaeLatent) -> Dict.Dict Int Float -> Html.Html Msg
+viewSaeLatents selected requestedLatents values =
+    case requestedLatents of
+        Requests.Initial ->
+            Html.p []
+                [ Html.text "Click on the image above to explain model predictions." ]
+
+        Requests.Loading ->
+            Html.p []
+                [ Html.text "Loading similar patches..." ]
+
+        Requests.Failed err ->
+            viewErr err
+
+        Requests.Loaded latents ->
+            Html.div []
+                ([ Html.p []
+                    [ Html.span [ Html.Attributes.class "bg-rose-600 p-1 rounded" ] [ Html.text "These patches" ]
+                    , Html.text " above are like "
+                    , Html.span [ Html.Attributes.class "bg-rose-600 p-1 rounded" ] [ Html.text "these patches" ]
+                    , Html.text " below. (Not what you expected? Add more patches and get a larger "
+                    , Html.a [ Html.Attributes.href "https://simple.wikipedia.org/wiki/Sampling_(statistics)", Html.Attributes.class "text-blue-500 underline" ] [ Html.text "sample size" ]
+                    , Html.text ")"
+                    ]
+                 ]
+                    ++ List.map
+                        viewSaeLatent
+                        -- (\latent -> Maybe.map (\f -> viewSaeLatent latent f) (Dict.get latent.latent values))
+                        latents
+                )
+
+
+viewSaeLatent : SaeLatent -> Html.Html Msg
+viewSaeLatent latent =
+    Html.div
+        [ Html.Attributes.class "flex flex-row gap-2 mt-2" ]
+        (List.map viewHighlightedExample latent.examples
+         -- ++ [ Html.div
+         --         [ Html.Attributes.class "flex flex-col gap-2" ]
+         --         [ Html.input
+         --             [ Html.Attributes.type_ "range"
+         --             , Html.Attributes.min "-10"
+         --             , Html.Attributes.max "10"
+         --             -- , Html.Attributes.value (String.fromFloat value)
+         --             -- , Html.Events.onInput (SetSlider latent.latent)
+         --             ]
+         --             []
+         --         , Html.p
+         --             []
+         --             [ Html.text ("Latent 24K/" ++ String.fromInt latent.latent ) ]
+         --         ]
+         --    ]
+        )
+
+
+viewHighlightedExample : HighlightedExample -> Html.Html Msg
+viewHighlightedExample { original, highlighted } =
+    Html.img
+        [ Html.Attributes.src (Gradio.base64ImageToString highlighted)
+        , Html.Attributes.class "max-w-36 h-auto"
+        ]
+        []
+
+
+
 -- -- GRADIO API PARSER
 -- eventDataParser : Parser.Parser String
 -- eventDataParser =
