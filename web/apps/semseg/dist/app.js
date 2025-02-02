@@ -11940,7 +11940,7 @@ var $author$project$Semseg$getOrigPreds = F3(
 		return A5(
 			$author$project$Gradio$get,
 			cfg,
-			'get-preds',
+			'get-orig-preds',
 			_List_fromArray(
 				[
 					$elm$json$Json$Encode$int(img)
@@ -12265,6 +12265,7 @@ var $author$project$Semseg$init = F3(
 			inputExampleReqId: $author$project$Requests$init,
 			key: key,
 			modPreds: $author$project$Requests$Initial,
+			modPredsReqId: $author$project$Requests$init,
 			origPreds: $author$project$Requests$Initial,
 			origPredsReqId: $author$project$Requests$init,
 			saeLatents: $author$project$Requests$Initial,
@@ -12344,6 +12345,41 @@ var $author$project$Semseg$explainGradioError = function (err) {
 			return 'Error in the API: ' + msg;
 	}
 };
+var $author$project$Semseg$GotModPreds = F2(
+	function (a, b) {
+		return {$: 'GotModPreds', a: a, b: b};
+	});
+var $elm$json$Json$Encode$dict = F3(
+	function (toKey, toValue, dictionary) {
+		return _Json_wrap(
+			A3(
+				$elm$core$Dict$foldl,
+				F3(
+					function (key, value, obj) {
+						return A3(
+							_Json_addField,
+							toKey(key),
+							toValue(value),
+							obj);
+					}),
+				_Json_emptyObject(_Utils_Tuple0),
+				dictionary));
+	});
+var $elm$json$Json$Encode$float = _Json_wrap;
+var $author$project$Semseg$getModPreds = F4(
+	function (cfg, id, img, sliders) {
+		return A5(
+			$author$project$Gradio$get,
+			cfg,
+			'get-mod-preds',
+			_List_fromArray(
+				[
+					$elm$json$Json$Encode$int(img),
+					A3($elm$json$Json$Encode$dict, $elm$core$String$fromInt, $elm$json$Json$Encode$float, sliders)
+				]),
+			$author$project$Gradio$decodeOne($author$project$Semseg$exampleDecoder),
+			$author$project$Semseg$GotModPreds(id));
+	});
 var $author$project$Semseg$GotSaeLatents = F2(
 	function (a, b) {
 		return {$: 'GotSaeLatents', a: a, b: b};
@@ -12451,6 +12487,7 @@ var $elm$core$Set$remove = F2(
 		return $elm$core$Set$Set_elm_builtin(
 			A2($elm$core$Dict$remove, key, dict));
 	});
+var $elm$core$String$toFloat = _String_toFloat;
 var $author$project$Semseg$update = F2(
 	function (msg, model) {
 		switch (msg.$) {
@@ -12532,6 +12569,31 @@ var $author$project$Semseg$update = F2(
 						model,
 						{modPreds: $author$project$Requests$Initial, saeLatents: $author$project$Requests$Initial, selectedPatchIndices: $elm$core$Set$empty}),
 					$elm$core$Platform$Cmd$none);
+			case 'SetSlider':
+				var i = msg.a;
+				var str = msg.b;
+				var _v2 = $elm$core$String$toFloat(str);
+				if (_v2.$ === 'Just') {
+					var f = _v2.a;
+					var sliders = A3($elm$core$Dict$insert, i, f, model.sliders);
+					var modPredsReqId = $author$project$Requests$next(model.modPredsReqId);
+					var cmd = function () {
+						var _v3 = model.inputExample;
+						if (_v3.$ === 'Loaded') {
+							var index = _v3.a.index;
+							return A4($author$project$Semseg$getModPreds, model.gradio, modPredsReqId, index, sliders);
+						} else {
+							return $elm$core$Platform$Cmd$none;
+						}
+					}();
+					return _Utils_Tuple2(
+						_Utils_update(
+							model,
+							{sliders: sliders}),
+						cmd);
+				} else {
+					return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
+				}
 			case 'GotInputExample':
 				var id = msg.a;
 				var result = msg.b;
@@ -12567,11 +12629,24 @@ var $author$project$Semseg$update = F2(
 				} else {
 					if (result.$ === 'Ok') {
 						var latents = result.a;
+						var sliders = $elm$core$Dict$fromList(
+							A2(
+								$elm$core$List$map,
+								function (latent) {
+									return _Utils_Tuple2(latent, 0.0);
+								},
+								A2(
+									$elm$core$List$map,
+									function ($) {
+										return $.latent;
+									},
+									latents)));
 						return _Utils_Tuple2(
 							_Utils_update(
 								model,
 								{
-									saeLatents: $author$project$Requests$Loaded(latents)
+									saeLatents: $author$project$Requests$Loaded(latents),
+									sliders: sliders
 								}),
 							$elm$core$Platform$Cmd$none);
 					} else {
@@ -12586,7 +12661,7 @@ var $author$project$Semseg$update = F2(
 							$elm$core$Platform$Cmd$none);
 					}
 				}
-			default:
+			case 'GotOrigPreds':
 				var id = msg.a;
 				var result = msg.b;
 				if (A2($author$project$Requests$isStale, id, model.origPredsReqId)) {
@@ -12608,6 +12683,33 @@ var $author$project$Semseg$update = F2(
 								model,
 								{
 									origPreds: $author$project$Requests$Failed(
+										$author$project$Semseg$explainGradioError(err))
+								}),
+							$elm$core$Platform$Cmd$none);
+					}
+				}
+			default:
+				var id = msg.a;
+				var result = msg.b;
+				if (A2($author$project$Requests$isStale, id, model.modPredsReqId)) {
+					return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
+				} else {
+					if (result.$ === 'Ok') {
+						var preds = result.a;
+						return _Utils_Tuple2(
+							_Utils_update(
+								model,
+								{
+									modPreds: $author$project$Requests$Loaded(preds)
+								}),
+							$elm$core$Platform$Cmd$none);
+					} else {
+						var err = result.a;
+						return _Utils_Tuple2(
+							_Utils_update(
+								model,
+								{
+									modPreds: $author$project$Requests$Failed(
 										$author$project$Semseg$explainGradioError(err))
 								}),
 							$elm$core$Platform$Cmd$none);
@@ -12926,6 +13028,20 @@ var $author$project$Semseg$viewGriddedImage = F4(
 						]));
 		}
 	});
+var $elm$core$Maybe$map = F2(
+	function (f, maybe) {
+		if (maybe.$ === 'Just') {
+			var value = maybe.a;
+			return $elm$core$Maybe$Just(
+				f(value));
+		} else {
+			return $elm$core$Maybe$Nothing;
+		}
+	});
+var $author$project$Semseg$SetSlider = F2(
+	function (a, b) {
+		return {$: 'SetSlider', a: a, b: b};
+	});
 var $author$project$Semseg$viewHighlightedExample = function (_v0) {
 	var original = _v0.original;
 	var highlighted = _v0.highlighted;
@@ -12939,15 +13055,58 @@ var $author$project$Semseg$viewHighlightedExample = function (_v0) {
 			]),
 		_List_Nil);
 };
-var $author$project$Semseg$viewSaeLatent = function (latent) {
-	return A2(
-		$elm$html$Html$div,
-		_List_fromArray(
-			[
-				$elm$html$Html$Attributes$class('flex flex-row gap-2 mt-2')
-			]),
-		A2($elm$core$List$map, $author$project$Semseg$viewHighlightedExample, latent.examples));
-};
+var $author$project$Semseg$viewSaeLatent = F2(
+	function (latent, value) {
+		return A2(
+			$elm$html$Html$div,
+			_List_fromArray(
+				[
+					$elm$html$Html$Attributes$class('flex flex-row gap-2 mt-2')
+				]),
+			_Utils_ap(
+				A2($elm$core$List$map, $author$project$Semseg$viewHighlightedExample, latent.examples),
+				_List_fromArray(
+					[
+						A2(
+						$elm$html$Html$div,
+						_List_fromArray(
+							[
+								$elm$html$Html$Attributes$class('flex flex-col gap-2')
+							]),
+						_List_fromArray(
+							[
+								A2(
+								$elm$html$Html$input,
+								_List_fromArray(
+									[
+										$elm$html$Html$Attributes$type_('range'),
+										$elm$html$Html$Attributes$min('-10'),
+										$elm$html$Html$Attributes$max('10'),
+										$elm$html$Html$Attributes$value(
+										$elm$core$String$fromFloat(value)),
+										$elm$html$Html$Events$onInput(
+										$author$project$Semseg$SetSlider(latent.latent))
+									]),
+								_List_Nil),
+								A2(
+								$elm$html$Html$p,
+								_List_Nil,
+								_List_fromArray(
+									[
+										$elm$html$Html$text(
+										'Latent 24K/' + $elm$core$String$fromInt(latent.latent))
+									])),
+								A2(
+								$elm$html$Html$p,
+								_List_Nil,
+								_List_fromArray(
+									[
+										$elm$html$Html$text(
+										'Value:' + $elm$core$String$fromFloat(value))
+									]))
+							]))
+					])));
+	});
 var $author$project$Semseg$viewSaeLatents = F3(
 	function (selected, requestedLatents, values) {
 		switch (requestedLatents.$) {
@@ -13020,7 +13179,17 @@ var $author$project$Semseg$viewSaeLatents = F3(
 							A2(
 							$elm$html$Html$div,
 							_List_Nil,
-							A2($elm$core$List$map, $author$project$Semseg$viewSaeLatent, latents))
+							A2(
+								$elm$core$List$filterMap,
+								function (latent) {
+									return A2(
+										$elm$core$Maybe$map,
+										function (f) {
+											return A2($author$project$Semseg$viewSaeLatent, latent, f);
+										},
+										A2($elm$core$Dict$get, latent.latent, values));
+								},
+								latents))
 						]));
 		}
 	});
@@ -13125,4 +13294,4 @@ var $author$project$Semseg$main = $elm$browser$Browser$application(
 		view: $author$project$Semseg$view
 	});
 _Platform_export({'Semseg':{'init':$author$project$Semseg$main(
-	$elm$json$Json$Decode$succeed(_Utils_Tuple0))({"versions":{"elm":"0.19.1"},"types":{"message":"Semseg.Msg","aliases":{"Semseg.Example":{"args":[],"type":"{ image : Gradio.Base64Image, labels : Gradio.Base64Image, index : Basics.Int }"},"Semseg.HighlightedExample":{"args":[],"type":"{ original : Gradio.Base64Image, highlighted : Gradio.Base64Image, labels : Gradio.Base64Image, index : Basics.Int }"},"Semseg.SaeLatent":{"args":[],"type":"{ latent : Basics.Int, examples : List.List Semseg.HighlightedExample }"}},"unions":{"Semseg.Msg":{"args":[],"tags":{"NoOp":[],"SetUrl":["Basics.Int"],"SetExample":["Basics.Int"],"GetRandomExample":[],"HoverPatch":["Basics.Int"],"ResetHoveredPatch":[],"ToggleSelectedPatch":["Basics.Int"],"ResetSelectedPatches":[],"GotInputExample":["Requests.Id","Result.Result Gradio.Error Semseg.Example"],"GotSaeLatents":["Requests.Id","Result.Result Gradio.Error (List.List Semseg.SaeLatent)"],"GotOrigPreds":["Requests.Id","Result.Result Gradio.Error Semseg.Example"]}},"Gradio.Base64Image":{"args":[],"tags":{"Base64Image":["String.String"]}},"Gradio.Error":{"args":[],"tags":{"NetworkError":["String.String"],"ParsingError":["String.String"],"JsonError":["String.String"],"ApiError":["String.String"]}},"Requests.Id":{"args":[],"tags":{"Id":["Basics.Int"]}},"Basics.Int":{"args":[],"tags":{"Int":[]}},"List.List":{"args":["a"],"tags":{}},"Result.Result":{"args":["error","value"],"tags":{"Ok":["value"],"Err":["error"]}},"String.String":{"args":[],"tags":{"String":[]}}}}})}});}(this));
+	$elm$json$Json$Decode$succeed(_Utils_Tuple0))({"versions":{"elm":"0.19.1"},"types":{"message":"Semseg.Msg","aliases":{"Semseg.Example":{"args":[],"type":"{ image : Gradio.Base64Image, labels : Gradio.Base64Image, index : Basics.Int }"},"Semseg.HighlightedExample":{"args":[],"type":"{ original : Gradio.Base64Image, highlighted : Gradio.Base64Image, labels : Gradio.Base64Image, index : Basics.Int }"},"Semseg.SaeLatent":{"args":[],"type":"{ latent : Basics.Int, examples : List.List Semseg.HighlightedExample }"}},"unions":{"Semseg.Msg":{"args":[],"tags":{"NoOp":[],"SetUrl":["Basics.Int"],"SetExample":["Basics.Int"],"GetRandomExample":[],"HoverPatch":["Basics.Int"],"ResetHoveredPatch":[],"ToggleSelectedPatch":["Basics.Int"],"ResetSelectedPatches":[],"SetSlider":["Basics.Int","String.String"],"GotInputExample":["Requests.Id","Result.Result Gradio.Error Semseg.Example"],"GotSaeLatents":["Requests.Id","Result.Result Gradio.Error (List.List Semseg.SaeLatent)"],"GotOrigPreds":["Requests.Id","Result.Result Gradio.Error Semseg.Example"],"GotModPreds":["Requests.Id","Result.Result Gradio.Error Semseg.Example"]}},"Gradio.Base64Image":{"args":[],"tags":{"Base64Image":["String.String"]}},"Gradio.Error":{"args":[],"tags":{"NetworkError":["String.String"],"ParsingError":["String.String"],"JsonError":["String.String"],"ApiError":["String.String"]}},"Requests.Id":{"args":[],"tags":{"Id":["Basics.Int"]}},"Basics.Int":{"args":[],"tags":{"Int":[]}},"List.List":{"args":["a"],"tags":{}},"Result.Result":{"args":["error","value"],"tags":{"Ok":["value"],"Err":["error"]}},"String.String":{"args":[],"tags":{"String":[]}}}}})}});}(this));

@@ -49,10 +49,12 @@ type Msg
     | ResetHoveredPatch
     | ToggleSelectedPatch Int
     | ResetSelectedPatches
+    | SetSlider Int String
       -- API responses
     | GotInputExample Requests.Id (Result Gradio.Error Example)
     | GotSaeLatents Requests.Id (Result Gradio.Error (List SaeLatent))
     | GotOrigPreds Requests.Id (Result Gradio.Error Example)
+    | GotModPreds Requests.Id (Result Gradio.Error Example)
 
 
 
@@ -65,7 +67,6 @@ type Msg
 -- | ParsedModifiedLabels (Result D.Error (List SegmentationResult))
 -- | GetRandomExample
 -- | SetExampleInput String
--- | SetSlider Int String
 
 
 type ImageUploaderMsg
@@ -100,6 +101,7 @@ type alias Model =
     , inputExampleReqId : Requests.Id
     , saeLatentsReqId : Requests.Id
     , origPredsReqId : Requests.Id
+    , modPredsReqId : Requests.Id
     }
 
 
@@ -169,6 +171,7 @@ init _ url key =
             , inputExampleReqId = Requests.init
             , saeLatentsReqId = Requests.init
             , origPredsReqId = Requests.init
+            , modPredsReqId = Requests.init
             }
     in
     ( model, cmd )
@@ -284,6 +287,34 @@ update msg model =
             , Cmd.none
             )
 
+        SetSlider i str ->
+            case String.toFloat str of
+                Just f ->
+                    let
+                        sliders =
+                            Dict.insert i f model.sliders
+
+                        modPredsReqId =
+                            Requests.next model.modPredsReqId
+
+                        cmd =
+                            case model.inputExample of
+                                Requests.Loaded { index } ->
+                                    getModPreds model.gradio
+                                        modPredsReqId
+                                        index
+                                        sliders
+
+                                _ ->
+                                    Cmd.none
+                    in
+                    ( { model | sliders = sliders }
+                    , cmd
+                    )
+
+                Nothing ->
+                    ( model, Cmd.none )
+
         GotInputExample id result ->
             if Requests.isStale id model.inputExampleReqId then
                 ( model, Cmd.none )
@@ -307,7 +338,14 @@ update msg model =
             else
                 case result of
                     Ok latents ->
-                        ( { model | saeLatents = Requests.Loaded latents }, Cmd.none )
+                        let
+                            sliders =
+                                latents
+                                    |> List.map .latent
+                                    |> List.map (\latent -> ( latent, 0.0 ))
+                                    |> Dict.fromList
+                        in
+                        ( { model | saeLatents = Requests.Loaded latents, sliders = sliders }, Cmd.none )
 
                     Err err ->
                         ( { model | saeLatents = Requests.Failed (explainGradioError err) }, Cmd.none )
@@ -324,6 +362,22 @@ update msg model =
                     Err err ->
                         ( { model
                             | origPreds = Requests.Failed (explainGradioError err)
+                          }
+                        , Cmd.none
+                        )
+
+        GotModPreds id result ->
+            if Requests.isStale id model.modPredsReqId then
+                ( model, Cmd.none )
+
+            else
+                case result of
+                    Ok preds ->
+                        ( { model | modPreds = Requests.Loaded preds }, Cmd.none )
+
+                    Err err ->
+                        ( { model
+                            | modPreds = Requests.Failed (explainGradioError err)
                           }
                         , Cmd.none
                         )
@@ -557,25 +611,24 @@ getInputExample cfg id img =
 getOrigPreds : Gradio.Config -> Requests.Id -> Int -> Cmd Msg
 getOrigPreds cfg id img =
     Gradio.get cfg
-        "get-preds"
+        "get-orig-preds"
         [ E.int img ]
         (Gradio.decodeOne exampleDecoder)
         (GotOrigPreds id)
 
 
+getModPreds : Gradio.Config -> Requests.Id -> Int -> Dict.Dict Int Float -> Cmd Msg
+getModPreds cfg id img sliders =
+    Gradio.get cfg
+        "get-mod-preds"
+        [ E.int img
+        , E.dict String.fromInt E.float sliders
+        ]
+        (Gradio.decodeOne exampleDecoder)
+        (GotModPreds id)
 
--- getPredLabelsResult : String -> Cmd Msg
--- getPredLabelsResult id =
---     Http.get
---         { url = "http://127.0.0.1:7860/gradio_api/call/get-pred-labels/" ++ id
---         , expect =
---             Http.expectString
---                 (GotEventData
---                     (D.decodeString (D.list segmentationResultDecoder)
---                         >> ParsedPredLabels
---                     )
---                 )
---         }
+
+
 -- getModifiedLabels : Int -> Dict.Dict Int Float -> Cmd Msg
 -- getModifiedLabels img sliders =
 --     let
@@ -1019,34 +1072,36 @@ viewSaeLatents selected requestedLatents values =
                     , Html.text ")"
                     ]
                 , Html.div []
-                    (List.map
-                        viewSaeLatent
-                        -- (\latent -> Maybe.map (\f -> viewSaeLatent latent f) (Dict.get latent.latent values))
+                    (List.filterMap
+                        (\latent -> Maybe.map (\f -> viewSaeLatent latent f) (Dict.get latent.latent values))
                         latents
                     )
                 ]
 
 
-viewSaeLatent : SaeLatent -> Html.Html Msg
-viewSaeLatent latent =
+viewSaeLatent : SaeLatent -> Float -> Html.Html Msg
+viewSaeLatent latent value =
     Html.div
         [ Html.Attributes.class "flex flex-row gap-2 mt-2" ]
         (List.map viewHighlightedExample latent.examples
-         -- ++ [ Html.div
-         --         [ Html.Attributes.class "flex flex-col gap-2" ]
-         --         [ Html.input
-         --             [ Html.Attributes.type_ "range"
-         --             , Html.Attributes.min "-10"
-         --             , Html.Attributes.max "10"
-         --             -- , Html.Attributes.value (String.fromFloat value)
-         --             -- , Html.Events.onInput (SetSlider latent.latent)
-         --             ]
-         --             []
-         --         , Html.p
-         --             []
-         --             [ Html.text ("Latent 24K/" ++ String.fromInt latent.latent ) ]
-         --         ]
-         --    ]
+            ++ [ Html.div
+                    [ Html.Attributes.class "flex flex-col gap-2" ]
+                    [ Html.input
+                        [ Html.Attributes.type_ "range"
+                        , Html.Attributes.min "-10"
+                        , Html.Attributes.max "10"
+                        , Html.Attributes.value (String.fromFloat value)
+                        , Html.Events.onInput (SetSlider latent.latent)
+                        ]
+                        []
+                    , Html.p
+                        []
+                        [ Html.text ("Latent 24K/" ++ String.fromInt latent.latent) ]
+                    , Html.p
+                        []
+                        [ Html.text ("Value:" ++ String.fromFloat value) ]
+                    ]
+               ]
         )
 
 
