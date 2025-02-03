@@ -1186,7 +1186,7 @@ usvhngx4: CLIP + ImageNet
 * 22136: tongues, both human and animal
 * 17910: chopsticks
 * 6923: sea animal head?
-* 24456: sunglasses and "cool", both gisual and text and photographic styles
+* 24456: sunglasses and "cool", both visual and text and photographic styles
 * 6909: brazil
 * 11579: Maple leaves
 * 11965: mustaches
@@ -1232,3 +1232,48 @@ Then make the split by putting similar images from DINOv2 in the train set and d
 This hopefully leads to a train/test split where semantic concepts are in different splits: brazil flags in the test set, the rio jesus statue is in the test set.
 This hopefully makes it hard for models that cannot reliably identify semantic concepts (DINOv2).
 
+# 01/19/2025
+
+I now know that I need to collect additional probing datasets.
+Specifically, I want to find probing datasets that find interesting things in the CLIP checkpoints that I have.
+So that means things like:
+
+* smoking/cigarettes
+* low-res images
+* brazil (and other countries)
+* sunglasses/cool
+
+The brazil feature reliably triggers!
+Very reliably, on many different things.
+It's now important to check this for dinov2---this is the first reliable feature we've found.
+
+So I want to improve this interface in a couple ways:
+
+1. I want to be able to (un)select particular latents. Since for each model/dataset pair there are 24K choices, I want a dropdown with fuzzy search.
+
+# 01/21/2025
+
+Now I need to find the test sets.
+We have Brazil and sunglasses across visual styles.
+Let's do it and make some test sets.
+
+# 01/22/2025
+
+Debugging the script:
+
+image 31 is the fish. It is cool-negative. the `pred_labels_SN[24456, 31]` is 1. That's weird, because on the browser, it's not.
+
+The image after vit -> sae has different patch values for 24456 than after saved vit -> sae.
+
+probbaly I am not applying dataset-level normalization to the SAE activations.
+ACTUALLY probably I am not doing that for TONS of examples
+
+I probably need to get it by loading the dataset for the imagenet shards, then recording the scalar/mean vector and using it.
+
+# 02/03/2025
+
+I think my semantic segmentation head isn't working well. It should make predictions based on the last layer of the transformer, but the SAE is trained on the second-to-last layer.
+I need to
+
+1. Train semseg head on the last layer
+2. Confirm that all my layers are working correctly.

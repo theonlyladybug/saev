@@ -2284,7 +2284,6 @@ Then you can look in `./logs/contrib/semseg` for `hparam-sweeps.png` to see what
 
 Sub-modules
 -----------
-* contrib.semseg.app
 * contrib.semseg.config
 * contrib.semseg.dashboard
 * contrib.semseg.dashboard2
@@ -2293,9 +2292,6 @@ Sub-modules
 * contrib.semseg.training
 * contrib.semseg.validation
 * contrib.semseg.visuals
-
-Module contrib.semseg.app
-=========================
 
 Module contrib.semseg.config
 ============================
