@@ -7331,7 +7331,7 @@ var $author$project$Classification$urlParser = A2(
 		$elm$url$Url$Parser$s('saev'),
 		A2(
 			$elm$url$Url$Parser$slash,
-			$elm$url$Url$Parser$s('webapps'),
+			$elm$url$Url$Parser$s('demos'),
 			A2(
 				$elm$url$Url$Parser$questionMark,
 				$elm$url$Url$Parser$s('classification'),
