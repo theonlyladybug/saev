@@ -64,16 +64,16 @@ type alias Model =
     { -- Browser
       key : Browser.Navigation.Key
     , inputExampleIndex : Int
-    , inputExample : Requests.State Example
+    , inputExample : Requests.Requested Example
     , hoveredPatchIndex : Maybe Int
     , selectedPatchIndices : Set.Set Int
-    , saeExamples : Requests.State (List SaeExample)
+    , saeExamples : Requests.Requested (List SaeExample)
     , sliders : Dict.Dict Int Float
     , examinedClass : ExaminedClass
 
     -- ML stuff
-    , originalPredictions : Requests.State (List Float)
-    , modifiedPredictions : Requests.State (List Float)
+    , originalPredictions : Requests.Requested (List Float)
+    , modifiedPredictions : Requests.Requested (List Float)
 
     -- APIs
     , gradio : Gradio.Config
@@ -89,7 +89,7 @@ type ExaminedClass
     = NotExamining
     | Examining
         { class : Int
-        , examples : Requests.State (List Example)
+        , examples : Requests.Requested (List Example)
         }
 
 
@@ -125,16 +125,16 @@ init _ url key =
             { -- Browser
               key = key
             , inputExampleIndex = index
-            , inputExample = Loading
+            , inputExample = Requests.Loading
             , hoveredPatchIndex = Nothing
             , selectedPatchIndices = Set.empty
-            , saeExamples = Initial
+            , saeExamples = Requests.Initial
             , sliders = Dict.empty
             , examinedClass = NotExamining
 
             -- ML
-            , originalPredictions = Loading
-            , modifiedPredictions = Initial
+            , originalPredictions = Requests.Loading
+            , modifiedPredictions = Requests.Initial
 
             -- APIs
             , inputExampleRequestId = Requests.init
@@ -184,11 +184,11 @@ update msg model =
             in
             ( { model
                 | inputExampleIndex = example
-                , inputExample = Loading
+                , inputExample = Requests.Loading
                 , selectedPatchIndices = Set.empty
-                , saeExamples = Initial
-                , originalPredictions = Loading
-                , modifiedPredictions = Initial
+                , saeExamples = Requests.Initial
+                , originalPredictions = Requests.Loading
+                , modifiedPredictions = Requests.Initial
                 , inputExampleRequestId = inputExampleNextId
                 , originalPredictionsRequestId = originalPredictionsNextId
               }
@@ -214,10 +214,10 @@ update msg model =
             else
                 case result of
                     Ok example ->
-                        ( { model | inputExample = Loaded example }, Cmd.none )
+                        ( { model | inputExample = Requests.Loaded example }, Cmd.none )
 
                     Err err ->
-                        ( { model | inputExample = Failed (explainGradioError err) }, Cmd.none )
+                        ( { model | inputExample = Requests.Failed (explainGradioError err) }, Cmd.none )
 
         GotOriginalPredictions id result ->
             if Requests.isStale id model.originalPredictionsRequestId then
@@ -226,11 +226,11 @@ update msg model =
             else
                 case result of
                     Ok preds ->
-                        ( { model | originalPredictions = Loaded preds }, Cmd.none )
+                        ( { model | originalPredictions = Requests.Loaded preds }, Cmd.none )
 
                     Err err ->
                         ( { model
-                            | originalPredictions = Failed (explainGradioError err)
+                            | originalPredictions = Requests.Failed (explainGradioError err)
                           }
                         , Cmd.none
                         )
@@ -242,11 +242,11 @@ update msg model =
             else
                 case result of
                     Ok modified ->
-                        ( { model | modifiedPredictions = Loaded modified }, Cmd.none )
+                        ( { model | modifiedPredictions = Requests.Loaded modified }, Cmd.none )
 
                     Err err ->
                         ( { model
-                            | modifiedPredictions = Failed (explainGradioError err)
+                            | modifiedPredictions = Requests.Failed (explainGradioError err)
                           }
                         , Cmd.none
                         )
@@ -266,7 +266,7 @@ update msg model =
             ( { model
                 | selectedPatchIndices = patchIndices
                 , saeExamplesRequestId = saeExamplesNextId
-                , saeExamples = Loading
+                , saeExamples = Requests.Loading
               }
             , getSaeExamples model.gradio saeExamplesNextId model.inputExampleIndex patchIndices
             )
@@ -288,14 +288,14 @@ update msg model =
                                     |> Dict.fromList
                         in
                         ( { model
-                            | saeExamples = Loaded latents
+                            | saeExamples = Requests.Loaded latents
                             , sliders = sliders
                           }
                         , Cmd.none
                         )
 
                     Err err ->
-                        ( { model | saeExamples = Failed (explainGradioError err) }, Cmd.none )
+                        ( { model | saeExamples = Requests.Failed (explainGradioError err) }, Cmd.none )
 
         SetSlider i str ->
             case String.toFloat str of
@@ -310,7 +310,7 @@ update msg model =
                     ( { model
                         | sliders = sliders
                         , modifiedPredictionsRequestId = modifiedPredictionsNextId
-                        , modifiedPredictions = Loading
+                        , modifiedPredictions = Requests.Loading
                       }
                     , getModifiedPredictions model.gradio
                         modifiedPredictionsNextId
@@ -329,7 +329,7 @@ update msg model =
                     Requests.next model.classExampleRequestId
             in
             ( { model
-                | examinedClass = Examining { class = class, examples = Loading }
+                | examinedClass = Examining { class = class, examples = Requests.Loading }
                 , classExampleRequestId = id
               }
             , getRandomClassExample model.gradio id class
@@ -348,7 +348,7 @@ update msg model =
                             | examinedClass =
                                 Examining
                                     { class = example.class
-                                    , examples = Loaded [ example ]
+                                    , examples = Requests.Loaded [ example ]
                                     }
                           }
                         , Cmd.none
@@ -356,7 +356,7 @@ update msg model =
 
                     ( Ok example, Examining { class, examples } ) ->
                         case examples of
-                            Initial ->
+                            Requests.Initial ->
                                 let
                                     newExamples =
                                         if example.class == class then
@@ -369,13 +369,13 @@ update msg model =
                                     | examinedClass =
                                         Examining
                                             { class = class
-                                            , examples = Loaded newExamples
+                                            , examples = Requests.Loaded newExamples
                                             }
                                   }
                                 , Cmd.none
                                 )
 
-                            Loading ->
+                            Requests.Loading ->
                                 let
                                     newExamples =
                                         if example.class == class then
@@ -388,13 +388,13 @@ update msg model =
                                     | examinedClass =
                                         Examining
                                             { class = class
-                                            , examples = Loaded newExamples
+                                            , examples = Requests.Loaded newExamples
                                             }
                                   }
                                 , Cmd.none
                                 )
 
-                            Loaded examplesLoaded ->
+                            Requests.Loaded examplesLoaded ->
                                 let
                                     newExamples =
                                         example
@@ -402,12 +402,12 @@ update msg model =
                                             |> List.filter (\ex -> ex.class == class)
                                 in
                                 ( { model
-                                    | examinedClass = Examining { class = class, examples = Loaded newExamples }
+                                    | examinedClass = Examining { class = class, examples = Requests.Loaded newExamples }
                                   }
                                 , Cmd.none
                                 )
 
-                            Failed _ ->
+                            Requests.Failed _ ->
                                 let
                                     newExamples =
                                         if example.class == class then
@@ -420,7 +420,7 @@ update msg model =
                                     | examinedClass =
                                         Examining
                                             { class = class
-                                            , examples = Loaded newExamples
+                                            , examples = Requests.Loaded newExamples
                                             }
                                   }
                                 , Cmd.none
@@ -431,7 +431,7 @@ update msg model =
                             | examinedClass =
                                 Examining
                                     { class = -1
-                                    , examples = Failed (explainGradioError err)
+                                    , examples = Requests.Failed (explainGradioError err)
                                     }
                           }
                         , Cmd.none
@@ -467,7 +467,7 @@ urlParser : Url.Parser.Parser (QueryParams -> a) a
 urlParser =
     -- Need to change this when I deploy it.
     Url.Parser.s "saev"
-        </> Url.Parser.s "webapps"
+        </> Url.Parser.s "demos"
         </> Url.Parser.s "classification"
         <?> Url.Parser.Query.int "example"
         |> Url.Parser.map QueryParams
@@ -613,7 +613,7 @@ view model =
     let
         callToAction =
             case model.saeExamples of
-                Loaded _ ->
+                Requests.Loaded _ ->
                     "Drag one or more sliders below."
 
                 _ ->
@@ -651,17 +651,17 @@ view model =
 viewInputExample : Model -> Html.Html Msg
 viewInputExample model =
     case model.inputExample of
-        Initial ->
+        Requests.Initial ->
             Html.p
                 []
                 [ Html.text "Initial state. You shouldn't see this for long..." ]
 
-        Loading ->
+        Requests.Loading ->
             Html.p
                 []
                 [ Html.text "Loading example..." ]
 
-        Loaded example ->
+        Requests.Loaded example ->
             Html.div
                 [ Html.Attributes.class "w-[224px] md:w-[336px]" ]
                 [ viewGriddedImage
@@ -688,7 +688,7 @@ viewInputExample model =
                     ]
                 ]
 
-        Failed err ->
+        Requests.Failed err ->
             viewErr err
 
 
@@ -742,22 +742,22 @@ viewGridCell hovered selected self =
         []
 
 
-viewProbs : String -> String -> Requests.State (List Float) -> Html.Html Msg
+viewProbs : String -> String -> Requests.Requested (List Float) -> Html.Html Msg
 viewProbs title callToAction loadingProbs =
     let
         content =
             case loadingProbs of
-                Initial ->
+                Requests.Initial ->
                     Html.p
                         [ Html.Attributes.class "italic text-gray-600" ]
                         [ Html.text callToAction ]
 
-                Loading ->
+                Requests.Loading ->
                     Html.p
                         []
                         [ Html.text "Loading..." ]
 
-                Loaded probs ->
+                Requests.Loaded probs ->
                     let
                         top =
                             probs
@@ -770,7 +770,7 @@ viewProbs title callToAction loadingProbs =
                         []
                         (List.map (uncurry viewProb) top)
 
-                Failed err ->
+                Requests.Failed err ->
                     viewErr err
     in
     Html.div
@@ -808,19 +808,19 @@ viewProb target prob =
         ]
 
 
-viewSaeExamples : Requests.State (List SaeExample) -> Dict.Dict Int Float -> Html.Html Msg
+viewSaeExamples : Requests.Requested (List SaeExample) -> Dict.Dict Int Float -> Html.Html Msg
 viewSaeExamples examplesLoading values =
     case examplesLoading of
-        Initial ->
+        Requests.Initial ->
             Html.p
                 [ Html.Attributes.class "italic text-gray-600" ]
                 [ Html.text "Click on the image above to find similar image patches using a sparse autoencoder (SAE)." ]
 
-        Loading ->
+        Requests.Loading ->
             Html.p []
                 [ Html.text "Loading similar patches..." ]
 
-        Loaded examples ->
+        Requests.Loaded examples ->
             Html.div [ Html.Attributes.class "p-1 md:px-2 lg:px-4" ]
                 ([ Html.h3
                     [ Html.Attributes.class "font-bold" ]
@@ -839,7 +839,7 @@ viewSaeExamples examplesLoading values =
                         examples
                 )
 
-        Failed err ->
+        Requests.Failed err ->
             viewErr err
 
 
@@ -899,13 +899,13 @@ viewClassExamples examined =
 
         Examining { class, examples } ->
             case examples of
-                Initial ->
+                Requests.Initial ->
                     Html.div [] []
 
-                Loading ->
+                Requests.Loading ->
                     Html.div [] []
 
-                Loaded examplesLoaded ->
+                Requests.Loaded examplesLoaded ->
                     Html.div
                         [ Html.Attributes.class "" ]
                         [ Html.h3
@@ -916,7 +916,7 @@ viewClassExamples examined =
                             (examplesLoaded |> List.reverse |> List.take 9 |> List.map (.url >> viewImage))
                         ]
 
-                Failed err ->
+                Requests.Failed err ->
                     viewErr err
 
 

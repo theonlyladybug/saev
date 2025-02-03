@@ -448,8 +448,8 @@ type alias QueryParams =
 urlParser : Url.Parser.Parser (QueryParams -> a) a
 urlParser =
     -- Need to change this when I deploy it.
-    Url.Parser.s "web"
-        </> Url.Parser.s "apps"
+    Url.Parser.s "saev"
+        </> Url.Parser.s "demos"
         </> Url.Parser.s "semseg"
         <?> Url.Parser.Query.int "example"
         |> Url.Parser.map QueryParams

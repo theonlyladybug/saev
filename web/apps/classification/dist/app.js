@@ -5558,8 +5558,8 @@ var $elm$core$Task$perform = F2(
 			A2($elm$core$Task$map, toMessage, task));
 	});
 var $elm$browser$Browser$application = _Browser_application;
-var $author$project$Classification$Initial = {$: 0};
-var $author$project$Classification$Loading = {$: 1};
+var $author$project$Requests$Initial = {$: 0};
+var $author$project$Requests$Loading = {$: 1};
 var $author$project$Classification$NotExamining = {$: 0};
 var $elm$core$Platform$Cmd$batch = _Platform_batch;
 var $elm$core$Dict$RBEmpty_elm_builtin = {$: -2};
@@ -7331,7 +7331,7 @@ var $author$project$Classification$urlParser = A2(
 		$elm$url$Url$Parser$s('saev'),
 		A2(
 			$elm$url$Url$Parser$slash,
-			$elm$url$Url$Parser$s('webapps'),
+			$elm$url$Url$Parser$s('demos'),
 			A2(
 				$elm$url$Url$Parser$questionMark,
 				$elm$url$Url$Parser$s('classification'),
@@ -7358,15 +7358,15 @@ var $author$project$Classification$init = F3(
 			l: $author$project$Classification$NotExamining,
 			s: {bb: 'https://samuelstevens-saev-image-classification.hf.space'},
 			S: $elm$core$Maybe$Nothing,
-			I: $author$project$Classification$Loading,
+			I: $author$project$Requests$Loading,
 			x: index,
 			J: $author$project$Requests$init,
 			ab: key,
-			D: $author$project$Classification$Initial,
+			D: $author$project$Requests$Initial,
 			U: $author$project$Requests$init,
-			L: $author$project$Classification$Loading,
+			L: $author$project$Requests$Loading,
 			M: $author$project$Requests$init,
-			A: $author$project$Classification$Initial,
+			A: $author$project$Requests$Initial,
 			V: $author$project$Requests$init,
 			u: $elm$core$Set$empty,
 			N: $elm$core$Dict$empty
@@ -7407,10 +7407,10 @@ var $author$project$Classification$onUrlRequest = function (request) {
 var $author$project$Classification$Examining = function (a) {
 	return {$: 1, a: a};
 };
-var $author$project$Classification$Failed = function (a) {
+var $author$project$Requests$Failed = function (a) {
 	return {$: 3, a: a};
 };
-var $author$project$Classification$Loaded = function (a) {
+var $author$project$Requests$Loaded = function (a) {
 	return {$: 2, a: a};
 };
 var $author$project$Classification$SetUrl = function (a) {
@@ -8152,7 +8152,7 @@ var $author$project$Classification$update = F2(
 				return _Utils_Tuple2(
 					_Utils_update(
 						model,
-						{I: $author$project$Classification$Loading, x: example, J: inputExampleNextId, D: $author$project$Classification$Initial, L: $author$project$Classification$Loading, M: originalPredictionsNextId, A: $author$project$Classification$Initial, u: $elm$core$Set$empty}),
+						{I: $author$project$Requests$Loading, x: example, J: inputExampleNextId, D: $author$project$Requests$Initial, L: $author$project$Requests$Loading, M: originalPredictionsNextId, A: $author$project$Requests$Initial, u: $elm$core$Set$empty}),
 					$elm$core$Platform$Cmd$batch(
 						_List_fromArray(
 							[
@@ -8192,7 +8192,7 @@ var $author$project$Classification$update = F2(
 							_Utils_update(
 								model,
 								{
-									I: $author$project$Classification$Loaded(example)
+									I: $author$project$Requests$Loaded(example)
 								}),
 							$elm$core$Platform$Cmd$none);
 					} else {
@@ -8201,7 +8201,7 @@ var $author$project$Classification$update = F2(
 							_Utils_update(
 								model,
 								{
-									I: $author$project$Classification$Failed(
+									I: $author$project$Requests$Failed(
 										$author$project$Classification$explainGradioError(err))
 								}),
 							$elm$core$Platform$Cmd$none);
@@ -8219,7 +8219,7 @@ var $author$project$Classification$update = F2(
 							_Utils_update(
 								model,
 								{
-									L: $author$project$Classification$Loaded(preds)
+									L: $author$project$Requests$Loaded(preds)
 								}),
 							$elm$core$Platform$Cmd$none);
 					} else {
@@ -8228,7 +8228,7 @@ var $author$project$Classification$update = F2(
 							_Utils_update(
 								model,
 								{
-									L: $author$project$Classification$Failed(
+									L: $author$project$Requests$Failed(
 										$author$project$Classification$explainGradioError(err))
 								}),
 							$elm$core$Platform$Cmd$none);
@@ -8246,7 +8246,7 @@ var $author$project$Classification$update = F2(
 							_Utils_update(
 								model,
 								{
-									D: $author$project$Classification$Loaded(modified)
+									D: $author$project$Requests$Loaded(modified)
 								}),
 							$elm$core$Platform$Cmd$none);
 					} else {
@@ -8255,7 +8255,7 @@ var $author$project$Classification$update = F2(
 							_Utils_update(
 								model,
 								{
-									D: $author$project$Classification$Failed(
+									D: $author$project$Requests$Failed(
 										$author$project$Classification$explainGradioError(err))
 								}),
 							$elm$core$Platform$Cmd$none);
@@ -8268,7 +8268,7 @@ var $author$project$Classification$update = F2(
 				return _Utils_Tuple2(
 					_Utils_update(
 						model,
-						{A: $author$project$Classification$Loading, V: saeExamplesNextId, u: patchIndices}),
+						{A: $author$project$Requests$Loading, V: saeExamplesNextId, u: patchIndices}),
 					A4($author$project$Classification$getSaeExamples, model.s, saeExamplesNextId, model.x, patchIndices));
 			case 12:
 				var id = msg.a;
@@ -8290,7 +8290,7 @@ var $author$project$Classification$update = F2(
 							_Utils_update(
 								model,
 								{
-									A: $author$project$Classification$Loaded(latents),
+									A: $author$project$Requests$Loaded(latents),
 									N: sliders
 								}),
 							$elm$core$Platform$Cmd$none);
@@ -8300,7 +8300,7 @@ var $author$project$Classification$update = F2(
 							_Utils_update(
 								model,
 								{
-									A: $author$project$Classification$Failed(
+									A: $author$project$Requests$Failed(
 										$author$project$Classification$explainGradioError(err))
 								}),
 							$elm$core$Platform$Cmd$none);
@@ -8317,7 +8317,7 @@ var $author$project$Classification$update = F2(
 					return _Utils_Tuple2(
 						_Utils_update(
 							model,
-							{D: $author$project$Classification$Loading, U: modifiedPredictionsNextId, N: sliders}),
+							{D: $author$project$Requests$Loading, U: modifiedPredictionsNextId, N: sliders}),
 						A5($author$project$Classification$getModifiedPredictions, model.s, modifiedPredictionsNextId, model.x, model.u, sliders));
 				} else {
 					return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
@@ -8331,7 +8331,7 @@ var $author$project$Classification$update = F2(
 						{
 							R: id,
 							l: $author$project$Classification$Examining(
-								{i: _class, r: $author$project$Classification$Loading})
+								{i: _class, r: $author$project$Requests$Loading})
 						}),
 					$elm$core$Platform$Cmd$batch(
 						A2(
@@ -8356,7 +8356,7 @@ var $author$project$Classification$update = F2(
 										l: $author$project$Classification$Examining(
 											{
 												i: example.i,
-												r: $author$project$Classification$Loaded(
+												r: $author$project$Requests$Loaded(
 													_List_fromArray(
 														[example]))
 											})
@@ -8377,7 +8377,7 @@ var $author$project$Classification$update = F2(
 												l: $author$project$Classification$Examining(
 													{
 														i: _class,
-														r: $author$project$Classification$Loaded(newExamples)
+														r: $author$project$Requests$Loaded(newExamples)
 													})
 											}),
 										$elm$core$Platform$Cmd$none);
@@ -8391,7 +8391,7 @@ var $author$project$Classification$update = F2(
 												l: $author$project$Classification$Examining(
 													{
 														i: _class,
-														r: $author$project$Classification$Loaded(newExamples)
+														r: $author$project$Requests$Loaded(newExamples)
 													})
 											}),
 										$elm$core$Platform$Cmd$none);
@@ -8410,7 +8410,7 @@ var $author$project$Classification$update = F2(
 												l: $author$project$Classification$Examining(
 													{
 														i: _class,
-														r: $author$project$Classification$Loaded(newExamples)
+														r: $author$project$Requests$Loaded(newExamples)
 													})
 											}),
 										$elm$core$Platform$Cmd$none);
@@ -8424,7 +8424,7 @@ var $author$project$Classification$update = F2(
 												l: $author$project$Classification$Examining(
 													{
 														i: _class,
-														r: $author$project$Classification$Loaded(newExamples)
+														r: $author$project$Requests$Loaded(newExamples)
 													})
 											}),
 										$elm$core$Platform$Cmd$none);
@@ -8439,7 +8439,7 @@ var $author$project$Classification$update = F2(
 									l: $author$project$Classification$Examining(
 										{
 											i: -1,
-											r: $author$project$Classification$Failed(
+											r: $author$project$Requests$Failed(
 												$author$project$Classification$explainGradioError(err))
 										})
 								}),

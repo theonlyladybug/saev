@@ -1277,3 +1277,5 @@ I need to
 
 1. Train semseg head on the last layer
 2. Confirm that all my layers are working correctly.
+
+This is also a good chance to make sure that I can reliably reproduce prior results.

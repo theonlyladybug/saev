@@ -54,6 +54,10 @@ base64ImageToString (Base64Image str) =
     str
 
 
+
+-- Transparent 448x448 webp image. Used if you don't want to show any image.
+
+
 base64ImageEmpty : Base64Image
 base64ImageEmpty =
     Base64Image "data:image/webp;base64,UklGRtABAABXRUJQVlA4WAoAAAAQAAAAvwEAvwEAQUxQSBsAAAABBxAREVDQtg1T/vC744j+Z/jPf/7zn//8LwEAVlA4II4BAABQLQCdASrAAcABPpFIoU0lpCMiIAgAsBIJaW7hd2EbQAnsA99snIe+2TkPfbJyHvtk5D32ych77ZOQ99snIe+2TkPfbJyHvtk5D32ych77ZOQ99snIe+2TkPfbJyHvtk5D32ych77ZOQ99snIe+2TkPfbJyHvtk5D32ych77ZOQ99snIe+2TkPfbJyHvtk5D32ych77ZOQ99snIe+2TkPfbJyHvtk5D32ych77ZOQ99snIe+2TkPfbJyHvtk5D32ych77ZOQ99snIe+2TkPfbJyHvtk5D32ych77ZOQ99snIe+2TkPfbJyHvtk5D32ych77ZOQ99snIe+2TkPfbJyHvtk5D32ych77ZOQ99snIe+2TkPfbJyHvtk5D32ych77ZOQ99snIe+2TkPfbJyHvtk5D32ych77ZOQ99snIe+2TkPfbJyHvtk5D32ych77ZOQ99snIe+2TkPfbJyHvtk5D32ych77ZOQ99snIe+2TkPfasAD+/94IrMAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="

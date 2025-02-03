@@ -29,5 +29,5 @@ build-comparison: fmt
     cd web && elm make src/Comparison.elm --output apps/comparison/dist/app.js --debug
     cd web && tailwindcss --input apps/comparison/main.css --output apps/comparison/dist/main.css
 
-deploy: build-classification
+deploy: build-classification build-semseg
     uv run python scripts/deploy.py

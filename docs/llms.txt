@@ -2249,13 +2249,14 @@ As an overview:
 1. Record ViT activations for ADE20K.
 2. Train a linear probe on semantic segmentation task using ADE20K.
 3. Establish baseline metrics for the linear probe.
-4. Automatically identify feature vectors in the SAE's \(W_dec\) matrix for each class in ADE20K.
-5. Suppress those features in the vision transformer's activations before applying the linear probe.
-6. Record class-specific metrics before and after suppression.
+4. Manipulate the activations using the proposed SAE features.
+5. Be amazed. :)
 
 Details can be found below.
 
-# Record ViT Activations for Linear Probe Training and SAE Inference
+# Record ViT Activations for SAE Inference
+
+For SAE inference, we want the second-to-last layer (as discussed).
 
 # Train a Linear Probe on Semantic Segmentation
 

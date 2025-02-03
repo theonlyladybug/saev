@@ -33,12 +33,12 @@ hljs.highlightAll();
 <li>Record ViT activations for ADE20K.</li>
 <li>Train a linear probe on semantic segmentation task using ADE20K.</li>
 <li>Establish baseline metrics for the linear probe.</li>
-<li>Automatically identify feature vectors in the SAE's <span><span class="MathJax_Preview">W_dec</span><script type="math/tex">W_dec</script></span> matrix for each class in ADE20K.</li>
-<li>Suppress those features in the vision transformer's activations before applying the linear probe.</li>
-<li>Record class-specific metrics before and after suppression.</li>
+<li>Manipulate the activations using the proposed SAE features.</li>
+<li>Be amazed. :)</li>
 </ol>
 <p>Details can be found below.</p>
-<h1 id="record-vit-activations-for-linear-probe-training-and-sae-inference">Record ViT Activations for Linear Probe Training and SAE Inference</h1>
+<h1 id="record-vit-activations-for-sae-inference">Record ViT Activations for SAE Inference</h1>
+<p>For SAE inference, we want the second-to-last layer (as discussed).</p>
 <h1 id="train-a-linear-probe-on-semantic-segmentation">Train a Linear Probe on Semantic Segmentation</h1>
 <p>Now train a linear probe on the activations.</p>
 <pre><code class="language-sh">uv run python -m contrib.semseg train \
@@ -105,7 +105,7 @@ See which checkpoints have the best validation loss, mean IoU, class-specific Io
 <nav id="sidebar">
 <div class="toc">
 <ul>
-<li><a href="#record-vit-activations-for-linear-probe-training-and-sae-inference">Record ViT Activations for Linear Probe Training and SAE Inference</a></li>
+<li><a href="#record-vit-activations-for-sae-inference">Record ViT Activations for SAE Inference</a></li>
 <li><a href="#train-a-linear-probe-on-semantic-segmentation">Train a Linear Probe on Semantic Segmentation</a></li>
 <li><a href="#establish-linear-probe-baseline-metrics">Establish Linear Probe Baseline Metrics</a></li>
 </ul>
