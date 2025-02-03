@@ -676,6 +676,10 @@ video {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.grid-cols-4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 .grid-cols-\[repeat\(14\2c _16px\)\] {
   grid-template-columns: repeat(14, 16px);
 }
@@ -1022,6 +1026,40 @@ video {
   background-color: rgb(209 213 219 / var(--tw-bg-opacity, 1));
 }
 
+.disabled\:cursor-not-allowed:disabled {
+  cursor: not-allowed;
+}
+
+.disabled\:border-gray-200:disabled {
+  --tw-border-opacity: 1;
+  border-color: rgb(229 231 235 / var(--tw-border-opacity, 1));
+}
+
+.disabled\:bg-gray-100:disabled {
+  --tw-bg-opacity: 1;
+  background-color: rgb(243 244 246 / var(--tw-bg-opacity, 1));
+}
+
+.disabled\:text-gray-400:disabled {
+  --tw-text-opacity: 1;
+  color: rgb(156 163 175 / var(--tw-text-opacity, 1));
+}
+
+.disabled\:hover\:border-gray-200:hover:disabled {
+  --tw-border-opacity: 1;
+  border-color: rgb(229 231 235 / var(--tw-border-opacity, 1));
+}
+
+.disabled\:hover\:bg-gray-100:hover:disabled {
+  --tw-bg-opacity: 1;
+  background-color: rgb(243 244 246 / var(--tw-bg-opacity, 1));
+}
+
+.disabled\:hover\:text-gray-400:hover:disabled {
+  --tw-text-opacity: 1;
+  color: rgb(156 163 175 / var(--tw-text-opacity, 1));
+}
+
 @media (min-width: 768px) {
   .md\:h-\[21px\] {
     height: 21px;
@@ -1087,6 +1125,10 @@ video {
 }
 
 @media (min-width: 1024px) {
+  .lg\:h-\[21px\] {
+    height: 21px;
+  }
+
   .lg\:h-\[28px\] {
     height: 28px;
   }
@@ -1095,8 +1137,16 @@ video {
     height: 32px;
   }
 
+  .lg\:h-\[336px\] {
+    height: 336px;
+  }
+
   .lg\:h-\[448px\] {
     height: 448px;
+  }
+
+  .lg\:w-\[21px\] {
+    width: 21px;
   }
 
   .lg\:w-\[28px\] {
@@ -1107,6 +1157,10 @@ video {
     width: 32px;
   }
 
+  .lg\:w-\[336px\] {
+    width: 336px;
+  }
+
   .lg\:w-\[448px\] {
     width: 448px;
   }
@@ -1115,8 +1169,16 @@ video {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .lg\:grid-cols-\[336px_336px\] {
+    grid-template-columns: 336px 336px;
+  }
+
   .lg\:grid-cols-\[repeat\(14\2c _32px\)\] {
     grid-template-columns: repeat(14, 32px);
+  }
+
+  .lg\:grid-cols-\[repeat\(16\2c _21px\)\] {
+    grid-template-columns: repeat(16, 21px);
   }
 
   .lg\:grid-cols-\[repeat\(16\2c _28px\)\] {
@@ -1125,6 +1187,10 @@ video {
 
   .lg\:grid-rows-\[repeat\(14\2c _32px\)\] {
     grid-template-rows: repeat(14, 32px);
+  }
+
+  .lg\:grid-rows-\[repeat\(16\2c _21px\)\] {
+    grid-template-rows: repeat(16, 21px);
   }
 
   .lg\:grid-rows-\[repeat\(16\2c _28px\)\] {

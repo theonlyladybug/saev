@@ -8,9 +8,10 @@ import Browser
 import Browser.Navigation
 import Dict
 import File
+import File.Select
 import Gradio
-import Html
-import Html.Attributes
+import Html exposing (div)
+import Html.Attributes exposing (class)
 import Html.Events
 import Http
 import Json.Decode as D
@@ -19,6 +20,7 @@ import Parser exposing ((|.), (|=))
 import Random
 import Requests
 import Set
+import Task
 import Url
 import Url.Builder
 import Url.Parser exposing ((</>), (<?>))
@@ -51,22 +53,11 @@ type Msg
     | ResetSelectedPatches
     | SetSlider Int String
       -- API responses
-    | GotInputExample Requests.Id (Result Gradio.Error Example)
+    | GotExample Requests.Id (Result Gradio.Error Example)
     | GotSaeLatents Requests.Id (Result Gradio.Error (List SaeLatent))
     | GotOrigPreds Requests.Id (Result Gradio.Error Example)
     | GotModPreds Requests.Id (Result Gradio.Error Example)
-
-
-
--- | GotEventId (String -> Cmd Msg) (Result Http.Error String)
--- | GotEventData (String -> Msg) (Result Http.Error String)
--- | ParsedSaeExamples (Result D.Error (List SaeExampleResult))
--- | ParsedImageUrl (Result D.Error (Maybe String))
--- | ParsedTrueLabels (Result D.Error (List SegmentationResult))
--- | ParsedPredLabels (Result D.Error (List SegmentationResult))
--- | ParsedModifiedLabels (Result D.Error (List SegmentationResult))
--- | GetRandomExample
--- | SetExampleInput String
+    | ImageUploader ImageUploaderMsg
 
 
 type ImageUploaderMsg
@@ -83,13 +74,14 @@ type ImageUploaderMsg
 
 type alias Model =
     { key : Browser.Navigation.Key
-    , inputExample : Requests.Requested Example
+    , ade20kIndex : Maybe Int
+    , example : Requests.Requested Example
+    , imageUploaderHover : Bool
     , hoveredPatchIndex : Maybe Int
     , selectedPatchIndices : Set.Set Int
     , saeLatents : Requests.Requested (List SaeLatent)
 
     -- Semantic segmenations
-    , trueLabels : Requests.Requested Example
     , origPreds : Requests.Requested Example
     , modPreds : Requests.Requested Example
 
@@ -98,7 +90,7 @@ type alias Model =
 
     -- API
     , gradio : Gradio.Config
-    , inputExampleReqId : Requests.Id
+    , exampleReqId : Requests.Id
     , saeLatentsReqId : Requests.Id
     , origPredsReqId : Requests.Id
     , modPredsReqId : Requests.Id
@@ -118,7 +110,7 @@ type alias SaeLatent =
 type alias Example =
     { image : Gradio.Base64Image
     , labels : Gradio.Base64Image
-    , index : Int
+    , classes : Set.Set Int
     }
 
 
@@ -126,39 +118,44 @@ type alias HighlightedExample =
     { original : Gradio.Base64Image
     , highlighted : Gradio.Base64Image
     , labels : Gradio.Base64Image
-    , index : Int
+    , classes : Set.Set Int
     }
 
 
 init : () -> Url.Url -> Browser.Navigation.Key -> ( Model, Cmd Msg )
 init _ url key =
     let
-        ( index, cmd ) =
-            case Maybe.andThen .example (Url.Parser.parse urlParser url) of
-                Just example ->
-                    ( example
-                    , Cmd.batch
-                        [ getInputExample model.gradio
-                            model.inputExampleReqId
-                            example
-                        , getOrigPreds model.gradio
-                            model.origPredsReqId
-                            example
-                        ]
+        gradio =
+            { host = "http://127.0.0.1:7860" }
+
+        ( ade20kIndex, cmd ) =
+            case Maybe.andThen .index (Url.Parser.parse urlParser url) of
+                Just index ->
+                    ( Just index
+                    , getExample gradio
+                        (Requests.next Requests.init)
+                        index
                     )
 
                 Nothing ->
-                    ( 0, Random.generate SetUrl randomExample )
+                    ( Nothing, Random.generate SetUrl randomExample )
 
         model =
             { key = key
+            , ade20kIndex = ade20kIndex
 
             -- Image to segment.
-            , inputExample = Requests.Initial
+            , example = Requests.Initial
+            , imageUploaderHover = False
+
+            -- Patches
             , hoveredPatchIndex = Nothing
             , selectedPatchIndices = Set.empty
+
+            --
             , saeLatents = Requests.Initial
-            , trueLabels = Requests.Initial
+
+            --
             , origPreds = Requests.Initial
             , modPreds = Requests.Initial
 
@@ -166,9 +163,8 @@ init _ url key =
             , sliders = Dict.empty
 
             -- API
-            , gradio =
-                { host = "http://127.0.0.1:7860" }
-            , inputExampleReqId = Requests.init
+            , gradio = gradio
+            , exampleReqId = Requests.init
             , saeLatentsReqId = Requests.init
             , origPredsReqId = Requests.init
             , modPredsReqId = Requests.init
@@ -196,37 +192,29 @@ update msg model =
 
         SetExample i ->
             let
-                example =
-                    Debug.log "example" (modBy nImages i)
+                index =
+                    modBy nImages i
 
-                inputExampleReqId =
-                    Requests.next model.inputExampleReqId
-
-                origPredsReqId =
-                    Requests.next model.origPredsReqId
+                exampleReqId =
+                    Requests.next model.exampleReqId
             in
             ( { model
-                | inputExample = Requests.Loading
+                | ade20kIndex = Just index
+                , example = Requests.Loading
                 , selectedPatchIndices = Set.empty
                 , saeLatents = Requests.Initial
-                , trueLabels = Requests.Loading
                 , origPreds = Requests.Loading
                 , modPreds = Requests.Initial
-                , inputExampleReqId = inputExampleReqId
-                , origPredsReqId = origPredsReqId
+                , exampleReqId = exampleReqId
               }
-            , Cmd.batch
-                [ getInputExample model.gradio inputExampleReqId example
-                , getOrigPreds model.gradio origPredsReqId example
-                ]
+            , getExample model.gradio exampleReqId index
             )
 
         GetRandomExample ->
             ( { model
-                | inputExample = Requests.Loading
+                | example = Requests.Loading
                 , selectedPatchIndices = Set.empty
                 , saeLatents = Requests.Initial
-                , trueLabels = Requests.Loading
                 , origPreds = Requests.Loading
                 , modPreds = Requests.Initial
               }
@@ -252,11 +240,11 @@ update msg model =
                     Requests.next model.saeLatentsReqId
 
                 cmd =
-                    case model.inputExample of
-                        Requests.Loaded { index } ->
+                    case model.example of
+                        Requests.Loaded { image } ->
                             getSaeLatents model.gradio
                                 saeLatentsReqId
-                                index
+                                image
                                 patchIndices
 
                         _ ->
@@ -298,11 +286,11 @@ update msg model =
                             Requests.next model.modPredsReqId
 
                         cmd =
-                            case model.inputExample of
-                                Requests.Loaded { index } ->
+                            case model.example of
+                                Requests.Loaded { image } ->
                                     getModPreds model.gradio
                                         modPredsReqId
-                                        index
+                                        image
                                         sliders
 
                                 _ ->
@@ -315,19 +303,26 @@ update msg model =
                 Nothing ->
                     ( model, Cmd.none )
 
-        GotInputExample id result ->
-            if Requests.isStale id model.inputExampleReqId then
+        GotExample id result ->
+            if Requests.isStale id model.exampleReqId then
                 ( model, Cmd.none )
 
             else
                 case result of
                     Ok example ->
-                        ( { model | inputExample = Requests.Loaded example }
-                        , Cmd.none
+                        let
+                            origPredsReqId =
+                                Requests.next model.origPredsReqId
+                        in
+                        ( { model
+                            | example = Requests.Loaded example
+                            , origPredsReqId = origPredsReqId
+                          }
+                        , getOrigPreds model.gradio origPredsReqId example.image
                         )
 
                     Err err ->
-                        ( { model | inputExample = Requests.Failed (explainGradioError err) }
+                        ( { model | example = Requests.Failed (explainGradioError err) }
                         , Cmd.none
                         )
 
@@ -382,132 +377,54 @@ update msg model =
                         , Cmd.none
                         )
 
+        ImageUploader imageMsg ->
+            imageUploaderUpdate model imageMsg
 
 
--- GotEventId fn result ->
---     case result of
---         Ok id ->
---             ( model, fn id )
---         Err err ->
---             let
---                 errMsg =
---                     httpErrToString err "get event id"
---             in
---             ( { model | err = Just errMsg }, Cmd.none )
--- GotEventData decoderFn result ->
---     case result of
---         Ok raw ->
---             case Parser.run eventDataParser raw of
---                 Ok json ->
---                     update (decoderFn json) model
---                 Err _ ->
---                     ( model, Cmd.none )
---         Err err ->
---             let
---                 errMsg =
---                     httpErrToString err "get event result"
---             in
---             ( { model | err = Just errMsg }, Cmd.none )
--- ParsedSaeExamples result ->
---     case result of
---         Ok results ->
---             let
---                 latents =
---                     parseSaeExampleResults results
---                 sliders =
---                     latents
---                         |> List.map (\latent -> ( latent.latent, 0.0 ))
---                         |> Dict.fromList
---             in
---             ( { model | saeLatents = latents, sliders = sliders }, Cmd.none )
---         Err err ->
---             ( { model | err = Just (D.errorToString err) }, Cmd.none )
--- ParsedTrueLabels result ->
---     case result of
---         Ok results ->
---             let
---                 url =
---                     results |> List.filterMap segmentationResultToUrl |> List.head
---             in
---             ( { model | trueLabelsUrl = url }, Cmd.none )
---         Err err ->
---             ( { model | trueLabelsUrl = Nothing, err = Just (D.errorToString err) }
---             , Cmd.none
---             )
--- ParsedPredLabels result ->
---     case result of
---         Ok results ->
---             let
---                 url =
---                     results
---                         |> List.filterMap segmentationResultToUrl
---                         |> List.head
---                 labels =
---                     results
---                         |> List.filterMap segmentationResultToLabels
---                         |> List.head
---                         |> Maybe.withDefault []
---             in
---             ( { model | predLabelsUrl = url, predLabels = labels }, Cmd.none )
---         Err err ->
---             ( { model | predLabelsUrl = Nothing, err = Just (D.errorToString err) }
---             , Cmd.none
---             )
--- ParsedModifiedLabels result ->
---     case result of
---         Ok results ->
---             let
---                 url =
---                     results
---                         |> List.filterMap segmentationResultToUrl
---                         |> List.head
---                 labels =
---                     results
---                         |> List.filterMap segmentationResultToLabels
---                         |> List.head
---                         |> Maybe.withDefault []
---             in
---             ( { model | modifiedLabelsUrl = url, modifiedLabels = labels }, Cmd.none )
---         Err err ->
---             ( { model | modifiedLabelsUrl = Nothing, err = Just (D.errorToString err) }, Cmd.none )
--- ParsedImageUrl result ->
---     case result of
---         Ok maybeUrl ->
---             ( { model | imageUrl = maybeUrl }, Cmd.none )
---         Err err ->
---             ( { model | imageUrl = Nothing, err = Just (D.errorToString err) }, Cmd.none )
--- SetExampleInput str ->
---     case String.toInt str of
---         Just i ->
---             ( { model | exampleIndex = i }
---             , Cmd.batch
---                 [ getImageUrl i
---                 -- , getTrueLabels i
---                 , getPredLabels i
---                 ]
---             )
---         Nothing ->
---             ( model, Cmd.none )
--- GetRandomExample ->
---     ( { model
---         | imageUrl = Nothing
---         , selectedPatchIndices = Set.empty
---         , saeLatents = []
---       }
---     , Random.generate SetExample randomExample
---     )
--- SetSlider i str ->
---     case String.toFloat str of
---         Just f ->
---             let
---                 sliders =
---                     Dict.insert i f model.sliders
---             in
---             ( { model | sliders = sliders }
---             , getModifiedLabels model.exampleIndex sliders
---             )
---         Nothing ->
---             ( model, Cmd.none )
+imageUploaderUpdate : Model -> ImageUploaderMsg -> ( Model, Cmd Msg )
+imageUploaderUpdate model msg =
+    case msg of
+        Upload ->
+            ( model, File.Select.file [ "image/*" ] (GotFile >> ImageUploader) )
+
+        DragEnter ->
+            ( { model | imageUploaderHover = True }, Cmd.none )
+
+        DragLeave ->
+            ( { model | imageUploaderHover = False }, Cmd.none )
+
+        GotFile file ->
+            ( { model | imageUploaderHover = False }
+            , Task.perform (GotPreview >> ImageUploader) <| File.toUrl file
+            )
+
+        GotPreview preview ->
+            case Gradio.base64Image preview of
+                Just image ->
+                    let
+                        origPredsReqId =
+                            Requests.next model.origPredsReqId
+                    in
+                    ( { model
+                        | example =
+                            Requests.Loaded
+                                { image = image
+                                , labels = Gradio.base64ImageEmpty
+                                , classes = Set.empty
+                                }
+                        , selectedPatchIndices = Set.empty
+                        , saeLatents = Requests.Initial
+                        , origPreds = Requests.Loading
+                        , modPreds = Requests.Initial
+                        , origPredsReqId = origPredsReqId
+                      }
+                    , getOrigPreds model.gradio origPredsReqId image
+                    )
+
+                Nothing ->
+                    ( { model | example = Requests.Failed "Uploaded image was not base64." }
+                    , Cmd.none
+                    )
 
 
 onUrlRequest : Browser.UrlRequest -> Msg
@@ -518,13 +435,13 @@ onUrlRequest request =
 onUrlChange : Url.Url -> Msg
 onUrlChange url =
     Url.Parser.parse urlParser url
-        |> Maybe.andThen .example
+        |> Maybe.andThen .index
         |> Maybe.withDefault 0
         |> SetExample
 
 
 type alias QueryParams =
-    { example : Maybe Int
+    { index : Maybe Int
     }
 
 
@@ -563,116 +480,40 @@ encodeArgs args =
     E.object [ ( "data", E.list identity args ) ]
 
 
-getInputExample : Gradio.Config -> Requests.Id -> Int -> Cmd Msg
-getInputExample cfg id img =
+getExample : Gradio.Config -> Requests.Id -> Int -> Cmd Msg
+getExample cfg id img =
     Gradio.get cfg
         "get-img"
         [ E.int img ]
         (Gradio.decodeOne exampleDecoder)
-        (GotInputExample id)
+        (GotExample id)
 
 
-
--- getImageUrlResult : String -> Cmd Msg
--- getImageUrlResult id =
---     Http.get
---         { url = "http://127.0.0.1:7860/gradio_api/call/get-image/" ++ id
---         , expect =
---             Http.expectString
---                 (GotEventData
---                     (D.decodeString (D.list imgUrlDecoder)
---                         >> Result.map List.head
---                         >> ParsedImageUrl
---                     )
---                 )
---         }
--- getTrueLabels : Int -> Cmd Msg
--- getTrueLabels img =
---     Http.post
---         { url = "http://127.0.0.1:7860/gradio_api/call/get-true-labels"
---         , body =
---             Http.jsonBody (encodeArgs [ E.int img ])
---         , expect = Http.expectJson (GotEventId getTrueLabelsResult) eventIdDecoder
---         }
--- getTrueLabelsResult : String -> Cmd Msg
--- getTrueLabelsResult id =
---     Http.get
---         { url = "http://127.0.0.1:7860/gradio_api/call/get-true-labels/" ++ id
---         , expect =
---             Http.expectString
---                 (GotEventData
---                     (D.decodeString (D.list segmentationResultDecoder)
---                         >> ParsedTrueLabels
---                     )
---                 )
---         }
-
-
-getOrigPreds : Gradio.Config -> Requests.Id -> Int -> Cmd Msg
+getOrigPreds : Gradio.Config -> Requests.Id -> Gradio.Base64Image -> Cmd Msg
 getOrigPreds cfg id img =
     Gradio.get cfg
         "get-orig-preds"
-        [ E.int img ]
+        [ Gradio.encodeImg img ]
         (Gradio.decodeOne exampleDecoder)
         (GotOrigPreds id)
 
 
-getModPreds : Gradio.Config -> Requests.Id -> Int -> Dict.Dict Int Float -> Cmd Msg
+getModPreds : Gradio.Config -> Requests.Id -> Gradio.Base64Image -> Dict.Dict Int Float -> Cmd Msg
 getModPreds cfg id img sliders =
     Gradio.get cfg
         "get-mod-preds"
-        [ E.int img
+        [ Gradio.encodeImg img
         , E.dict String.fromInt E.float sliders
         ]
         (Gradio.decodeOne exampleDecoder)
         (GotModPreds id)
 
 
-
--- getModifiedLabels : Int -> Dict.Dict Int Float -> Cmd Msg
--- getModifiedLabels img sliders =
---     let
---         ( latents, values ) =
---             sliders
---                 |> Dict.toList
---                 |> List.unzip
---                 |> Tuple.mapBoth Array.fromList Array.fromList
---     in
---     Http.post
---         { url = "http://127.0.0.1:7860/gradio_api/call/get-modified-labels"
---         , body =
---             Http.jsonBody
---                 (encodeArgs
---                     [ E.int img
---                     , E.int (Array.get 0 latents |> Maybe.withDefault -1)
---                     , E.int (Array.get 1 latents |> Maybe.withDefault -1)
---                     , E.int (Array.get 2 latents |> Maybe.withDefault -1)
---                     , E.float (Array.get 0 values |> Maybe.withDefault 0.0)
---                     , E.float (Array.get 1 values |> Maybe.withDefault 0.0)
---                     , E.float (Array.get 2 values |> Maybe.withDefault 0.0)
---                     ]
---                 )
---         , expect = Http.expectJson (GotEventId getModifiedLabelsResult) eventIdDecoder
---         }
--- getModifiedLabelsResult : String -> Cmd Msg
--- getModifiedLabelsResult id =
---     Http.get
---         { url = "http://127.0.0.1:7860/gradio_api/call/get-modified-labels/" ++ id
---         , expect =
---             Http.expectString
---                 (GotEventData
---                     (D.decodeString (D.list segmentationResultDecoder)
---                         >> ParsedModifiedLabels
---                     )
---                 )
---         }
-
-
-getSaeLatents : Gradio.Config -> Requests.Id -> Int -> Set.Set Int -> Cmd Msg
+getSaeLatents : Gradio.Config -> Requests.Id -> Gradio.Base64Image -> Set.Set Int -> Cmd Msg
 getSaeLatents cfg id img patches =
     Gradio.get cfg
         "get-sae-latents"
-        [ E.int img
+        [ Gradio.encodeImg img
         , Set.toList patches |> E.list E.int
         ]
         (Gradio.decodeOne
@@ -686,89 +527,12 @@ getSaeLatents cfg id img patches =
         (GotSaeLatents id)
 
 
-
--- saeExampleOutputToLatent : SaeExampleResult -> Maybe Int
--- saeExampleOutputToLatent result =
---     case result of
---         SaeExampleLatent latent ->
---             Just latent
---         _ ->
---             Nothing
--- saeExampleResultDecoder : D.Decoder SaeExampleResult
--- saeExampleResultDecoder =
---     D.oneOf
---         [ imgUrlDecoder |> D.map SaeExampleUrl
---         , D.int |> D.map SaeExampleLatent
---         , D.null SaeExampleMissing
---         ]
--- parseSaeExampleResults : List SaeExampleResult -> List SaeLatent
--- parseSaeExampleResults results =
---     let
---         ( _, _, parsed ) =
---             parseSaeExampleResultsHelper results [] []
---     in
---     parsed
--- parseSaeExampleResultsHelper : List SaeExampleResult -> List (Maybe String) -> List SaeLatent -> ( List SaeExampleResult, List (Maybe String), List SaeLatent )
--- parseSaeExampleResultsHelper unparsed urls parsed =
---     case unparsed of
---         [] ->
---             ( [], urls, parsed )
---         (SaeExampleUrl url) :: rest ->
---             parseSaeExampleResultsHelper
---                 rest
---                 (urls ++ [ Just url ])
---                 parsed
---         (SaeExampleLatent latent) :: rest ->
---             parseSaeExampleResultsHelper
---                 rest
---                 (List.drop nSaeExamplesPerLatent urls)
---                 (parsed
---                     ++ [ { latent = latent
---                          , urls =
---                             urls
---                                 |> List.take 4
---                                 |> List.filterMap identity
---                          }
---                        ]
---                 )
---         SaeExampleMissing :: rest ->
---             parseSaeExampleResultsHelper
---                 rest
---                 (urls ++ [ Nothing ])
---                 parsed
-
-
-type SegmentationResult
-    = SegmentationUrl String
-    | SegmentationLabels (List Int)
-
-
-segmentationResultToUrl : SegmentationResult -> Maybe String
-segmentationResultToUrl result =
-    case result of
-        SegmentationUrl url ->
-            Just url
-
-        _ ->
-            Nothing
-
-
-segmentationResultToLabels : SegmentationResult -> Maybe (List Int)
-segmentationResultToLabels result =
-    case result of
-        SegmentationLabels labels ->
-            Just labels
-
-        _ ->
-            Nothing
-
-
 exampleDecoder : D.Decoder Example
 exampleDecoder =
     D.map3 Example
         (D.field "orig_url" Gradio.base64ImageDecoder)
         (D.field "seg_url" Gradio.base64ImageDecoder)
-        (D.field "index" D.int)
+        (D.field "classes" (D.list D.int |> D.map Set.fromList))
 
 
 highlightedExampleDecoder : D.Decoder HighlightedExample
@@ -777,7 +541,7 @@ highlightedExampleDecoder =
         (D.field "orig_url" Gradio.base64ImageDecoder)
         (D.field "highlighted_url" Gradio.base64ImageDecoder)
         (D.field "seg_url" Gradio.base64ImageDecoder)
-        (D.field "index" D.int)
+        (D.field "classes" (D.list D.int |> D.map Set.fromList))
 
 
 imgUrlDecoder : D.Decoder String
@@ -790,41 +554,59 @@ imgUrlDecoder =
         |> D.map (String.replace "gradio_api/call/gradio_api" "gradio_api")
 
 
+
+-- VIEW
+
+
 view : Model -> Browser.Document Msg
 view model =
     { title = "Semantic Segmentation"
     , body =
         [ Html.header [] []
         , Html.main_
-            [ Html.Attributes.class "w-full min-h-screen p-1 md:p-2 lg:p-4 bg-gray-50 space-y-4" ]
+            [ class "w-full min-h-screen p-1 md:p-2 lg:p-4 bg-gray-50 space-y-4" ]
             [ Html.h2
                 []
                 [ Html.text "SAEs for Scientifically Rigorous Interpretation of Semantic Segmentation Models" ]
-            , viewControls model.inputExample
-            , Html.div
-                [ Html.Attributes.class "flex flex-row gap-2 items-stretch" ]
-                [ viewGriddedImage model
-                    (Requests.map .image model.inputExample)
-                    "Input Image"
-                    "Wait just a second..."
-                , viewGriddedImage model
-                    (Requests.map .labels model.inputExample)
-                    "True Labels"
-                    "Wait just a second..."
-                , viewGriddedImage model
-                    (Requests.map .labels model.origPreds)
-                    "Predicted Segmentation"
-                    "Wait just a second..."
-                , viewGriddedImage model
-                    (Requests.map .labels model.modPreds)
-                    "Modified Segmentation"
-                    "Modify the ViT's representations using the sliders below."
-                ]
-            , Html.div
-                [ Html.Attributes.class "flex flex-row" ]
-                [ viewSaeLatents model.selectedPatchIndices model.saeLatents model.sliders
+            , viewControls model.ade20kIndex
+            , div
+                [ class "flex flex-row" ]
+                [ div
+                    [ class "grid lg:grid-cols-[336px_336px] gap-1" ]
+                    [ viewGriddedImage model
+                        (Requests.map .image model.example)
+                        "Input Image"
+                        "Wait just a second..."
+                    , viewGriddedImage model
+                        (Requests.map .labels model.example)
+                        "True Labels"
+                        "Wait just a second..."
+                    , viewGriddedImage model
+                        (Requests.map .labels model.origPreds)
+                        "Predicted Segmentation"
+                        "Wait just a second..."
+                    , viewGriddedImage model
+                        (Requests.map .labels model.modPreds)
+                        "Modified Segmentation"
+                        (if Set.isEmpty model.selectedPatchIndices then
+                            "Click on the image to explain model predictions."
 
-                -- , viewLegend (Set.fromList (model.predLabels ++ model.modifiedLabels))
+                         else
+                            "Modify the ViT's representations using the sliders."
+                        )
+                    ]
+                , div
+                    [ class "" ]
+                    [ viewSaeLatents
+                        model.selectedPatchIndices
+                        model.saeLatents
+                        model.sliders
+                    , Set.empty
+                        |> Set.union (getClasses model.example)
+                        |> Set.union (getClasses model.origPreds)
+                        |> Set.union (getClasses model.modPreds)
+                        |> viewLegend
+                    ]
                 ]
             ]
         ]
@@ -833,80 +615,60 @@ view model =
 
 viewErr : String -> Html.Html Msg
 viewErr err =
-    Html.div
-        [ Html.Attributes.class "relative rounded-lg border border-red-200 bg-red-50 p-4 m-4" ]
+    div
+        [ class "relative rounded-lg border border-red-200 bg-red-50 p-4 m-4" ]
         [ Html.button
             []
             []
         , Html.h3
-            [ Html.Attributes.class "font-bold text-red-800" ]
+            [ class "font-bold text-red-800" ]
             [ Html.text "Error" ]
         , Html.p
-            [ Html.Attributes.class "text-red-700" ]
+            [ class "text-red-700" ]
             [ Html.text err ]
         ]
 
 
-viewControls : Requests.Requested Example -> Html.Html Msg
-viewControls requestedExample =
-    case requestedExample of
-        Requests.Initial ->
-            Html.div
-                [ Html.Attributes.class "flex flex-row gap-2" ]
-                [ viewButtonDisabled "Previous"
-                , viewButton GetRandomExample "Random"
-                , viewButtonDisabled "Next"
-                ]
+viewControls : Maybe Int -> Html.Html Msg
+viewControls ade20kIndex =
+    let
+        ( prevButton, nextButton ) =
+            case ade20kIndex of
+                Just i ->
+                    ( viewButton (SetUrl (i - 1)) "Previous" True
+                    , viewButton (SetUrl (i + 1)) "Next" True
+                    )
 
-        Requests.Loading ->
-            Html.div
-                [ Html.Attributes.class "flex flex-row gap-2" ]
-                [ viewButtonDisabled "Previous"
-                , viewButton GetRandomExample "Random"
-                , viewButtonDisabled "Next"
-                ]
+                Nothing ->
+                    ( viewButton NoOp "Previous" False
+                    , viewButton NoOp "Next" False
+                    )
+    in
+    div
+        [ class "flex flex-row gap-2" ]
+        [ prevButton
+        , viewButton GetRandomExample "Random" True
+        , nextButton
+        , viewButton (ImageUploader Upload) "Upload Image" True
 
-        Requests.Loaded example ->
-            Html.div
-                [ Html.Attributes.class "flex flex-row gap-2" ]
-                [ viewButton (SetUrl (example.index - 1)) "Previous"
-                , viewButton GetRandomExample "Random"
-                , viewButton (SetUrl (example.index + 1)) "Next"
-                ]
-
-        Requests.Failed err ->
-            Html.div
-                [ Html.Attributes.class "flex flex-row gap-2" ]
-                [ viewButtonDisabled "Previous"
-                , viewButton GetRandomExample "Random"
-                , viewButtonDisabled "Next"
-                ]
+        -- , viewButton (ResetPatches) "Reset Patches" True
+        ]
 
 
-viewButton : Msg -> String -> Html.Html Msg
-viewButton onClick title =
+viewButton : Msg -> String -> Bool -> Html.Html Msg
+viewButton onClick title enabled =
     Html.button
         [ Html.Events.onClick onClick
-        , Html.Attributes.class "flex-1 rounded-lg px-2 py-1 transition-colors"
-        , Html.Attributes.class "border border-sky-300 hover:border-sky-400"
-        , Html.Attributes.class "bg-sky-100 hover:bg-sky-200"
-        , Html.Attributes.class "text-gray-700 hover:text-gray-900"
-        , Html.Attributes.class "focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2"
-        , Html.Attributes.class "active:bg-gray-300"
-        ]
-        [ Html.text title ]
-
-
-viewButtonDisabled : String -> Html.Html Msg
-viewButtonDisabled title =
-    Html.button
-        [ Html.Attributes.disabled True
-        , Html.Attributes.class "flex-1 rounded-lg px-2 py-1 transition-colors"
-        , Html.Attributes.class "border border-sky-300 hover:border-sky-400"
-        , Html.Attributes.class "bg-sky-100 hover:bg-sky-200"
-        , Html.Attributes.class "text-gray-700 hover:text-gray-900"
-        , Html.Attributes.class "focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2"
-        , Html.Attributes.class "active:bg-gray-300"
+        , Html.Attributes.disabled (not enabled)
+        , class "flex-1 rounded-lg px-2 py-1 transition-colors"
+        , class "border border-sky-300 hover:border-sky-400"
+        , class "bg-sky-100 hover:bg-sky-200"
+        , class "text-gray-700 hover:text-gray-900"
+        , class "focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2"
+        , class "active:bg-gray-300"
+        , class "disabled:bg-gray-100 disabled:border-gray-200 disabled:text-gray-400"
+        , class "disabled:cursor-not-allowed"
+        , class "disabled:hover:bg-gray-100 disabled:hover:border-gray-200 disabled:hover:text-gray-400"
         ]
         [ Html.text title ]
 
@@ -915,18 +677,24 @@ viewGriddedImage : Model -> Requests.Requested Gradio.Base64Image -> String -> S
 viewGriddedImage model reqImage title callToAction =
     case reqImage of
         Requests.Initial ->
-            Html.div
+            div
                 []
                 [ Html.p
-                    [ Html.Attributes.class "italic" ]
+                    [ class "text-center" ]
+                    [ Html.text title ]
+                , Html.p
+                    [ class "italic" ]
                     [ Html.text callToAction ]
                 ]
 
         Requests.Loading ->
-            Html.div
+            div
                 []
                 [ Html.p
-                    [ Html.Attributes.class "italic" ]
+                    [ class "text-center" ]
+                    [ Html.text title ]
+                , Html.p
+                    [ class "italic" ]
                     [ Html.text "Loading..." ]
                 ]
 
@@ -934,20 +702,25 @@ viewGriddedImage model reqImage title callToAction =
             viewErr err
 
         Requests.Loaded image ->
-            Html.div []
+            div []
                 [ Html.p
-                    [ Html.Attributes.class "text-center" ]
+                    [ class "text-center" ]
                     [ Html.text title ]
-                , Html.div
-                    [ Html.Attributes.class "relative inline-block" ]
-                    [ Html.div
-                        [ Html.Attributes.class "absolute grid grid-rows-[repeat(16,_14px)] grid-cols-[repeat(16,_14px)] md:grid-rows-[repeat(16,_21px)] md:grid-cols-[repeat(16,_21px)]" ]
+                , div
+                    [ class "relative inline-block" ]
+                    [ div
+                        [ class "absolute grid"
+                        , class "grid-rows-[repeat(16,_14px)] grid-cols-[repeat(16,_14px)]"
+                        , class "lg:grid-rows-[repeat(16,_21px)] lg:grid-cols-[repeat(16,_21px)]"
+                        ]
                         (List.map
                             (viewGridCell model.hoveredPatchIndex model.selectedPatchIndices)
                             (List.range 0 255)
                         )
                     , Html.img
-                        [ Html.Attributes.class "block w-[224px] h-[224px] md:w-[336px] md:h-[336px]"
+                        [ class "block"
+                        , class "w-[224px] h-[224px]"
+                        , class "lg:w-[336px] lg:h-[336px]"
                         , Html.Attributes.src (Gradio.base64ImageToString image)
                         , Html.Attributes.style "image-rendering" "pixelated"
                         ]
@@ -978,73 +751,62 @@ viewGridCell hovered selected self =
                         []
                    )
     in
-    Html.div
-        ([ Html.Attributes.class "w-[14px] h-[14px] md:w-[21px] md:h-[21px]"
+    div
+        ([ class "w-[14px] h-[14px] lg:w-[21px] lg:h-[21px]"
          , Html.Events.onMouseEnter (HoverPatch self)
          , Html.Events.onMouseLeave ResetHoveredPatch
          , Html.Events.onClick (ToggleSelectedPatch self)
          ]
-            ++ List.map Html.Attributes.class classes
+            ++ List.map class classes
         )
         []
 
 
+viewLegend : Set.Set Int -> Html.Html Msg
+viewLegend classes =
+    div
+        [ Html.Attributes.id "legend" ]
+        [ Html.p [] [ Html.text "Legend" ]
+        , div
+            []
+            (Set.toList classes
+                |> List.sort
+                |> List.filter (\x -> x > 0)
+                |> List.map viewClassIcon
+            )
+        ]
 
--- viewLegend : Set.Set Int -> Html.Html Msg
--- viewLegend classes =
---     Html.div
---         [ Html.Attributes.id "legend" ]
---         [ Html.p [] [ Html.text "Legend" ]
---         , Html.div
---             []
---             (Set.toList classes
---                 |> List.sort
---                 |> List.filter (\x -> x > 0)
---                 |> List.map viewClassIcon
---             )
---         ]
--- viewClassIcon : Int -> Html.Html Msg
--- viewClassIcon class =
---     let
---         color =
---             case Array.get (class - 1) colors of
---                 Just ( r, g, b ) ->
---                     "rgb(" ++ String.fromInt r ++ " " ++ String.fromInt g ++ " " ++ String.fromInt b ++ ")"
---                 Nothing ->
---                     "red"
---         classname =
---             case Array.get (class - 1) classnames of
---                 Just names ->
---                     names |> List.take 2 |> String.join ", "
---                 Nothing ->
---                     "no classname found"
---     in
---     Html.div
---         [ Html.Attributes.class "flex flex-row gap-1 items-center" ]
---         [ Html.span
---             [ Html.Attributes.class "w-4 h-4"
---             , Html.Attributes.style "background-color" color
---             ]
---             []
---         , Html.span
---             []
---             [ Html.text (classname ++ " (class " ++ String.fromInt class ++ ")") ]
---         ]
--- viewImageSeg : Maybe String -> String -> Html.Html Msg
--- viewImageSeg maybeUrl title =
---     case maybeUrl of
---         Just url ->
---             Html.div
---                 []
---                 [ Html.img
---                     [ Html.Attributes.src url
---                     , Html.Attributes.style "width" "448px"
---                     ]
---                     []
---                 , Html.p [] [ Html.text title ]
---                 ]
---         Nothing ->
---             Html.div [] [ Html.text ("Loading '" ++ title ++ "'...") ]
+
+viewClassIcon : Int -> Html.Html Msg
+viewClassIcon cls =
+    let
+        color =
+            case Array.get (cls - 1) colors of
+                Just ( r, g, b ) ->
+                    "rgb(" ++ String.fromInt r ++ " " ++ String.fromInt g ++ " " ++ String.fromInt b ++ ")"
+
+                Nothing ->
+                    "red"
+
+        classname =
+            case Array.get (cls - 1) classnames of
+                Just names ->
+                    names |> List.take 2 |> String.join ", "
+
+                Nothing ->
+                    "no classname found"
+    in
+    div
+        [ class "flex flex-row gap-1 items-center" ]
+        [ Html.span
+            [ class "w-4 h-4"
+            , Html.Attributes.style "background-color" color
+            ]
+            []
+        , Html.span
+            []
+            [ Html.text (classname ++ " (class " ++ String.fromInt cls ++ ")") ]
+        ]
 
 
 viewSaeLatents : Set.Set Int -> Requests.Requested (List SaeLatent) -> Dict.Dict Int Float -> Html.Html Msg
@@ -1062,56 +824,66 @@ viewSaeLatents selected requestedLatents values =
             viewErr err
 
         Requests.Loaded latents ->
-            Html.div []
-                [ Html.p []
-                    [ Html.span [ Html.Attributes.class "bg-rose-600 p-1 rounded" ] [ Html.text "These patches" ]
-                    , Html.text " above are like "
-                    , Html.span [ Html.Attributes.class "bg-rose-600 p-1 rounded" ] [ Html.text "these patches" ]
-                    , Html.text " below. (Not what you expected? Add more patches and get a larger "
-                    , Html.a [ Html.Attributes.href "https://simple.wikipedia.org/wiki/Sampling_(statistics)", Html.Attributes.class "text-blue-500 underline" ] [ Html.text "sample size" ]
-                    , Html.text ")"
-                    ]
-                , Html.div []
-                    (List.filterMap
-                        (\latent -> Maybe.map (\f -> viewSaeLatent latent f) (Dict.get latent.latent values))
-                        latents
-                    )
-                ]
+            div []
+                (List.filterMap
+                    (\latent -> Maybe.map (\f -> viewSaeLatent latent f) (Dict.get latent.latent values))
+                    latents
+                )
 
 
 viewSaeLatent : SaeLatent -> Float -> Html.Html Msg
 viewSaeLatent latent value =
-    Html.div
-        [ Html.Attributes.class "flex flex-row gap-2 mt-2" ]
-        (List.map viewHighlightedExample latent.examples
-            ++ [ Html.div
-                    [ Html.Attributes.class "flex flex-col gap-2" ]
-                    [ Html.input
-                        [ Html.Attributes.type_ "range"
-                        , Html.Attributes.min "-10"
-                        , Html.Attributes.max "10"
-                        , Html.Attributes.value (String.fromFloat value)
-                        , Html.Events.onInput (SetSlider latent.latent)
-                        ]
-                        []
-                    , Html.p
-                        []
-                        [ Html.text ("Latent 24K/" ++ String.fromInt latent.latent) ]
-                    , Html.p
-                        []
-                        [ Html.text ("Value:" ++ String.fromFloat value) ]
-                    ]
-               ]
-        )
+    div
+        []
+        [ div
+            [ class "grid grid-cols-4" ]
+            (List.map viewHighlightedExample latent.examples)
+        , div
+            [ class "" ]
+            [ Html.input
+                [ Html.Attributes.type_ "range"
+                , Html.Attributes.min "-10"
+                , Html.Attributes.max "10"
+                , Html.Attributes.value (String.fromFloat value)
+                , Html.Events.onInput (SetSlider latent.latent)
+                ]
+                []
+            , Html.p
+                []
+                [ Html.span [] [ Html.text ("Latent 24K/" ++ String.fromInt latent.latent) ]
+                , Html.span [] [ Html.text ("Value:" ++ String.fromFloat value) ]
+                ]
+            ]
+        ]
 
 
 viewHighlightedExample : HighlightedExample -> Html.Html Msg
 viewHighlightedExample { original, highlighted } =
     Html.img
         [ Html.Attributes.src (Gradio.base64ImageToString highlighted)
-        , Html.Attributes.class "max-w-36 h-auto"
+        , class "max-w-36 h-auto"
         ]
         []
+
+
+
+-- HELPERS
+
+
+getClasses : Requests.Requested Example -> Set.Set Int
+getClasses example =
+    case example of
+        Requests.Loading ->
+            Set.empty
+
+        Requests.Initial ->
+            Set.empty
+
+        Requests.Failed _ ->
+            Set.empty
+
+        Requests.Loaded { classes } ->
+            classes
 
 
 
@@ -1135,170 +907,174 @@ randomExample =
     Random.int 0 (nImages - 1)
 
 
+colors : Array.Array ( Int, Int, Int )
+colors =
+    [ ( 51, 0, 0 ), ( 204, 0, 102 ), ( 0, 255, 0 ), ( 102, 51, 51 ), ( 153, 204, 51 ), ( 51, 51, 153 ), ( 102, 0, 51 ), ( 153, 153, 0 ), ( 51, 102, 204 ), ( 204, 255, 0 ), ( 204, 102, 0 ), ( 204, 255, 153 ), ( 102, 102, 255 ), ( 255, 204, 255 ), ( 51, 255, 0 ), ( 0, 102, 51 ), ( 102, 102, 0 ), ( 0, 0, 255 ), ( 255, 153, 204 ), ( 204, 204, 0 ), ( 0, 153, 153 ), ( 153, 102, 204 ), ( 255, 204, 0 ), ( 204, 204, 153 ), ( 255, 51, 0 ), ( 51, 51, 0 ), ( 153, 51, 51 ), ( 0, 0, 102 ), ( 102, 255, 204 ), ( 204, 51, 255 ), ( 255, 204, 204 ), ( 0, 0, 153 ), ( 0, 102, 153 ), ( 153, 0, 51 ), ( 51, 51, 102 ), ( 255, 153, 0 ), ( 204, 153, 0 ), ( 153, 102, 153 ), ( 51, 204, 204 ), ( 51, 51, 255 ), ( 153, 204, 102 ), ( 102, 204, 153 ), ( 153, 153, 204 ), ( 0, 51, 204 ), ( 204, 204, 102 ), ( 0, 51, 153 ), ( 0, 102, 0 ), ( 51, 0, 102 ), ( 153, 255, 0 ), ( 153, 255, 102 ), ( 102, 102, 51 ), ( 153, 0, 255 ), ( 204, 255, 102 ), ( 102, 0, 255 ), ( 255, 204, 153 ), ( 102, 51, 0 ), ( 102, 204, 102 ), ( 0, 102, 204 ), ( 51, 204, 0 ), ( 255, 102, 102 ), ( 153, 255, 204 ), ( 51, 204, 51 ), ( 0, 0, 0 ), ( 255, 0, 255 ), ( 153, 0, 153 ), ( 255, 204, 51 ), ( 51, 0, 51 ), ( 102, 204, 255 ), ( 153, 204, 153 ), ( 153, 102, 0 ), ( 102, 204, 204 ), ( 204, 204, 204 ), ( 255, 0, 0 ), ( 255, 255, 51 ), ( 0, 255, 102 ), ( 204, 153, 102 ), ( 204, 153, 153 ), ( 102, 51, 153 ), ( 51, 102, 0 ), ( 204, 51, 153 ), ( 153, 51, 255 ), ( 102, 0, 204 ), ( 204, 102, 153 ), ( 204, 0, 204 ), ( 102, 51, 102 ), ( 0, 153, 51 ), ( 153, 153, 51 ), ( 255, 102, 0 ), ( 255, 153, 153 ), ( 153, 0, 102 ), ( 51, 204, 255 ), ( 102, 255, 102 ), ( 255, 255, 204 ), ( 51, 51, 204 ), ( 153, 102, 51 ), ( 153, 153, 255 ), ( 51, 153, 0 ), ( 204, 0, 255 ), ( 102, 255, 0 ), ( 153, 102, 255 ), ( 204, 102, 255 ), ( 204, 0, 0 ), ( 102, 153, 255 ), ( 204, 102, 204 ), ( 204, 51, 102 ), ( 0, 255, 153 ), ( 153, 204, 204 ), ( 255, 0, 102 ), ( 102, 51, 204 ), ( 255, 51, 204 ), ( 51, 204, 153 ), ( 153, 153, 102 ), ( 153, 204, 0 ), ( 153, 102, 102 ), ( 204, 153, 255 ), ( 153, 0, 204 ), ( 102, 0, 0 ), ( 255, 51, 255 ), ( 0, 204, 153 ), ( 255, 153, 51 ), ( 0, 255, 204 ), ( 51, 102, 153 ), ( 255, 51, 51 ), ( 102, 255, 51 ), ( 0, 0, 204 ), ( 102, 255, 153 ), ( 0, 204, 255 ), ( 0, 102, 102 ), ( 102, 51, 255 ), ( 255, 0, 204 ), ( 51, 255, 153 ), ( 204, 0, 51 ), ( 153, 51, 204 ), ( 204, 102, 51 ), ( 255, 255, 0 ), ( 51, 51, 51 ), ( 0, 153, 0 ), ( 51, 255, 102 ), ( 51, 102, 255 ), ( 102, 153, 0 ), ( 102, 153, 204 ), ( 51, 0, 255 ), ( 102, 153, 153 ), ( 153, 51, 102 ), ( 204, 255, 51 ), ( 204, 204, 51 ), ( 0, 204, 51 ), ( 255, 102, 153 ), ( 204, 102, 102 ), ( 102, 0, 102 ), ( 51, 153, 204 ), ( 255, 255, 255 ), ( 0, 102, 255 ), ( 51, 102, 51 ), ( 204, 0, 153 ), ( 102, 153, 102 ), ( 102, 0, 153 ), ( 153, 255, 153 ), ( 0, 153, 102 ), ( 102, 204, 0 ), ( 0, 255, 51 ), ( 153, 204, 255 ), ( 153, 51, 153 ), ( 0, 51, 255 ), ( 51, 255, 51 ), ( 255, 102, 51 ), ( 102, 102, 204 ), ( 102, 153, 51 ), ( 0, 204, 0 ), ( 102, 204, 51 ), ( 255, 102, 255 ), ( 255, 204, 102 ), ( 102, 102, 102 ), ( 255, 102, 204 ), ( 51, 0, 153 ), ( 255, 0, 51 ), ( 102, 102, 153 ), ( 255, 153, 102 ), ( 204, 255, 204 ), ( 51, 0, 204 ), ( 0, 0, 51 ), ( 51, 255, 255 ), ( 204, 51, 0 ), ( 153, 51, 0 ), ( 51, 153, 102 ), ( 102, 255, 255 ), ( 255, 153, 255 ), ( 204, 255, 255 ), ( 204, 153, 204 ), ( 255, 0, 153 ), ( 51, 102, 102 ), ( 153, 255, 255 ), ( 255, 255, 153 ), ( 204, 51, 204 ), ( 153, 153, 153 ), ( 51, 153, 255 ), ( 51, 153, 51 ), ( 0, 153, 255 ), ( 0, 51, 51 ), ( 0, 51, 102 ), ( 153, 0, 0 ), ( 204, 51, 51 ), ( 0, 153, 204 ), ( 153, 255, 51 ), ( 255, 255, 102 ), ( 204, 204, 255 ), ( 0, 204, 102 ), ( 255, 51, 102 ), ( 0, 255, 255 ), ( 51, 153, 153 ), ( 51, 204, 102 ), ( 51, 255, 204 ), ( 255, 51, 153 ), ( 0, 51, 0 ), ( 0, 204, 204 ), ( 204, 153, 51 ) ]
+        |> Array.fromList
+        -- Fixed colors for example 3122
+        |> Array.set 2 ( 201, 249, 255 )
+        -- Sky
+        |> Array.set 4 ( 151, 204, 4 )
+        |> Array.set 16 ( 54, 48, 32 )
+        |> Array.set 26 ( 45, 125, 210 )
+        |> Array.set 29 ( 116, 142, 84 )
+        -- Field
+        |> Array.set 46 ( 238, 185, 2 )
+        |> Array.set 72 ( 76, 46, 5 )
+        |> Array.set 94 ( 12, 15, 10 )
 
--- colors : Array.Array ( Int, Int, Int )
--- colors =
---     [ ( 51, 0, 0 ), ( 204, 0, 102 ), ( 0, 255, 0 ), ( 102, 51, 51 ), ( 153, 204, 51 ), ( 51, 51, 153 ), ( 102, 0, 51 ), ( 153, 153, 0 ), ( 51, 102, 204 ), ( 204, 255, 0 ), ( 204, 102, 0 ), ( 204, 255, 153 ), ( 102, 102, 255 ), ( 255, 204, 255 ), ( 51, 255, 0 ), ( 0, 102, 51 ), ( 102, 102, 0 ), ( 0, 0, 255 ), ( 255, 153, 204 ), ( 204, 204, 0 ), ( 0, 153, 153 ), ( 153, 102, 204 ), ( 255, 204, 0 ), ( 204, 204, 153 ), ( 255, 51, 0 ), ( 51, 51, 0 ), ( 153, 51, 51 ), ( 0, 0, 102 ), ( 102, 255, 204 ), ( 204, 51, 255 ), ( 255, 204, 204 ), ( 0, 0, 153 ), ( 0, 102, 153 ), ( 153, 0, 51 ), ( 51, 51, 102 ), ( 255, 153, 0 ), ( 204, 153, 0 ), ( 153, 102, 153 ), ( 51, 204, 204 ), ( 51, 51, 255 ), ( 153, 204, 102 ), ( 102, 204, 153 ), ( 153, 153, 204 ), ( 0, 51, 204 ), ( 204, 204, 102 ), ( 0, 51, 153 ), ( 0, 102, 0 ), ( 51, 0, 102 ), ( 153, 255, 0 ), ( 153, 255, 102 ), ( 102, 102, 51 ), ( 153, 0, 255 ), ( 204, 255, 102 ), ( 102, 0, 255 ), ( 255, 204, 153 ), ( 102, 51, 0 ), ( 102, 204, 102 ), ( 0, 102, 204 ), ( 51, 204, 0 ), ( 255, 102, 102 ), ( 153, 255, 204 ), ( 51, 204, 51 ), ( 0, 0, 0 ), ( 255, 0, 255 ), ( 153, 0, 153 ), ( 255, 204, 51 ), ( 51, 0, 51 ), ( 102, 204, 255 ), ( 153, 204, 153 ), ( 153, 102, 0 ), ( 102, 204, 204 ), ( 204, 204, 204 ), ( 255, 0, 0 ), ( 255, 255, 51 ), ( 0, 255, 102 ), ( 204, 153, 102 ), ( 204, 153, 153 ), ( 102, 51, 153 ), ( 51, 102, 0 ), ( 204, 51, 153 ), ( 153, 51, 255 ), ( 102, 0, 204 ), ( 204, 102, 153 ), ( 204, 0, 204 ), ( 102, 51, 102 ), ( 0, 153, 51 ), ( 153, 153, 51 ), ( 255, 102, 0 ), ( 255, 153, 153 ), ( 153, 0, 102 ), ( 51, 204, 255 ), ( 102, 255, 102 ), ( 255, 255, 204 ), ( 51, 51, 204 ), ( 153, 102, 51 ), ( 153, 153, 255 ), ( 51, 153, 0 ), ( 204, 0, 255 ), ( 102, 255, 0 ), ( 153, 102, 255 ), ( 204, 102, 255 ), ( 204, 0, 0 ), ( 102, 153, 255 ), ( 204, 102, 204 ), ( 204, 51, 102 ), ( 0, 255, 153 ), ( 153, 204, 204 ), ( 255, 0, 102 ), ( 102, 51, 204 ), ( 255, 51, 204 ), ( 51, 204, 153 ), ( 153, 153, 102 ), ( 153, 204, 0 ), ( 153, 102, 102 ), ( 204, 153, 255 ), ( 153, 0, 204 ), ( 102, 0, 0 ), ( 255, 51, 255 ), ( 0, 204, 153 ), ( 255, 153, 51 ), ( 0, 255, 204 ), ( 51, 102, 153 ), ( 255, 51, 51 ), ( 102, 255, 51 ), ( 0, 0, 204 ), ( 102, 255, 153 ), ( 0, 204, 255 ), ( 0, 102, 102 ), ( 102, 51, 255 ), ( 255, 0, 204 ), ( 51, 255, 153 ), ( 204, 0, 51 ), ( 153, 51, 204 ), ( 204, 102, 51 ), ( 255, 255, 0 ), ( 51, 51, 51 ), ( 0, 153, 0 ), ( 51, 255, 102 ), ( 51, 102, 255 ), ( 102, 153, 0 ), ( 102, 153, 204 ), ( 51, 0, 255 ), ( 102, 153, 153 ), ( 153, 51, 102 ), ( 204, 255, 51 ), ( 204, 204, 51 ), ( 0, 204, 51 ), ( 255, 102, 153 ), ( 204, 102, 102 ), ( 102, 0, 102 ), ( 51, 153, 204 ), ( 255, 255, 255 ), ( 0, 102, 255 ), ( 51, 102, 51 ), ( 204, 0, 153 ), ( 102, 153, 102 ), ( 102, 0, 153 ), ( 153, 255, 153 ), ( 0, 153, 102 ), ( 102, 204, 0 ), ( 0, 255, 51 ), ( 153, 204, 255 ), ( 153, 51, 153 ), ( 0, 51, 255 ), ( 51, 255, 51 ), ( 255, 102, 51 ), ( 102, 102, 204 ), ( 102, 153, 51 ), ( 0, 204, 0 ), ( 102, 204, 51 ), ( 255, 102, 255 ), ( 255, 204, 102 ), ( 102, 102, 102 ), ( 255, 102, 204 ), ( 51, 0, 153 ), ( 255, 0, 51 ), ( 102, 102, 153 ), ( 255, 153, 102 ), ( 204, 255, 204 ), ( 51, 0, 204 ), ( 0, 0, 51 ), ( 51, 255, 255 ), ( 204, 51, 0 ), ( 153, 51, 0 ), ( 51, 153, 102 ), ( 102, 255, 255 ), ( 255, 153, 255 ), ( 204, 255, 255 ), ( 204, 153, 204 ), ( 255, 0, 153 ), ( 51, 102, 102 ), ( 153, 255, 255 ), ( 255, 255, 153 ), ( 204, 51, 204 ), ( 153, 153, 153 ), ( 51, 153, 255 ), ( 51, 153, 51 ), ( 0, 153, 255 ), ( 0, 51, 51 ), ( 0, 51, 102 ), ( 153, 0, 0 ), ( 204, 51, 51 ), ( 0, 153, 204 ), ( 153, 255, 51 ), ( 255, 255, 102 ), ( 204, 204, 255 ), ( 0, 204, 102 ), ( 255, 51, 102 ), ( 0, 255, 255 ), ( 51, 153, 153 ), ( 51, 204, 102 ), ( 51, 255, 204 ), ( 255, 51, 153 ), ( 0, 51, 0 ), ( 0, 204, 204 ), ( 204, 153, 51 ) ]
---         |> Array.fromList
---         -- Fixed colors for example 3122
---         |> Array.set 2 ( 201, 249, 255 )
---         |> Array.set 4 ( 151, 204, 4 )
---         |> Array.set 16 ( 54, 48, 32 )
---         |> Array.set 26 ( 45, 125, 210 )
---         |> Array.set 46 ( 238, 185, 2 )
---         |> Array.set 72 ( 76, 46, 5 )
---         |> Array.set 94 ( 12, 15, 10 )
--- classnames : Array.Array (List String)
--- classnames =
---     Array.fromList
---         [ [ "wall" ]
---         , [ "building", "edifice" ]
---         , [ "sky" ]
---         , [ "floor", "flooring" ]
---         , [ "tree" ]
---         , [ "ceiling" ]
---         , [ "road", "route" ]
---         , [ "bed" ]
---         , [ "windowpane", "window" ]
---         , [ "grass" ]
---         , [ "cabinet" ]
---         , [ "sidewalk", "pavement" ]
---         , [ "person", "individual" ]
---         , [ "earth", "ground" ]
---         , [ "door", "double door" ]
---         , [ "table" ]
---         , [ "mountain" ]
---         , [ "plant", "flora" ]
---         , [ "curtain", "drape" ]
---         , [ "chair" ]
---         , [ "car", "auto" ]
---         , [ "water" ]
---         , [ "painting", "picture" ]
---         , [ "sofa", "couch" ]
---         , [ "shelf" ]
---         , [ "house" ]
---         , [ "sea" ]
---         , [ "mirror" ]
---         , [ "rug", "carpet" ]
---         , [ "field" ]
---         , [ "armchair" ]
---         , [ "seat" ]
---         , [ "fence", "fencing" ]
---         , [ "desk" ]
---         , [ "rock", "stone" ]
---         , [ "wardrobe", "closet" ]
---         , [ "lamp" ]
---         , [ "bathtub", "bathing tub" ]
---         , [ "railing", "rail" ]
---         , [ "cushion" ]
---         , [ "base", "pedestal" ]
---         , [ "box" ]
---         , [ "column", "pillar" ]
---         , [ "signboard", "sign" ]
---         , [ "chest of drawers", "chest" ]
---         , [ "counter" ]
---         , [ "sand" ]
---         , [ "sink" ]
---         , [ "skyscraper" ]
---         , [ "fireplace", "hearth" ]
---         , [ "refrigerator", "icebox" ]
---         , [ "grandstand", "covered stand" ]
---         , [ "path" ]
---         , [ "stairs", "steps" ]
---         , [ "runway" ]
---         , [ "case", "display case" ]
---         , [ "pool table", "billiard table" ]
---         , [ "pillow" ]
---         , [ "screen door", "screen" ]
---         , [ "stairway", "staircase" ]
---         , [ "river" ]
---         , [ "bridge", "span" ]
---         , [ "bookcase" ]
---         , [ "blind", "screen" ]
---         , [ "coffee table", "cocktail table" ]
---         , [ "toilet", "can" ]
---         , [ "flower" ]
---         , [ "book" ]
---         , [ "hill" ]
---         , [ "bench" ]
---         , [ "countertop" ]
---         , [ "stove", "kitchen stove" ]
---         , [ "palm", "palm tree" ]
---         , [ "kitchen island" ]
---         , [ "computer", "computing machine" ]
---         , [ "swivel chair" ]
---         , [ "boat" ]
---         , [ "bar" ]
---         , [ "arcade machine" ]
---         , [ "hovel", "hut" ]
---         , [ "bus", "autobus" ]
---         , [ "towel" ]
---         , [ "light", "light source" ]
---         , [ "truck", "motortruck" ]
---         , [ "tower" ]
---         , [ "chandelier", "pendant" ]
---         , [ "awning", "sunshade" ]
---         , [ "streetlight", "street lamp" ]
---         , [ "booth", "cubicle" ]
---         , [ "television receiver", "television" ]
---         , [ "airplane", "aeroplane" ]
---         , [ "dirt track" ]
---         , [ "apparel", "wearing apparel" ]
---         , [ "pole" ]
---         , [ "land", "ground" ]
---         , [ "bannister", "banister" ]
---         , [ "escalator", "moving staircase" ]
---         , [ "ottoman", "pouf" ]
---         , [ "bottle" ]
---         , [ "buffet", "counter" ]
---         , [ "poster", "posting" ]
---         , [ "stage" ]
---         , [ "van" ]
---         , [ "ship" ]
---         , [ "fountain" ]
---         , [ "conveyer belt", "conveyor belt" ]
---         , [ "canopy" ]
---         , [ "washer", "automatic washer" ]
---         , [ "plaything", "toy" ]
---         , [ "swimming pool", "swimming bath" ]
---         , [ "stool" ]
---         , [ "barrel", "cask" ]
---         , [ "basket", "handbasket" ]
---         , [ "waterfall", "falls" ]
---         , [ "tent", "collapsible shelter" ]
---         , [ "bag" ]
---         , [ "minibike", "motorbike" ]
---         , [ "cradle" ]
---         , [ "oven" ]
---         , [ "ball" ]
---         , [ "food", "solid food" ]
---         , [ "step", "stair" ]
---         , [ "tank", "storage tank" ]
---         , [ "trade name", "brand name" ]
---         , [ "microwave", "microwave oven" ]
---         , [ "pot", "flowerpot" ]
---         , [ "animal", "animate being" ]
---         , [ "bicycle", "bike" ]
---         , [ "lake" ]
---         , [ "dishwasher", "dish washer" ]
---         , [ "screen", "silver screen" ]
---         , [ "blanket", "cover" ]
---         , [ "sculpture" ]
---         , [ "hood", "exhaust hood" ]
---         , [ "sconce" ]
---         , [ "vase" ]
---         , [ "traffic light", "traffic signal" ]
---         , [ "tray" ]
---         , [ "ashcan", "trash can" ]
---         , [ "fan" ]
---         , [ "pier", "wharf" ]
---         , [ "crt screen" ]
---         , [ "plate" ]
---         , [ "monitor", "monitoring device" ]
---         , [ "bulletin board", "notice board" ]
---         , [ "shower" ]
---         , [ "radiator" ]
---         , [ "glass", "drinking glass" ]
---         , [ "clock" ]
---         , [ "flag" ]
---         ]
+
+classnames : Array.Array (List String)
+classnames =
+    Array.fromList
+        [ [ "wall" ]
+        , [ "building", "edifice" ]
+        , [ "sky" ]
+        , [ "floor", "flooring" ]
+        , [ "tree" ]
+        , [ "ceiling" ]
+        , [ "road", "route" ]
+        , [ "bed" ]
+        , [ "windowpane", "window" ]
+        , [ "grass" ]
+        , [ "cabinet" ]
+        , [ "sidewalk", "pavement" ]
+        , [ "person", "individual" ]
+        , [ "earth", "ground" ]
+        , [ "door", "double door" ]
+        , [ "table" ]
+        , [ "mountain" ]
+        , [ "plant", "flora" ]
+        , [ "curtain", "drape" ]
+        , [ "chair" ]
+        , [ "car", "auto" ]
+        , [ "water" ]
+        , [ "painting", "picture" ]
+        , [ "sofa", "couch" ]
+        , [ "shelf" ]
+        , [ "house" ]
+        , [ "sea" ]
+        , [ "mirror" ]
+        , [ "rug", "carpet" ]
+        , [ "field" ]
+        , [ "armchair" ]
+        , [ "seat" ]
+        , [ "fence", "fencing" ]
+        , [ "desk" ]
+        , [ "rock", "stone" ]
+        , [ "wardrobe", "closet" ]
+        , [ "lamp" ]
+        , [ "bathtub", "bathing tub" ]
+        , [ "railing", "rail" ]
+        , [ "cushion" ]
+        , [ "base", "pedestal" ]
+        , [ "box" ]
+        , [ "column", "pillar" ]
+        , [ "signboard", "sign" ]
+        , [ "chest of drawers", "chest" ]
+        , [ "counter" ]
+        , [ "sand" ]
+        , [ "sink" ]
+        , [ "skyscraper" ]
+        , [ "fireplace", "hearth" ]
+        , [ "refrigerator", "icebox" ]
+        , [ "grandstand", "covered stand" ]
+        , [ "path" ]
+        , [ "stairs", "steps" ]
+        , [ "runway" ]
+        , [ "case", "display case" ]
+        , [ "pool table", "billiard table" ]
+        , [ "pillow" ]
+        , [ "screen door", "screen" ]
+        , [ "stairway", "staircase" ]
+        , [ "river" ]
+        , [ "bridge", "span" ]
+        , [ "bookcase" ]
+        , [ "blind", "screen" ]
+        , [ "coffee table", "cocktail table" ]
+        , [ "toilet", "can" ]
+        , [ "flower" ]
+        , [ "book" ]
+        , [ "hill" ]
+        , [ "bench" ]
+        , [ "countertop" ]
+        , [ "stove", "kitchen stove" ]
+        , [ "palm", "palm tree" ]
+        , [ "kitchen island" ]
+        , [ "computer", "computing machine" ]
+        , [ "swivel chair" ]
+        , [ "boat" ]
+        , [ "bar" ]
+        , [ "arcade machine" ]
+        , [ "hovel", "hut" ]
+        , [ "bus", "autobus" ]
+        , [ "towel" ]
+        , [ "light", "light source" ]
+        , [ "truck", "motortruck" ]
+        , [ "tower" ]
+        , [ "chandelier", "pendant" ]
+        , [ "awning", "sunshade" ]
+        , [ "streetlight", "street lamp" ]
+        , [ "booth", "cubicle" ]
+        , [ "television receiver", "television" ]
+        , [ "airplane", "aeroplane" ]
+        , [ "dirt track" ]
+        , [ "apparel", "wearing apparel" ]
+        , [ "pole" ]
+        , [ "land", "ground" ]
+        , [ "bannister", "banister" ]
+        , [ "escalator", "moving staircase" ]
+        , [ "ottoman", "pouf" ]
+        , [ "bottle" ]
+        , [ "buffet", "counter" ]
+        , [ "poster", "posting" ]
+        , [ "stage" ]
+        , [ "van" ]
+        , [ "ship" ]
+        , [ "fountain" ]
+        , [ "conveyer belt", "conveyor belt" ]
+        , [ "canopy" ]
+        , [ "washer", "automatic washer" ]
+        , [ "plaything", "toy" ]
+        , [ "swimming pool", "swimming bath" ]
+        , [ "stool" ]
+        , [ "barrel", "cask" ]
+        , [ "basket", "handbasket" ]
+        , [ "waterfall", "falls" ]
+        , [ "tent", "collapsible shelter" ]
+        , [ "bag" ]
+        , [ "minibike", "motorbike" ]
+        , [ "cradle" ]
+        , [ "oven" ]
+        , [ "ball" ]
+        , [ "food", "solid food" ]
+        , [ "step", "stair" ]
+        , [ "tank", "storage tank" ]
+        , [ "trade name", "brand name" ]
+        , [ "microwave", "microwave oven" ]
+        , [ "pot", "flowerpot" ]
+        , [ "animal", "animate being" ]
+        , [ "bicycle", "bike" ]
+        , [ "lake" ]
+        , [ "dishwasher", "dish washer" ]
+        , [ "screen", "silver screen" ]
+        , [ "blanket", "cover" ]
+        , [ "sculpture" ]
+        , [ "hood", "exhaust hood" ]
+        , [ "sconce" ]
+        , [ "vase" ]
+        , [ "traffic light", "traffic signal" ]
+        , [ "tray" ]
+        , [ "ashcan", "trash can" ]
+        , [ "fan" ]
+        , [ "pier", "wharf" ]
+        , [ "crt screen" ]
+        , [ "plate" ]
+        , [ "monitor", "monitoring device" ]
+        , [ "bulletin board", "notice board" ]
+        , [ "shower" ]
+        , [ "radiator" ]
+        , [ "glass", "drinking glass" ]
+        , [ "clock" ]
+        , [ "flag" ]
+        ]
