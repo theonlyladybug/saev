@@ -46,88 +46,12 @@ hljs.highlightAll();
 <section>
 <h2 class="section-title" id="header-classes">Classes</h2>
 <dl>
-<dt id="contrib.semseg.config.Manipulation"><code class="flex name class">
-<span>class <span class="ident">Manipulation</span></span>
-<span>(</span><span>probe_ckpt: str = './checkpoints/semseg/lr_0_001__wd_0_1/model.pt',<br>sae_ckpt: str = './checkpoints/abcdef/sae.pt',<br>ade20k_classes: list[int] = &lt;factory&gt;,<br>sae_latents: list[int] = &lt;factory&gt;,<br>acts: <a title="saev.config.DataLoad" href="../../saev/config.html#saev.config.DataLoad">DataLoad</a> = &lt;factory&gt;,<br>imgs: <a title="saev.config.Ade20kDataset" href="../../saev/config.html#saev.config.Ade20kDataset">Ade20kDataset</a> = &lt;factory&gt;,<br>batch_size: int = 128,<br>n_workers: int = 32,<br>device: str = 'cuda')</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Manipulation(probe_ckpt: str = './checkpoints/semseg/lr_0_001__wd_0_1/model.pt', sae_ckpt: str = './checkpoints/abcdef/sae.pt', ade20k_classes: list[int] = <factory>, sae_latents: list[int] = <factory>, acts: saev.config.DataLoad = <factory>, imgs: saev.config.Ade20kDataset = <factory>, batch_size: int = 128, n_workers: int = 32, device: str = 'cuda')</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@beartype.beartype
-@dataclasses.dataclass(frozen=True)
-class Manipulation:
-    probe_ckpt: str = os.path.join(
-        &#34;.&#34;, &#34;checkpoints&#34;, &#34;semseg&#34;, &#34;lr_0_001__wd_0_1&#34;, &#34;model.pt&#34;
-    )
-    &#34;&#34;&#34;Linear probe checkpoint.&#34;&#34;&#34;
-    sae_ckpt: str = os.path.join(&#34;.&#34;, &#34;checkpoints&#34;, &#34;abcdef&#34;, &#34;sae.pt&#34;)
-    &#34;&#34;&#34;SAE checkpoint.&#34;&#34;&#34;
-    ade20k_classes: list[int] = dataclasses.field(default_factory=lambda: [29])
-    &#34;&#34;&#34;One or more ADE20K classes to track.&#34;&#34;&#34;
-    sae_latents: list[int] = dataclasses.field(default_factory=lambda: [0, 1, 2])
-    &#34;&#34;&#34;one or more SAE latents to manipulate.&#34;&#34;&#34;
-    acts: saev.config.DataLoad = dataclasses.field(default_factory=saev.config.DataLoad)
-    &#34;&#34;&#34;Configuration for the saved ADE20K validation ViT activations.&#34;&#34;&#34;
-    imgs: saev.config.Ade20kDataset = dataclasses.field(
-        default_factory=lambda: saev.config.Ade20kDataset(split=&#34;validation&#34;)
-    )
-    &#34;&#34;&#34;Configuration for the ADE20K validation dataset.&#34;&#34;&#34;
-    batch_size: int = 128
-    &#34;&#34;&#34;Batch size for both linear probe and SAE.&#34;&#34;&#34;
-    n_workers: int = 32
-    &#34;&#34;&#34;Number of dataloader workers.&#34;&#34;&#34;
-    device: str = &#34;cuda&#34;
-    &#34;Hardware for linear probe and SAE inference.&#34;</code></pre>
-</details>
-<h3>Class variables</h3>
-<dl>
-<dt id="contrib.semseg.config.Manipulation.acts"><code class="name">var <span class="ident">acts</span> : <a title="saev.config.DataLoad" href="../../saev/config.html#saev.config.DataLoad">DataLoad</a></code></dt>
-<dd>
-<div class="desc"><p>Configuration for the saved ADE20K validation ViT activations.</p></div>
-</dd>
-<dt id="contrib.semseg.config.Manipulation.ade20k_classes"><code class="name">var <span class="ident">ade20k_classes</span> : list[int]</code></dt>
-<dd>
-<div class="desc"><p>One or more ADE20K classes to track.</p></div>
-</dd>
-<dt id="contrib.semseg.config.Manipulation.batch_size"><code class="name">var <span class="ident">batch_size</span> : int</code></dt>
-<dd>
-<div class="desc"><p>Batch size for both linear probe and SAE.</p></div>
-</dd>
-<dt id="contrib.semseg.config.Manipulation.device"><code class="name">var <span class="ident">device</span> : str</code></dt>
-<dd>
-<div class="desc"><p>Hardware for linear probe and SAE inference.</p></div>
-</dd>
-<dt id="contrib.semseg.config.Manipulation.imgs"><code class="name">var <span class="ident">imgs</span> : <a title="saev.config.Ade20kDataset" href="../../saev/config.html#saev.config.Ade20kDataset">Ade20kDataset</a></code></dt>
-<dd>
-<div class="desc"><p>Configuration for the ADE20K validation dataset.</p></div>
-</dd>
-<dt id="contrib.semseg.config.Manipulation.n_workers"><code class="name">var <span class="ident">n_workers</span> : int</code></dt>
-<dd>
-<div class="desc"><p>Number of dataloader workers.</p></div>
-</dd>
-<dt id="contrib.semseg.config.Manipulation.probe_ckpt"><code class="name">var <span class="ident">probe_ckpt</span> : str</code></dt>
-<dd>
-<div class="desc"><p>Linear probe checkpoint.</p></div>
-</dd>
-<dt id="contrib.semseg.config.Manipulation.sae_ckpt"><code class="name">var <span class="ident">sae_ckpt</span> : str</code></dt>
-<dd>
-<div class="desc"><p>SAE checkpoint.</p></div>
-</dd>
-<dt id="contrib.semseg.config.Manipulation.sae_latents"><code class="name">var <span class="ident">sae_latents</span> : list[int]</code></dt>
-<dd>
-<div class="desc"><p>one or more SAE latents to manipulate.</p></div>
-</dd>
-</dl>
-</dd>
 <dt id="contrib.semseg.config.Train"><code class="flex name class">
 <span>class <span class="ident">Train</span></span>
-<span>(</span><span>learning_rate: float = 0.0001,<br>weight_decay: float = 0.001,<br>n_epochs: int = 400,<br>batch_size: int = 1024,<br>n_workers: int = 32,<br>imgs: <a title="saev.config.Ade20kDataset" href="../../saev/config.html#saev.config.Ade20kDataset">Ade20kDataset</a> = &lt;factory&gt;,<br>patch_size_px: tuple[int, int] = (14, 14),<br>eval_every: int = 100,<br>device: str = 'cuda',<br>ckpt_path: str = './checkpoints/contrib/semseg',<br>seed: int = 42,<br>log_to: str = './logs/contrib/semseg')</span>
+<span>(</span><span>learning_rate: float = 0.0001,<br>weight_decay: float = 0.001,<br>n_epochs: int = 400,<br>batch_size: int = 1024,<br>n_workers: int = 32,<br>imgs: <a title="saev.config.Ade20kDataset" href="../../saev/config.html#saev.config.Ade20kDataset">Ade20kDataset</a> = &lt;factory&gt;,<br>eval_every: int = 100,<br>device: str = 'cuda',<br>ckpt_path: str = './checkpoints/contrib/semseg',<br>seed: int = 42,<br>log_to: str = './logs/contrib/semseg')</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Train(learning_rate: float = 0.0001, weight_decay: float = 0.001, n_epochs: int = 400, batch_size: int = 1024, n_workers: int = 32, imgs: saev.config.Ade20kDataset = <factory>, patch_size_px: tuple[int, int] = (14, 14), eval_every: int = 100, device: str = 'cuda', ckpt_path: str = './checkpoints/contrib/semseg', seed: int = 42, log_to: str = './logs/contrib/semseg')</p></div>
+<div class="desc"><p>Train(learning_rate: float = 0.0001, weight_decay: float = 0.001, n_epochs: int = 400, batch_size: int = 1024, n_workers: int = 32, imgs: saev.config.Ade20kDataset = <factory>, eval_every: int = 100, device: str = 'cuda', ckpt_path: str = './checkpoints/contrib/semseg', seed: int = 42, log_to: str = './logs/contrib/semseg')</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -149,8 +73,6 @@ class Train:
         default_factory=saev.config.Ade20kDataset
     )
     &#34;&#34;&#34;Configuration for the ADE20K dataset.&#34;&#34;&#34;
-    patch_size_px: tuple[int, int] = (14, 14)
-    &#34;&#34;&#34;Patch size in pixels.&#34;&#34;&#34;
     eval_every: int = 100
     &#34;&#34;&#34;How many epochs between evaluations.&#34;&#34;&#34;
     device: str = &#34;cuda&#34;
@@ -198,10 +120,6 @@ class Train:
 <dd>
 <div class="desc"><p>Number of dataloader workers.</p></div>
 </dd>
-<dt id="contrib.semseg.config.Train.patch_size_px"><code class="name">var <span class="ident">patch_size_px</span> : tuple[int, int]</code></dt>
-<dd>
-<div class="desc"><p>Patch size in pixels.</p></div>
-</dd>
 <dt id="contrib.semseg.config.Train.seed"><code class="name">var <span class="ident">seed</span> : int</code></dt>
 <dd>
 <div class="desc"><p>Random seed.</p></div>
@@ -215,10 +133,10 @@ for AdamW.</p></div>
 </dd>
 <dt id="contrib.semseg.config.Validation"><code class="flex name class">
 <span>class <span class="ident">Validation</span></span>
-<span>(</span><span>ckpt_root: str = './checkpoints/contrib/semseg',<br>dump_to: str = './logs/contrib/semseg',<br>acts: <a title="saev.config.DataLoad" href="../../saev/config.html#saev.config.DataLoad">DataLoad</a> = &lt;factory&gt;,<br>imgs: <a title="saev.config.Ade20kDataset" href="../../saev/config.html#saev.config.Ade20kDataset">Ade20kDataset</a> = &lt;factory&gt;,<br>patch_size_px: tuple[int, int] = (14, 14),<br>batch_size: int = 128,<br>n_workers: int = 32,<br>device: str = 'cuda')</span>
+<span>(</span><span>ckpt_root: str = './checkpoints/contrib/semseg',<br>dump_to: str = './logs/contrib/semseg',<br>imgs: <a title="saev.config.Ade20kDataset" href="../../saev/config.html#saev.config.Ade20kDataset">Ade20kDataset</a> = &lt;factory&gt;,<br>batch_size: int = 128,<br>n_workers: int = 32,<br>device: str = 'cuda')</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Validation(ckpt_root: str = './checkpoints/contrib/semseg', dump_to: str = './logs/contrib/semseg', acts: saev.config.DataLoad = <factory>, imgs: saev.config.Ade20kDataset = <factory>, patch_size_px: tuple[int, int] = (14, 14), batch_size: int = 128, n_workers: int = 32, device: str = 'cuda')</p></div>
+<div class="desc"><p>Validation(ckpt_root: str = './checkpoints/contrib/semseg', dump_to: str = './logs/contrib/semseg', imgs: saev.config.Ade20kDataset = <factory>, batch_size: int = 128, n_workers: int = 32, device: str = 'cuda')</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -230,14 +148,10 @@ class Validation:
     &#34;&#34;&#34;Root to all checkpoints to evaluate.&#34;&#34;&#34;
     dump_to: str = os.path.join(&#34;.&#34;, &#34;logs&#34;, &#34;contrib&#34;, &#34;semseg&#34;)
     &#34;&#34;&#34;Directory to dump results to.&#34;&#34;&#34;
-    acts: saev.config.DataLoad = dataclasses.field(default_factory=saev.config.DataLoad)
-    &#34;&#34;&#34;Configuration for the saved ADE20K validation ViT activations.&#34;&#34;&#34;
     imgs: saev.config.Ade20kDataset = dataclasses.field(
         default_factory=lambda: saev.config.Ade20kDataset(split=&#34;validation&#34;)
     )
     &#34;&#34;&#34;Configuration for the ADE20K validation dataset.&#34;&#34;&#34;
-    patch_size_px: tuple[int, int] = (14, 14)
-    &#34;&#34;&#34;Patch size in pixels.&#34;&#34;&#34;
     batch_size: int = 128
     &#34;&#34;&#34;Batch size for calculating F1 scores.&#34;&#34;&#34;
     n_workers: int = 32
@@ -247,10 +161,6 @@ class Validation:
 </details>
 <h3>Class variables</h3>
 <dl>
-<dt id="contrib.semseg.config.Validation.acts"><code class="name">var <span class="ident">acts</span> : <a title="saev.config.DataLoad" href="../../saev/config.html#saev.config.DataLoad">DataLoad</a></code></dt>
-<dd>
-<div class="desc"><p>Configuration for the saved ADE20K validation ViT activations.</p></div>
-</dd>
 <dt id="contrib.semseg.config.Validation.batch_size"><code class="name">var <span class="ident">batch_size</span> : int</code></dt>
 <dd>
 <div class="desc"><p>Batch size for calculating F1 scores.</p></div>
@@ -274,10 +184,6 @@ class Validation:
 <dt id="contrib.semseg.config.Validation.n_workers"><code class="name">var <span class="ident">n_workers</span> : int</code></dt>
 <dd>
 <div class="desc"><p>Number of dataloader workers.</p></div>
-</dd>
-<dt id="contrib.semseg.config.Validation.patch_size_px"><code class="name">var <span class="ident">patch_size_px</span> : tuple[int, int]</code></dt>
-<dd>
-<div class="desc"><p>Patch size in pixels.</p></div>
 </dd>
 </dl>
 </dd>
@@ -375,20 +281,6 @@ class Visuals:
 <li><h3><a href="#header-classes">Classes</a></h3>
 <ul>
 <li>
-<h4><code><a title="contrib.semseg.config.Manipulation" href="#contrib.semseg.config.Manipulation">Manipulation</a></code></h4>
-<ul class="two-column">
-<li><code><a title="contrib.semseg.config.Manipulation.acts" href="#contrib.semseg.config.Manipulation.acts">acts</a></code></li>
-<li><code><a title="contrib.semseg.config.Manipulation.ade20k_classes" href="#contrib.semseg.config.Manipulation.ade20k_classes">ade20k_classes</a></code></li>
-<li><code><a title="contrib.semseg.config.Manipulation.batch_size" href="#contrib.semseg.config.Manipulation.batch_size">batch_size</a></code></li>
-<li><code><a title="contrib.semseg.config.Manipulation.device" href="#contrib.semseg.config.Manipulation.device">device</a></code></li>
-<li><code><a title="contrib.semseg.config.Manipulation.imgs" href="#contrib.semseg.config.Manipulation.imgs">imgs</a></code></li>
-<li><code><a title="contrib.semseg.config.Manipulation.n_workers" href="#contrib.semseg.config.Manipulation.n_workers">n_workers</a></code></li>
-<li><code><a title="contrib.semseg.config.Manipulation.probe_ckpt" href="#contrib.semseg.config.Manipulation.probe_ckpt">probe_ckpt</a></code></li>
-<li><code><a title="contrib.semseg.config.Manipulation.sae_ckpt" href="#contrib.semseg.config.Manipulation.sae_ckpt">sae_ckpt</a></code></li>
-<li><code><a title="contrib.semseg.config.Manipulation.sae_latents" href="#contrib.semseg.config.Manipulation.sae_latents">sae_latents</a></code></li>
-</ul>
-</li>
-<li>
 <h4><code><a title="contrib.semseg.config.Train" href="#contrib.semseg.config.Train">Train</a></code></h4>
 <ul class="two-column">
 <li><code><a title="contrib.semseg.config.Train.batch_size" href="#contrib.semseg.config.Train.batch_size">batch_size</a></code></li>
@@ -400,7 +292,6 @@ class Visuals:
 <li><code><a title="contrib.semseg.config.Train.log_to" href="#contrib.semseg.config.Train.log_to">log_to</a></code></li>
 <li><code><a title="contrib.semseg.config.Train.n_epochs" href="#contrib.semseg.config.Train.n_epochs">n_epochs</a></code></li>
 <li><code><a title="contrib.semseg.config.Train.n_workers" href="#contrib.semseg.config.Train.n_workers">n_workers</a></code></li>
-<li><code><a title="contrib.semseg.config.Train.patch_size_px" href="#contrib.semseg.config.Train.patch_size_px">patch_size_px</a></code></li>
 <li><code><a title="contrib.semseg.config.Train.seed" href="#contrib.semseg.config.Train.seed">seed</a></code></li>
 <li><code><a title="contrib.semseg.config.Train.weight_decay" href="#contrib.semseg.config.Train.weight_decay">weight_decay</a></code></li>
 </ul>
@@ -408,14 +299,12 @@ class Visuals:
 <li>
 <h4><code><a title="contrib.semseg.config.Validation" href="#contrib.semseg.config.Validation">Validation</a></code></h4>
 <ul class="two-column">
-<li><code><a title="contrib.semseg.config.Validation.acts" href="#contrib.semseg.config.Validation.acts">acts</a></code></li>
 <li><code><a title="contrib.semseg.config.Validation.batch_size" href="#contrib.semseg.config.Validation.batch_size">batch_size</a></code></li>
 <li><code><a title="contrib.semseg.config.Validation.ckpt_root" href="#contrib.semseg.config.Validation.ckpt_root">ckpt_root</a></code></li>
 <li><code><a title="contrib.semseg.config.Validation.device" href="#contrib.semseg.config.Validation.device">device</a></code></li>
 <li><code><a title="contrib.semseg.config.Validation.dump_to" href="#contrib.semseg.config.Validation.dump_to">dump_to</a></code></li>
 <li><code><a title="contrib.semseg.config.Validation.imgs" href="#contrib.semseg.config.Validation.imgs">imgs</a></code></li>
 <li><code><a title="contrib.semseg.config.Validation.n_workers" href="#contrib.semseg.config.Validation.n_workers">n_workers</a></code></li>
-<li><code><a title="contrib.semseg.config.Validation.patch_size_px" href="#contrib.semseg.config.Validation.patch_size_px">patch_size_px</a></code></li>
 </ul>
 </li>
 <li>

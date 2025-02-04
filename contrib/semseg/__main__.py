@@ -18,6 +18,9 @@ def train(
     cfg: typing.Annotated[config.Train, tyro.conf.arg(name="")],
     sweep: str | None = None,
 ):
+    """
+    Trains one or more linear probes in parallel on DINOv2 activations over ADE20K.
+    """
     import submitit
 
     from . import training

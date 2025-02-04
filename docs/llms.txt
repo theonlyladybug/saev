@@ -2242,15 +2242,16 @@ Classes
 
 Module contrib.semseg
 =====================
+Interpret and manipulate semantic segmentation models using SAEs.
+
 You can reproduce our semantic segmentation control experiments from our preprint by following these instructions.
 
 As an overview:
 
-1. Record ViT activations for ADE20K.
-2. Train a linear probe on semantic segmentation task using ADE20K.
-3. Establish baseline metrics for the linear probe.
-4. Manipulate the activations using the proposed SAE features.
-5. Be amazed. :)
+1. Train a linear probe on semantic segmentation task using ADE20K.
+2. Measure linear probe baseline metrics.
+3. Manipulate the activations using the proposed SAE features.
+4. Be amazed. :)
 
 Details can be found below.
 
@@ -2260,28 +2261,30 @@ For SAE inference, we want the second-to-last layer (as discussed).
 
 # Train a Linear Probe on Semantic Segmentation
 
-Now train a linear probe on the activations.
+Train a linear probe on DINOv2 activations from ADE20K.
+It's fixed with DINOv2 because of patch size, but the code could be extended to different ViTs.
 
 ```sh
 uv run python -m contrib.semseg train \
-  --train-acts.shard-root $TRAIN_SHARDS \
-  --train-acts.layer -1 \
-  --val-acts.shard-root $VAL_SHARDS \
-  --val-acts.layer -1 \
-  --imgs.root /nfs/$USER/datasets/ade20k/ \
-  --sweep contrib/semseg/sweep.toml
+  --sweep contrib/semseg/sweep.toml \
+  --imgs.root /$NFS/$USER/datasets/ade20k
 ```
 
-# Establish Linear Probe Baseline Metrics
+# Measure Linear Probe Baseline Metrics
+
+Check which learning rate/weight decay combination is best for the linear probe.
 
 ```sh
 uv run python -m contrib.semseg validate \
-  --imgs.root /nfs/$USER/datasets/ade20k/ \
-  --acts.shard-root $VAL_SHARDS \
-  --acts.layer -1
+  --imgs.root /$NFS/$USER/datasets/ade20k
 ```
 
 Then you can look in `./logs/contrib/semseg` for `hparam-sweeps.png` to see what learning rate/weight decay combination is best.
+
+# Manipulate the Activations
+
+The main entry point is contrib/semseg/__main__.py.
+Run `uv run python -m contrib.semseg --help` to see all options.
 
 Sub-modules
 -----------
@@ -2289,7 +2292,6 @@ Sub-modules
 * contrib.semseg.dashboard
 * contrib.semseg.dashboard2
 * contrib.semseg.interactive
-* contrib.semseg.manipulation
 * contrib.semseg.training
 * contrib.semseg.validation
 * contrib.semseg.visuals
@@ -2306,40 +2308,8 @@ Functions
 Classes
 -------
 
-`Manipulation(probe_ckpt: str = './checkpoints/semseg/lr_0_001__wd_0_1/model.pt', sae_ckpt: str = './checkpoints/abcdef/sae.pt', ade20k_classes: list[int] = <factory>, sae_latents: list[int] = <factory>, acts: saev.config.DataLoad = <factory>, imgs: saev.config.Ade20kDataset = <factory>, batch_size: int = 128, n_workers: int = 32, device: str = 'cuda')`
-:   Manipulation(probe_ckpt: str = './checkpoints/semseg/lr_0_001__wd_0_1/model.pt', sae_ckpt: str = './checkpoints/abcdef/sae.pt', ade20k_classes: list[int] = <factory>, sae_latents: list[int] = <factory>, acts: saev.config.DataLoad = <factory>, imgs: saev.config.Ade20kDataset = <factory>, batch_size: int = 128, n_workers: int = 32, device: str = 'cuda')
-
-    ### Class variables
-
-    `acts: saev.config.DataLoad`
-    :   Configuration for the saved ADE20K validation ViT activations.
-
-    `ade20k_classes: list[int]`
-    :   One or more ADE20K classes to track.
-
-    `batch_size: int`
-    :   Batch size for both linear probe and SAE.
-
-    `device: str`
-    :   Hardware for linear probe and SAE inference.
-
-    `imgs: saev.config.Ade20kDataset`
-    :   Configuration for the ADE20K validation dataset.
-
-    `n_workers: int`
-    :   Number of dataloader workers.
-
-    `probe_ckpt: str`
-    :   Linear probe checkpoint.
-
-    `sae_ckpt: str`
-    :   SAE checkpoint.
-
-    `sae_latents: list[int]`
-    :   one or more SAE latents to manipulate.
-
-`Train(learning_rate: float = 0.0001, weight_decay: float = 0.001, n_epochs: int = 400, batch_size: int = 1024, n_workers: int = 32, imgs: saev.config.Ade20kDataset = <factory>, patch_size_px: tuple[int, int] = (14, 14), eval_every: int = 100, device: str = 'cuda', ckpt_path: str = './checkpoints/contrib/semseg', seed: int = 42, log_to: str = './logs/contrib/semseg')`
-:   Train(learning_rate: float = 0.0001, weight_decay: float = 0.001, n_epochs: int = 400, batch_size: int = 1024, n_workers: int = 32, imgs: saev.config.Ade20kDataset = <factory>, patch_size_px: tuple[int, int] = (14, 14), eval_every: int = 100, device: str = 'cuda', ckpt_path: str = './checkpoints/contrib/semseg', seed: int = 42, log_to: str = './logs/contrib/semseg')
+`Train(learning_rate: float = 0.0001, weight_decay: float = 0.001, n_epochs: int = 400, batch_size: int = 1024, n_workers: int = 32, imgs: saev.config.Ade20kDataset = <factory>, eval_every: int = 100, device: str = 'cuda', ckpt_path: str = './checkpoints/contrib/semseg', seed: int = 42, log_to: str = './logs/contrib/semseg')`
+:   Train(learning_rate: float = 0.0001, weight_decay: float = 0.001, n_epochs: int = 400, batch_size: int = 1024, n_workers: int = 32, imgs: saev.config.Ade20kDataset = <factory>, eval_every: int = 100, device: str = 'cuda', ckpt_path: str = './checkpoints/contrib/semseg', seed: int = 42, log_to: str = './logs/contrib/semseg')
 
     ### Class variables
 
@@ -2370,22 +2340,16 @@ Classes
     `n_workers: int`
     :   Number of dataloader workers.
 
-    `patch_size_px: tuple[int, int]`
-    :   Patch size in pixels.
-
     `seed: int`
     :   Random seed.
 
     `weight_decay: float`
     :   Weight decay  for AdamW.
 
-`Validation(ckpt_root: str = './checkpoints/contrib/semseg', dump_to: str = './logs/contrib/semseg', acts: saev.config.DataLoad = <factory>, imgs: saev.config.Ade20kDataset = <factory>, patch_size_px: tuple[int, int] = (14, 14), batch_size: int = 128, n_workers: int = 32, device: str = 'cuda')`
-:   Validation(ckpt_root: str = './checkpoints/contrib/semseg', dump_to: str = './logs/contrib/semseg', acts: saev.config.DataLoad = <factory>, imgs: saev.config.Ade20kDataset = <factory>, patch_size_px: tuple[int, int] = (14, 14), batch_size: int = 128, n_workers: int = 32, device: str = 'cuda')
+`Validation(ckpt_root: str = './checkpoints/contrib/semseg', dump_to: str = './logs/contrib/semseg', imgs: saev.config.Ade20kDataset = <factory>, batch_size: int = 128, n_workers: int = 32, device: str = 'cuda')`
+:   Validation(ckpt_root: str = './checkpoints/contrib/semseg', dump_to: str = './logs/contrib/semseg', imgs: saev.config.Ade20kDataset = <factory>, batch_size: int = 128, n_workers: int = 32, device: str = 'cuda')
 
     ### Class variables
-
-    `acts: saev.config.DataLoad`
-    :   Configuration for the saved ADE20K validation ViT activations.
 
     `batch_size: int`
     :   Batch size for calculating F1 scores.
@@ -2404,9 +2368,6 @@ Classes
 
     `n_workers: int`
     :   Number of dataloader workers.
-
-    `patch_size_px: tuple[int, int]`
-    :   Patch size in pixels.
 
 `Visuals(sae_ckpt: str = './checkpoints/sae.pt', ade20k_cls: int = 29, k: int = 32, acts: saev.config.DataLoad = <factory>, imgs: saev.config.Ade20kDataset = <factory>, batch_size: int = 128, n_workers: int = 32, label_threshold: float = 0.9, device: str = 'cuda')`
 :   Visuals(sae_ckpt: str = './checkpoints/sae.pt', ade20k_cls: int = 29, k: int = 32, acts: saev.config.DataLoad = <factory>, imgs: saev.config.Ade20kDataset = <factory>, batch_size: int = 128, n_workers: int = 32, label_threshold: float = 0.9, device: str = 'cuda')
@@ -2448,21 +2409,6 @@ Module contrib.semseg.dashboard2
 
 Module contrib.semseg.interactive
 =================================
-
-Module contrib.semseg.manipulation
-==================================
-Manipulate representations by increasing or decreasing the presence of a feature in a ViT activation, then use the linear probe for inference.
-
-Record class-specific scores before and after manipulation to see that you can directly manipulate abilities to complete downstream tasks.
-
-Functions
----------
-
-`main(cfg: contrib.semseg.config.Manipulation)`
-:   
-
-`manipulate(cfg: contrib.semseg.config.Manipulation, sae: saev.nn.SparseAutoencoder, acts_BWHD: jaxtyping.Float[Tensor, 'batch width height d_vit']) ‑> tuple[jaxtyping.Float[Tensor, 'batch width height d_vit'], jaxtyping.Float[Tensor, 'batch width height d_vit']]`
-:
 
 Module contrib.semseg.training
 ==============================
