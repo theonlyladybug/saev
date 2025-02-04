@@ -51,16 +51,12 @@ def visuals(cfg: typing.Annotated[config.Visuals, tyro.conf.arg(name="")]):
 
 @beartype.beartype
 def validate(cfg: typing.Annotated[config.Validation, tyro.conf.arg(name="")]):
+    """
+    Runs validation and reports best hyperparameters in the logs/contrib/semseg folder.
+    """
     from . import validation
 
     validation.main(cfg)
-
-
-@beartype.beartype
-def manipulate(cfg: typing.Annotated[config.Manipulation, tyro.conf.arg(name="")]):
-    from . import manipulation
-
-    manipulation.main(cfg)
 
 
 if __name__ == "__main__":
@@ -68,5 +64,4 @@ if __name__ == "__main__":
         "train": train,
         "visuals": visuals,
         "validate": validate,
-        "manipulate": manipulate,
     })

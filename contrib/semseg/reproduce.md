@@ -16,25 +16,17 @@ For SAE inference, we want the second-to-last layer (as discussed).
 
 # Train a Linear Probe on Semantic Segmentation
 
-Now train a linear probe on the activations.
-
 ```sh
 uv run python -m contrib.semseg train \
-  --train-acts.shard-root $TRAIN_SHARDS \
-  --train-acts.layer -1 \
-  --val-acts.shard-root $VAL_SHARDS \
-  --val-acts.layer -1 \
-  --imgs.root /nfs/$USER/datasets/ade20k/ \
-  --sweep contrib/semseg/sweep.toml
+  --sweep contrib/semseg/sweep.toml \
+  --imgs.root /$NFS/$USER/datasets/ade20k
 ```
 
 # Establish Linear Probe Baseline Metrics
 
 ```sh
 uv run python -m contrib.semseg validate \
-  --imgs.root /nfs/$USER/datasets/ade20k/ \
-  --acts.shard-root $VAL_SHARDS \
-  --acts.layer -1
+  --imgs.root /$NFS/$USER/datasets/ade20k
 ```
 
 Then you can look in `./logs/contrib/semseg` for `hparam-sweeps.png` to see what learning rate/weight decay combination is best.

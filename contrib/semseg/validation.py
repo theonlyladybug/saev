@@ -25,7 +25,12 @@ logger = logging.getLogger(__name__)
 
 @beartype.beartype
 def main(cfg: config.Validation):
-    dataset = training.Dataset(cfg.acts, cfg.imgs, cfg.patch_size_px)
+    if torch.cuda.is_available():
+        # This enables tf32 on Ampere GPUs which is only 8% slower than float16 and almost as accurate as float32. This was a default in pytorch until 1.12
+        torch.backends.cuda.matmul.allow_tf32 = True
+        torch.backends.cudnn.benchmark = True
+        torch.backends.cudnn.deterministic = False
+    dataset = training.Dataset(cfg.imgs)
     dataloader = torch.utils.data.DataLoader(
         dataset,
         batch_size=cfg.batch_size,
@@ -36,9 +41,19 @@ def main(cfg: config.Validation):
 
     ckpts = load_ckpts(cfg.ckpt_root, device=cfg.device)
 
+    vit = training.DinoV2()
+    vit = vit.to(cfg.device)
     pred_label_list, true_label_list = [], []
     for batch in saev.helpers.progress(dataloader, every=1):
-        acts_BWHD = batch["acts"].to(cfg.device, non_blocking=True)
+        imgs_BWHC = batch["image"].to(cfg.device)
+        with torch.inference_mode():
+            vit_acts = vit(imgs_BWHC)
+            acts_BWHD = einops.rearrange(
+                vit_acts,
+                "batch (width height) dim -> batch width height dim",
+                width=16,
+                height=16,
+            )
         pixel_labels_BWH = batch["pixel_labels"]
         true_label_list.append(pixel_labels_BWH)
 
@@ -138,10 +153,8 @@ def load_ckpts(
         with open(cfg_path) as f:
             cfg_dict = json.load(f)
         # Handle the nested dataclasses.
-        cfg_dict["train_acts"] = saev.config.DataLoad(**cfg_dict["train_acts"])
-        cfg_dict["val_acts"] = saev.config.DataLoad(**cfg_dict["val_acts"])
         cfg_dict["imgs"] = saev.config.Ade20kDataset(**cfg_dict["imgs"])
-        cfg_dict["patch_size_px"] = tuple(cfg_dict["patch_size_px"])
+        cfg_dict.pop("patch_size_px")
         cfg = config.Train(**cfg_dict)
 
         # Load latest model checkpoint
