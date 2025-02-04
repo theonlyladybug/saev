@@ -28,8 +28,7 @@ hljs.highlightAll();
 </header>
 <section id="section-intro">
 <p>Interpret and manipulate semantic segmentation models using SAEs.</p>
-<p>You can reproduce our semantic segmentation control experiments from our preprint by following these instructions.</p>
-<p>As an overview:</p>
+<p>You can reproduce our semantic segmentation examples from our preprint by following these instructions.</p>
 <ol>
 <li>Train a linear probe on semantic segmentation task using ADE20K.</li>
 <li>Measure linear probe baseline metrics.</li>
@@ -37,8 +36,6 @@ hljs.highlightAll();
 <li>Be amazed. :)</li>
 </ol>
 <p>Details can be found below.</p>
-<h1 id="record-vit-activations-for-sae-inference">Record ViT Activations for SAE Inference</h1>
-<p>For SAE inference, we want the second-to-last layer (as discussed).</p>
 <h1 id="train-a-linear-probe-on-semantic-segmentation">Train a Linear Probe on Semantic Segmentation</h1>
 <p>Train a linear probe on DINOv2 activations from ADE20K.
 It's fixed with DINOv2 because of patch size, but the code could be extended to different ViTs.</p>
@@ -53,7 +50,16 @@ It's fixed with DINOv2 because of patch size, but the code could be extended to 
 </code></pre>
 <p>Then you can look in <code>./logs/contrib/semseg</code> for <code>hparam-sweeps.png</code> to see what learning rate/weight decay combination is best.</p>
 <h1 id="manipulate-the-activations">Manipulate the Activations</h1>
-<p>The main entry point is contrib/semseg/<strong>main</strong>.py.
+<p>You need an SAE that's been trained on DINOv2's activations on ImageNet.
+Then you can run both the frontend server and the backend server:</p>
+<p><strong>Frontend:</strong></p>
+<pre><code class="language-sh">uv run python -m http.server
+</code></pre>
+<p>Then navigate to <a href="http://localhost:8000/web/apps/semseg/">http://localhost:8000/web/apps/semseg/</a>.</p>
+<p><strong>Backend:</strong></p>
+<p>This is a little trickier because the backend server lives on Huggingface spaces and talks to a personal Cloudflare server.</p>
+<p>[TODO]</p>
+<p>The main entry point is <code>contrib/semseg/__main__.py</code>.
 Run <code>uv run python -m contrib.semseg --help</code> to see all options.</p>
 </section>
 <section>
@@ -61,7 +67,7 @@ Run <code>uv run python -m contrib.semseg --help</code> to see all options.</p>
 <dl>
 <dt><code class="name"><a title="contrib.semseg.config" href="config.html">contrib.semseg.config</a></code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Configs for all the different subscripts in <code><a title="contrib.semseg" href="#contrib.semseg">contrib.semseg</a></code> …</p></div>
 </dd>
 <dt><code class="name"><a title="contrib.semseg.dashboard" href="dashboard.html">contrib.semseg.dashboard</a></code></dt>
 <dd>
@@ -77,12 +83,11 @@ Run <code>uv run python -m contrib.semseg --help</code> to see all options.</p>
 </dd>
 <dt><code class="name"><a title="contrib.semseg.training" href="training.html">contrib.semseg.training</a></code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Trains multiple linear probes in parallel on DINOv2's ADE20K activations.</p></div>
 </dd>
 <dt><code class="name"><a title="contrib.semseg.validation" href="validation.html">contrib.semseg.validation</a></code></dt>
 <dd>
-<div class="desc"><p>Make some predictions for a bunch of checkpoints.
-See which checkpoints have the best validation loss, mean IoU, class-specific IoU, validation …</p></div>
+<div class="desc"><p>Checks which checkpoints have the best validation loss, mean IoU, class-specific IoU, validation accuracy, and qualitative results …</p></div>
 </dd>
 <dt><code class="name"><a title="contrib.semseg.visuals" href="visuals.html">contrib.semseg.visuals</a></code></dt>
 <dd>
@@ -100,7 +105,6 @@ See which checkpoints have the best validation loss, mean IoU, class-specific Io
 <nav id="sidebar">
 <div class="toc">
 <ul>
-<li><a href="#record-vit-activations-for-sae-inference">Record ViT Activations for SAE Inference</a></li>
 <li><a href="#train-a-linear-probe-on-semantic-segmentation">Train a Linear Probe on Semantic Segmentation</a></li>
 <li><a href="#measure-linear-probe-baseline-metrics">Measure Linear Probe Baseline Metrics</a></li>
 <li><a href="#manipulate-the-activations">Manipulate the Activations</a></li>

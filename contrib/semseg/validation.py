@@ -1,6 +1,5 @@
 """
-Make some predictions for a bunch of checkpoints.
-See which checkpoints have the best validation loss, mean IoU, class-specific IoU, validation accuracy, and qualitative results.
+Checks which checkpoints have the best validation loss, mean IoU, class-specific IoU, validation accuracy, and qualitative results.
 
 Writes results to CSV files and hparam graphs (in-progress).
 """

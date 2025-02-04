@@ -1,3 +1,10 @@
+"""
+Configs for all the different subscripts in `contrib.semseg`.
+
+Imports must be fast in this file, as described in `saev.config`.
+So do not import torch, numpy, etc.
+"""
+
 import dataclasses
 import os.path
 

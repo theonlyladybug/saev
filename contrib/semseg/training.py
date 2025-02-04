@@ -1,3 +1,7 @@
+"""
+Trains multiple linear probes in parallel on DINOv2's ADE20K activations.
+"""
+
 import collections
 import dataclasses
 import io
