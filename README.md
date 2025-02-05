@@ -26,10 +26,10 @@ The first invocation should create a virtual environment and show a help message
 
 ## Using `saev`
 
-See the [docs](https://samuelstevens.me/saev/) for an overview.
+See the [docs](https://osu-nlp-group.github.io/saev/) for an overview.
 
-I recommend using the [llms.txt](https://samuelstevens.me/saev/llms.txt) file as a way to use any LLM provider to ask questions.
-For example, you can run `curl https://samuelstevens.me/saev/llms.txt | pbcopy` on macOS to copy the text, then paste it into [https://claude.ai](https://claude.ai) and ask any question you have.
+I recommend using the [llms.txt](https://osu-nlp-group.github.io/saev/llms.txt) file as a way to use any LLM provider to ask questions.
+For example, you can run `curl https://osu-nlp-group.github.io/saev/llms.txt | pbcopy` on macOS to copy the text, then paste it into [https://claude.ai](https://claude.ai) and ask any question you have.
 
 ## Roadmap
 

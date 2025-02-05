@@ -392,7 +392,6 @@ class Dataset(torch.utils.data.Dataset):
         elif isinstance(self.cfg.scale_norm, str):
             # Load scalar normalization from disk
             self.scalar = torch.load(self.cfg.scale_norm).item()
-            pass
 
     def transform(self, act: Float[np.ndarray, " d_vit"]) -> Float[Tensor, " d_vit"]:
         """
