@@ -247,8 +247,29 @@ def make_figure_classification(
     fig.savefig(os.path.join(out, "probs_after.png"))
 
 
+@beartype.beartype
+def make_colorbar_legend(
+    colormap: str = "plasma", out: str = os.path.join(".", "logs", "figures")
+):
+    import matplotlib.pyplot as plt
+    import matplotlib as mpl
+
+    cmap = mpl.colormaps.get_cmap(colormap)
+    norm = mpl.colors.Normalize(vmin=0, vmax=1)
+    sm = mpl.cm.ScalarMappable(norm=norm, cmap=cmap)
+
+    fig, ax = plt.subplots(figsize=(1, 8), dpi=300)
+    fig.colorbar(sm, cax=ax)
+    ax.set_yticks([])
+    ax.set_ylabel("Normalized Activation Strength", fontsize=16)
+    fig.tight_layout()
+
+    plt.savefig(os.path.join(out, "legend.png"), dpi=300)
+
+
 if __name__ == "__main__":
     tyro.extras.subcommand_cli_from_dict({
         "semseg": make_figure_semseg,
         "classification": make_figure_classification,
+        "legend": make_colorbar_legend,
     })
