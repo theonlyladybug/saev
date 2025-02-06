@@ -76,6 +76,53 @@ def add_highlights(img: Image.Image, patches: list[bool]) -> Image.Image:
 
 
 @beartype.beartype
+def make_figure_overview(
+    starfish_in: str = os.path.join(".", "docs", "assets", "overview", "starfish.jpg"),
+    highlighted_i: list[int] = [103, 104, 105, 106, 107, 119, 120, 121, 122, 123],
+    out: str = os.path.join(".", "docs", "assets", "overview"),
+    patchified_i: list[int] = [0, 1, 2, 3, 192, 193, 194, 195],
+):
+    """
+    Make all the assets for the overview figure.
+    """
+
+    os.makedirs(out, exist_ok=True)
+
+    import einops.layers.torch
+    from torchvision.transforms import v2
+
+    img = Image.open(starfish_in)
+
+    to_array = v2.Compose([
+        v2.Resize(512, interpolation=v2.InterpolationMode.NEAREST),
+        v2.CenterCrop((448, 448)),
+        v2.ToImage(),
+        einops.layers.torch.Rearrange("channels width height -> width height channels"),
+    ])
+    img_arr = to_array(img)
+    patch_size = 32
+    n_patch_per_side = 14
+
+    for p in patchified_i + highlighted_i:
+        row = (p // n_patch_per_side) * patch_size
+        col = (p % n_patch_per_side) * patch_size
+        patch = img_arr[row : row + patch_size, col : col + patch_size]
+        patch_img = Image.fromarray(patch.numpy())
+
+        if p in highlighted_i:
+            overlay = Image.new("RGBA", patch_img.size, (0, 0, 0, 0))
+            draw = ImageDraw.Draw(overlay)
+            draw.rectangle([(0, 0), patch_img.size], fill=(225, 29, 72, 128))
+            patch_img = Image.alpha_composite(patch_img.convert("RGBA"), overlay)
+
+        patch_img.save(os.path.join(out, f"starfish_patch{p}.png"))
+
+    bool_patches = [i in highlighted_i for i in range(256)]
+    highlighted_img = add_highlights(Image.fromarray(img_arr.numpy()), bool_patches)
+    highlighted_img.save(os.path.join(out, "starfish_highlighted.png"))
+
+
+@beartype.beartype
 def make_figure_semseg(
     example_i: int = 3122,
     patchified_i: list[int] = [0, 1, 2, 3, 4, 5, 250, 251, 252, 253, 254, 255],
@@ -251,8 +298,8 @@ def make_figure_classification(
 def make_colorbar_legend(
     colormap: str = "plasma", out: str = os.path.join(".", "logs", "figures")
 ):
-    import matplotlib.pyplot as plt
     import matplotlib as mpl
+    import matplotlib.pyplot as plt
 
     cmap = mpl.colormaps.get_cmap(colormap)
     norm = mpl.colors.Normalize(vmin=0, vmax=1)
@@ -269,6 +316,7 @@ def make_colorbar_legend(
 
 if __name__ == "__main__":
     tyro.extras.subcommand_cli_from_dict({
+        "overview": make_figure_overview,
         "semseg": make_figure_semseg,
         "classification": make_figure_classification,
         "legend": make_colorbar_legend,

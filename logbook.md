@@ -1279,3 +1279,10 @@ I need to
 2. Confirm that all my layers are working correctly.
 
 This is also a good chance to make sure that I can reliably reproduce prior results.
+
+
+# 02/05/2025
+
+[https://cs.uwaterloo.ca/~shai/clustering.html](https://cs.uwaterloo.ca/~shai/clustering.html) is interesting work on clustering.
+If you have good clustering, then any algorithm works.
+If not, no algorithm works.
