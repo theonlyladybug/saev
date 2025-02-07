@@ -203,6 +203,7 @@ Sub-modules
 -----------
 * saev.activations
 * saev.app
+* saev.colors
 * saev.config
 * saev.helpers
 * saev.imaging
@@ -951,6 +952,9 @@ Classes
 
     `wrapped_cfg: saev.config.Activations`
     :
+
+Module saev.colors
+==================
 
 Module saev.config
 ==================

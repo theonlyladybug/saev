@@ -53,6 +53,6 @@ A list of everything I need to do for a release.
 * [x] Compute ADE20K validation activations for DINOv2 ViT-B/14
 * [x] Train linear probe for ADE20K semantic segmentation (`checkpoints/contrib/semseg/lr_0_001__wd_0_001/model_step8000.pt`)
 * [x] What percentage of patches meet the 90% threshold?
-* [ ] Develop interactive Marimo dashboard
-* [ ] Find something neat.
-* [ ] Quantitative results
+* [x] Develop interactive Marimo dashboard
+* [x] Find something neat.
+* [x] Quantitative results
