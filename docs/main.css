@@ -42,6 +42,11 @@ h1 {
   text-align: center;
 }
 
+#abstract {
+  max-width: 72ch;
+  margin: 0 auto;
+}
+
 /***************
   Pill Buttons
 ***************/
@@ -112,4 +117,21 @@ pre.reference {
   background-color: #f5f5f5;
   font-size: 1.1em;
   border-radius: 4px;
+}
+
+/***************
+  Figures
+***************/
+
+
+/* Makes <a> behave like it doesn't exist with regards to flexbox */
+figure > a {
+  display: contents;
+}
+figure > a > img,figure > img {
+  width: 100%;
+}
+figcaption {
+  text-align: left;
+  font-style: italic;
 }

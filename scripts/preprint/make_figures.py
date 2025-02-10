@@ -129,6 +129,7 @@ def make_figure_semseg(
     highlighted_i: list[int] = default_highlighted_i_semseg,
     out: str = os.path.join(".", "logs", "figures"),
     ade20k: str = "/research/nfs_su_809/workspace/stevens.994/datasets/ade20k/",
+    split: str = "training",
 ):
     """
     Parts of the figure that need to be programmatically generated:
@@ -148,14 +149,14 @@ def make_figure_semseg(
     import saev.config
 
     to_array = v2.Compose([
-        v2.Resize(512, interpolation=v2.InterpolationMode.NEAREST),
+        v2.Resize((512, 512), interpolation=v2.InterpolationMode.NEAREST),
         v2.CenterCrop((448, 448)),
         v2.ToImage(),
         einops.layers.torch.Rearrange("channels width height -> width height channels"),
     ])
 
     ade20k_dataset = saev.activations.Ade20k(
-        saev.config.Ade20kDataset(root=ade20k),
+        saev.config.Ade20kDataset(root=ade20k, split=split),
         img_transform=to_array,
         seg_transform=to_array,
     )
@@ -215,12 +216,13 @@ def barchart(data: dict[str, float], colors: list[str], ylim_max: int = 100):
 
 @beartype.beartype
 def make_figure_classification(
-    probs_before: dict[str, float],
-    probs_after: dict[str, float],
     example_i: int = 680,
     highlighted_i: list[int] = default_highlighted_i_classification,
+    patchified_i: list[int] = [0, 1, 2, 3, 190, 191, 192, 193, 194, 195],
     out: str = os.path.join(".", "logs", "figures", "classification"),
     ylim_max: int = -1,
+    probs_before: dict[str, float] = {},
+    probs_after: dict[str, float] = {},
 ):
     import einops.layers.torch
     from torchvision.transforms import v2
@@ -240,6 +242,23 @@ def make_figure_classification(
         transform=to_array,
     )
     img_arr = dataset[example_i]["image"]
+
+    patch_size = 32
+    n_patch_per_side = 14
+    for p in patchified_i + highlighted_i:
+        row = (p // n_patch_per_side) * patch_size
+        col = (p % n_patch_per_side) * patch_size
+        patch = img_arr[row : row + patch_size, col : col + patch_size]
+        patch_img = Image.fromarray(patch.numpy())
+
+        # Highlight some patches
+        if p in highlighted_i:
+            overlay = Image.new("RGBA", patch_img.size, (0, 0, 0, 0))
+            draw = ImageDraw.Draw(overlay)
+            draw.rectangle([(0, 0), patch_img.size], fill=(225, 29, 72, 128))
+            patch_img = Image.alpha_composite(patch_img.convert("RGBA"), overlay)
+
+        patch_img.save(os.path.join(out, f"cub200_img{example_i}_patch{p}.png"))
 
     bool_patches = [i in highlighted_i for i in range(196)]
     highlighted_img = add_highlights(Image.fromarray(img_arr.numpy()), bool_patches)

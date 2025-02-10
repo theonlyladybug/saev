@@ -1286,3 +1286,18 @@ This is also a good chance to make sure that I can reliably reproduce prior resu
 [https://cs.uwaterloo.ca/~shai/clustering.html](https://cs.uwaterloo.ca/~shai/clustering.html) is interesting work on clustering.
 If you have good clustering, then any algorithm works.
 If not, no algorithm works.
+
+# 02/10/2025
+
+Comments:
+
+* [x] Figure 2. I think "Container ships" should be "Containers on ships." A container ship may not have containers on top, right?
+* [ ] Figure 2. Should we replace the "blurry photos" example with something else? Blurry to me is a "global" concept and should not be localized, unless there is motion. This example to me is less convincing than others.
+* [ ] Figure 1. I still have problems understanding the SAEs row.
+  * [ ] I think the first column is observation, so no hypothesis should be made. If so, why "We manually choose to inspect the bird’s blue feathers." fit there? Or, should we say "We manually choose to inspect the bird's wing" instead of saying "blue feathers?" to keep it still an observation?
+  * [ ] For the second column, how about this?
+    * Our SAE finds similar patches from images not necessarily of blue jays; all correspond to “blue feathers.” We hypothesize this “blue feathers” feature is integral to the ViT’s prediction.
+* [ ] Figure 3. I'm not sure what sum across vectors means. Across human-selected patches? If so, after "get user-specific patches", only red patches should remain, not the white ones, right?
+* [ ] Section 3.3. Change n to something else. You already use n for the dimensionality in SAEs.
+* [ ] Figure 7: The top right, lower right, and lower middle read weirdly to me. They seem to not follow the current figure layout.
+* [ ] Figure 7 caption doesn't make sense (Lower right, lower middle?)
