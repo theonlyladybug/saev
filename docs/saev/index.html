@@ -176,6 +176,27 @@ It will cache these best activations to disk, then start saving images to visual
 </code></pre>
 <p>Then open <a href="https://localhost:2718">localhost:2718</a> in your browser and open the <code>saev/interactive/features.py</code> file.
 Choose one of the checkpoints in the dropdown and click through the different neurons to find patterns in the underlying ViT.</p>
+<h1 id="inference-instructions">Inference Instructions</h1>
+<p>Briefly, you need to:</p>
+<ol>
+<li>Download a checkpoint</li>
+<li>Get the code</li>
+<li>Load the checkpoint</li>
+<li>Get activations</li>
+</ol>
+<p>Details are below.</p>
+<h2 id="download-a-checkpoint">Download a Checkpoint</h2>
+<p>First, download an SAE checkpoint from the <a href="https://huggingface.co/collections/osunlp/sae-v-67ab8c4fdf179d117db28195">Huggingface collection</a>.</p>
+<p>For instance, you can choose the SAE trained on OpenAI's CLIP ViT-B/16 with ImageNet-1K activations <a href="https://huggingface.co/osunlp/SAE_CLIP_24K_ViT-B-16_ImageNet-1K">here</a>.</p>
+<p>You can use <code>wget</code> if you want:</p>
+<pre><code class="language-sh">wget https://huggingface.co/samuelstevens/SAE_CLIP_24K_ViT-B-16_ImageNet-1K/resolve/main/sae.pt
+</code></pre>
+<h2 id="get-the-code">Get the Code</h2>
+<p>[TODO: document this process]</p>
+<h2 id="load-the-checkpoint">Load the Checkpoint</h2>
+<p>[TODO: document this process]</p>
+<h2 id="get-activations">Get Activations</h2>
+<p>[TODO: document this process]</p>
 </section>
 <section>
 <h2 class="section-title" id="header-submodules">Sub-modules</h2>
@@ -272,6 +293,13 @@ These tests are quite slow</p></div>
 <li><a href="#train-saes">Train SAEs</a></li>
 <li><a href="#choose-best-checkpoints">Choose Best Checkpoints</a></li>
 <li><a href="#save-visualizations">Save Visualizations</a></li>
+</ul>
+</li>
+<li><a href="#inference-instructions">Inference Instructions</a><ul>
+<li><a href="#download-a-checkpoint">Download a Checkpoint</a></li>
+<li><a href="#get-the-code">Get the Code</a></li>
+<li><a href="#load-the-checkpoint">Load the Checkpoint</a></li>
+<li><a href="#get-activations">Get Activations</a></li>
 </ul>
 </li>
 </ul>

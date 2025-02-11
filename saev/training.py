@@ -139,7 +139,7 @@ def main(cfgs: list[config.Train]) -> list[str]:
         ckpt_fpath = os.path.join(cfg.ckpt_path, id, "sae.pt")
         nn.dump(ckpt_fpath, sae)
         logger.info("Dumped checkpoint to '%s'.", ckpt_fpath)
-        cfg_fpath = os.path.join(cfg.ckpt_path, id, "cfg.json")
+        cfg_fpath = os.path.join(cfg.ckpt_path, id, "config.json")
         with open(cfg_fpath, "w") as fd:
             json.dump(dataclasses.asdict(cfg), fd, indent=4)
 
