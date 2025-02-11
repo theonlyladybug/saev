@@ -13,12 +13,12 @@ Details are below.
 
 First, download an SAE checkpoint from the [Huggingface collection](https://huggingface.co/collections/osunlp/sae-v-67ab8c4fdf179d117db28195).
 
-For instance, you can choose the SAE trained on OpenAI's CLIP ViT-B/16 with ImageNet-1K activations [here](https://huggingface.co/osunlp/SAE_CLIP_24K_ViT-B-16_ImageNet-1K).
+For instance, you can choose the SAE trained on OpenAI's CLIP ViT-B/16 with ImageNet-1K activations [here](https://huggingface.co/osunlp/SAE_CLIP_24K_ViT-B-16_IN1K).
 
 You can use `wget` if you want:
 
 ```sh
-wget https://huggingface.co/samuelstevens/SAE_CLIP_24K_ViT-B-16_ImageNet-1K/resolve/main/sae.pt
+wget https://huggingface.co/osunlp/SAE_CLIP_24K_ViT-B-16_IN1K/resolve/main/sae.pt
 ```
 
 ## Get the Code

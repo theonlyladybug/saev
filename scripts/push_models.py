@@ -5,7 +5,7 @@ docs_url = "https://osu-nlp-group.github.io/SAE-V"
 def main(
     hf_token: str,
     folder: str = "checkpoints/public/usvhngx4",
-    repo: str = "samuelstevens/SAE-CLIP-24K-ViT-B-16",
+    repo: str = "osunlp/SAE_CLIP_24K_ViT-B-16_IN1K",
 ):
     import huggingface_hub as hfhub
 
@@ -15,7 +15,7 @@ def main(
 
     hfapi.upload_folder(folder_path=folder, repo_id=repo, repo_type="model")
     hfapi.upload_file(
-        path_or_fileobj=f"docs/modelcards/{name}.md",
+        path_or_fileobj=f"docs/assets/modelcards/{name}.md",
         path_in_repo="README.md",
         repo_id=repo,
         repo_type="model",
