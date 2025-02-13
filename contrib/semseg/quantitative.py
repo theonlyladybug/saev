@@ -113,7 +113,14 @@ class Report:
         """Standard deviation of change percentage across classes."""
         return float(np.std(self.per_class_target_changes))
 
-    # Add a other_change_std property to this class. AI!
+    @property
+    def other_change_std(self) -> float:
+        """Standard deviation of non-target patch changes across classes."""
+        per_class_other_changes = np.array([
+            r.n_other_changed / r.n_other_patches if r.n_other_patches > 0 else 0.0
+            for r in self.class_results
+        ])
+        return float(np.std(per_class_other_changes))
 
     def to_csv_row(self) -> dict[str, float]:
         """Convert to a row for the summary CSV."""
