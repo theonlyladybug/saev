@@ -1,17 +1,20 @@
 import dataclasses
 import os.path
+import typing
 
 import beartype
-import torch
-from jaxtyping import Int, jaxtyped
-
 import numpy as np
+import torch
+from jaxtyping import Float, Int, jaxtyped
+from torch import Tensor
+
 import saev.nn
 
 from . import config, training
 
 
 @beartype.beartype
+@torch.inference_mode
 def main(cfg: config.Quantitative):
     """Main entry point for quantitative evaluation."""
     if torch.cuda.is_available():
@@ -51,7 +54,7 @@ class ClassResults:
     class_name: str
     """Human-readable name of the class."""
 
-    n_original_patches: int
+    n_orig_patches: int
     """Original patches that were this class."""
 
     n_changed_patches: int
@@ -78,19 +81,13 @@ class Report:
     class_results: list[ClassResults]
     """Per-class detailed results."""
 
-    original_preds: Int[np.ndarray, "n_imgs height width"]
-    """Original patch-wise predictions."""
-
-    modified_preds: Int[np.ndarray, "n_imgs height width"]
-    """Modified patch-wise predictions."""
-
     intervention_scale: float
     """Magnitude of intervention."""
 
     @property
     def mean_target_change(self) -> float:
         """Percentage of target patches that changed class."""
-        total_target = sum(r.n_original_patches for r in self.class_results)
+        total_target = sum(r.n_orig_patches for r in self.class_results)
         total_changed = sum(r.n_changed_patches for r in self.class_results)
         return total_changed / total_target if total_target > 0 else 0.0
 
@@ -105,9 +102,7 @@ class Report:
     def per_class_target_changes(self) -> np.ndarray:
         """Array of per-class change percentages for target patches."""
         return np.array([
-            r.n_changed_patches / r.n_original_patches
-            if r.n_original_patches > 0
-            else 0.0
+            r.n_changed_patches / r.n_orig_patches if r.n_orig_patches > 0 else 0.0
             for r in self.class_results
         ])
 
@@ -125,22 +120,16 @@ class Report:
             "target_std": self.target_change_std,
         }
 
-    def save_detailed(self, path: str) -> None:
-        """Save detailed results including per-class statistics and predictions."""
-        # Save tensors and detailed stats to npz file
-        np.savez(
-            path,
-            original_preds=self.original_preds.cpu().numpy(),
-            modified_preds=self.modified_preds.cpu().numpy(),
-            intervention_vectors=self.intervention_vectors.cpu().numpy(),
-            intervention_scale=self.intervention_scale,
-            class_results=[dataclasses.asdict(r) for r in self.class_results],
-        )
-
 
 @beartype.beartype
 def save(results: list[Report], dpath: str) -> None:
     raise NotImplementedError()
+
+
+def argmax_logits(
+    logits_BPC: Float[Tensor, "batch patches channels_with_null"],
+) -> Float[Tensor, "batch patches"]:
+    return logits_BPC[:, :, 1:].argmax(axis=-1) + 1
 
 
 @beartype.beartype
@@ -151,16 +140,125 @@ def eval_rand_vec(
     dataloader,
 ) -> Report:
     """
-    Evaluates the effects
+    Evaluates the effects of adding a random unit vector to the patches.
     """
+    # Add args/returns in the style of other files in this repo to this docstring. AI!
+
+    rand_vec = torch.randn(sae.cfg.d_vit, device=cfg.device)
+    rand_vec = rand_vec / torch.norm(rand_vec)
+
+    intervention_scale = 10.0  # This could be a config parameter
+    rand_vec = rand_vec * intervention_scale
+
+    @jaxtyped(typechecker=beartype.beartype)
+    def hook(
+        acts: Float[Tensor, "batch patches dim"],
+    ) -> Float[Tensor, "batch patches dim"]:
+        acts[:, 1:, :] += rand_vec
+        return acts
+
+    vit = saev.activations.make_vit(cfg.vit_family, cfg.vit_ckpt).to(cfg.device)
+
+    hooked_vit = saev.activations.make_vit(cfg.vit_family, cfg.vit_ckpt).to(cfg.device)
+    register_hook(hooked_vit, hook, cfg.vit_layer, cfg.n_patches_per_img)
+
+    orig_preds, mod_preds = [], []
+    for batch in dataloader:
+        x_BCWH = batch["image"].to(cfg.device)
+
+        orig_acts = vit(x_BCWH)
+        orig_logits = clf(orig_acts[:, 1:, :])
+        orig_preds.append(argmax_logits(orig_logits).cpu())
+
+        mod_acts = hooked_vit(x_BCWH)
+        mod_logits = clf(mod_acts[:, 1:, :])
+        mod_preds.append(argmax_logits(mod_logits).cpu())
+
+    # Concatenate all predictions
+    orig_preds = torch.cat(orig_preds, dim=0)
+    mod_preds = torch.cat(mod_preds, dim=0)
+
+    # Compute per-class results
+    class_results = []
+    for class_id in range(1, 151):
+        # Count original patches of this class
+        orig_mask = orig_preds == class_id
+        n_orig = orig_mask.sum().item()
+
+        # Count how many changed
+        changed_mask = (mod_preds != orig_preds) & orig_mask
+        n_changed = changed_mask.sum().item()
+
+        # Count changes in other patches
+        other_mask = ~orig_mask
+        n_other = other_mask.sum().item()
+        n_other_changed = ((mod_preds != orig_preds) & other_mask).sum().item()
+
+        # Track what classes patches changed to
+        changes = {}
+        for new_class in range(1, 151):
+            if new_class != class_id:
+                count = ((mod_preds == new_class) & changed_mask).sum().item()
+                if count > 0:
+                    changes[new_class] = count
+
+        class_results.append(
+            ClassResults(
+                class_id=class_id,
+                class_name="TODO",  # class_names[class_id],
+                n_orig_patches=n_orig,
+                n_changed_patches=n_changed,
+                n_other_patches=n_other,
+                n_other_changed=n_other_changed,
+                change_distribution=changes,
+            )
+        )
+
+    return Report(
+        method="random-vector",
+        class_results=class_results,
+        intervention_scale=intervention_scale,
+    )
+
+
+@beartype.beartype
+def eval_rand_feat(
+    cfg: config.Quantitative,
+    sae: saev.nn.SparseAutoencoder,
+    clf: torch.nn.Module,
+    dataloader,
+) -> Report:
     raise NotImplementedError()
 
 
 @beartype.beartype
-def eval_rand_feat(cfg: config.Quantitative) -> Report:
+def eval_auto_feat(
+    cfg: config.Quantitative,
+    sae: saev.nn.SparseAutoencoder,
+    clf: torch.nn.Module,
+    dataloader,
+) -> Report:
     raise NotImplementedError()
 
 
-@beartype.beartype
-def eval_auto_feat(cfg: config.Quantitative) -> Report:
-    raise NotImplementedError()
+@jaxtyped(typechecker=beartype.beartype)
+def register_hook(
+    vit: torch.nn.Module,
+    hook: typing.Callable[[Float[Tensor, "..."]], Float[Tensor, "..."]],
+    layer: int,
+    n_patches_per_img: int,
+):
+    patches = vit.get_patches(n_patches_per_img)
+
+    @jaxtyped(typechecker=beartype.beartype)
+    def _hook(
+        block: torch.nn.Module,
+        inputs: tuple,
+        outputs: Float[Tensor, "batch patches dim"],
+    ) -> Float[Tensor, "batch patches dim"]:
+        x = outputs[:, patches, :]
+        x = hook(x)
+        outputs[:, patches, :] = x
+        return outputs
+
+    return vit.get_residuals()[layer].register_forward_hook(_hook)
