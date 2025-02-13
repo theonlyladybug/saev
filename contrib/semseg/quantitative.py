@@ -157,14 +157,15 @@ def eval_rand_vec(
     def hook(
         acts: Float[Tensor, "batch patches dim"],
     ) -> Float[Tensor, "batch patches dim"]:
-        # Make this into a different random vector for each batch/patch combination, so it should be (batch, patches, dim) in shape, and each dim-dimensional vector should have unit norm. AI!
-        rand_vec = torch.randn(sae.cfg.d_vit, device=cfg.device)
-        rand_vec = rand_vec / torch.norm(rand_vec)
+        batch_size, n_patches = acts.shape[:2]
+        rand_vecs = torch.randn(batch_size, n_patches, sae.cfg.d_vit, device=cfg.device)
+        # Normalize each vector to unit norm along the last dimension
+        rand_vecs = rand_vecs / torch.norm(rand_vecs, dim=-1, keepdim=True)
 
         intervention_scale = 20.0  # This could be a config parameter
-        rand_vec = rand_vec * intervention_scale
+        rand_vecs = rand_vecs * intervention_scale
 
-        acts[:, 1:, :] += rand_vec
+        acts += rand_vecs
         return acts
 
     vit = saev.activations.make_vit(cfg.vit_family, cfg.vit_ckpt).to(cfg.device)
