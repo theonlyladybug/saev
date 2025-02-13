@@ -159,7 +159,16 @@ def eval_rand_vec(
     def hook(
         acts: Float[Tensor, "batch patches dim"],
     ) -> Float[Tensor, "batch patches dim"]:
-        # Document this hook with args/returns and a short description. AI!
+        """
+        Adds random unit vectors to patch activations.
+
+        Args:
+            acts: Activation tensor with shape (batch_size, n_patches, d_vit)
+                 where d_vit is the ViT feature dimension
+
+        Returns:
+            Modified activation tensor with random unit vectors added
+        """
         batch_size, n_patches, dim = acts.shape
         rand_vecs = torch.randn((batch_size, n_patches, dim), device=cfg.device)
         # Normalize each vector to unit norm along the last dimension
