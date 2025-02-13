@@ -86,6 +86,7 @@ class Validation:
 @beartype.beartype
 @dataclasses.dataclass(frozen=True)
 class Quantitative:
+    # Change these comments to use """-""" docstrings like the other config objects. AI!
     # Path to trained SAE checkpoint
     sae_ckpt: str = os.path.join(".", "checkpoints", "sae.pt")
 
