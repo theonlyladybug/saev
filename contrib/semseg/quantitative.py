@@ -45,20 +45,23 @@ def main(cfg: config.Quantitative):
 class ClassResults:
     """Results for a single class."""
 
-    # Change the comments in ClassResults to use """-""" underneath the field name. AI!
-
     class_id: int
+    """Numeric identifier for the class."""
+
     class_name: str
+    """Human-readable name of the class."""
 
-    # Original patches that were this class
     n_original_patches: int
-    # After intervention, how many changed
-    n_changed_patches: int
+    """Original patches that were this class."""
 
-    # Total patches that weren't this class
+    n_changed_patches: int
+    """After intervention, how many patches changed."""
+
     n_other_patches: int
-    # After intervention, how many of the other patches changed
+    """Total patches that weren't this class."""
+
     n_other_changed: int
+    """After intervention, how many of the other patches changed."""
 
     change_distribution: dict[int, int]
     """What classes did patches change to? Tracks how many times <value> a patch changed from self.class_id to <key>."""
