@@ -49,6 +49,75 @@ So do not import torch, numpy, etc.</p>
 <section>
 <h2 class="section-title" id="header-classes">Classes</h2>
 <dl>
+<dt id="contrib.semseg.config.Quantitative"><code class="flex name class">
+<span>class <span class="ident">Quantitative</span></span>
+<span>(</span><span>sae_ckpt: str = './checkpoints/sae.pt',<br>seg_ckpt: str = './checkpoints/contrib/semseg/best.pt',<br>imgs: <a title="saev.config.Ade20kDataset" href="../../saev/config.html#saev.config.Ade20kDataset">Ade20kDataset</a> = &lt;factory&gt;,<br>acts: <a title="saev.config.DataLoad" href="../../saev/config.html#saev.config.DataLoad">DataLoad</a> = &lt;factory&gt;,<br>batch_size: int = 128,<br>n_workers: int = 32,<br>device: str = 'cuda',<br>dump_to: str = './logs/contrib/semseg/quantitative')</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Quantitative(sae_ckpt: str = './checkpoints/sae.pt', seg_ckpt: str = './checkpoints/contrib/semseg/best.pt', imgs: saev.config.Ade20kDataset = <factory>, acts: saev.config.DataLoad = <factory>, batch_size: int = 128, n_workers: int = 32, device: str = 'cuda', dump_to: str = './logs/contrib/semseg/quantitative')</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@beartype.beartype
+@dataclasses.dataclass(frozen=True)
+class Quantitative:
+    # Path to trained SAE checkpoint
+    sae_ckpt: str = os.path.join(&#34;.&#34;, &#34;checkpoints&#34;, &#34;sae.pt&#34;)
+
+    # Path to trained segmentation head
+    seg_ckpt: str = os.path.join(&#34;.&#34;, &#34;checkpoints&#34;, &#34;contrib&#34;, &#34;semseg&#34;, &#34;best.pt&#34;)
+
+    # Data configuration
+    imgs: saev.config.Ade20kDataset = dataclasses.field(
+        default_factory=saev.config.Ade20kDataset
+    )
+    acts: saev.config.DataLoad = dataclasses.field(default_factory=saev.config.DataLoad)
+
+    # Hardware
+    batch_size: int = 128
+    n_workers: int = 32
+    device: str = &#34;cuda&#34;
+
+    # Where to save results
+    dump_to: str = os.path.join(&#34;.&#34;, &#34;logs&#34;, &#34;contrib&#34;, &#34;semseg&#34;, &#34;quantitative&#34;)</code></pre>
+</details>
+<h3>Class variables</h3>
+<dl>
+<dt id="contrib.semseg.config.Quantitative.acts"><code class="name">var <span class="ident">acts</span> : <a title="saev.config.DataLoad" href="../../saev/config.html#saev.config.DataLoad">DataLoad</a></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="contrib.semseg.config.Quantitative.batch_size"><code class="name">var <span class="ident">batch_size</span> : int</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="contrib.semseg.config.Quantitative.device"><code class="name">var <span class="ident">device</span> : str</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="contrib.semseg.config.Quantitative.dump_to"><code class="name">var <span class="ident">dump_to</span> : str</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="contrib.semseg.config.Quantitative.imgs"><code class="name">var <span class="ident">imgs</span> : <a title="saev.config.Ade20kDataset" href="../../saev/config.html#saev.config.Ade20kDataset">Ade20kDataset</a></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="contrib.semseg.config.Quantitative.n_workers"><code class="name">var <span class="ident">n_workers</span> : int</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="contrib.semseg.config.Quantitative.sae_ckpt"><code class="name">var <span class="ident">sae_ckpt</span> : str</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="contrib.semseg.config.Quantitative.seg_ckpt"><code class="name">var <span class="ident">seg_ckpt</span> : str</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+</dd>
 <dt id="contrib.semseg.config.Train"><code class="flex name class">
 <span>class <span class="ident">Train</span></span>
 <span>(</span><span>learning_rate: float = 0.0001,<br>weight_decay: float = 0.001,<br>n_epochs: int = 400,<br>batch_size: int = 1024,<br>n_workers: int = 32,<br>imgs: <a title="saev.config.Ade20kDataset" href="../../saev/config.html#saev.config.Ade20kDataset">Ade20kDataset</a> = &lt;factory&gt;,<br>eval_every: int = 100,<br>device: str = 'cuda',<br>ckpt_path: str = './checkpoints/contrib/semseg',<br>seed: int = 42,<br>log_to: str = './logs/contrib/semseg')</span>
@@ -283,6 +352,19 @@ class Visuals:
 </li>
 <li><h3><a href="#header-classes">Classes</a></h3>
 <ul>
+<li>
+<h4><code><a title="contrib.semseg.config.Quantitative" href="#contrib.semseg.config.Quantitative">Quantitative</a></code></h4>
+<ul class="two-column">
+<li><code><a title="contrib.semseg.config.Quantitative.acts" href="#contrib.semseg.config.Quantitative.acts">acts</a></code></li>
+<li><code><a title="contrib.semseg.config.Quantitative.batch_size" href="#contrib.semseg.config.Quantitative.batch_size">batch_size</a></code></li>
+<li><code><a title="contrib.semseg.config.Quantitative.device" href="#contrib.semseg.config.Quantitative.device">device</a></code></li>
+<li><code><a title="contrib.semseg.config.Quantitative.dump_to" href="#contrib.semseg.config.Quantitative.dump_to">dump_to</a></code></li>
+<li><code><a title="contrib.semseg.config.Quantitative.imgs" href="#contrib.semseg.config.Quantitative.imgs">imgs</a></code></li>
+<li><code><a title="contrib.semseg.config.Quantitative.n_workers" href="#contrib.semseg.config.Quantitative.n_workers">n_workers</a></code></li>
+<li><code><a title="contrib.semseg.config.Quantitative.sae_ckpt" href="#contrib.semseg.config.Quantitative.sae_ckpt">sae_ckpt</a></code></li>
+<li><code><a title="contrib.semseg.config.Quantitative.seg_ckpt" href="#contrib.semseg.config.Quantitative.seg_ckpt">seg_ckpt</a></code></li>
+</ul>
+</li>
 <li>
 <h4><code><a title="contrib.semseg.config.Train" href="#contrib.semseg.config.Train">Train</a></code></h4>
 <ul class="two-column">

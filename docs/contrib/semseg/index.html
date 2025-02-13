@@ -28,7 +28,12 @@ hljs.highlightAll();
 </header>
 <section id="section-intro">
 <p>Interpret and manipulate semantic segmentation models using SAEs.</p>
-<p>You can reproduce our semantic segmentation examples from our preprint by following these instructions.</p>
+<h1 id="reproduce">Reproduce</h1>
+<p>There are two main experiments to reproduce in our preprint.</p>
+<p>First, our qualitative examples.
+Second, our quantitative evaluation of pseudo-orthogonality.</p>
+<h2 id="qualitative">Qualitative</h2>
+<p>You can reproduce our qualititative examples from our preprint by following these instructions.</p>
 <ol>
 <li>Train a linear probe on semantic segmentation task using ADE20K.</li>
 <li>Measure linear probe baseline metrics.</li>
@@ -36,20 +41,20 @@ hljs.highlightAll();
 <li>Be amazed. :)</li>
 </ol>
 <p>Details can be found below.</p>
-<h1 id="train-a-linear-probe-on-semantic-segmentation">Train a Linear Probe on Semantic Segmentation</h1>
+<h3 id="train-a-linear-probe-on-semantic-segmentation">Train a Linear Probe on Semantic Segmentation</h3>
 <p>Train a linear probe on DINOv2 activations from ADE20K.
 It's fixed with DINOv2 because of patch size, but the code could be extended to different ViTs.</p>
 <pre><code class="language-sh">uv run python -m contrib.semseg train \
   --sweep contrib/semseg/sweep.toml \
   --imgs.root /$NFS/$USER/datasets/ade20k
 </code></pre>
-<h1 id="measure-linear-probe-baseline-metrics">Measure Linear Probe Baseline Metrics</h1>
+<h3 id="measure-linear-probe-baseline-metrics">Measure Linear Probe Baseline Metrics</h3>
 <p>Check which learning rate/weight decay combination is best for the linear probe.</p>
 <pre><code class="language-sh">uv run python -m contrib.semseg validate \
   --imgs.root /$NFS/$USER/datasets/ade20k
 </code></pre>
 <p>Then you can look in <code>./logs/contrib/semseg</code> for <code>hparam-sweeps.png</code> to see what learning rate/weight decay combination is best.</p>
-<h1 id="manipulate-the-activations">Manipulate the Activations</h1>
+<h3 id="manipulate-the-activations">Manipulate the Activations</h3>
 <p>You need an SAE that's been trained on DINOv2's activations on ImageNet.
 Then you can run both the frontend server and the backend server:</p>
 <p><strong>Frontend:</strong></p>
@@ -59,6 +64,34 @@ Then you can run both the frontend server and the backend server:</p>
 <p><strong>Backend:</strong></p>
 <p>This is a little trickier because the backend server lives on Huggingface spaces and talks to a personal Cloudflare server.</p>
 <p>[TODO]</p>
+<h2 id="quantitative">Quantitative</h2>
+<p>We aim to measure the specificity and psuedo-orthogonality of SAE-discovered features by evaluating the impact of feature manipulation on semantic segmentation.</p>
+<p>We train an SAE on ImageNet-1K activations from DINOv2 ViT-B/14 (<a href="https://huggingface.co/osunlp/SAE_DINOv2_24K_ViT-B-14_IN1K">hosted here on HuggingFace</a>).
+Then, we train a linear probe on top of DINOv2 for ADE20K following the procedure above.
+We define four ways to select a feature vector for a given ADE20K class:</p>
+<ol>
+<li>Random unit vector in $d$-dimensional space</li>
+<li>Random SAE feature vector.</li>
+<li>Automatically selected SAE feature vector.</li>
+<li>Manually chosen SAE feature vector.</li>
+</ol>
+<p>All four are described in more detail below.</p>
+<p>Given a feature $i$ and an ADE20K class $c$, for each image in the validation set, we perform semantic segmentation inference using DINOv2 and the trained linear probe.
+However, we set feature $i$ to $-2$ its maximum observed value following the description of manipulation in Section 3.3 of our preprint.
+We then maintain several counts:</p>
+<ol>
+<li>Number of patches originally predicted as class $c$ and are now <em>not</em> $c$.</li>
+<li>Number of patches originally predicted as class $c$ and are now <em>still</em> $c$.</li>
+<li>Number of patches originally predicted as <em>not</em> class $c$ and are now $c$.</li>
+<li>Number of patches originally predicted as <em>not</em> class $c$ and are now <em>still not</em> $c$.</li>
+</ol>
+<p>With this, we calculate two percentages:</p>
+<ol>
+<li>Target change rate: <code>(Number of original $c$ patches that changed class) / (Total number of original $c$ patches) * 100</code></li>
+<li>Other change rate: <code>(Number of original not-$c$ patches that changed class) / (Total number of original not-$c$ patches) * 100</code></li>
+</ol>
+<p>Ideally, we maximize target change rate and minimize other change rate.
+We measure mean target change rate across all classes and mean other change rate across all classes.</p>
 <p>The main entry point is <code>contrib/semseg/__main__.py</code>.
 Run <code>uv run python -m contrib.semseg --help</code> to see all options.</p>
 </section>
@@ -70,6 +103,10 @@ Run <code>uv run python -m contrib.semseg --help</code> to see all options.</p>
 <div class="desc"><p>Configs for all the different subscripts in <code><a title="contrib.semseg" href="#contrib.semseg">contrib.semseg</a></code> …</p></div>
 </dd>
 <dt><code class="name"><a title="contrib.semseg.interactive" href="interactive.html">contrib.semseg.interactive</a></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt><code class="name"><a title="contrib.semseg.quantitative" href="quantitative.html">contrib.semseg.quantitative</a></code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
@@ -97,9 +134,16 @@ Run <code>uv run python -m contrib.semseg --help</code> to see all options.</p>
 <nav id="sidebar">
 <div class="toc">
 <ul>
+<li><a href="#reproduce">Reproduce</a><ul>
+<li><a href="#qualitative">Qualitative</a><ul>
 <li><a href="#train-a-linear-probe-on-semantic-segmentation">Train a Linear Probe on Semantic Segmentation</a></li>
 <li><a href="#measure-linear-probe-baseline-metrics">Measure Linear Probe Baseline Metrics</a></li>
 <li><a href="#manipulate-the-activations">Manipulate the Activations</a></li>
+</ul>
+</li>
+<li><a href="#quantitative">Quantitative</a></li>
+</ul>
+</li>
 </ul>
 </div>
 <ul id="index">
@@ -112,6 +156,7 @@ Run <code>uv run python -m contrib.semseg --help</code> to see all options.</p>
 <ul>
 <li><code><a title="contrib.semseg.config" href="config.html">contrib.semseg.config</a></code></li>
 <li><code><a title="contrib.semseg.interactive" href="interactive.html">contrib.semseg.interactive</a></code></li>
+<li><code><a title="contrib.semseg.quantitative" href="quantitative.html">contrib.semseg.quantitative</a></code></li>
 <li><code><a title="contrib.semseg.training" href="training.html">contrib.semseg.training</a></code></li>
 <li><code><a title="contrib.semseg.validation" href="validation.html">contrib.semseg.validation</a></code></li>
 <li><code><a title="contrib.semseg.visuals" href="visuals.html">contrib.semseg.visuals</a></code></li>

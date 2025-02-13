@@ -1302,3 +1302,91 @@ Comments:
 * [x] Section 3.3. Change n to something else. You already use n for the dimensionality in SAEs.
 * [ ] Figure 7: The top right, lower right, and lower middle read weirdly to me. They seem to not follow the current figure layout.
 * [ ] Figure 7 caption doesn't make sense (Lower right, lower middle?)
+
+# 02/11/2025
+
+For this project, I need to do a couple things.
+
+1. Polish the web demos.
+2. Tweet/PR about the release.
+3. Plan a submission to ICCV.
+
+I want to think deeply about the ICCV submission, and think about what flaws must be addressed, nice-to-haves, etc.
+Here's a brain dump of everything:
+
+* Can we suppress GradCAM activations? Is that enough to simulate feature suppression? How can we differentiate with such an approach?
+* Can we get quantitative results? How does INTR do it?
+* Can we expand to more vision tasks? Object detection, LLava-style VLMs, something else?
+* How can we semantically probe for the presence/absence of concepts?
+* Can we form observation -> hypothesis -> validation for Section 4
+* Need a random baseline manipulation for feature manipulation. Then it will establish that the given feature is truly driving decisions.
+* Additional examples (cultural, semantic concepts, etc)
+* Needs to be down to 8 pages (https://iccv.thecvf.com/Conferences/2025/AuthorGuidelines)
+* Apply to other architectures (CNNs? Mamba?)
+* Use something besides ReLU SAEs?
+* Writing quality :)
+
+What is likely highest-priority?
+
+1. Quantitative results - a comparison to a random feature baseline for manipulation quality could be incorporated here.
+2. Suppressing GradCAM activations - we need to see if this enables the same kinds of manipulations. If so, I think there are other kinds of manipulation for which GradCAM is not the best (semantic segmentation). We will need to highlight those particular tasks.
+3. Getting it down to 8 pages
+
+Things I'm aware of and that I don't think are high priority:
+
+* Adding another control task, like manipulating a VLM
+* Other SAE architectures beyond ReLU, other vision architectures like CNNs or SSMs.
+* Rigorous methodology around showing the absence of a concept (semantic probing)
+
+@Harry do you have suggestions for ICCV submissions vs CVPR or NeurIPS? Are there particular things that we should watch out for?
+
+Submission Checklists
+
+* https://www.ianhuston.net/2011/03/checklist-for-arxiv-submission/
+* https://trevorcampbell.me/html/arxiv.html
+
+
+# 02/12/2025
+
+What experiments do I want to run for ICCV?
+I know I need some qualitative results.
+I also need to compare against random feature perturbations.
+I also want to compare to suppressing GradCAM activations.
+Then, I need to think about what parts are still qualitative, even after this, and try to figure out how to write in a way that admits this failure.
+
+INTR doesn't have any quantitative results.
+Finer-CAM does have some quantiative results, but the metrics are so unfamiliar to me that I don't really have any intuition around the numbers.
+Great that there is an improvement, but what kind of improvement should I expect?
+I think random feature perturbation is a much better baseline.
+We could also think about which traits reliably distinguish two species, and then deliberately mask them.
+I should email Justin Kitzes about that again.
+
+What about semantic segmentation?
+If I can reliably identify a feature for a given class, can I suppress it without changing other features?
+
+That would be a good comparison.
+
+Three methods:
+
+1. Random SAE feature
+2. Automatically identified feature
+3. Gold feature (human identified via semantic probing)
+
+If you set the feature to -2x the observed value, what happens to class predictions?
+I would expect:
+
+1. Random SAE feature: no meaningful change in any predictions
+2. Auto identified feature: that feature disappears in original output patches (predicts something else), other patches stay the same.
+3. Gold feature: same thing.
+
+How would I measure it?
+How would I build human intuition around these values?
+
+% of original patches suppressed
+% of "other" patches changed.
+
+Many examples.
+
+Let's get a chatbot to write the experimental design precisely.
+Well, they both didn't write an experimental plan that I liked enough.
+So I will write one in my docs.

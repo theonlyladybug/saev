@@ -62,9 +62,17 @@ def validate(cfg: typing.Annotated[config.Validation, tyro.conf.arg(name="")]):
     validation.main(cfg)
 
 
+@beartype.beartype
+def quantify(cfg: typing.Annotated[config.Quantitative, tyro.conf.arg(name="")]):
+    from . import quantitative
+
+    quantitative.main(cfg)
+
+
 if __name__ == "__main__":
     tyro.extras.subcommand_cli_from_dict({
         "train": train,
         "visuals": visuals,
         "validate": validate,
+        "quantify": quantify,
     })

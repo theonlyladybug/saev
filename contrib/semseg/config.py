@@ -90,7 +90,7 @@ class Quantitative:
     sae_ckpt: str = os.path.join(".", "checkpoints", "sae.pt")
 
     # Path to trained segmentation head
-    seg_ckpt: str = os.path.join(".", "checkpoints", "contrib", "semseg", "best.pt") 
+    seg_ckpt: str = os.path.join(".", "checkpoints", "contrib", "semseg", "best.pt")
 
     # Data configuration
     imgs: saev.config.Ade20kDataset = dataclasses.field(
