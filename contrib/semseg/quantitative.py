@@ -153,16 +153,18 @@ def eval_rand_vec(
         Report containing intervention results, including per-class changes
     """
 
+    intervention_scale = 20.0  # This could be a config parameter
+
     @jaxtyped(typechecker=beartype.beartype)
     def hook(
         acts: Float[Tensor, "batch patches dim"],
     ) -> Float[Tensor, "batch patches dim"]:
-        batch_size, n_patches = acts.shape[:2]
-        rand_vecs = torch.randn(batch_size, n_patches, sae.cfg.d_vit, device=cfg.device)
+        # Document this hook with args/returns and a short description. AI!
+        batch_size, n_patches, dim = acts.shape
+        rand_vecs = torch.randn((batch_size, n_patches, dim), device=cfg.device)
         # Normalize each vector to unit norm along the last dimension
         rand_vecs = rand_vecs / torch.norm(rand_vecs, dim=-1, keepdim=True)
 
-        intervention_scale = 20.0  # This could be a config parameter
         rand_vecs = rand_vecs * intervention_scale
 
         acts += rand_vecs
