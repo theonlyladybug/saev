@@ -124,8 +124,23 @@ class Report:
 
 @beartype.beartype
 def save(results: list[Report], dpath: str) -> None:
-    # Implement this function. I need a csv file in dpath using the columns in to_csv_row(). AI!
-    raise NotImplementedError()
+    """
+    Save evaluation results to a CSV file.
+
+    Args:
+        results: List of Report objects containing evaluation results
+        dpath: Path to save the CSV file
+    """
+    import csv
+    import os
+
+    os.makedirs(os.path.dirname(dpath), exist_ok=True)
+    
+    with open(dpath, 'w', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=['method', 'target_change', 'other_change', 'target_std'])
+        writer.writeheader()
+        for result in results:
+            writer.writerow(result.to_csv_row())
 
 
 @beartype.beartype
