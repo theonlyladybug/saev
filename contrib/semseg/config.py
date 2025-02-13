@@ -86,13 +86,11 @@ class Validation:
 @beartype.beartype
 @dataclasses.dataclass(frozen=True)
 class Quantitative:
-    # Update these defaults to use os.path.join. AI!
-
     # Path to trained SAE checkpoint
-    sae_ckpt: str = "./checkpoints/sae.pt"
+    sae_ckpt: str = os.path.join(".", "checkpoints", "sae.pt")
 
     # Path to trained segmentation head
-    seg_ckpt: str = "./checkpoints/contrib/semseg/best.pt"
+    seg_ckpt: str = os.path.join(".", "checkpoints", "contrib", "semseg", "best.pt") 
 
     # Data configuration
     imgs: saev.config.Ade20kDataset = dataclasses.field(
@@ -106,7 +104,7 @@ class Quantitative:
     device: str = "cuda"
 
     # Where to save results
-    dump_to: str = "./logs/contrib/semseg/quantitative"
+    dump_to: str = os.path.join(".", "logs", "contrib", "semseg", "quantitative")
 
 
 @beartype.beartype
