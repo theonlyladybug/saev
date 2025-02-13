@@ -86,26 +86,31 @@ class Validation:
 @beartype.beartype
 @dataclasses.dataclass(frozen=True)
 class Quantitative:
-    # Change these comments to use """-""" docstrings like the other config objects. AI!
-    # Path to trained SAE checkpoint
     sae_ckpt: str = os.path.join(".", "checkpoints", "sae.pt")
+    """Path to trained SAE checkpoint."""
 
-    # Path to trained segmentation head
     seg_ckpt: str = os.path.join(".", "checkpoints", "contrib", "semseg", "best.pt")
+    """Path to trained segmentation head."""
 
-    # Data configuration
     imgs: saev.config.Ade20kDataset = dataclasses.field(
         default_factory=saev.config.Ade20kDataset
     )
+    """Data configuration for ADE20K dataset."""
+
     acts: saev.config.DataLoad = dataclasses.field(default_factory=saev.config.DataLoad)
+    """Data configuration for loading activations."""
 
-    # Hardware
     batch_size: int = 128
-    n_workers: int = 32
-    device: str = "cuda"
+    """Batch size for inference."""
 
-    # Where to save results
+    n_workers: int = 32
+    """Number of dataloader workers."""
+
+    device: str = "cuda"
+    """Hardware for inference."""
+
     dump_to: str = os.path.join(".", "logs", "contrib", "semseg", "quantitative")
+    """Directory to save results to."""
 
 
 @beartype.beartype
