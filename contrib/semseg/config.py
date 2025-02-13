@@ -84,6 +84,32 @@ class Validation:
 
 
 @beartype.beartype
+@dataclasses.dataclass(frozen=True)
+class Quantitative:
+    # Update these defaults to use os.path.join. AI!
+
+    # Path to trained SAE checkpoint
+    sae_ckpt: str = "./checkpoints/sae.pt"
+
+    # Path to trained segmentation head
+    seg_ckpt: str = "./checkpoints/contrib/semseg/best.pt"
+
+    # Data configuration
+    imgs: saev.config.Ade20kDataset = dataclasses.field(
+        default_factory=saev.config.Ade20kDataset
+    )
+    acts: saev.config.DataLoad = dataclasses.field(default_factory=saev.config.DataLoad)
+
+    # Hardware
+    batch_size: int = 128
+    n_workers: int = 32
+    device: str = "cuda"
+
+    # Where to save results
+    dump_to: str = "./logs/contrib/semseg/quantitative"
+
+
+@beartype.beartype
 def grid(cfg: Train, sweep_dct: dict[str, object]) -> tuple[list[Train], list[str]]:
     cfgs, errs = [], []
     for d, dct in enumerate(saev.config.expand(sweep_dct)):
