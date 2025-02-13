@@ -141,8 +141,16 @@ def eval_rand_vec(
 ) -> Report:
     """
     Evaluates the effects of adding a random unit vector to the patches.
+
+    Args:
+        cfg: Configuration for quantitative evaluation
+        sae: Trained sparse autoencoder model
+        clf: Trained classifier model
+        dataloader: DataLoader providing batches of images
+
+    Returns:
+        Report containing intervention results, including per-class changes
     """
-    # Add args/returns in the style of other files in this repo to this docstring. AI!
 
     rand_vec = torch.randn(sae.cfg.d_vit, device=cfg.device)
     rand_vec = rand_vec / torch.norm(rand_vec)
