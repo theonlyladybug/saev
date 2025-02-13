@@ -1,11 +1,12 @@
 import dataclasses
 import os.path
+import random
 import typing
 
 import beartype
 import numpy as np
 import torch
-from jaxtyping import Float, jaxtyped
+from jaxtyping import Float, jaxtyped, Int
 from torch import Tensor
 
 import saev.nn
@@ -24,7 +25,7 @@ def main(cfg: config.Quantitative):
         torch.backends.cudnn.deterministic = False
 
     # Load models
-    sae = saev.nn.load(cfg.sae_ckpt)
+    sae = saev.nn.load(cfg.sae_ckpt).to(cfg.device)
     clf = training.load_latest(cfg.seg_ckpt, device=cfg.device)
 
     # Get validation data
@@ -35,10 +36,9 @@ def main(cfg: config.Quantitative):
 
     # For each method (random vector, random feature, etc)
     reports = []
-    for fn in (eval_rand_vec, eval_rand_feat, eval_auto_feat):
+    for fn in (eval_rand_vec, eval_rand_feat):  # , eval_auto_feat):
         report = fn(cfg, sae, clf, dataloader)
         reports.append(report)
-        breakpoint()
 
     # Save results
     save(reports, os.path.join(cfg.dump_to, "results.csv"))
@@ -124,13 +124,8 @@ class Report:
 
 @beartype.beartype
 def save(results: list[Report], dpath: str) -> None:
+    # Implement this function. I need a csv file in dpath using the columns in to_csv_row(). AI!
     raise NotImplementedError()
-
-
-def argmax_logits(
-    logits_BPC: Float[Tensor, "batch patches channels_with_null"],
-) -> Float[Tensor, "batch patches"]:
-    return logits_BPC[:, :, 1:].argmax(axis=-1) + 1
 
 
 @beartype.beartype
@@ -152,32 +147,30 @@ def eval_rand_vec(
     Returns:
         Report containing intervention results, including per-class changes
     """
-
-    intervention_scale = 20.0  # This could be a config parameter
+    torch.manual_seed(cfg.seed)
 
     @jaxtyped(typechecker=beartype.beartype)
     def hook(
-        acts: Float[Tensor, "batch patches dim"],
+        x_BPD: Float[Tensor, "batch patches dim"],
     ) -> Float[Tensor, "batch patches dim"]:
         """
         Adds random unit vectors to patch activations.
 
         Args:
-            acts: Activation tensor with shape (batch_size, n_patches, d_vit)
-                 where d_vit is the ViT feature dimension
+            x_BPD: Activation tensor with shape (batch_size, n_patches, d_vit) where d_vit is the ViT feature dimension
 
         Returns:
             Modified activation tensor with random unit vectors added
         """
-        batch_size, n_patches, dim = acts.shape
+        batch_size, n_patches, dim = x_BPD.shape
         rand_vecs = torch.randn((batch_size, n_patches, dim), device=cfg.device)
         # Normalize each vector to unit norm along the last dimension
         rand_vecs = rand_vecs / torch.norm(rand_vecs, dim=-1, keepdim=True)
 
-        rand_vecs = rand_vecs * intervention_scale
+        rand_vecs = rand_vecs * cfg.scale
 
-        acts += rand_vecs
-        return acts
+        x_BPD += rand_vecs
+        return x_BPD
 
     vit = saev.activations.make_vit(cfg.vit_family, cfg.vit_ckpt).to(cfg.device)
 
@@ -200,7 +193,124 @@ def eval_rand_vec(
     orig_preds = torch.cat(orig_preds, dim=0)
     mod_preds = torch.cat(mod_preds, dim=0)
 
-    # Compute per-class results
+    class_results = compute_class_results(orig_preds, mod_preds)
+
+    return Report(
+        method="random-vector",
+        class_results=class_results,
+        intervention_scale=cfg.scale,
+    )
+
+
+@beartype.beartype
+def eval_rand_feat(
+    cfg: config.Quantitative,
+    sae: saev.nn.SparseAutoencoder,
+    clf: torch.nn.Module,
+    dataloader,
+) -> Report:
+    """
+    Evaluates the effects of suppressing a random SAE feature.
+
+    Args:
+        cfg: Configuration for quantitative evaluation
+        sae: Trained sparse autoencoder model
+        clf: Trained classifier model
+        dataloader: DataLoader providing batches of images
+
+    Returns:
+        Report containing intervention results, including per-class changes
+    """
+    torch.manual_seed(cfg.seed)
+    random.seed(cfg.seed)
+
+    top_values = torch.load(cfg.top_values, map_location="cpu", weights_only=True)
+
+    @jaxtyped(typechecker=beartype.beartype)
+    def hook(
+        x_BPD: Float[Tensor, "batch patches dim"],
+    ) -> Float[Tensor, "batch patches dim"]:
+        latent = random.randrange(0, sae.cfg.d_sae)
+
+        x_hat_BPD, f_x_BPS, _ = sae(x_BPD)
+
+        err_BPD = x_BPD - x_hat_BPD
+
+        value = unscaled(cfg.scale, top_values[latent].max().item())
+        f_x_BPS[..., latent] = value
+
+        # Reproduce the SAE forward pass after f_x
+        mod_x_hat_BPD = sae.decode(f_x_BPS)
+        mod_BPD = err_BPD + mod_x_hat_BPD
+        return mod_BPD
+
+    vit = saev.activations.make_vit(cfg.vit_family, cfg.vit_ckpt).to(cfg.device)
+
+    hooked_vit = saev.activations.make_vit(cfg.vit_family, cfg.vit_ckpt).to(cfg.device)
+    register_hook(hooked_vit, hook, cfg.vit_layer, cfg.n_patches_per_img)
+
+    orig_preds, mod_preds = [], []
+    for batch in dataloader:
+        x_BCWH = batch["image"].to(cfg.device)
+
+        orig_acts = vit(x_BCWH)
+        orig_logits = clf(orig_acts[:, 1:, :])
+        orig_preds.append(argmax_logits(orig_logits).cpu())
+
+        mod_acts = hooked_vit(x_BCWH)
+        mod_logits = clf(mod_acts[:, 1:, :])
+        mod_preds.append(argmax_logits(mod_logits).cpu())
+
+    # Concatenate all predictions
+    orig_preds = torch.cat(orig_preds, dim=0)
+    mod_preds = torch.cat(mod_preds, dim=0)
+
+    class_results = compute_class_results(orig_preds, mod_preds)
+
+    return Report(
+        method="random-feature",
+        class_results=class_results,
+        intervention_scale=cfg.scale,
+    )
+
+
+@beartype.beartype
+def eval_auto_feat(
+    cfg: config.Quantitative,
+    sae: saev.nn.SparseAutoencoder,
+    clf: torch.nn.Module,
+    dataloader,
+) -> Report:
+    raise NotImplementedError()
+
+
+@jaxtyped(typechecker=beartype.beartype)
+def register_hook(
+    vit: torch.nn.Module,
+    hook: typing.Callable[[Float[Tensor, "..."]], Float[Tensor, "..."]],
+    layer: int,
+    n_patches_per_img: int,
+):
+    patches = vit.get_patches(n_patches_per_img)
+
+    @jaxtyped(typechecker=beartype.beartype)
+    def _hook(
+        block: torch.nn.Module,
+        inputs: tuple,
+        outputs: Float[Tensor, "batch patches dim"],
+    ) -> Float[Tensor, "batch patches dim"]:
+        x = outputs[:, patches, :]
+        x = hook(x)
+        outputs[:, patches, :] = x
+        return outputs
+
+    return vit.get_residuals()[layer].register_forward_hook(_hook)
+
+
+@jaxtyped(typechecker=beartype.beartype)
+def compute_class_results(
+    orig_preds: Int[Tensor, "n_imgs patches"], mod_preds: Int[Tensor, "n_imgs patches"]
+) -> list[ClassResults]:
     class_results = []
     for class_id in range(1, 151):
         # Count original patches of this class
@@ -236,51 +346,30 @@ def eval_rand_vec(
             )
         )
 
-    return Report(
-        method="random-vector",
-        class_results=class_results,
-        intervention_scale=intervention_scale,
-    )
-
-
-@beartype.beartype
-def eval_rand_feat(
-    cfg: config.Quantitative,
-    sae: saev.nn.SparseAutoencoder,
-    clf: torch.nn.Module,
-    dataloader,
-) -> Report:
-    raise NotImplementedError()
-
-
-@beartype.beartype
-def eval_auto_feat(
-    cfg: config.Quantitative,
-    sae: saev.nn.SparseAutoencoder,
-    clf: torch.nn.Module,
-    dataloader,
-) -> Report:
-    raise NotImplementedError()
+    return class_results
 
 
 @jaxtyped(typechecker=beartype.beartype)
-def register_hook(
-    vit: torch.nn.Module,
-    hook: typing.Callable[[Float[Tensor, "..."]], Float[Tensor, "..."]],
-    layer: int,
-    n_patches_per_img: int,
-):
-    patches = vit.get_patches(n_patches_per_img)
+def argmax_logits(
+    logits_BPC: Float[Tensor, "batch patches channels_with_null"],
+) -> Int[Tensor, "batch patches"]:
+    return logits_BPC[:, :, 1:].argmax(axis=-1) + 1
 
-    @jaxtyped(typechecker=beartype.beartype)
-    def _hook(
-        block: torch.nn.Module,
-        inputs: tuple,
-        outputs: Float[Tensor, "batch patches dim"],
-    ) -> Float[Tensor, "batch patches dim"]:
-        x = outputs[:, patches, :]
-        x = hook(x)
-        outputs[:, patches, :] = x
-        return outputs
 
-    return vit.get_residuals()[layer].register_forward_hook(_hook)
+@beartype.beartype
+def unscaled(x: float, max_obs: float | int) -> float:
+    """Scale from [-10, 10] to [10 * -max_obs, 10 * max_obs]."""
+    return map_range(x, (-10.0, 10.0), (-10.0 * max_obs, 10.0 * max_obs))
+
+
+@beartype.beartype
+def map_range(
+    x: float,
+    domain: tuple[float | int, float | int],
+    range: tuple[float | int, float | int],
+) -> float:
+    a, b = domain
+    c, d = range
+    if not (a <= x <= b):
+        raise ValueError(f"x={x:.3f} must be in {[a, b]}.")
+    return c + (x - a) * (d - c) / (b - a)
