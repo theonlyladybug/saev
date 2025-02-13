@@ -72,6 +72,8 @@ class ClassResults:
 class Report:
     """Complete results from an intervention experiment."""
 
+    # Change the comments in Report to use """-""" underneath the field name. AI!
+
     # Which intervention method was used
     method: str
 
