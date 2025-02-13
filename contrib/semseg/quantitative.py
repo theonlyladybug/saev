@@ -72,22 +72,20 @@ class ClassResults:
 class Report:
     """Complete results from an intervention experiment."""
 
-    # Change the comments in Report to use """-""" underneath the field name. AI!
-
-    # Which intervention method was used
     method: str
+    """Which intervention method was used."""
 
-    # Per-class detailed results
     class_results: list[ClassResults]
+    """Per-class detailed results."""
 
-    # Original patch-wise predictions
     original_preds: Int[np.ndarray, "n_imgs height width"]
+    """Original patch-wise predictions."""
 
-    # Modified patch-wise predictions
     modified_preds: Int[np.ndarray, "n_imgs height width"]
+    """Modified patch-wise predictions."""
 
-    # Magnitude of intervention
     intervention_scale: float
+    """Magnitude of intervention."""
 
     @property
     def mean_target_change(self) -> float:
