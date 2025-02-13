@@ -5,7 +5,7 @@ import typing
 import beartype
 import numpy as np
 import torch
-from jaxtyping import Float, Int, jaxtyped
+from jaxtyping import Float, jaxtyped
 from torch import Tensor
 
 import saev.nn
@@ -38,6 +38,7 @@ def main(cfg: config.Quantitative):
     for fn in (eval_rand_vec, eval_rand_feat, eval_auto_feat):
         report = fn(cfg, sae, clf, dataloader)
         reports.append(report)
+        breakpoint()
 
     # Save results
     save(reports, os.path.join(cfg.dump_to, "results.csv"))
@@ -152,16 +153,17 @@ def eval_rand_vec(
         Report containing intervention results, including per-class changes
     """
 
-    rand_vec = torch.randn(sae.cfg.d_vit, device=cfg.device)
-    rand_vec = rand_vec / torch.norm(rand_vec)
-
-    intervention_scale = 10.0  # This could be a config parameter
-    rand_vec = rand_vec * intervention_scale
-
     @jaxtyped(typechecker=beartype.beartype)
     def hook(
         acts: Float[Tensor, "batch patches dim"],
     ) -> Float[Tensor, "batch patches dim"]:
+        # Make this into a different random vector for each batch/patch combination, so it should be (batch, patches, dim) in shape, and each dim-dimensional vector should have unit norm. AI!
+        rand_vec = torch.randn(sae.cfg.d_vit, device=cfg.device)
+        rand_vec = rand_vec / torch.norm(rand_vec)
+
+        intervention_scale = 20.0  # This could be a config parameter
+        rand_vec = rand_vec * intervention_scale
+
         acts[:, 1:, :] += rand_vec
         return acts
 
