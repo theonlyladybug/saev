@@ -1,5 +1,6 @@
 import dataclasses
-import os.path
+import csv
+import os
 import random
 import typing
 
@@ -112,6 +113,8 @@ class Report:
         """Standard deviation of change percentage across classes."""
         return float(np.std(self.per_class_target_changes))
 
+    # Add a other_change_std property to this class. AI!
+
     def to_csv_row(self) -> dict[str, float]:
         """Convert to a row for the summary CSV."""
         return {
@@ -119,11 +122,12 @@ class Report:
             "target_change": self.mean_target_change,
             "other_change": self.mean_other_change,
             "target_std": self.target_change_std,
+            "other_std": self.other_change_std,
         }
 
 
 @beartype.beartype
-def save(results: list[Report], dpath: str) -> None:
+def save(results: list[Report], fpath: str) -> None:
     """
     Save evaluation results to a CSV file.
 
@@ -131,13 +135,12 @@ def save(results: list[Report], dpath: str) -> None:
         results: List of Report objects containing evaluation results
         dpath: Path to save the CSV file
     """
-    import csv
-    import os
 
-    os.makedirs(os.path.dirname(dpath), exist_ok=True)
-    
-    with open(dpath, 'w', newline='') as f:
-        writer = csv.DictWriter(f, fieldnames=['method', 'target_change', 'other_change', 'target_std'])
+    os.makedirs(os.path.dirname(fpath), exist_ok=True)
+    columns = ["method", "target_change", "target_std", "other_change", "other_std"]
+
+    with open(fpath, "w") as fd:
+        writer = csv.DictWriter(fd, fieldnames=columns)
         writer.writeheader()
         for result in results:
             writer.writerow(result.to_csv_row())
