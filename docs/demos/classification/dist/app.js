@@ -7056,7 +7056,7 @@ var $author$project$Classification$getOriginalPredictions = F3(
 	});
 var $author$project$Requests$Id = $elm$core$Basics$identity;
 var $author$project$Requests$init = 0;
-var $author$project$Classification$isDevelopment = false;
+var $author$project$Classification$isDevelopment = true;
 var $elm$url$Url$Parser$State = F5(
 	function (visited, unvisited, params, frag, value) {
 		return {C: frag, E: params, B: unvisited, w: value, G: visited};
@@ -8535,22 +8535,89 @@ var $author$project$Classification$viewImage = function (url) {
 		$elm$html$Html$img,
 		_List_fromArray(
 			[
-				$elm$html$Html$Attributes$src(url),
-				$elm$html$Html$Attributes$class('')
+				$elm$html$Html$Attributes$src(url)
 			]),
 		_List_Nil);
 };
+var $elm$svg$Svg$Attributes$class = _VirtualDom_attribute('class');
+var $elm$svg$Svg$Attributes$d = _VirtualDom_attribute('d');
+var $elm$svg$Svg$Attributes$fill = _VirtualDom_attribute('fill');
+var $elm$svg$Svg$trustedNode = _VirtualDom_nodeNS('http://www.w3.org/2000/svg');
+var $elm$svg$Svg$path = $elm$svg$Svg$trustedNode('path');
+var $elm$html$Html$span = _VirtualDom_node('span');
+var $elm$svg$Svg$svg = $elm$svg$Svg$trustedNode('svg');
+var $elm$svg$Svg$Attributes$viewBox = _VirtualDom_attribute('viewBox');
+var $author$project$Classification$viewSpinner = function (text) {
+	return A2(
+		$elm$html$Html$div,
+		_List_fromArray(
+			[
+				$elm$html$Html$Attributes$class('flex flex-row items-center gap-2')
+			]),
+		_List_fromArray(
+			[
+				A2(
+				$elm$svg$Svg$svg,
+				_List_fromArray(
+					[
+						$elm$svg$Svg$Attributes$class('w-8 h-8 text-gray-200 fill-blue-600 animate-spin'),
+						$elm$svg$Svg$Attributes$viewBox('0 0 100 101'),
+						$elm$svg$Svg$Attributes$fill('none')
+					]),
+				_List_fromArray(
+					[
+						A2(
+						$elm$svg$Svg$path,
+						_List_fromArray(
+							[
+								$elm$svg$Svg$Attributes$d('M100 50.5908C100 78.2051 77.6142 100.591 50 100.591C22.3858 100.591 0 78.2051 0 50.5908C0 22.9766 22.3858 0.59082 50 0.59082C77.6142 0.59082 100 22.9766 100 50.5908ZM9.08144 50.5908C9.08144 73.1895 27.4013 91.5094 50 91.5094C72.5987 91.5094 90.9186 73.1895 90.9186 50.5908C90.9186 27.9921 72.5987 9.67226 50 9.67226C27.4013 9.67226 9.08144 27.9921 9.08144 50.5908Z'),
+								$elm$svg$Svg$Attributes$fill('currentColor')
+							]),
+						_List_Nil),
+						A2(
+						$elm$svg$Svg$path,
+						_List_fromArray(
+							[
+								$elm$svg$Svg$Attributes$d('M93.9676 39.0409C96.393 38.4038 97.8624 35.9116 97.0079 33.5539C95.2932 28.8227 92.871 24.3692 89.8167 20.348C85.8452 15.1192 80.8826 10.7238 75.2124 7.41289C69.5422 4.10194 63.2754 1.94025 56.7698 1.05124C51.7666 0.367541 46.6976 0.446843 41.7345 1.27873C39.2613 1.69328 37.813 4.19778 38.4501 6.62326C39.0873 9.04874 41.5694 10.4717 44.0505 10.1071C47.8511 9.54855 51.7191 9.52689 55.5402 10.0491C60.8642 10.7766 65.9928 12.5457 70.6331 15.2552C75.2735 17.9648 79.3347 21.5619 82.5849 25.841C84.9175 28.9121 86.7997 32.2913 88.1811 35.8758C89.083 38.2158 91.5421 39.6781 93.9676 39.0409Z'),
+								$elm$svg$Svg$Attributes$fill('currentFill')
+							]),
+						_List_Nil)
+					])),
+				A2(
+				$elm$html$Html$span,
+				_List_fromArray(
+					[
+						$elm$html$Html$Attributes$class('italic text-gray-600')
+					]),
+				_List_fromArray(
+					[
+						$elm$html$Html$text(text)
+					]))
+			]));
+};
 var $author$project$Classification$viewClassExamples = function (examined) {
 	if (!examined.$) {
-		return A2($elm$html$Html$div, _List_Nil, _List_Nil);
+		return A2(
+			$elm$html$Html$div,
+			_List_fromArray(
+				[
+					$elm$html$Html$Attributes$class('')
+				]),
+			_List_Nil);
 	} else {
 		var _class = examined.a.i;
 		var examples = examined.a.r;
 		switch (examples.$) {
 			case 0:
-				return A2($elm$html$Html$div, _List_Nil, _List_Nil);
+				return A2(
+					$elm$html$Html$div,
+					_List_fromArray(
+						[
+							$elm$html$Html$Attributes$class('')
+						]),
+					_List_Nil);
 			case 1:
-				return A2($elm$html$Html$div, _List_Nil, _List_Nil);
+				return $author$project$Classification$viewSpinner('Loading class examples');
 			case 2:
 				var examplesLoaded = examples.a;
 				return A2(
@@ -8570,13 +8637,16 @@ var $author$project$Classification$viewClassExamples = function (examined) {
 							_List_fromArray(
 								[
 									$elm$html$Html$text(
-									$author$project$Classification$viewClass(_class))
+									'Examples of \'' + ($author$project$Classification$viewClass(_class) + '\''))
 								])),
 							A2(
 							$elm$html$Html$div,
 							_List_fromArray(
 								[
-									$elm$html$Html$Attributes$class('max-w-xl grid grid-cols-3 gap-1')
+									$elm$html$Html$Attributes$class('grid grid-cols-3 gap-1'),
+									$elm$html$Html$Attributes$class('sm:grid-cols-4'),
+									$elm$html$Html$Attributes$class('md:grid-cols-3'),
+									$elm$html$Html$Attributes$class('lg:w-[32rem]')
 								]),
 							A2(
 								$elm$core$List$map,
@@ -8723,24 +8793,12 @@ var $author$project$Classification$viewInputExample = function (model) {
 				case 0:
 					return _List_fromArray(
 						[
-							A2(
-							$elm$html$Html$p,
-							_List_Nil,
-							_List_fromArray(
-								[
-									$elm$html$Html$text('Initial state. You shouldn\'t see this for long...')
-								]))
+							$author$project$Classification$viewSpinner('Loading')
 						]);
 				case 1:
 					return _List_fromArray(
 						[
-							A2(
-							$elm$html$Html$p,
-							_List_Nil,
-							_List_fromArray(
-								[
-									$elm$html$Html$text('Loading example...')
-								]))
+							$author$project$Classification$viewSpinner('Loading image')
 						]);
 				case 2:
 					var example = _v0.a;
@@ -8807,7 +8865,6 @@ var $elm$virtual_dom$VirtualDom$attribute = F2(
 			_VirtualDom_noJavaScriptOrHtmlUri(value));
 	});
 var $elm$html$Html$Attributes$attribute = $elm$virtual_dom$VirtualDom$attribute;
-var $elm$html$Html$span = _VirtualDom_node('span');
 var $author$project$Classification$bold = function (text) {
 	return A2(
 		$elm$html$Html$span,
@@ -9223,13 +9280,7 @@ var $author$project$Classification$viewProbs = F3(
 								$elm$html$Html$text(callToAction)
 							]));
 				case 1:
-					return A2(
-						$elm$html$Html$p,
-						_List_Nil,
-						_List_fromArray(
-							[
-								$elm$html$Html$text('Loading...')
-							]));
+					return $author$project$Classification$viewSpinner('Loading predictions');
 				case 2:
 					var probs = loadingProbs.a;
 					var top = A2(
@@ -9264,7 +9315,7 @@ var $author$project$Classification$viewProbs = F3(
 					$elm$html$Html$h3,
 					_List_fromArray(
 						[
-							$elm$html$Html$Attributes$class('font-bold text-gray-800')
+							$elm$html$Html$Attributes$class('font-bold text-gray-900')
 						]),
 					_List_fromArray(
 						[
@@ -9334,7 +9385,8 @@ var $author$project$Classification$viewSaeExample = F2(
 					$elm$html$Html$div,
 					_List_fromArray(
 						[
-							$elm$html$Html$Attributes$class('grid grid-cols-2 gap-1')
+							$elm$html$Html$Attributes$class('grid grid-cols-2 gap-1'),
+							$elm$html$Html$Attributes$class('sm:grid-cols-4')
 						]),
 					A2($elm$core$List$map, $author$project$Classification$viewImage, example.aj)),
 					A2(
@@ -9380,62 +9432,6 @@ var $author$project$Classification$viewSaeExample = F2(
 						]))
 				]));
 	});
-var $elm$svg$Svg$trustedNode = _VirtualDom_nodeNS('http://www.w3.org/2000/svg');
-var $elm$svg$Svg$circle = $elm$svg$Svg$trustedNode('circle');
-var $elm$svg$Svg$Attributes$class = _VirtualDom_attribute('class');
-var $elm$svg$Svg$Attributes$cx = _VirtualDom_attribute('cx');
-var $elm$svg$Svg$Attributes$cy = _VirtualDom_attribute('cy');
-var $elm$svg$Svg$Attributes$d = _VirtualDom_attribute('d');
-var $elm$svg$Svg$Attributes$fill = _VirtualDom_attribute('fill');
-var $elm$svg$Svg$path = $elm$svg$Svg$trustedNode('path');
-var $elm$svg$Svg$Attributes$r = _VirtualDom_attribute('r');
-var $elm$svg$Svg$Attributes$stroke = _VirtualDom_attribute('stroke');
-var $elm$svg$Svg$Attributes$strokeWidth = _VirtualDom_attribute('stroke-width');
-var $elm$svg$Svg$svg = $elm$svg$Svg$trustedNode('svg');
-var $elm$svg$Svg$Attributes$viewBox = _VirtualDom_attribute('viewBox');
-var $author$project$Classification$viewSpinner = function (text) {
-	return A2(
-		$elm$html$Html$div,
-		_List_fromArray(
-			[
-				$elm$html$Html$Attributes$class('inline-flex items-center px-4 py-2')
-			]),
-		_List_fromArray(
-			[
-				A2(
-				$elm$svg$Svg$svg,
-				_List_fromArray(
-					[
-						$elm$svg$Svg$Attributes$class('animate-spin -ml-1 mr-3 h-5 w-5 text-sky-500'),
-						$elm$svg$Svg$Attributes$viewBox('0 0 24 24')
-					]),
-				_List_fromArray(
-					[
-						A2(
-						$elm$svg$Svg$circle,
-						_List_fromArray(
-							[
-								$elm$svg$Svg$Attributes$class('opacity-25'),
-								$elm$svg$Svg$Attributes$cx('12'),
-								$elm$svg$Svg$Attributes$cy('12'),
-								$elm$svg$Svg$Attributes$r('10'),
-								$elm$svg$Svg$Attributes$stroke('currentColor'),
-								$elm$svg$Svg$Attributes$strokeWidth('4')
-							]),
-						_List_Nil),
-						A2(
-						$elm$svg$Svg$path,
-						_List_fromArray(
-							[
-								$elm$svg$Svg$Attributes$class('opacity-25'),
-								$elm$svg$Svg$Attributes$fill('currentColor'),
-								$elm$svg$Svg$Attributes$d('M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z')
-							]),
-						_List_Nil)
-					])),
-				$elm$html$Html$text(text)
-			]));
-};
 var $author$project$Classification$viewSaeExamples = F2(
 	function (examplesLoading, values) {
 		switch (examplesLoading.$) {
@@ -9451,7 +9447,7 @@ var $author$project$Classification$viewSaeExamples = F2(
 							$elm$html$Html$text('Click on the image above to find similar image patches using a sparse autoencoder (SAE).')
 						]));
 			case 1:
-				return $author$project$Classification$viewSpinner('Loading similar patches...');
+				return $author$project$Classification$viewSpinner('Loading similar patches');
 			case 2:
 				var examples = examplesLoading.a;
 				return A2(
@@ -9582,7 +9578,8 @@ var $author$project$Classification$view = function (model) {
 								$elm$html$Html$div,
 								_List_fromArray(
 									[
-										$elm$html$Html$Attributes$class('')
+										$elm$html$Html$Attributes$class('flex flex-col'),
+										$elm$html$Html$Attributes$class('md:flex-row md:justify-between md:items-start')
 									]),
 								_List_fromArray(
 									[

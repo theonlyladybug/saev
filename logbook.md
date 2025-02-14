@@ -1451,3 +1451,17 @@ Either it's a bug and I need to fix it, or I need to only pick patches with
 One such bug is activation normalizations.
 You need to normalize the activations.
 Just like in the comparison app in saev, you need to load the mean/scalar from disk for DINOv2 activations on IN1K.
+
+# 02/14/2025
+
+Happy Valentine's Day!
+
+There are several different screen sizes to try.
+
+1. Mobile (real phone)
+2. 1/3 macbook
+3. 1/2 macbook
+4. 2/3 macbook
+5. Full macbook
+
+I think this covers the important stuff.
