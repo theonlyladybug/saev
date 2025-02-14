@@ -8576,7 +8576,7 @@ var $author$project$Classification$viewClassExamples = function (examined) {
 							$elm$html$Html$div,
 							_List_fromArray(
 								[
-									$elm$html$Html$Attributes$class('max-w-xl grid grid-cols-3 gap-2')
+									$elm$html$Html$Attributes$class('max-w-xl grid grid-cols-3 gap-1')
 								]),
 							A2(
 								$elm$core$List$map,
@@ -8751,7 +8751,7 @@ var $author$project$Classification$viewInputExample = function (model) {
 							$elm$html$Html$div,
 							_List_fromArray(
 								[
-									$elm$html$Html$Attributes$class('flex flex-row gap-2')
+									$elm$html$Html$Attributes$class('flex flex-row gap-1')
 								]),
 							_List_fromArray(
 								[
@@ -9129,14 +9129,14 @@ var $author$project$Classification$viewInstructions = function (example) {
 						_List_fromArray(
 							[
 								$elm$html$Html$Attributes$class('grid grid-cols-2 sm:grid-cols-4 md:inline-grid md:grid-cols-2 md:items-start lg:grid-cols-4'),
-								$elm$html$Html$Attributes$class('gap-2 mt-4 md:mt-0')
+								$elm$html$Html$Attributes$class('gap-1 mt-4 md:mt-0')
 							]),
 						_List_fromArray(
 							[
-								A2($author$project$Classification$viewExampleButton, '/assets/contrib/classification/680.webp', 680),
-								A2($author$project$Classification$viewExampleButton, '/assets/contrib/classification/1129.webp', 1129),
-								A2($author$project$Classification$viewExampleButton, '/assets/contrib/classification/4139.webp', 4139),
-								A2($author$project$Classification$viewExampleButton, '/assets/contrib/classification/5099.webp', 5099)
+								A2($author$project$Classification$viewExampleButton, '/SAE-V/assets/contrib/classification/680.webp', 680),
+								A2($author$project$Classification$viewExampleButton, '/SAE-V/assets/contrib/classification/1129.webp', 1129),
+								A2($author$project$Classification$viewExampleButton, '/SAE-V/assets/contrib/classification/4139.webp', 4139),
+								A2($author$project$Classification$viewExampleButton, '/SAE-V/assets/contrib/classification/5099.webp', 5099)
 							]))
 					]))
 			]));
@@ -9326,7 +9326,7 @@ var $author$project$Classification$viewSaeExample = F2(
 			$elm$html$Html$div,
 			_List_fromArray(
 				[
-					$elm$html$Html$Attributes$class('')
+					$elm$html$Html$Attributes$class('border-b border-gray-300 my-2 pb-2')
 				]),
 			_List_fromArray(
 				[
@@ -9334,7 +9334,7 @@ var $author$project$Classification$viewSaeExample = F2(
 					$elm$html$Html$div,
 					_List_fromArray(
 						[
-							$elm$html$Html$Attributes$class('grid grid-cols-4')
+							$elm$html$Html$Attributes$class('grid grid-cols-2 gap-1')
 						]),
 					A2($elm$core$List$map, $author$project$Classification$viewImage, example.aj)),
 					A2(
@@ -9478,6 +9478,7 @@ var $author$project$Classification$viewSaeExamples = F2(
 								_List_Nil,
 								_List_fromArray(
 									[
+										$elm$html$Html$text('The '),
 										A2(
 										$elm$html$Html$span,
 										_List_fromArray(
@@ -9486,7 +9487,7 @@ var $author$project$Classification$viewSaeExamples = F2(
 											]),
 										_List_fromArray(
 											[
-												$elm$html$Html$text('These patches')
+												$elm$html$Html$text('red patches')
 											])),
 										$elm$html$Html$text(' above are like '),
 										A2(
@@ -9497,7 +9498,7 @@ var $author$project$Classification$viewSaeExamples = F2(
 											]),
 										_List_fromArray(
 											[
-												$elm$html$Html$text('these patches')
+												$elm$html$Html$text('highlighted patches')
 											])),
 										$elm$html$Html$text(' below. (Not what you expected? Add more patches)')
 									]))
@@ -9535,7 +9536,7 @@ var $author$project$Classification$view = function (model) {
 				$elm$html$Html$main_,
 				_List_fromArray(
 					[
-						$elm$html$Html$Attributes$class('w-full min-h-screen p-0 md:p-1 lg:p-2 bg-gray-50 space-y-4')
+						$elm$html$Html$Attributes$class('w-full min-h-screen p-0 bg-gray-50')
 					]),
 				_List_fromArray(
 					[
@@ -9543,7 +9544,7 @@ var $author$project$Classification$view = function (model) {
 						$elm$html$Html$div,
 						_List_fromArray(
 							[
-								$elm$html$Html$Attributes$class('border border-gray-200 bg-white p-2 space-y-4')
+								$elm$html$Html$Attributes$class('bg-white p-2 space-y-4')
 							]),
 						_List_fromArray(
 							[
@@ -9562,7 +9563,7 @@ var $author$project$Classification$view = function (model) {
 								$elm$html$Html$div,
 								_List_fromArray(
 									[
-										$elm$html$Html$Attributes$class('flex flex-col items-stretch')
+										$elm$html$Html$Attributes$class('flex flex-col items-stretch gap-2 md:flex-row')
 									]),
 								_List_fromArray(
 									[
@@ -9574,7 +9575,7 @@ var $author$project$Classification$view = function (model) {
 								$elm$html$Html$div,
 								_List_fromArray(
 									[
-										$elm$html$Html$Attributes$class('border-t border-gray-200')
+										$elm$html$Html$Attributes$class('border-t border-gray-300')
 									]),
 								_List_Nil),
 								A2(

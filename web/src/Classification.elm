@@ -640,15 +640,15 @@ view model =
     , body =
         [ Html.header [] []
         , Html.main_
-            [ Html.Attributes.class "w-full min-h-screen p-0 md:p-1 lg:p-2 bg-gray-50 space-y-4" ]
+            [ Html.Attributes.class "w-full min-h-screen p-0 bg-gray-50" ]
             [ Html.div
-                [ Html.Attributes.class "border border-gray-200 bg-white p-2 space-y-4" ]
+                [ Html.Attributes.class "bg-white p-2 space-y-4" ]
                 [ Html.h1
                     [ class "text-2xl" ]
                     [ Html.text "SAEs for Scientifically Rigorous Interpretation of Vision Models" ]
                 , viewInstructions model.inputExampleIndex
                 , Html.div
-                    [ class "flex flex-col items-stretch" ]
+                    [ class "flex flex-col items-stretch gap-2 md:flex-row" ]
                     [ viewInputExample model
                     , viewProbs "Prediction"
                         "Wait just a second."
@@ -657,7 +657,7 @@ view model =
                         callToAction
                         model.modifiedPredictions
                     ]
-                , Html.div [ class "border-t border-gray-200" ] []
+                , Html.div [ class "border-t border-gray-300" ] []
                 , Html.div
                     [ class "" ]
                     [ viewSaeExamples model.saeExamples model.sliders
@@ -692,7 +692,7 @@ viewInputExample model =
                     model.selectedPatchIndices
                     example.url
                 , Html.div
-                    [ Html.Attributes.class "flex flex-row gap-2" ]
+                    [ Html.Attributes.class "flex flex-row gap-1" ]
                     [ viewButton (SetUrl (model.inputExampleIndex - 1)) "Previous"
                     , viewButton GetRandomExample "Random"
                     , viewButton (SetUrl (model.inputExampleIndex + 1)) "Next"
@@ -851,9 +851,10 @@ viewSaeExamples examplesLoading values =
                     [ class "font-bold" ]
                     [ Html.text "Similar Examples" ]
                  , Html.p []
-                    [ Html.span [ class "bg-rose-600 text-white p-1 rounded" ] [ Html.text "These patches" ]
+                    [ Html.text "The "
+                    , Html.span [ class "bg-rose-600 text-white p-1 rounded" ] [ Html.text "red patches" ]
                     , Html.text " above are like "
-                    , Html.span [ class "bg-rose-600 text-white p-1 rounded" ] [ Html.text "these patches" ]
+                    , Html.span [ class "bg-rose-600 text-white p-1 rounded" ] [ Html.text "highlighted patches" ]
                     , Html.text " below. (Not what you expected? Add more patches)"
                     ]
                  ]
@@ -869,9 +870,9 @@ viewSaeExamples examplesLoading values =
 viewSaeExample : SaeExample -> Float -> Html.Html Msg
 viewSaeExample example value =
     Html.div
-        [ class "" ]
+        [ class "border-b border-gray-300 my-2 pb-2" ]
         [ Html.div
-            [ class "grid grid-cols-4" ]
+            [ class "grid grid-cols-2 gap-1" ]
             (List.map viewImage example.urls)
         , Html.div
             [ class "" ]
@@ -938,7 +939,7 @@ viewClassExamples examined =
                             [ Html.Attributes.class "font-bold" ]
                             [ class |> viewClass |> Html.text ]
                         , Html.div
-                            [ Html.Attributes.class "max-w-xl grid grid-cols-3 gap-2" ]
+                            [ Html.Attributes.class "max-w-xl grid grid-cols-3 gap-1" ]
                             (examplesLoaded |> List.reverse |> List.take 9 |> List.map (.url >> viewImage))
                         ]
 
@@ -1094,12 +1095,12 @@ viewInstructions example =
                 ]
             , Html.div
                 [ class "grid grid-cols-2 sm:grid-cols-4 md:inline-grid md:grid-cols-2 md:items-start lg:grid-cols-4"
-                , class "gap-2 mt-4 md:mt-0"
+                , class "gap-1 mt-4 md:mt-0"
                 ]
-                [ viewExampleButton "/assets/contrib/classification/680.webp" 680
-                , viewExampleButton "/assets/contrib/classification/1129.webp" 1129
-                , viewExampleButton "/assets/contrib/classification/4139.webp" 4139
-                , viewExampleButton "/assets/contrib/classification/5099.webp" 5099
+                [ viewExampleButton "/SAE-V/assets/contrib/classification/680.webp" 680
+                , viewExampleButton "/SAE-V/assets/contrib/classification/1129.webp" 1129
+                , viewExampleButton "/SAE-V/assets/contrib/classification/4139.webp" 4139
+                , viewExampleButton "/SAE-V/assets/contrib/classification/5099.webp" 5099
                 ]
             ]
         ]
