@@ -35,20 +35,70 @@ hljs.highlightAll();
 <section>
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
+<dt id="contrib.semseg.quantitative.argmax_logits"><code class="name flex">
+<span>def <span class="ident">argmax_logits</span></span>(<span>logits_BPC: jaxtyping.Float[Tensor, 'batch patches channels_with_null']) ‑> jaxtyping.Int[Tensor, 'batch patches']</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="contrib.semseg.quantitative.compute_class_results"><code class="name flex">
+<span>def <span class="ident">compute_class_results</span></span>(<span>orig_preds: jaxtyping.Int[Tensor, 'n_imgs patches'],<br>mod_preds: jaxtyping.Int[Tensor, 'n_imgs patches']) ‑> list[<a title="contrib.semseg.quantitative.ClassResults" href="#contrib.semseg.quantitative.ClassResults">ClassResults</a>]</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
 <dt id="contrib.semseg.quantitative.eval_auto_feat"><code class="name flex">
-<span>def <span class="ident">eval_auto_feat</span></span>(<span>cfg: <a title="contrib.semseg.config.Quantitative" href="config.html#contrib.semseg.config.Quantitative">Quantitative</a>) ‑> <a title="contrib.semseg.quantitative.Report" href="#contrib.semseg.quantitative.Report">Report</a></span>
+<span>def <span class="ident">eval_auto_feat</span></span>(<span>cfg: <a title="contrib.semseg.config.Quantitative" href="config.html#contrib.semseg.config.Quantitative">Quantitative</a>,<br>sae: <a title="saev.nn.SparseAutoencoder" href="../../saev/nn.html#saev.nn.SparseAutoencoder">SparseAutoencoder</a>,<br>clf: torch.nn.modules.module.Module,<br>dataloader) ‑> <a title="contrib.semseg.quantitative.Report" href="#contrib.semseg.quantitative.Report">Report</a></span>
 </code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
 <dt id="contrib.semseg.quantitative.eval_rand_feat"><code class="name flex">
-<span>def <span class="ident">eval_rand_feat</span></span>(<span>cfg: <a title="contrib.semseg.config.Quantitative" href="config.html#contrib.semseg.config.Quantitative">Quantitative</a>) ‑> <a title="contrib.semseg.quantitative.Report" href="#contrib.semseg.quantitative.Report">Report</a></span>
+<span>def <span class="ident">eval_rand_feat</span></span>(<span>cfg: <a title="contrib.semseg.config.Quantitative" href="config.html#contrib.semseg.config.Quantitative">Quantitative</a>,<br>sae: <a title="saev.nn.SparseAutoencoder" href="../../saev/nn.html#saev.nn.SparseAutoencoder">SparseAutoencoder</a>,<br>clf: torch.nn.modules.module.Module,<br>dataloader) ‑> <a title="contrib.semseg.quantitative.Report" href="#contrib.semseg.quantitative.Report">Report</a></span>
+</code></dt>
+<dd>
+<div class="desc"><p>Evaluates the effects of suppressing a random SAE feature.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>cfg</code></strong></dt>
+<dd>Configuration for quantitative evaluation</dd>
+<dt><strong><code>sae</code></strong></dt>
+<dd>Trained sparse autoencoder model</dd>
+<dt><strong><code>clf</code></strong></dt>
+<dd>Trained classifier model</dd>
+<dt><strong><code>dataloader</code></strong></dt>
+<dd>DataLoader providing batches of images</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Report containing intervention results, including per-class changes</p></div>
+</dd>
+<dt id="contrib.semseg.quantitative.eval_rand_vec"><code class="name flex">
+<span>def <span class="ident">eval_rand_vec</span></span>(<span>cfg: <a title="contrib.semseg.config.Quantitative" href="config.html#contrib.semseg.config.Quantitative">Quantitative</a>,<br>sae: <a title="saev.nn.SparseAutoencoder" href="../../saev/nn.html#saev.nn.SparseAutoencoder">SparseAutoencoder</a>,<br>clf: torch.nn.modules.module.Module,<br>dataloader) ‑> <a title="contrib.semseg.quantitative.Report" href="#contrib.semseg.quantitative.Report">Report</a></span>
+</code></dt>
+<dd>
+<div class="desc"><p>Evaluates the effects of adding a random unit vector to the patches.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>cfg</code></strong></dt>
+<dd>Configuration for quantitative evaluation</dd>
+<dt><strong><code>sae</code></strong></dt>
+<dd>Trained sparse autoencoder model</dd>
+<dt><strong><code>clf</code></strong></dt>
+<dd>Trained classifier model</dd>
+<dt><strong><code>dataloader</code></strong></dt>
+<dd>DataLoader providing batches of images</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Report containing intervention results, including per-class changes</p></div>
+</dd>
+<dt id="contrib.semseg.quantitative.get_latent_lookup"><code class="name flex">
+<span>def <span class="ident">get_latent_lookup</span></span>(<span>cfg: <a title="contrib.semseg.config.Quantitative" href="config.html#contrib.semseg.config.Quantitative">Quantitative</a>,<br>sae: <a title="saev.nn.SparseAutoencoder" href="../../saev/nn.html#saev.nn.SparseAutoencoder">SparseAutoencoder</a>,<br>dataloader) ‑> jaxtyping.Int[Tensor, '151']</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
-<dt id="contrib.semseg.quantitative.eval_rand_vec"><code class="name flex">
-<span>def <span class="ident">eval_rand_vec</span></span>(<span>cfg: <a title="contrib.semseg.config.Quantitative" href="config.html#contrib.semseg.config.Quantitative">Quantitative</a>) ‑> <a title="contrib.semseg.quantitative.Report" href="#contrib.semseg.quantitative.Report">Report</a></span>
+<dt id="contrib.semseg.quantitative.get_patch_i"><code class="name flex">
+<span>def <span class="ident">get_patch_i</span></span>(<span>i: jaxtyping.Int[Tensor, 'batch width height'], n_patches_per_img: int) ‑> jaxtyping.Int[Tensor, 'batch width height']</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -59,37 +109,265 @@ hljs.highlightAll();
 <dd>
 <div class="desc"><p>Main entry point for quantitative evaluation.</p></div>
 </dd>
-<dt id="contrib.semseg.quantitative.save"><code class="name flex">
-<span>def <span class="ident">save</span></span>(<span>results: list[<a title="contrib.semseg.quantitative.Report" href="#contrib.semseg.quantitative.Report">Report</a>],<br>dpath: str) ‑> None</span>
+<dt id="contrib.semseg.quantitative.map_range"><code class="name flex">
+<span>def <span class="ident">map_range</span></span>(<span>x: jaxtyping.Float[Tensor, '*batch'],<br>domain: tuple[float | int, float | int],<br>range: tuple[float | int, float | int]) ‑> jaxtyping.Float[Tensor, '*batch']</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
+</dd>
+<dt id="contrib.semseg.quantitative.register_hook"><code class="name flex">
+<span>def <span class="ident">register_hook</span></span>(<span>vit: torch.nn.modules.module.Module,<br>hook: Callable[[jaxtyping.Float[Tensor, '...']], jaxtyping.Float[Tensor, '...']],<br>layer: int,<br>n_patches_per_img: int)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="contrib.semseg.quantitative.save"><code class="name flex">
+<span>def <span class="ident">save</span></span>(<span>results: list[<a title="contrib.semseg.quantitative.Report" href="#contrib.semseg.quantitative.Report">Report</a>],<br>fpath: str) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Save evaluation results to a CSV file.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>results</code></strong></dt>
+<dd>List of Report objects containing evaluation results</dd>
+<dt><strong><code>dpath</code></strong></dt>
+<dd>Path to save the CSV file</dd>
+</dl></div>
+</dd>
+<dt id="contrib.semseg.quantitative.unscaled"><code class="name flex">
+<span>def <span class="ident">unscaled</span></span>(<span>x: jaxtyping.Float[Tensor, '*batch'], max_obs: float | int) ‑> jaxtyping.Float[Tensor, '*batch']</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Scale from [-10, 10] to [10 * -max_obs, 10 * max_obs].</p></div>
 </dd>
 </dl>
 </section>
 <section>
 <h2 class="section-title" id="header-classes">Classes</h2>
 <dl>
-<dt id="contrib.semseg.quantitative.Report"><code class="flex name class">
-<span>class <span class="ident">Report</span></span>
-<span>(</span><span>method: str)</span>
+<dt id="contrib.semseg.quantitative.ClassResults"><code class="flex name class">
+<span>class <span class="ident">ClassResults</span></span>
+<span>(</span><span>class_id: int,<br>class_name: str,<br>n_orig_patches: int,<br>n_changed_patches: int,<br>n_other_patches: int,<br>n_other_changed: int,<br>change_distribution: dict[int, int])</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Report(method: str)</p></div>
+<div class="desc"><p>Results for a single class.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@beartype.beartype
 @dataclasses.dataclass(frozen=True)
-class Report:
-    method: str</code></pre>
+class ClassResults:
+    &#34;&#34;&#34;Results for a single class.&#34;&#34;&#34;
+
+    class_id: int
+    &#34;&#34;&#34;Numeric identifier for the class.&#34;&#34;&#34;
+
+    class_name: str
+    &#34;&#34;&#34;Human-readable name of the class.&#34;&#34;&#34;
+
+    n_orig_patches: int
+    &#34;&#34;&#34;Original patches that were this class.&#34;&#34;&#34;
+
+    n_changed_patches: int
+    &#34;&#34;&#34;After intervention, how many patches changed.&#34;&#34;&#34;
+
+    n_other_patches: int
+    &#34;&#34;&#34;Total patches that weren&#39;t this class.&#34;&#34;&#34;
+
+    n_other_changed: int
+    &#34;&#34;&#34;After intervention, how many of the other patches changed.&#34;&#34;&#34;
+
+    change_distribution: dict[int, int]
+    &#34;&#34;&#34;What classes did patches change to? Tracks how many times &lt;value&gt; a patch changed from self.class_id to &lt;key&gt;.&#34;&#34;&#34;</code></pre>
 </details>
 <h3>Class variables</h3>
 <dl>
+<dt id="contrib.semseg.quantitative.ClassResults.change_distribution"><code class="name">var <span class="ident">change_distribution</span> : dict[int, int]</code></dt>
+<dd>
+<div class="desc"><p>What classes did patches change to? Tracks how many times <value> a patch changed from self.class_id to <key>.</p></div>
+</dd>
+<dt id="contrib.semseg.quantitative.ClassResults.class_id"><code class="name">var <span class="ident">class_id</span> : int</code></dt>
+<dd>
+<div class="desc"><p>Numeric identifier for the class.</p></div>
+</dd>
+<dt id="contrib.semseg.quantitative.ClassResults.class_name"><code class="name">var <span class="ident">class_name</span> : str</code></dt>
+<dd>
+<div class="desc"><p>Human-readable name of the class.</p></div>
+</dd>
+<dt id="contrib.semseg.quantitative.ClassResults.n_changed_patches"><code class="name">var <span class="ident">n_changed_patches</span> : int</code></dt>
+<dd>
+<div class="desc"><p>After intervention, how many patches changed.</p></div>
+</dd>
+<dt id="contrib.semseg.quantitative.ClassResults.n_orig_patches"><code class="name">var <span class="ident">n_orig_patches</span> : int</code></dt>
+<dd>
+<div class="desc"><p>Original patches that were this class.</p></div>
+</dd>
+<dt id="contrib.semseg.quantitative.ClassResults.n_other_changed"><code class="name">var <span class="ident">n_other_changed</span> : int</code></dt>
+<dd>
+<div class="desc"><p>After intervention, how many of the other patches changed.</p></div>
+</dd>
+<dt id="contrib.semseg.quantitative.ClassResults.n_other_patches"><code class="name">var <span class="ident">n_other_patches</span> : int</code></dt>
+<dd>
+<div class="desc"><p>Total patches that weren't this class.</p></div>
+</dd>
+</dl>
+</dd>
+<dt id="contrib.semseg.quantitative.Report"><code class="flex name class">
+<span>class <span class="ident">Report</span></span>
+<span>(</span><span>method: str,<br>class_results: list[<a title="contrib.semseg.quantitative.ClassResults" href="#contrib.semseg.quantitative.ClassResults">ClassResults</a>],<br>intervention_scale: float)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Complete results from an intervention experiment.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@jaxtyped(typechecker=beartype.beartype)
+@dataclasses.dataclass(frozen=True)
+class Report:
+    &#34;&#34;&#34;Complete results from an intervention experiment.&#34;&#34;&#34;
+
+    method: str
+    &#34;&#34;&#34;Which intervention method was used.&#34;&#34;&#34;
+
+    class_results: list[ClassResults]
+    &#34;&#34;&#34;Per-class detailed results.&#34;&#34;&#34;
+
+    intervention_scale: float
+    &#34;&#34;&#34;Magnitude of intervention.&#34;&#34;&#34;
+
+    @property
+    def mean_target_change(self) -&gt; float:
+        &#34;&#34;&#34;Percentage of target patches that changed class.&#34;&#34;&#34;
+        total_target = sum(r.n_orig_patches for r in self.class_results)
+        total_changed = sum(r.n_changed_patches for r in self.class_results)
+        return total_changed / total_target if total_target &gt; 0 else 0.0
+
+    @property
+    def mean_other_change(self) -&gt; float:
+        &#34;&#34;&#34;Percentage of non-target patches that changed class.&#34;&#34;&#34;
+        total_other = sum(r.n_other_patches for r in self.class_results)
+        total_changed = sum(r.n_other_changed for r in self.class_results)
+        return total_changed / total_other if total_other &gt; 0 else 0.0
+
+    @property
+    def target_change_std(self) -&gt; float:
+        &#34;&#34;&#34;Standard deviation of change percentage across classes.&#34;&#34;&#34;
+        per_class_target_changes = np.array([
+            r.n_changed_patches / r.n_orig_patches if r.n_orig_patches &gt; 0 else 0.0
+            for r in self.class_results
+        ])
+        return float(np.std(per_class_target_changes))
+
+    @property
+    def other_change_std(self) -&gt; float:
+        &#34;&#34;&#34;Standard deviation of non-target patch changes across classes.&#34;&#34;&#34;
+        per_class_other_changes = np.array([
+            r.n_other_changed / r.n_other_patches if r.n_other_patches &gt; 0 else 0.0
+            for r in self.class_results
+        ])
+        return float(np.std(per_class_other_changes))
+
+    def to_csv_row(self) -&gt; dict[str, float]:
+        &#34;&#34;&#34;Convert to a row for the summary CSV.&#34;&#34;&#34;
+        return {
+            &#34;method&#34;: self.method,
+            &#34;target_change&#34;: self.mean_target_change,
+            &#34;other_change&#34;: self.mean_other_change,
+            &#34;target_std&#34;: self.target_change_std,
+            &#34;other_std&#34;: self.other_change_std,
+        }</code></pre>
+</details>
+<h3>Class variables</h3>
+<dl>
+<dt id="contrib.semseg.quantitative.Report.class_results"><code class="name">var <span class="ident">class_results</span> : list[<a title="contrib.semseg.quantitative.ClassResults" href="#contrib.semseg.quantitative.ClassResults">ClassResults</a>]</code></dt>
+<dd>
+<div class="desc"><p>Per-class detailed results.</p></div>
+</dd>
+<dt id="contrib.semseg.quantitative.Report.intervention_scale"><code class="name">var <span class="ident">intervention_scale</span> : float</code></dt>
+<dd>
+<div class="desc"><p>Magnitude of intervention.</p></div>
+</dd>
 <dt id="contrib.semseg.quantitative.Report.method"><code class="name">var <span class="ident">method</span> : str</code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Which intervention method was used.</p></div>
+</dd>
+</dl>
+<h3>Instance variables</h3>
+<dl>
+<dt id="contrib.semseg.quantitative.Report.mean_other_change"><code class="name">prop <span class="ident">mean_other_change</span> : float</code></dt>
+<dd>
+<div class="desc"><p>Percentage of non-target patches that changed class.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def mean_other_change(self) -&gt; float:
+    &#34;&#34;&#34;Percentage of non-target patches that changed class.&#34;&#34;&#34;
+    total_other = sum(r.n_other_patches for r in self.class_results)
+    total_changed = sum(r.n_other_changed for r in self.class_results)
+    return total_changed / total_other if total_other &gt; 0 else 0.0</code></pre>
+</details>
+</dd>
+<dt id="contrib.semseg.quantitative.Report.mean_target_change"><code class="name">prop <span class="ident">mean_target_change</span> : float</code></dt>
+<dd>
+<div class="desc"><p>Percentage of target patches that changed class.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def mean_target_change(self) -&gt; float:
+    &#34;&#34;&#34;Percentage of target patches that changed class.&#34;&#34;&#34;
+    total_target = sum(r.n_orig_patches for r in self.class_results)
+    total_changed = sum(r.n_changed_patches for r in self.class_results)
+    return total_changed / total_target if total_target &gt; 0 else 0.0</code></pre>
+</details>
+</dd>
+<dt id="contrib.semseg.quantitative.Report.other_change_std"><code class="name">prop <span class="ident">other_change_std</span> : float</code></dt>
+<dd>
+<div class="desc"><p>Standard deviation of non-target patch changes across classes.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def other_change_std(self) -&gt; float:
+    &#34;&#34;&#34;Standard deviation of non-target patch changes across classes.&#34;&#34;&#34;
+    per_class_other_changes = np.array([
+        r.n_other_changed / r.n_other_patches if r.n_other_patches &gt; 0 else 0.0
+        for r in self.class_results
+    ])
+    return float(np.std(per_class_other_changes))</code></pre>
+</details>
+</dd>
+<dt id="contrib.semseg.quantitative.Report.target_change_std"><code class="name">prop <span class="ident">target_change_std</span> : float</code></dt>
+<dd>
+<div class="desc"><p>Standard deviation of change percentage across classes.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def target_change_std(self) -&gt; float:
+    &#34;&#34;&#34;Standard deviation of change percentage across classes.&#34;&#34;&#34;
+    per_class_target_changes = np.array([
+        r.n_changed_patches / r.n_orig_patches if r.n_orig_patches &gt; 0 else 0.0
+        for r in self.class_results
+    ])
+    return float(np.std(per_class_target_changes))</code></pre>
+</details>
+</dd>
+</dl>
+<h3>Methods</h3>
+<dl>
+<dt id="contrib.semseg.quantitative.Report.to_csv_row"><code class="name flex">
+<span>def <span class="ident">to_csv_row</span></span>(<span>self) ‑> dict[str, float]</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Convert to a row for the summary CSV.</p></div>
 </dd>
 </dl>
 </dd>
@@ -108,19 +386,45 @@ class Report:
 </li>
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="">
+<li><code><a title="contrib.semseg.quantitative.argmax_logits" href="#contrib.semseg.quantitative.argmax_logits">argmax_logits</a></code></li>
+<li><code><a title="contrib.semseg.quantitative.compute_class_results" href="#contrib.semseg.quantitative.compute_class_results">compute_class_results</a></code></li>
 <li><code><a title="contrib.semseg.quantitative.eval_auto_feat" href="#contrib.semseg.quantitative.eval_auto_feat">eval_auto_feat</a></code></li>
 <li><code><a title="contrib.semseg.quantitative.eval_rand_feat" href="#contrib.semseg.quantitative.eval_rand_feat">eval_rand_feat</a></code></li>
 <li><code><a title="contrib.semseg.quantitative.eval_rand_vec" href="#contrib.semseg.quantitative.eval_rand_vec">eval_rand_vec</a></code></li>
+<li><code><a title="contrib.semseg.quantitative.get_latent_lookup" href="#contrib.semseg.quantitative.get_latent_lookup">get_latent_lookup</a></code></li>
+<li><code><a title="contrib.semseg.quantitative.get_patch_i" href="#contrib.semseg.quantitative.get_patch_i">get_patch_i</a></code></li>
 <li><code><a title="contrib.semseg.quantitative.main" href="#contrib.semseg.quantitative.main">main</a></code></li>
+<li><code><a title="contrib.semseg.quantitative.map_range" href="#contrib.semseg.quantitative.map_range">map_range</a></code></li>
+<li><code><a title="contrib.semseg.quantitative.register_hook" href="#contrib.semseg.quantitative.register_hook">register_hook</a></code></li>
 <li><code><a title="contrib.semseg.quantitative.save" href="#contrib.semseg.quantitative.save">save</a></code></li>
+<li><code><a title="contrib.semseg.quantitative.unscaled" href="#contrib.semseg.quantitative.unscaled">unscaled</a></code></li>
 </ul>
 </li>
 <li><h3><a href="#header-classes">Classes</a></h3>
 <ul>
 <li>
+<h4><code><a title="contrib.semseg.quantitative.ClassResults" href="#contrib.semseg.quantitative.ClassResults">ClassResults</a></code></h4>
+<ul class="two-column">
+<li><code><a title="contrib.semseg.quantitative.ClassResults.change_distribution" href="#contrib.semseg.quantitative.ClassResults.change_distribution">change_distribution</a></code></li>
+<li><code><a title="contrib.semseg.quantitative.ClassResults.class_id" href="#contrib.semseg.quantitative.ClassResults.class_id">class_id</a></code></li>
+<li><code><a title="contrib.semseg.quantitative.ClassResults.class_name" href="#contrib.semseg.quantitative.ClassResults.class_name">class_name</a></code></li>
+<li><code><a title="contrib.semseg.quantitative.ClassResults.n_changed_patches" href="#contrib.semseg.quantitative.ClassResults.n_changed_patches">n_changed_patches</a></code></li>
+<li><code><a title="contrib.semseg.quantitative.ClassResults.n_orig_patches" href="#contrib.semseg.quantitative.ClassResults.n_orig_patches">n_orig_patches</a></code></li>
+<li><code><a title="contrib.semseg.quantitative.ClassResults.n_other_changed" href="#contrib.semseg.quantitative.ClassResults.n_other_changed">n_other_changed</a></code></li>
+<li><code><a title="contrib.semseg.quantitative.ClassResults.n_other_patches" href="#contrib.semseg.quantitative.ClassResults.n_other_patches">n_other_patches</a></code></li>
+</ul>
+</li>
+<li>
 <h4><code><a title="contrib.semseg.quantitative.Report" href="#contrib.semseg.quantitative.Report">Report</a></code></h4>
-<ul class="">
+<ul class="two-column">
+<li><code><a title="contrib.semseg.quantitative.Report.class_results" href="#contrib.semseg.quantitative.Report.class_results">class_results</a></code></li>
+<li><code><a title="contrib.semseg.quantitative.Report.intervention_scale" href="#contrib.semseg.quantitative.Report.intervention_scale">intervention_scale</a></code></li>
+<li><code><a title="contrib.semseg.quantitative.Report.mean_other_change" href="#contrib.semseg.quantitative.Report.mean_other_change">mean_other_change</a></code></li>
+<li><code><a title="contrib.semseg.quantitative.Report.mean_target_change" href="#contrib.semseg.quantitative.Report.mean_target_change">mean_target_change</a></code></li>
 <li><code><a title="contrib.semseg.quantitative.Report.method" href="#contrib.semseg.quantitative.Report.method">method</a></code></li>
+<li><code><a title="contrib.semseg.quantitative.Report.other_change_std" href="#contrib.semseg.quantitative.Report.other_change_std">other_change_std</a></code></li>
+<li><code><a title="contrib.semseg.quantitative.Report.target_change_std" href="#contrib.semseg.quantitative.Report.target_change_std">target_change_std</a></code></li>
+<li><code><a title="contrib.semseg.quantitative.Report.to_csv_row" href="#contrib.semseg.quantitative.Report.to_csv_row">to_csv_row</a></code></li>
 </ul>
 </li>
 </ul>

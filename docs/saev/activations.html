@@ -118,7 +118,7 @@ Also saves a metadata.json file to that directory for human reference.</p>
 <div class="desc"></div>
 </dd>
 <dt id="saev.activations.make_vit"><code class="name flex">
-<span>def <span class="ident">make_vit</span></span>(<span>cfg: <a title="saev.config.Activations" href="config.html#saev.config.Activations">Activations</a>)</span>
+<span>def <span class="ident">make_vit</span></span>(<span>model_family: str, model_ckpt: str)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -365,6 +365,8 @@ class Clip(torch.nn.Module):
         self.model = model.eval()
 
         assert not isinstance(self.model, open_clip.timm_model.TimmModel)
+
+        self.name = f&#34;clip/{model_ckpt}&#34;
 
     def get_residuals(self) -&gt; list[torch.nn.Module]:
         return self.model.transformer.resblocks
@@ -772,15 +774,16 @@ class DinoV2(torch.nn.Module):
         super().__init__()
 
         self.model = torch.hub.load(&#34;facebookresearch/dinov2&#34;, model_ckpt)
+        self.name = f&#34;dinov2/{model_ckpt}&#34;
 
     def get_residuals(self) -&gt; list[torch.nn.Module]:
         return self.model.blocks
 
-    def get_patches(self, cfg: config.Activations) -&gt; slice:
+    def get_patches(self, n_patches_per_img: int) -&gt; slice:
         n_reg = self.model.num_register_tokens
         patches = torch.cat((
             torch.tensor([0]),  # CLS token
-            torch.arange(n_reg + 1, n_reg + 1 + cfg.n_patches_per_img),  # patches
+            torch.arange(n_reg + 1, n_reg + 1 + n_patches_per_img),  # patches
         ))
         return patches
 
@@ -815,7 +818,7 @@ registered hooks while the latter silently ignores them.</p>
 </div></div>
 </dd>
 <dt id="saev.activations.DinoV2.get_patches"><code class="name flex">
-<span>def <span class="ident">get_patches</span></span>(<span>self,<br>cfg: <a title="saev.config.Activations" href="config.html#saev.config.Activations">Activations</a>) ‑> slice</span>
+<span>def <span class="ident">get_patches</span></span>(<span>self, n_patches_per_img: int) ‑> slice</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -1179,9 +1182,9 @@ registered hooks while the latter silently ignores them.</p>
 </dd>
 </dl>
 </dd>
-<dt id="saev.activations.Recorder"><code class="flex name class">
-<span>class <span class="ident">Recorder</span></span>
-<span>(</span><span>cfg: <a title="saev.config.Activations" href="config.html#saev.config.Activations">Activations</a>,<br>vit: torch.nn.modules.module.Module)</span>
+<dt id="saev.activations.RecordedVisionTransformer"><code class="flex name class">
+<span>class <span class="ident">RecordedVisionTransformer</span></span>
+<span>(</span><span>vit: torch.nn.modules.module.Module,<br>n_patches_per_img: int,<br>cls_token: bool,<br>layers: list[int])</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Base class for all neural network modules.</p>
@@ -1217,26 +1220,34 @@ evaluation mode.
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@jaxtyped(typechecker=beartype.beartype)
-class Recorder(torch.nn.Module):
-    cfg: config.Activations
+class RecordedVisionTransformer(torch.nn.Module):
     _storage: Float[Tensor, &#34;batch n_layers all_patches dim&#34;] | None
     _i: int
 
-    def __init__(self, cfg: config.Activations, vit: torch.nn.Module):
+    def __init__(
+        self,
+        vit: torch.nn.Module,
+        n_patches_per_img: int,
+        cls_token: bool,
+        layers: list[int],
+    ):
         super().__init__()
 
-        self.cfg = cfg
-        self.patches = vit.get_patches(cfg)
+        self.vit = vit
+
+        self.n_patches_per_img = n_patches_per_img
+        self.cls_token = cls_token
+        self.layers = layers
+
+        self.patches = vit.get_patches(n_patches_per_img)
+
         self._storage = None
         self._i = 0
-        self.logger = logging.getLogger(
-            f&#34;recorder({cfg.model_family}:{cfg.model_ckpt})&#34;
-        )
 
-    def register(self, modules: list[torch.nn.Module]):
-        for i in self.cfg.layers:
-            modules[i].register_forward_hook(self.hook)
-        return self
+        self.logger = logging.getLogger(f&#34;recorder({vit.name})&#34;)
+
+        for i in self.layers:
+            self.vit.get_residuals()[i].register_forward_hook(self.hook)
 
     def hook(
         self, module, args: tuple, output: Float[Tensor, &#34;batch n_layers dim&#34;]
@@ -1258,12 +1269,12 @@ class Recorder(torch.nn.Module):
         self._i += 1
 
     def _empty_storage(self, batch: int, dim: int, device: torch.device):
-        n_patches_per_img = self.cfg.n_patches_per_img
-        if self.cfg.cls_token:
+        n_patches_per_img = self.n_patches_per_img
+        if self.cls_token:
             n_patches_per_img += 1
 
         return torch.zeros(
-            (batch, len(self.cfg.layers), n_patches_per_img, dim), device=device
+            (batch, len(self.layers), n_patches_per_img, dim), device=device
         )
 
     def reset(self):
@@ -1273,22 +1284,22 @@ class Recorder(torch.nn.Module):
     def activations(self) -&gt; Float[Tensor, &#34;batch n_layers all_patches dim&#34;]:
         if self._storage is None:
             raise RuntimeError(&#34;First call model()&#34;)
-        return self._storage.cpu()</code></pre>
+        return self._storage.cpu()
+
+    def forward(
+        self, batch: Float[Tensor, &#34;batch 3 width height&#34;]
+    ) -&gt; tuple[Float[Tensor, &#34;batch patches dim&#34;], Float[Tensor, &#34;...&#34;]]:
+        self.reset()
+        result = self.vit(batch)
+        return result, self.activations</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
 <li>torch.nn.modules.module.Module</li>
 </ul>
-<h3>Class variables</h3>
-<dl>
-<dt id="saev.activations.Recorder.cfg"><code class="name">var <span class="ident">cfg</span> : <a title="saev.config.Activations" href="config.html#saev.config.Activations">Activations</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-</dl>
 <h3>Instance variables</h3>
 <dl>
-<dt id="saev.activations.Recorder.activations"><code class="name">prop <span class="ident">activations</span> : jaxtyping.Float[Tensor, 'batch n_layers all_patches dim']</code></dt>
+<dt id="saev.activations.RecordedVisionTransformer.activations"><code class="name">prop <span class="ident">activations</span> : jaxtyping.Float[Tensor, 'batch n_layers all_patches dim']</code></dt>
 <dd>
 <div class="desc"></div>
 <details class="source">
@@ -1305,19 +1316,27 @@ def activations(self) -&gt; Float[Tensor, &#34;batch n_layers all_patches dim&#3
 </dl>
 <h3>Methods</h3>
 <dl>
-<dt id="saev.activations.Recorder.hook"><code class="name flex">
+<dt id="saev.activations.RecordedVisionTransformer.forward"><code class="name flex">
+<span>def <span class="ident">forward</span></span>(<span>self, batch: jaxtyping.Float[Tensor, 'batch 3 width height']) ‑> tuple[jaxtyping.Float[Tensor, 'batch patches dim'], jaxtyping.Float[Tensor, '...']]</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Define the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the :class:<code>Module</code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div></div>
+</dd>
+<dt id="saev.activations.RecordedVisionTransformer.hook"><code class="name flex">
 <span>def <span class="ident">hook</span></span>(<span>self, module, args: tuple, output: jaxtyping.Float[Tensor, 'batch n_layers dim']) ‑> None</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
-<dt id="saev.activations.Recorder.register"><code class="name flex">
-<span>def <span class="ident">register</span></span>(<span>self, modules: list[torch.nn.modules.module.Module])</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt id="saev.activations.Recorder.reset"><code class="name flex">
+<dt id="saev.activations.RecordedVisionTransformer.reset"><code class="name flex">
 <span>def <span class="ident">reset</span></span>(<span>self)</span>
 </code></dt>
 <dd>
@@ -1567,79 +1586,6 @@ registered hooks while the latter silently ignores them.</p>
 </dd>
 </dl>
 </dd>
-<dt id="saev.activations.WrappedVisionTransformer"><code class="flex name class">
-<span>class <span class="ident">WrappedVisionTransformer</span></span>
-<span>(</span><span>cfg: <a title="saev.config.Activations" href="config.html#saev.config.Activations">Activations</a>)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Base class for all neural network modules.</p>
-<p>Your models should also subclass this class.</p>
-<p>Modules can also contain other Modules, allowing to nest them in
-a tree structure. You can assign the submodules as regular attributes::</p>
-<pre><code>import torch.nn as nn
-import torch.nn.functional as F
-
-class Model(nn.Module):
-    def __init__(self) -&gt; None:
-        super().__init__()
-        self.conv1 = nn.Conv2d(1, 20, 5)
-        self.conv2 = nn.Conv2d(20, 20, 5)
-
-    def forward(self, x):
-        x = F.relu(self.conv1(x))
-        return F.relu(self.conv2(x))
-</code></pre>
-<p>Submodules assigned in this way will be registered, and will have their
-parameters converted too when you call :meth:<code>to</code>, etc.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>As per the example above, an <code>__init__()</code> call to the parent class
-must be made before assignment on the child.</p>
-</div>
-<p>:ivar training: Boolean represents whether this module is in training or
-evaluation mode.
-:vartype training: bool</p>
-<p>Initialize internal Module state, shared by both nn.Module and ScriptModule.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@jaxtyped(typechecker=beartype.beartype)
-class WrappedVisionTransformer(torch.nn.Module):
-    def __init__(self, cfg: config.Activations):
-        super().__init__()
-        self.vit = make_vit(cfg)
-        self.recorder = Recorder(cfg, self.vit).register(self.vit.get_residuals())
-
-    def forward(
-        self, batch: Float[Tensor, &#34;batch 3 width height&#34;]
-    ) -&gt; tuple[Float[Tensor, &#34;batch patches dim&#34;], Float[Tensor, &#34;...&#34;]]:
-        self.recorder.reset()
-        result = self.vit(batch)
-        return result, self.recorder.activations</code></pre>
-</details>
-<h3>Ancestors</h3>
-<ul class="hlist">
-<li>torch.nn.modules.module.Module</li>
-</ul>
-<h3>Methods</h3>
-<dl>
-<dt id="saev.activations.WrappedVisionTransformer.forward"><code class="name flex">
-<span>def <span class="ident">forward</span></span>(<span>self, batch: jaxtyping.Float[Tensor, 'batch 3 width height']) ‑> tuple[jaxtyping.Float[Tensor, 'batch patches dim'], jaxtyping.Float[Tensor, '...']]</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Define the computation performed at every call.</p>
-<p>Should be overridden by all subclasses.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>Although the recipe for forward pass needs to be defined within
-this function, one should call the :class:<code>Module</code> instance afterwards
-instead of this since the former takes care of running the
-registered hooks while the latter silently ignores them.</p>
-</div></div>
-</dd>
-</dl>
-</dd>
 </dl>
 </section>
 </article>
@@ -1743,13 +1689,12 @@ registered hooks while the latter silently ignores them.</p>
 </ul>
 </li>
 <li>
-<h4><code><a title="saev.activations.Recorder" href="#saev.activations.Recorder">Recorder</a></code></h4>
+<h4><code><a title="saev.activations.RecordedVisionTransformer" href="#saev.activations.RecordedVisionTransformer">RecordedVisionTransformer</a></code></h4>
 <ul class="">
-<li><code><a title="saev.activations.Recorder.activations" href="#saev.activations.Recorder.activations">activations</a></code></li>
-<li><code><a title="saev.activations.Recorder.cfg" href="#saev.activations.Recorder.cfg">cfg</a></code></li>
-<li><code><a title="saev.activations.Recorder.hook" href="#saev.activations.Recorder.hook">hook</a></code></li>
-<li><code><a title="saev.activations.Recorder.register" href="#saev.activations.Recorder.register">register</a></code></li>
-<li><code><a title="saev.activations.Recorder.reset" href="#saev.activations.Recorder.reset">reset</a></code></li>
+<li><code><a title="saev.activations.RecordedVisionTransformer.activations" href="#saev.activations.RecordedVisionTransformer.activations">activations</a></code></li>
+<li><code><a title="saev.activations.RecordedVisionTransformer.forward" href="#saev.activations.RecordedVisionTransformer.forward">forward</a></code></li>
+<li><code><a title="saev.activations.RecordedVisionTransformer.hook" href="#saev.activations.RecordedVisionTransformer.hook">hook</a></code></li>
+<li><code><a title="saev.activations.RecordedVisionTransformer.reset" href="#saev.activations.RecordedVisionTransformer.reset">reset</a></code></li>
 </ul>
 </li>
 <li>
@@ -1771,12 +1716,6 @@ registered hooks while the latter silently ignores them.</p>
 <li><code><a title="saev.activations.Siglip.forward" href="#saev.activations.Siglip.forward">forward</a></code></li>
 <li><code><a title="saev.activations.Siglip.get_patches" href="#saev.activations.Siglip.get_patches">get_patches</a></code></li>
 <li><code><a title="saev.activations.Siglip.get_residuals" href="#saev.activations.Siglip.get_residuals">get_residuals</a></code></li>
-</ul>
-</li>
-<li>
-<h4><code><a title="saev.activations.WrappedVisionTransformer" href="#saev.activations.WrappedVisionTransformer">WrappedVisionTransformer</a></code></h4>
-<ul class="">
-<li><code><a title="saev.activations.WrappedVisionTransformer.forward" href="#saev.activations.WrappedVisionTransformer.forward">forward</a></code></li>
 </ul>
 </li>
 </ul>

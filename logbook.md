@@ -1390,3 +1390,58 @@ Many examples.
 Let's get a chatbot to write the experimental design precisely.
 Well, they both didn't write an experimental plan that I liked enough.
 So I will write one in my docs.
+
+
+# 02/13/2025
+
+Updates on quantitative experiments!
+
+1. Random vectors do not manipulate the predictions very much. I suspect that we should pick random activation vectors as our features, so that we're sampling vectors that all reliably point in the same direction (many models produce anisotropic features; [1, 2, 3])
+2. Random SAE feature manipulation also does not manipulate the predictions very much. This is great!
+3. Picking out automatic features is really slow. Like, 3 hours slow. Futhermore, it does not find features that I want.
+
+[1]: Understanding Contrastive Representation Learning through Alignment and Uniformity on the Hypersphere
+[2]: How Contextual are Contextualized Word Representations? Comparing the Geometry of BERT, ELMo, and GPT-2 Embeddings
+[3]: On the Sentence Embeddings from Pre-trained Language Models
+
+
+These are the logs from contrib.semseg.quantitative:
+
+[2025-02-13 20:53:34,898] [INFO] [contrib.semseg.quantitative] Made 512000 predictions.
+[2025-02-13 20:53:43,252] [INFO] [contrib.semseg.quantitative] Got masks for 'wall' (1).
+Top 3 features for wall:
+ 14721 >0.0: 0.270
+  6008 >0.0: 0.269
+  5693 >0.0: 0.267
+[2025-02-13 20:55:41,681] [INFO] [contrib.semseg.quantitative] Got masks for 'building, edifice' (2).
+Top 3 features for building, edifice:
+     0 >0.0: 0.000
+     1 >0.0: 0.000
+     2 >0.0: 0.000
+[2025-02-13 20:57:45,082] [INFO] [contrib.semseg.quantitative] Got masks for 'sky' (3).
+Top 3 features for sky:
+     0 >0.0: 0.000
+     1 >0.0: 0.000
+     2 >0.0: 0.000
+[2025-02-13 20:59:43,573] [INFO] [contrib.semseg.quantitative] Got masks for 'floor, flooring' (4).
+Top 3 features for floor, flooring:
+     0 >0.0: 0.000
+     1 >0.0: 0.000
+     2 >0.0: 0.000
+[2025-02-13 21:01:43,486] [INFO] [contrib.semseg.quantitative] Got masks for 'tree' (5).
+Top 3 features for tree:
+     0 >0.0: 0.000
+     1 >0.0: 0.000
+     2 >0.0: 0.000
+[2025-02-13 21:03:44,888] [INFO] [contrib.semseg.quantitative] Got masks for 'ceiling' (6).
+Top 3 features for ceiling:
+     0 >0.0: 0.000
+     1 >0.0: 0.000
+     2 >0.0: 0.000
+
+When I cancel these runs, it's always dying on `x.sum(...)`.
+
+So a couple things:
+
+1. It's really slow. How can I speed it up? Maybe batching, moving to GPU, and speeding it up?
+2. It's not finding any features. This is probably a bug, given that it finds "good" SAE for the first class, but not any of the next ones.

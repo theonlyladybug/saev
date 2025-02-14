@@ -39,26 +39,34 @@ logger = logging.getLogger(__name__)
 
 
 @jaxtyped(typechecker=beartype.beartype)
-class Recorder(torch.nn.Module):
-    cfg: config.Activations
+class RecordedVisionTransformer(torch.nn.Module):
     _storage: Float[Tensor, "batch n_layers all_patches dim"] | None
     _i: int
 
-    def __init__(self, cfg: config.Activations, vit: torch.nn.Module):
+    def __init__(
+        self,
+        vit: torch.nn.Module,
+        n_patches_per_img: int,
+        cls_token: bool,
+        layers: list[int],
+    ):
         super().__init__()
 
-        self.cfg = cfg
-        self.patches = vit.get_patches(cfg)
+        self.vit = vit
+
+        self.n_patches_per_img = n_patches_per_img
+        self.cls_token = cls_token
+        self.layers = layers
+
+        self.patches = vit.get_patches(n_patches_per_img)
+
         self._storage = None
         self._i = 0
-        self.logger = logging.getLogger(
-            f"recorder({cfg.model_family}:{cfg.model_ckpt})"
-        )
 
-    def register(self, modules: list[torch.nn.Module]):
-        for i in self.cfg.layers:
-            modules[i].register_forward_hook(self.hook)
-        return self
+        self.logger = logging.getLogger(f"recorder({vit.name})")
+
+        for i in self.layers:
+            self.vit.get_residuals()[i].register_forward_hook(self.hook)
 
     def hook(
         self, module, args: tuple, output: Float[Tensor, "batch n_layers dim"]
@@ -80,12 +88,12 @@ class Recorder(torch.nn.Module):
         self._i += 1
 
     def _empty_storage(self, batch: int, dim: int, device: torch.device):
-        n_patches_per_img = self.cfg.n_patches_per_img
-        if self.cfg.cls_token:
+        n_patches_per_img = self.n_patches_per_img
+        if self.cls_token:
             n_patches_per_img += 1
 
         return torch.zeros(
-            (batch, len(self.cfg.layers), n_patches_per_img, dim), device=device
+            (batch, len(self.layers), n_patches_per_img, dim), device=device
         )
 
     def reset(self):
@@ -97,20 +105,12 @@ class Recorder(torch.nn.Module):
             raise RuntimeError("First call model()")
         return self._storage.cpu()
 
-
-@jaxtyped(typechecker=beartype.beartype)
-class WrappedVisionTransformer(torch.nn.Module):
-    def __init__(self, cfg: config.Activations):
-        super().__init__()
-        self.vit = make_vit(cfg)
-        self.recorder = Recorder(cfg, self.vit).register(self.vit.get_residuals())
-
     def forward(
         self, batch: Float[Tensor, "batch 3 width height"]
     ) -> tuple[Float[Tensor, "batch patches dim"], Float[Tensor, "..."]]:
-        self.recorder.reset()
+        self.reset()
         result = self.vit(batch)
-        return result, self.recorder.activations
+        return result, self.activations
 
 
 @jaxtyped(typechecker=beartype.beartype)
@@ -136,6 +136,8 @@ class Clip(torch.nn.Module):
         self.model = model.eval()
 
         assert not isinstance(self.model, open_clip.timm_model.TimmModel)
+
+        self.name = f"clip/{model_ckpt}"
 
     def get_residuals(self) -> list[torch.nn.Module]:
         return self.model.transformer.resblocks
@@ -193,15 +195,16 @@ class DinoV2(torch.nn.Module):
         super().__init__()
 
         self.model = torch.hub.load("facebookresearch/dinov2", model_ckpt)
+        self.name = f"dinov2/{model_ckpt}"
 
     def get_residuals(self) -> list[torch.nn.Module]:
         return self.model.blocks
 
-    def get_patches(self, cfg: config.Activations) -> slice:
+    def get_patches(self, n_patches_per_img: int) -> slice:
         n_reg = self.model.num_register_tokens
         patches = torch.cat((
             torch.tensor([0]),  # CLS token
-            torch.arange(n_reg + 1, n_reg + 1 + cfg.n_patches_per_img),  # patches
+            torch.arange(n_reg + 1, n_reg + 1 + n_patches_per_img),  # patches
         ))
         return patches
 
@@ -248,17 +251,17 @@ class Moondream2(torch.nn.Module):
 
 
 @beartype.beartype
-def make_vit(cfg: config.Activations):
-    if cfg.model_family == "clip":
-        return Clip(cfg.model_ckpt)
-    elif cfg.model_family == "siglip":
-        return Siglip(cfg.model_ckpt)
-    elif cfg.model_family == "dinov2":
-        return DinoV2(cfg.model_ckpt)
-    elif cfg.model_family == "moondream2":
-        return Moondream2(cfg.model_ckpt)
+def make_vit(model_family: str, model_ckpt: str):
+    if model_family == "clip":
+        return Clip(model_ckpt)
+    elif model_family == "siglip":
+        return Siglip(model_ckpt)
+    elif model_family == "dinov2":
+        return DinoV2(model_ckpt)
+    elif model_family == "moondream2":
+        return Moondream2(model_ckpt)
     else:
-        typing.assert_never(cfg.model_family)
+        typing.assert_never(model_family)
 
 
 @beartype.beartype
@@ -873,7 +876,7 @@ def worker_fn(cfg: config.Activations):
 
     logger = logging.getLogger("dump")
 
-    vit = WrappedVisionTransformer(cfg)
+    vit = RecordedVisionTransformer(cfg)
     img_transform = make_img_transform(cfg.model_family, cfg.model_ckpt)
     dataloader = get_dataloader(cfg, img_transform=img_transform)
 

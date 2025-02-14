@@ -89,3 +89,10 @@ With this, we calculate two percentages:
 
 Ideally, we maximize target change rate and minimize other change rate.
 We measure mean target change rate across all classes and mean other change rate across all classes.
+
+```sh
+uv run python -m contrib.semseg quantify \
+  --sae-ckpt checkpoints/public/oebd6e6i/sae.pt \
+  --seg-ckpt checkpoints/contrib/semseg/lr_0_001__wd_0_1/ \
+  --imgs.root /$NFS/$USER/datasets/ade20k/
+```

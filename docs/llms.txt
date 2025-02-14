@@ -313,7 +313,7 @@ Functions
 `make_img_transform(model_family: str, model_ckpt: str) ‑> <class 'collections.abc.Callable'>`
 :   
 
-`make_vit(cfg: saev.config.Activations)`
+`make_vit(model_family: str, model_ckpt: str)`
 :   
 
 `setup(cfg: saev.config.Activations)`
@@ -522,7 +522,7 @@ Classes
             instead of this since the former takes care of running the
             registered hooks while the latter silently ignores them.
 
-    `get_patches(self, cfg: saev.config.Activations) ‑> slice`
+    `get_patches(self, n_patches_per_img: int) ‑> slice`
     :
 
     `get_residuals(self) ‑> list[torch.nn.modules.module.Module]`
@@ -675,7 +675,7 @@ Classes
     `get_residuals(self) ‑> list[torch.nn.modules.module.Module]`
     :
 
-`Recorder(cfg: saev.config.Activations, vit: torch.nn.modules.module.Module)`
+`RecordedVisionTransformer(vit: torch.nn.modules.module.Module, n_patches_per_img: int, cls_token: bool, layers: list[int])`
 :   Base class for all neural network modules.
     
     Your models should also subclass this class.
@@ -713,11 +713,6 @@ Classes
 
     * torch.nn.modules.module.Module
 
-    ### Class variables
-
-    `cfg: saev.config.Activations`
-    :
-
     ### Instance variables
 
     `activations: jaxtyping.Float[Tensor, 'batch n_layers all_patches dim']`
@@ -725,10 +720,18 @@ Classes
 
     ### Methods
 
-    `hook(self, module, args: tuple, output: jaxtyping.Float[Tensor, 'batch n_layers dim']) ‑> None`
-    :
+    `forward(self, batch: jaxtyping.Float[Tensor, 'batch 3 width height']) ‑> tuple[jaxtyping.Float[Tensor, 'batch patches dim'], jaxtyping.Float[Tensor, '...']]`
+    :   Define the computation performed at every call.
+        
+        Should be overridden by all subclasses.
+        
+        .. note::
+            Although the recipe for forward pass needs to be defined within
+            this function, one should call the :class:`Module` instance afterwards
+            instead of this since the former takes care of running the
+            registered hooks while the latter silently ignores them.
 
-    `register(self, modules: list[torch.nn.modules.module.Module])`
+    `hook(self, module, args: tuple, output: jaxtyping.Float[Tensor, 'batch n_layers dim']) ‑> None`
     :
 
     `reset(self)`
@@ -821,57 +824,6 @@ Classes
 
     `get_residuals(self) ‑> list[torch.nn.modules.module.Module]`
     :
-
-`WrappedVisionTransformer(cfg: saev.config.Activations)`
-:   Base class for all neural network modules.
-    
-    Your models should also subclass this class.
-    
-    Modules can also contain other Modules, allowing to nest them in
-    a tree structure. You can assign the submodules as regular attributes::
-    
-        import torch.nn as nn
-        import torch.nn.functional as F
-    
-        class Model(nn.Module):
-            def __init__(self) -> None:
-                super().__init__()
-                self.conv1 = nn.Conv2d(1, 20, 5)
-                self.conv2 = nn.Conv2d(20, 20, 5)
-    
-            def forward(self, x):
-                x = F.relu(self.conv1(x))
-                return F.relu(self.conv2(x))
-    
-    Submodules assigned in this way will be registered, and will have their
-    parameters converted too when you call :meth:`to`, etc.
-    
-    .. note::
-        As per the example above, an ``__init__()`` call to the parent class
-        must be made before assignment on the child.
-    
-    :ivar training: Boolean represents whether this module is in training or
-                    evaluation mode.
-    :vartype training: bool
-    
-    Initialize internal Module state, shared by both nn.Module and ScriptModule.
-
-    ### Ancestors (in MRO)
-
-    * torch.nn.modules.module.Module
-
-    ### Methods
-
-    `forward(self, batch: jaxtyping.Float[Tensor, 'batch 3 width height']) ‑> tuple[jaxtyping.Float[Tensor, 'batch patches dim'], jaxtyping.Float[Tensor, '...']]`
-    :   Define the computation performed at every call.
-        
-        Should be overridden by all subclasses.
-        
-        .. note::
-            Although the recipe for forward pass needs to be defined within
-            this function, one should call the :class:`Module` instance afterwards
-            instead of this since the former takes care of running the
-            registered hooks while the latter silently ignores them.
 
 Namespace saev.app
 ==================
@@ -1443,6 +1395,9 @@ Classes
     :
 
     ### Methods
+
+    `decode(self, f_x: jaxtyping.Float[Tensor, 'batch d_sae']) ‑> jaxtyping.Float[Tensor, 'batch d_model']`
+    :
 
     `forward(self, x: jaxtyping.Float[Tensor, 'batch d_model']) ‑> tuple[jaxtyping.Float[Tensor, 'batch d_model'], jaxtyping.Float[Tensor, 'batch d_sae'], saev.nn.Loss]`
     :   Given x, calculates the reconstructed x_hat, the intermediate activations f_x, and the loss.
@@ -2374,6 +2329,13 @@ With this, we calculate two percentages:
 Ideally, we maximize target change rate and minimize other change rate.
 We measure mean target change rate across all classes and mean other change rate across all classes.
 
+```sh
+uv run python -m contrib.semseg quantify \
+  --sae-ckpt checkpoints/public/oebd6e6i/sae.pt \
+  --seg-ckpt checkpoints/contrib/semseg/lr_0_001__wd_0_1/ \
+  --imgs.root /$NFS/$USER/datasets/ade20k/
+```
+
 The main entry point is `contrib/semseg/__main__.py`.
 Run `uv run python -m contrib.semseg --help` to see all options.
 
@@ -2402,34 +2364,58 @@ Functions
 Classes
 -------
 
-`Quantitative(sae_ckpt: str = './checkpoints/sae.pt', seg_ckpt: str = './checkpoints/contrib/semseg/best.pt', imgs: saev.config.Ade20kDataset = <factory>, acts: saev.config.DataLoad = <factory>, batch_size: int = 128, n_workers: int = 32, device: str = 'cuda', dump_to: str = './logs/contrib/semseg/quantitative')`
-:   Quantitative(sae_ckpt: str = './checkpoints/sae.pt', seg_ckpt: str = './checkpoints/contrib/semseg/best.pt', imgs: saev.config.Ade20kDataset = <factory>, acts: saev.config.DataLoad = <factory>, batch_size: int = 128, n_workers: int = 32, device: str = 'cuda', dump_to: str = './logs/contrib/semseg/quantitative')
+`Quantitative(sae_ckpt: str = './checkpoints/sae.pt', seg_ckpt: str = './checkpoints/contrib/semseg/best.pt', top_values: str = './data/sort_by_patch/top_values.pt', vit_family: Literal['clip', 'siglip', 'dinov2', 'moondream2'] = 'dinov2', vit_ckpt: str = 'dinov2_vitb14_reg', vit_layer: int = 11, n_patches_per_img: int = 256, cls_token: bool = True, imgs: saev.config.Ade20kDataset = <factory>, batch_size: int = 128, n_workers: int = 32, scale: float = -2.0, top_k: int = 3, device: str = 'cuda', dump_to: str = './logs/contrib/semseg/quantitative', seed: int = 42)`
+:   Quantitative(sae_ckpt: str = './checkpoints/sae.pt', seg_ckpt: str = './checkpoints/contrib/semseg/best.pt', top_values: str = './data/sort_by_patch/top_values.pt', vit_family: Literal['clip', 'siglip', 'dinov2', 'moondream2'] = 'dinov2', vit_ckpt: str = 'dinov2_vitb14_reg', vit_layer: int = 11, n_patches_per_img: int = 256, cls_token: bool = True, imgs: saev.config.Ade20kDataset = <factory>, batch_size: int = 128, n_workers: int = 32, scale: float = -2.0, top_k: int = 3, device: str = 'cuda', dump_to: str = './logs/contrib/semseg/quantitative', seed: int = 42)
 
     ### Class variables
 
-    `acts: saev.config.DataLoad`
-    :
-
     `batch_size: int`
-    :
+    :   Batch size for inference.
+
+    `cls_token: bool`
+    :   Whether the model has a [CLS] token.
 
     `device: str`
-    :
+    :   Hardware for inference.
 
     `dump_to: str`
-    :
+    :   Directory to save results to.
 
     `imgs: saev.config.Ade20kDataset`
-    :
+    :   Data configuration for ADE20K dataset.
+
+    `n_patches_per_img: int`
+    :   Number of ViT patches per image (depends on model).
 
     `n_workers: int`
-    :
+    :   Number of dataloader workers.
 
     `sae_ckpt: str`
-    :
+    :   Path to trained SAE checkpoint.
+
+    `scale: float`
+    :   Intervention scale. Likely needs to be larger for random-vector.
+
+    `seed: int`
+    :   Random seed.
 
     `seg_ckpt: str`
-    :
+    :   Path to trained segmentation head.
+
+    `top_k: int`
+    :   Number of latents to show.
+
+    `top_values: str`
+    :   Path to top_values.pt file generated by `saev visuals`.
+
+    `vit_ckpt: str`
+    :   Specific ViT checkpoint.
+
+    `vit_family: Literal['clip', 'siglip', 'dinov2', 'moondream2']`
+    :   Which ViT family.
+
+    `vit_layer: int`
+    :   Vit layer to read/modify.
 
 `Train(learning_rate: float = 0.0001, weight_decay: float = 0.001, n_epochs: int = 400, batch_size: int = 1024, n_workers: int = 32, imgs: saev.config.Ade20kDataset = <factory>, eval_every: int = 100, device: str = 'cuda', ckpt_path: str = './checkpoints/contrib/semseg', seed: int = 42, log_to: str = './logs/contrib/semseg')`
 :   Train(learning_rate: float = 0.0001, weight_decay: float = 0.001, n_epochs: int = 400, batch_size: int = 1024, n_workers: int = 32, imgs: saev.config.Ade20kDataset = <factory>, eval_every: int = 100, device: str = 'cuda', ckpt_path: str = './checkpoints/contrib/semseg', seed: int = 42, log_to: str = './logs/contrib/semseg')
@@ -2533,31 +2519,125 @@ Module contrib.semseg.quantitative
 Functions
 ---------
 
-`eval_auto_feat(cfg: contrib.semseg.config.Quantitative) ‑> contrib.semseg.quantitative.Report`
+`argmax_logits(logits_BPC: jaxtyping.Float[Tensor, 'batch patches channels_with_null']) ‑> jaxtyping.Int[Tensor, 'batch patches']`
 :   
 
-`eval_rand_feat(cfg: contrib.semseg.config.Quantitative) ‑> contrib.semseg.quantitative.Report`
+`compute_class_results(orig_preds: jaxtyping.Int[Tensor, 'n_imgs patches'], mod_preds: jaxtyping.Int[Tensor, 'n_imgs patches']) ‑> list[contrib.semseg.quantitative.ClassResults]`
 :   
 
-`eval_rand_vec(cfg: contrib.semseg.config.Quantitative) ‑> contrib.semseg.quantitative.Report`
+`eval_auto_feat(cfg: contrib.semseg.config.Quantitative, sae: saev.nn.SparseAutoencoder, clf: torch.nn.modules.module.Module, dataloader) ‑> contrib.semseg.quantitative.Report`
+:   
+
+`eval_rand_feat(cfg: contrib.semseg.config.Quantitative, sae: saev.nn.SparseAutoencoder, clf: torch.nn.modules.module.Module, dataloader) ‑> contrib.semseg.quantitative.Report`
+:   Evaluates the effects of suppressing a random SAE feature.
+    
+    Args:
+        cfg: Configuration for quantitative evaluation
+        sae: Trained sparse autoencoder model
+        clf: Trained classifier model
+        dataloader: DataLoader providing batches of images
+    
+    Returns:
+        Report containing intervention results, including per-class changes
+
+`eval_rand_vec(cfg: contrib.semseg.config.Quantitative, sae: saev.nn.SparseAutoencoder, clf: torch.nn.modules.module.Module, dataloader) ‑> contrib.semseg.quantitative.Report`
+:   Evaluates the effects of adding a random unit vector to the patches.
+    
+    Args:
+        cfg: Configuration for quantitative evaluation
+        sae: Trained sparse autoencoder model
+        clf: Trained classifier model
+        dataloader: DataLoader providing batches of images
+    
+    Returns:
+        Report containing intervention results, including per-class changes
+
+`get_latent_lookup(cfg: contrib.semseg.config.Quantitative, sae: saev.nn.SparseAutoencoder, dataloader) ‑> jaxtyping.Int[Tensor, '151']`
+:   
+
+`get_patch_i(i: jaxtyping.Int[Tensor, 'batch width height'], n_patches_per_img: int) ‑> jaxtyping.Int[Tensor, 'batch width height']`
 :   
 
 `main(cfg: contrib.semseg.config.Quantitative)`
 :   Main entry point for quantitative evaluation.
 
-`save(results: list[contrib.semseg.quantitative.Report], dpath: str) ‑> None`
+`map_range(x: jaxtyping.Float[Tensor, '*batch'], domain: tuple[float | int, float | int], range: tuple[float | int, float | int]) ‑> jaxtyping.Float[Tensor, '*batch']`
 :   
+
+`register_hook(vit: torch.nn.modules.module.Module, hook: Callable[[jaxtyping.Float[Tensor, '...']], jaxtyping.Float[Tensor, '...']], layer: int, n_patches_per_img: int)`
+:   
+
+`save(results: list[contrib.semseg.quantitative.Report], fpath: str) ‑> None`
+:   Save evaluation results to a CSV file.
+    
+    Args:
+        results: List of Report objects containing evaluation results
+        dpath: Path to save the CSV file
+
+`unscaled(x: jaxtyping.Float[Tensor, '*batch'], max_obs: float | int) ‑> jaxtyping.Float[Tensor, '*batch']`
+:   Scale from [-10, 10] to [10 * -max_obs, 10 * max_obs].
 
 Classes
 -------
 
-`Report(method: str)`
-:   Report(method: str)
+`ClassResults(class_id: int, class_name: str, n_orig_patches: int, n_changed_patches: int, n_other_patches: int, n_other_changed: int, change_distribution: dict[int, int])`
+:   Results for a single class.
 
     ### Class variables
 
+    `change_distribution: dict[int, int]`
+    :   What classes did patches change to? Tracks how many times <value> a patch changed from self.class_id to <key>.
+
+    `class_id: int`
+    :   Numeric identifier for the class.
+
+    `class_name: str`
+    :   Human-readable name of the class.
+
+    `n_changed_patches: int`
+    :   After intervention, how many patches changed.
+
+    `n_orig_patches: int`
+    :   Original patches that were this class.
+
+    `n_other_changed: int`
+    :   After intervention, how many of the other patches changed.
+
+    `n_other_patches: int`
+    :   Total patches that weren't this class.
+
+`Report(method: str, class_results: list[contrib.semseg.quantitative.ClassResults], intervention_scale: float)`
+:   Complete results from an intervention experiment.
+
+    ### Class variables
+
+    `class_results: list[contrib.semseg.quantitative.ClassResults]`
+    :   Per-class detailed results.
+
+    `intervention_scale: float`
+    :   Magnitude of intervention.
+
     `method: str`
-    :
+    :   Which intervention method was used.
+
+    ### Instance variables
+
+    `mean_other_change: float`
+    :   Percentage of non-target patches that changed class.
+
+    `mean_target_change: float`
+    :   Percentage of target patches that changed class.
+
+    `other_change_std: float`
+    :   Standard deviation of non-target patch changes across classes.
+
+    `target_change_std: float`
+    :   Standard deviation of change percentage across classes.
+
+    ### Methods
+
+    `to_csv_row(self) ‑> dict[str, float]`
+    :   Convert to a row for the summary CSV.
 
 Module contrib.semseg.training
 ==============================

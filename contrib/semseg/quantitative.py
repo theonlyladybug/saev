@@ -4,7 +4,7 @@ import logging
 import math
 import os
 import random
-import typing
+from collections.abc import Callable
 
 import beartype
 import einops
@@ -321,16 +321,16 @@ def eval_auto_feat(
     def hook(
         x_BPD: Float[Tensor, "batch patches dim"],
     ) -> Float[Tensor, "batch patches dim"]:
-        batch_size, n_patches, dim = x_BPD.shape
+        batch_size, _, _ = x_BPD.shape
         x_hat_BPD, f_x_BPS, _ = sae(x_BPD)
 
         err_BPD = x_BPD - x_hat_BPD
 
-        print(batch["patch_labels"].shape)
-        breakpoint()
         latents = latent_lookup[batch["patch_labels"].view(batch_size, -1).int()]
+        breakpoint()
+        # This certainly won't work.
         values = unscaled(cfg.scale, top_values[latents].max().item())
-        f_x_BPS[:, latents + 1] = value
+        f_x_BPS[:, latents + 1] = values
 
         # Reproduce the SAE forward pass after f_x
         mod_x_hat_BPD = sae.decode(f_x_BPS)
@@ -419,6 +419,7 @@ def get_latent_lookup(
     for class_id, class_name in saev.helpers.progress(lookup.items()):
         is_class = true_labels_N == class_id
         is_not_class = ~is_class
+        print(class_id, class_name, is_class.sum(), is_not_class.sum())
 
         is_right = pred_labels_TSN == true_labels_N
         is_wrong = ~is_right
@@ -435,13 +436,8 @@ def get_latent_lookup(
             "thresholds d_sae n_image -> thresholds d_sae",
             "sum",
         )
-        # Compute F1 scores for all thresholds and features at once
-        numerator = 2 * true_pos_TS.float()
-        denominator = 2 * true_pos_TS + false_pos_TS + false_neg_TS
-        # Add small epsilon to avoid division by zero
-        f1_TS = numerator / (denominator + 1e-8)
-        
-        # Find best threshold and score for each feature
+        # Why is this code slow? What ideas do you have to speed up the code inside this for loop? Each iteration takes about 2 minutes, which is 150 x 2 = 5 hours to run.
+        f1_TS = (2 * true_pos_TS) / (2 * true_pos_TS + false_pos_TS + false_neg_TS)
         f1_S, best_thresh_i_S = f1_TS.max(dim=0)
         best_thresholds_S = thresholds_T[best_thresh_i_S]
 
@@ -460,7 +456,7 @@ def get_latent_lookup(
 @jaxtyped(typechecker=beartype.beartype)
 def register_hook(
     vit: torch.nn.Module,
-    hook: typing.Callable[[Float[Tensor, "..."]], Float[Tensor, "..."]],
+    hook: Callable[[Float[Tensor, "..."]], Float[Tensor, "..."]],
     layer: int,
     n_patches_per_img: int,
 ):
