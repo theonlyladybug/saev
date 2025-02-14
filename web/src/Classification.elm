@@ -1096,10 +1096,10 @@ viewInstructions example =
                 [ class "grid grid-cols-2 sm:grid-cols-4 md:inline-grid md:grid-cols-2 md:items-start lg:grid-cols-4"
                 , class "gap-2 mt-4 md:mt-0"
                 ]
-                [ viewExampleButton "/docs/assets/contrib/classification/680.webp" 680
-                , viewExampleButton "/docs/assets/contrib/classification/1129.webp" 1129
-                , viewExampleButton "/docs/assets/contrib/classification/4139.webp" 4139
-                , viewExampleButton "/docs/assets/contrib/classification/5099.webp" 5099
+                [ viewExampleButton "/assets/contrib/classification/680.webp" 680
+                , viewExampleButton "/assets/contrib/classification/1129.webp" 1129
+                , viewExampleButton "/assets/contrib/classification/4139.webp" 4139
+                , viewExampleButton "/assets/contrib/classification/5099.webp" 5099
                 ]
             ]
         ]

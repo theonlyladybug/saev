@@ -9133,10 +9133,10 @@ var $author$project$Classification$viewInstructions = function (example) {
 							]),
 						_List_fromArray(
 							[
-								A2($author$project$Classification$viewExampleButton, '/docs/assets/contrib/classification/680.webp', 680),
-								A2($author$project$Classification$viewExampleButton, '/docs/assets/contrib/classification/1129.webp', 1129),
-								A2($author$project$Classification$viewExampleButton, '/docs/assets/contrib/classification/4139.webp', 4139),
-								A2($author$project$Classification$viewExampleButton, '/docs/assets/contrib/classification/5099.webp', 5099)
+								A2($author$project$Classification$viewExampleButton, '/assets/contrib/classification/680.webp', 680),
+								A2($author$project$Classification$viewExampleButton, '/assets/contrib/classification/1129.webp', 1129),
+								A2($author$project$Classification$viewExampleButton, '/assets/contrib/classification/4139.webp', 4139),
+								A2($author$project$Classification$viewExampleButton, '/assets/contrib/classification/5099.webp', 5099)
 							]))
 					]))
 			]));
