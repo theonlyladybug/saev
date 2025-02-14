@@ -7056,7 +7056,7 @@ var $author$project$Classification$getOriginalPredictions = F3(
 	});
 var $author$project$Requests$Id = $elm$core$Basics$identity;
 var $author$project$Requests$init = 0;
-var $author$project$Classification$isDevelopment = true;
+var $author$project$Classification$isDevelopment = false;
 var $elm$url$Url$Parser$State = F5(
 	function (visited, unvisited, params, frag, value) {
 		return {C: frag, E: params, B: unvisited, w: value, G: visited};

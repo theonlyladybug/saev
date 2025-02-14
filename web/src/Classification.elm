@@ -26,7 +26,7 @@ import Url.Parser.Query
 
 
 isDevelopment =
-    True
+    False
 
 
 main =
