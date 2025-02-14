@@ -784,11 +784,11 @@ function _Debug_crash_UNUSED(identifier, fact1, fact2, fact3, fact4)
 
 function _Debug_regionToString(region)
 {
-	if (region.ag.T === region.ao.T)
+	if (region.ag.T === region.ap.T)
 	{
 		return 'on line ' + region.ag.T;
 	}
-	return 'on lines ' + region.ag.T + ' through ' + region.ao.T;
+	return 'on lines ' + region.ag.T + ' through ' + region.ap.T;
 }
 
 
@@ -1857,9 +1857,9 @@ var _Platform_worker = F4(function(impl, flagDecoder, debugMetadata, args)
 	return _Platform_initialize(
 		flagDecoder,
 		args,
-		impl.be,
-		impl.bt,
-		impl.br,
+		impl.bi,
+		impl.bx,
+		impl.bv,
 		function() { return function() {} }
 	);
 });
@@ -3943,11 +3943,11 @@ var _Browser_element = _Debugger_element || F4(function(impl, flagDecoder, debug
 	return _Platform_initialize(
 		flagDecoder,
 		args,
-		impl.be,
-		impl.bt,
-		impl.br,
+		impl.bi,
+		impl.bx,
+		impl.bv,
 		function(sendToApp, initialModel) {
-			var view = impl.bu;
+			var view = impl.by;
 			/**/
 			var domNode = args['node'];
 			//*/
@@ -3979,12 +3979,12 @@ var _Browser_document = _Debugger_document || F4(function(impl, flagDecoder, deb
 	return _Platform_initialize(
 		flagDecoder,
 		args,
-		impl.be,
-		impl.bt,
-		impl.br,
+		impl.bi,
+		impl.bx,
+		impl.bv,
 		function(sendToApp, initialModel) {
 			var divertHrefToApp = impl.af && impl.af(sendToApp)
-			var view = impl.bu;
+			var view = impl.by;
 			var title = _VirtualDom_doc.title;
 			var bodyNode = _VirtualDom_doc.body;
 			var currNode = _VirtualDom_virtualize(bodyNode);
@@ -3992,12 +3992,12 @@ var _Browser_document = _Debugger_document || F4(function(impl, flagDecoder, deb
 			{
 				_VirtualDom_divertHrefToApp = divertHrefToApp;
 				var doc = view(model);
-				var nextNode = _VirtualDom_node('body')(_List_Nil)(doc.a2);
+				var nextNode = _VirtualDom_node('body')(_List_Nil)(doc.a7);
 				var patches = _VirtualDom_diff(currNode, nextNode);
 				bodyNode = _VirtualDom_applyPatches(bodyNode, currNode, patches, sendToApp);
 				currNode = nextNode;
 				_VirtualDom_divertHrefToApp = 0;
-				(title !== doc.bs) && (_VirtualDom_doc.title = title = doc.bs);
+				(title !== doc.bw) && (_VirtualDom_doc.title = title = doc.bw);
 			});
 		}
 	);
@@ -4053,8 +4053,8 @@ function _Browser_makeAnimator(model, draw)
 
 function _Browser_application(impl)
 {
-	var onUrlChange = impl.bh;
-	var onUrlRequest = impl.bi;
+	var onUrlChange = impl.bl;
+	var onUrlRequest = impl.bm;
 	var key = function() { key.a(onUrlChange(_Browser_getUrl())); };
 
 	return _Browser_document({
@@ -4074,9 +4074,9 @@ function _Browser_application(impl)
 					var next = $elm$url$Url$fromString(href).a;
 					sendToApp(onUrlRequest(
 						(next
-							&& curr.aH === next.aH
-							&& curr.bb === next.bb
-							&& curr.aE.a === next.aE.a
+							&& curr.aL === next.aL
+							&& curr.ax === next.ax
+							&& curr.aI.a === next.aI.a
 						)
 							? $elm$browser$Browser$Internal(next)
 							: $elm$browser$Browser$External(href)
@@ -4084,13 +4084,13 @@ function _Browser_application(impl)
 				}
 			});
 		},
-		be: function(flags)
+		bi: function(flags)
 		{
-			return A3(impl.be, flags, _Browser_getUrl(), key);
+			return A3(impl.bi, flags, _Browser_getUrl(), key);
 		},
-		bu: impl.bu,
-		bt: impl.bt,
-		br: impl.br
+		by: impl.by,
+		bx: impl.bx,
+		bv: impl.bv
 	});
 }
 
@@ -4156,17 +4156,17 @@ var _Browser_decodeEvent = F2(function(decoder, event)
 function _Browser_visibilityInfo()
 {
 	return (typeof _VirtualDom_doc.hidden !== 'undefined')
-		? { ba: 'hidden', a3: 'visibilitychange' }
+		? { bf: 'hidden', a8: 'visibilitychange' }
 		:
 	(typeof _VirtualDom_doc.mozHidden !== 'undefined')
-		? { ba: 'mozHidden', a3: 'mozvisibilitychange' }
+		? { bf: 'mozHidden', a8: 'mozvisibilitychange' }
 		:
 	(typeof _VirtualDom_doc.msHidden !== 'undefined')
-		? { ba: 'msHidden', a3: 'msvisibilitychange' }
+		? { bf: 'msHidden', a8: 'msvisibilitychange' }
 		:
 	(typeof _VirtualDom_doc.webkitHidden !== 'undefined')
-		? { ba: 'webkitHidden', a3: 'webkitvisibilitychange' }
-		: { ba: 'hidden', a3: 'visibilitychange' };
+		? { bf: 'webkitHidden', a8: 'webkitvisibilitychange' }
+		: { bf: 'hidden', a8: 'visibilitychange' };
 }
 
 
@@ -4247,12 +4247,12 @@ var _Browser_call = F2(function(functionName, id)
 function _Browser_getViewport()
 {
 	return {
-		aO: _Browser_getScene(),
-		aX: {
-			aZ: _Browser_window.pageXOffset,
-			a_: _Browser_window.pageYOffset,
-			aY: _Browser_doc.documentElement.clientWidth,
-			au: _Browser_doc.documentElement.clientHeight
+		aS: _Browser_getScene(),
+		a0: {
+			a2: _Browser_window.pageXOffset,
+			a3: _Browser_window.pageYOffset,
+			a1: _Browser_doc.documentElement.clientWidth,
+			av: _Browser_doc.documentElement.clientHeight
 		}
 	};
 }
@@ -4262,8 +4262,8 @@ function _Browser_getScene()
 	var body = _Browser_doc.body;
 	var elem = _Browser_doc.documentElement;
 	return {
-		aY: Math.max(body.scrollWidth, body.offsetWidth, elem.scrollWidth, elem.offsetWidth, elem.clientWidth),
-		au: Math.max(body.scrollHeight, body.offsetHeight, elem.scrollHeight, elem.offsetHeight, elem.clientHeight)
+		a1: Math.max(body.scrollWidth, body.offsetWidth, elem.scrollWidth, elem.offsetWidth, elem.clientWidth),
+		av: Math.max(body.scrollHeight, body.offsetHeight, elem.scrollHeight, elem.offsetHeight, elem.clientHeight)
 	};
 }
 
@@ -4286,15 +4286,15 @@ function _Browser_getViewportOf(id)
 	return _Browser_withNode(id, function(node)
 	{
 		return {
-			aO: {
-				aY: node.scrollWidth,
-				au: node.scrollHeight
+			aS: {
+				a1: node.scrollWidth,
+				av: node.scrollHeight
 			},
-			aX: {
-				aZ: node.scrollLeft,
-				a_: node.scrollTop,
-				aY: node.clientWidth,
-				au: node.clientHeight
+			a0: {
+				a2: node.scrollLeft,
+				a3: node.scrollTop,
+				a1: node.clientWidth,
+				av: node.clientHeight
 			}
 		};
 	});
@@ -4324,18 +4324,18 @@ function _Browser_getElement(id)
 		var x = _Browser_window.pageXOffset;
 		var y = _Browser_window.pageYOffset;
 		return {
-			aO: _Browser_getScene(),
-			aX: {
-				aZ: x,
-				a_: y,
-				aY: _Browser_doc.documentElement.clientWidth,
-				au: _Browser_doc.documentElement.clientHeight
+			aS: _Browser_getScene(),
+			a0: {
+				a2: x,
+				a3: y,
+				a1: _Browser_doc.documentElement.clientWidth,
+				av: _Browser_doc.documentElement.clientHeight
 			},
-			a8: {
-				aZ: x + rect.left,
-				a_: y + rect.top,
-				aY: rect.width,
-				au: rect.height
+			bd: {
+				a2: x + rect.left,
+				a3: y + rect.top,
+				a1: rect.width,
+				av: rect.height
 			}
 		};
 	});
@@ -4387,18 +4387,18 @@ var _Http_toTask = F3(function(router, toTask, request)
 		xhr.addEventListener('error', function() { done($elm$http$Http$NetworkError_); });
 		xhr.addEventListener('timeout', function() { done($elm$http$Http$Timeout_); });
 		xhr.addEventListener('load', function() { done(_Http_toResponse(request.aa.b, xhr)); });
-		$elm$core$Maybe$isJust(request.aV) && _Http_track(router, xhr, request.aV.a);
+		$elm$core$Maybe$isJust(request.aZ) && _Http_track(router, xhr, request.aZ.a);
 
 		try {
-			xhr.open(request.az, request.ai, true);
+			xhr.open(request.aD, request.ai, true);
 		} catch (e) {
 			return done($elm$http$Http$BadUrl_(request.ai));
 		}
 
 		_Http_configureRequest(xhr, request);
 
-		request.a2.a && xhr.setRequestHeader('Content-Type', request.a2.a);
-		xhr.send(request.a2.b);
+		request.a7.a && xhr.setRequestHeader('Content-Type', request.a7.a);
+		xhr.send(request.a7.b);
 
 		return function() { xhr.c = true; xhr.abort(); };
 	});
@@ -4409,13 +4409,13 @@ var _Http_toTask = F3(function(router, toTask, request)
 
 function _Http_configureRequest(xhr, request)
 {
-	for (var headers = request.at; headers.b; headers = headers.b) // WHILE_CONS
+	for (var headers = request.au; headers.b; headers = headers.b) // WHILE_CONS
 	{
 		xhr.setRequestHeader(headers.a.a, headers.a.b);
 	}
-	xhr.timeout = request.aU.a || 0;
+	xhr.timeout = request.aY.a || 0;
 	xhr.responseType = request.aa.d;
-	xhr.withCredentials = request.a0;
+	xhr.withCredentials = request.a5;
 }
 
 
@@ -4437,9 +4437,9 @@ function _Http_toMetadata(xhr)
 {
 	return {
 		ai: xhr.responseURL,
-		bp: xhr.status,
-		bq: xhr.statusText,
-		at: _Http_parseHeaders(xhr.getAllResponseHeaders())
+		bt: xhr.status,
+		bu: xhr.statusText,
+		au: _Http_parseHeaders(xhr.getAllResponseHeaders())
 	};
 }
 
@@ -4534,15 +4534,15 @@ function _Http_track(router, xhr, tracker)
 	xhr.upload.addEventListener('progress', function(event) {
 		if (xhr.c) { return; }
 		_Scheduler_rawSpawn(A2($elm$core$Platform$sendToSelf, router, _Utils_Tuple2(tracker, $elm$http$Http$Sending({
-			bo: event.loaded,
-			aQ: event.total
+			bs: event.loaded,
+			aU: event.total
 		}))));
 	});
 	xhr.addEventListener('progress', function(event) {
 		if (xhr.c) { return; }
 		_Scheduler_rawSpawn(A2($elm$core$Platform$sendToSelf, router, _Utils_Tuple2(tracker, $elm$http$Http$Receiving({
-			bl: event.loaded,
-			aQ: event.lengthComputable ? $elm$core$Maybe$Just(event.total) : $elm$core$Maybe$Nothing
+			bp: event.loaded,
+			aU: event.lengthComputable ? $elm$core$Maybe$Just(event.total) : $elm$core$Maybe$Nothing
 		}))));
 	});
 }
@@ -5279,7 +5279,7 @@ var $elm$url$Url$Http = 0;
 var $elm$url$Url$Https = 1;
 var $elm$url$Url$Url = F6(
 	function (protocol, host, port_, path, query, fragment) {
-		return {as: fragment, bb: host, aC: path, aE: port_, aH: protocol, aI: query};
+		return {at: fragment, ax: host, aG: path, aI: port_, aL: protocol, aM: query};
 	});
 var $elm$core$String$contains = _String_contains;
 var $elm$core$String$length = _String_length;
@@ -6264,7 +6264,7 @@ var $author$project$Gradio$problemToString = function (p) {
 	}
 };
 var $author$project$Gradio$deadEndToString = function (deadend) {
-	return $author$project$Gradio$problemToString(deadend.bk) + (' at row ' + ($elm$core$String$fromInt(deadend.bn) + (', col ' + $elm$core$String$fromInt(deadend.a4))));
+	return $author$project$Gradio$problemToString(deadend.bo) + (' at row ' + ($elm$core$String$fromInt(deadend.br) + (', col ' + $elm$core$String$fromInt(deadend.a9))));
 };
 var $elm$core$List$intersperse = F2(
 	function (sep, xs) {
@@ -6313,7 +6313,7 @@ var $elm$parser$Parser$Advanced$AddRight = F2(
 	});
 var $elm$parser$Parser$Advanced$DeadEnd = F4(
 	function (row, col, problem, contextStack) {
-		return {a4: col, a5: contextStack, bk: problem, bn: row};
+		return {a9: col, ba: contextStack, bo: problem, br: row};
 	});
 var $elm$parser$Parser$Advanced$Empty = {$: 0};
 var $elm$parser$Parser$Advanced$fromState = F2(
@@ -6321,7 +6321,7 @@ var $elm$parser$Parser$Advanced$fromState = F2(
 		return A2(
 			$elm$parser$Parser$Advanced$AddRight,
 			$elm$parser$Parser$Advanced$Empty,
-			A4($elm$parser$Parser$Advanced$DeadEnd, s.bn, s.a4, x, s.c));
+			A4($elm$parser$Parser$Advanced$DeadEnd, s.br, s.a9, x, s.c));
 	});
 var $elm$parser$Parser$Advanced$end = function (x) {
 	return function (s) {
@@ -6398,7 +6398,7 @@ var $elm$parser$Parser$Advanced$keyword = function (_v0) {
 	var expecting = _v0.b;
 	var progress = !$elm$core$String$isEmpty(kwd);
 	return function (s) {
-		var _v1 = A5($elm$parser$Parser$Advanced$isSubString, kwd, s.b, s.bn, s.a4, s.a);
+		var _v1 = A5($elm$parser$Parser$Advanced$isSubString, kwd, s.b, s.br, s.a9, s.a);
 		var newOffset = _v1.a;
 		var newRow = _v1.b;
 		var newCol = _v1.c;
@@ -6415,7 +6415,7 @@ var $elm$parser$Parser$Advanced$keyword = function (_v0) {
 			$elm$parser$Parser$Advanced$Good,
 			progress,
 			0,
-			{a4: newCol, c: s.c, d: s.d, b: newOffset, bn: newRow, a: s.a});
+			{a9: newCol, c: s.c, d: s.d, b: newOffset, br: newRow, a: s.a});
 	};
 };
 var $elm$parser$Parser$keyword = function (kwd) {
@@ -6469,7 +6469,7 @@ var $elm$parser$Parser$Advanced$oneOf = function (parsers) {
 var $elm$parser$Parser$oneOf = $elm$parser$Parser$Advanced$oneOf;
 var $elm$parser$Parser$Advanced$chompUntilEndOr = function (str) {
 	return function (s) {
-		var _v0 = A5(_Parser_findSubString, str, s.b, s.bn, s.a4, s.a);
+		var _v0 = A5(_Parser_findSubString, str, s.b, s.br, s.a9, s.a);
 		var newOffset = _v0.a;
 		var newRow = _v0.b;
 		var newCol = _v0.c;
@@ -6478,7 +6478,7 @@ var $elm$parser$Parser$Advanced$chompUntilEndOr = function (str) {
 			$elm$parser$Parser$Advanced$Good,
 			_Utils_cmp(s.b, adjustedOffset) < 0,
 			0,
-			{a4: newCol, c: s.c, d: s.d, b: adjustedOffset, bn: newRow, a: s.a});
+			{a9: newCol, c: s.c, d: s.d, b: adjustedOffset, br: newRow, a: s.a});
 	};
 };
 var $elm$parser$Parser$chompUntilEndOr = $elm$parser$Parser$Advanced$chompUntilEndOr;
@@ -6531,7 +6531,7 @@ var $elm$parser$Parser$Advanced$chompWhileHelp = F5(
 					$elm$parser$Parser$Advanced$Good,
 					_Utils_cmp(s0.b, offset) < 0,
 					0,
-					{a4: col, c: s0.c, d: s0.d, b: offset, bn: row, a: s0.a});
+					{a9: col, c: s0.c, d: s0.d, b: offset, br: row, a: s0.a});
 			} else {
 				if (_Utils_eq(newOffset, -2)) {
 					var $temp$isGood = isGood,
@@ -6563,7 +6563,7 @@ var $elm$parser$Parser$Advanced$chompWhileHelp = F5(
 	});
 var $elm$parser$Parser$Advanced$chompWhile = function (isGood) {
 	return function (s) {
-		return A5($elm$parser$Parser$Advanced$chompWhileHelp, isGood, s.b, s.bn, s.a4, s);
+		return A5($elm$parser$Parser$Advanced$chompWhileHelp, isGood, s.b, s.br, s.a9, s);
 	};
 };
 var $elm$parser$Parser$Advanced$spaces = $elm$parser$Parser$Advanced$chompWhile(
@@ -6579,7 +6579,7 @@ var $elm$parser$Parser$Advanced$token = function (_v0) {
 	var expecting = _v0.b;
 	var progress = !$elm$core$String$isEmpty(str);
 	return function (s) {
-		var _v1 = A5($elm$parser$Parser$Advanced$isSubString, str, s.b, s.bn, s.a4, s.a);
+		var _v1 = A5($elm$parser$Parser$Advanced$isSubString, str, s.b, s.br, s.a9, s.a);
 		var newOffset = _v1.a;
 		var newRow = _v1.b;
 		var newCol = _v1.c;
@@ -6590,7 +6590,7 @@ var $elm$parser$Parser$Advanced$token = function (_v0) {
 			$elm$parser$Parser$Advanced$Good,
 			progress,
 			0,
-			{a4: newCol, c: s.c, d: s.d, b: newOffset, bn: newRow, a: s.a});
+			{a9: newCol, c: s.c, d: s.d, b: newOffset, br: newRow, a: s.a});
 	};
 };
 var $elm$parser$Parser$Advanced$symbol = $elm$parser$Parser$Advanced$token;
@@ -6758,10 +6758,10 @@ var $elm$parser$Parser$loop = F2(
 var $author$project$Gradio$eventParser = A2($elm$parser$Parser$loop, 0, $author$project$Gradio$eventParserHelper);
 var $elm$parser$Parser$DeadEnd = F3(
 	function (row, col, problem) {
-		return {a4: col, bk: problem, bn: row};
+		return {a9: col, bo: problem, br: row};
 	});
 var $elm$parser$Parser$problemToDeadEnd = function (p) {
-	return A3($elm$parser$Parser$DeadEnd, p.bn, p.a4, p.bk);
+	return A3($elm$parser$Parser$DeadEnd, p.br, p.a9, p.bo);
 };
 var $elm$parser$Parser$Advanced$bagToList = F2(
 	function (bag, list) {
@@ -6793,7 +6793,7 @@ var $elm$parser$Parser$Advanced$run = F2(
 	function (_v0, src) {
 		var parse = _v0;
 		var _v1 = parse(
-			{a4: 1, c: _List_Nil, d: 1, b: 0, bn: 1, a: src});
+			{a9: 1, c: _List_Nil, d: 1, b: 0, br: 1, a: src});
 		if (!_v1.$) {
 			var value = _v1.b;
 			return $elm$core$Result$Ok(value);
@@ -6837,16 +6837,16 @@ var $elm$http$Http$task = function (r) {
 		_Http_toTask,
 		0,
 		$elm$http$Http$resultToTask,
-		{a0: false, a2: r.a2, aa: r.aN, at: r.at, az: r.az, aU: r.aU, aV: $elm$core$Maybe$Nothing, ai: r.ai});
+		{a5: false, a7: r.a7, aa: r.aR, au: r.au, aD: r.aD, aY: r.aY, aZ: $elm$core$Maybe$Nothing, ai: r.ai});
 };
 var $author$project$Gradio$finish = F4(
 	function (cfg, path, decoder, eventId) {
 		return $elm$http$Http$task(
 			{
-				a2: $elm$http$Http$emptyBody,
-				at: _List_Nil,
-				az: 'GET',
-				aN: $elm$http$Http$stringResolver(
+				a7: $elm$http$Http$emptyBody,
+				au: _List_Nil,
+				aD: 'GET',
+				aR: $elm$http$Http$stringResolver(
 					A2(
 						$elm$core$Basics$composeR,
 						$author$project$Gradio$httpResolver,
@@ -6855,10 +6855,10 @@ var $author$project$Gradio$finish = F4(
 							$elm$core$Result$andThen($author$project$Gradio$parsingResolver),
 							$elm$core$Result$andThen(
 								$author$project$Gradio$jsonResolver(decoder))))),
-				aU: $elm$core$Maybe$Nothing,
+				aY: $elm$core$Maybe$Nothing,
 				ai: A3(
 					$elm$url$Url$Builder$crossOrigin,
-					cfg.bb,
+					cfg.ax,
 					_List_fromArray(
 						['gradio_api', 'call', path, eventId]),
 					_List_Nil)
@@ -6908,20 +6908,20 @@ var $author$project$Gradio$start = F3(
 	function (cfg, path, args) {
 		return $elm$http$Http$task(
 			{
-				a2: $elm$http$Http$jsonBody(
+				a7: $elm$http$Http$jsonBody(
 					$author$project$Gradio$encodeArgs(args)),
-				at: _List_Nil,
-				az: 'POST',
-				aN: $elm$http$Http$stringResolver(
+				au: _List_Nil,
+				aD: 'POST',
+				aR: $elm$http$Http$stringResolver(
 					A2(
 						$elm$core$Basics$composeR,
 						$author$project$Gradio$httpResolver,
 						$elm$core$Result$andThen(
 							$author$project$Gradio$jsonResolver($author$project$Gradio$eventIdDecoder)))),
-				aU: $elm$core$Maybe$Nothing,
+				aY: $elm$core$Maybe$Nothing,
 				ai: A3(
 					$elm$url$Url$Builder$crossOrigin,
-					cfg.bb,
+					cfg.ax,
 					_List_fromArray(
 						['gradio_api', 'call', path]),
 					_List_Nil)
@@ -7056,9 +7056,10 @@ var $author$project$Classification$getOriginalPredictions = F3(
 	});
 var $author$project$Requests$Id = $elm$core$Basics$identity;
 var $author$project$Requests$init = 0;
+var $author$project$Classification$isDevelopment = false;
 var $elm$url$Url$Parser$State = F5(
 	function (visited, unvisited, params, frag, value) {
-		return {C: frag, E: params, B: unvisited, v: value, G: visited};
+		return {C: frag, E: params, B: unvisited, w: value, G: visited};
 	});
 var $elm$url$Url$Parser$getFirstMatch = function (states) {
 	getFirstMatch:
@@ -7070,10 +7071,10 @@ var $elm$url$Url$Parser$getFirstMatch = function (states) {
 			var rest = states.b;
 			var _v1 = state.B;
 			if (!_v1.b) {
-				return $elm$core$Maybe$Just(state.v);
+				return $elm$core$Maybe$Just(state.w);
 			} else {
 				if ((_v1.a === '') && (!_v1.b.b)) {
-					return $elm$core$Maybe$Just(state.v);
+					return $elm$core$Maybe$Just(state.w);
 				} else {
 					var $temp$states = rest;
 					states = $temp$states;
@@ -7170,9 +7171,9 @@ var $elm$url$Url$Parser$parse = F2(
 				A5(
 					$elm$url$Url$Parser$State,
 					_List_Nil,
-					$elm$url$Url$Parser$preparePath(url.aC),
-					$elm$url$Url$Parser$prepareQuery(url.aI),
-					url.as,
+					$elm$url$Url$Parser$preparePath(url.aG),
+					$elm$url$Url$Parser$prepareQuery(url.aM),
+					url.at,
 					$elm$core$Basics$identity)));
 	});
 var $author$project$Classification$QueryParams = function (example) {
@@ -7218,7 +7219,7 @@ var $elm$url$Url$Parser$mapState = F2(
 		var unvisited = _v0.B;
 		var params = _v0.E;
 		var frag = _v0.C;
-		var value = _v0.v;
+		var value = _v0.w;
 		return A5(
 			$elm$url$Url$Parser$State,
 			visited,
@@ -7235,7 +7236,7 @@ var $elm$url$Url$Parser$map = F2(
 			var unvisited = _v1.B;
 			var params = _v1.E;
 			var frag = _v1.C;
-			var value = _v1.v;
+			var value = _v1.w;
 			return A2(
 				$elm$core$List$map,
 				$elm$url$Url$Parser$mapState(value),
@@ -7250,7 +7251,7 @@ var $elm$url$Url$Parser$query = function (_v0) {
 		var unvisited = _v1.B;
 		var params = _v1.E;
 		var frag = _v1.C;
-		var value = _v1.v;
+		var value = _v1.w;
 		return _List_fromArray(
 			[
 				A5(
@@ -7304,7 +7305,7 @@ var $elm$url$Url$Parser$s = function (str) {
 		var unvisited = _v0.B;
 		var params = _v0.E;
 		var frag = _v0.C;
-		var value = _v0.v;
+		var value = _v0.w;
 		if (!unvisited.b) {
 			return _List_Nil;
 		} else {
@@ -7323,7 +7324,19 @@ var $elm$url$Url$Parser$s = function (str) {
 		}
 	};
 };
-var $author$project$Classification$urlParser = A2(
+var $author$project$Classification$urlParser = $author$project$Classification$isDevelopment ? A2(
+	$elm$url$Url$Parser$map,
+	$author$project$Classification$QueryParams,
+	A2(
+		$elm$url$Url$Parser$slash,
+		$elm$url$Url$Parser$s('web'),
+		A2(
+			$elm$url$Url$Parser$slash,
+			$elm$url$Url$Parser$s('apps'),
+			A2(
+				$elm$url$Url$Parser$questionMark,
+				$elm$url$Url$Parser$s('classification'),
+				$elm$url$Url$Parser$Query$int('example'))))) : A2(
 	$elm$url$Url$Parser$map,
 	$author$project$Classification$QueryParams,
 	A2(
@@ -7356,10 +7369,10 @@ var $author$project$Classification$init = F3(
 		var model = {
 			R: $author$project$Requests$init,
 			l: $author$project$Classification$NotExamining,
-			s: {bb: 'https://samuelstevens-saev-image-classification.hf.space'},
+			s: $author$project$Classification$isDevelopment ? {ax: 'http://localhost:7860'} : {ax: 'https://samuelstevens-saev-image-classification.hf.space'},
 			S: $elm$core$Maybe$Nothing,
 			I: $author$project$Requests$Loading,
-			x: index,
+			t: index,
 			J: $author$project$Requests$init,
 			ab: key,
 			D: $author$project$Requests$Initial,
@@ -7368,7 +7381,7 @@ var $author$project$Classification$init = F3(
 			M: $author$project$Requests$init,
 			A: $author$project$Requests$Initial,
 			V: $author$project$Requests$init,
-			u: $elm$core$Set$empty,
+			v: $elm$core$Set$empty,
 			N: $elm$core$Dict$empty
 		};
 		return _Utils_Tuple2(
@@ -8152,7 +8165,7 @@ var $author$project$Classification$update = F2(
 				return _Utils_Tuple2(
 					_Utils_update(
 						model,
-						{I: $author$project$Requests$Loading, x: example, J: inputExampleNextId, D: $author$project$Requests$Initial, L: $author$project$Requests$Loading, M: originalPredictionsNextId, A: $author$project$Requests$Initial, u: $elm$core$Set$empty}),
+						{I: $author$project$Requests$Loading, t: example, J: inputExampleNextId, D: $author$project$Requests$Initial, L: $author$project$Requests$Loading, M: originalPredictionsNextId, A: $author$project$Requests$Initial, v: $elm$core$Set$empty}),
 					$elm$core$Platform$Cmd$batch(
 						_List_fromArray(
 							[
@@ -8264,12 +8277,12 @@ var $author$project$Classification$update = F2(
 			case 6:
 				var i = msg.a;
 				var saeExamplesNextId = $author$project$Requests$next(model.V);
-				var patchIndices = A2($elm$core$Set$member, i, model.u) ? A2($elm$core$Set$remove, i, model.u) : A2($elm$core$Set$insert, i, model.u);
+				var patchIndices = A2($elm$core$Set$member, i, model.v) ? A2($elm$core$Set$remove, i, model.v) : A2($elm$core$Set$insert, i, model.v);
 				return _Utils_Tuple2(
 					_Utils_update(
 						model,
-						{A: $author$project$Requests$Loading, V: saeExamplesNextId, u: patchIndices}),
-					A4($author$project$Classification$getSaeExamples, model.s, saeExamplesNextId, model.x, patchIndices));
+						{A: $author$project$Requests$Loading, V: saeExamplesNextId, v: patchIndices}),
+					A4($author$project$Classification$getSaeExamples, model.s, saeExamplesNextId, model.t, patchIndices));
 			case 12:
 				var id = msg.a;
 				var result = msg.b;
@@ -8318,7 +8331,7 @@ var $author$project$Classification$update = F2(
 						_Utils_update(
 							model,
 							{D: $author$project$Requests$Loading, U: modifiedPredictionsNextId, N: sliders}),
-						A5($author$project$Classification$getModifiedPredictions, model.s, modifiedPredictionsNextId, model.x, model.u, sliders));
+						A5($author$project$Classification$getModifiedPredictions, model.s, modifiedPredictionsNextId, model.t, model.v, sliders));
 				} else {
 					return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
 				}
@@ -8458,11 +8471,12 @@ var $elm$html$Html$Attributes$stringProperty = F2(
 	});
 var $elm$html$Html$Attributes$class = $elm$html$Html$Attributes$stringProperty('className');
 var $elm$html$Html$div = _VirtualDom_node('div');
+var $elm$html$Html$h1 = _VirtualDom_node('h1');
 var $elm$html$Html$header = _VirtualDom_node('header');
 var $elm$html$Html$main_ = _VirtualDom_node('main');
-var $elm$html$Html$h3 = _VirtualDom_node('h3');
 var $elm$virtual_dom$VirtualDom$text = _VirtualDom_text;
 var $elm$html$Html$text = $elm$virtual_dom$VirtualDom$text;
+var $elm$html$Html$h3 = _VirtualDom_node('h3');
 var $author$project$Classification$classNames = $elm$core$Array$fromList(
 	A2(
 		$elm$core$List$map,
@@ -8522,7 +8536,7 @@ var $author$project$Classification$viewImage = function (url) {
 		_List_fromArray(
 			[
 				$elm$html$Html$Attributes$src(url),
-				$elm$html$Html$Attributes$class('max-w-36 h-auto')
+				$elm$html$Html$Attributes$class('')
 			]),
 		_List_Nil);
 };
@@ -8655,7 +8669,7 @@ var $author$project$Classification$viewGridCell = F3(
 			$elm$html$Html$div,
 			_List_fromArray(
 				[
-					$elm$html$Html$Attributes$class('w-[16px] h-[16px] md:w-[24px] md:h-[24px]'),
+					$elm$html$Html$Attributes$class('w-[24px] h-[24px]'),
 					$elm$html$Html$Attributes$class(_class),
 					$elm$html$Html$Events$onMouseEnter(
 					$author$project$Classification$HoverPatch(self)),
@@ -8679,7 +8693,8 @@ var $author$project$Classification$viewGriddedImage = F3(
 					$elm$html$Html$div,
 					_List_fromArray(
 						[
-							$elm$html$Html$Attributes$class('absolute grid grid-rows-[repeat(14,_16px)] grid-cols-[repeat(14,_16px)] md:grid-rows-[repeat(14,_24px)] md:grid-cols-[repeat(14,_24px)]')
+							$elm$html$Html$Attributes$class('absolute grid'),
+							$elm$html$Html$Attributes$class('grid-rows-[repeat(14,_24px)] grid-cols-[repeat(14,_24px)]')
 						]),
 					A2(
 						$elm$core$List$map,
@@ -8689,85 +8704,442 @@ var $author$project$Classification$viewGriddedImage = F3(
 					$elm$html$Html$img,
 					_List_fromArray(
 						[
-							$elm$html$Html$Attributes$class('block w-[224px] h-[224px] md:w-[336px] md:h-[336px]'),
+							$elm$html$Html$Attributes$class('block w-[336px] h-[336px]'),
 							$elm$html$Html$Attributes$src(url)
 						]),
 					_List_Nil)
 				]));
 	});
 var $author$project$Classification$viewInputExample = function (model) {
-	var _v0 = model.I;
-	switch (_v0.$) {
-		case 0:
-			return A2(
-				$elm$html$Html$p,
+	return A2(
+		$elm$html$Html$div,
+		_List_fromArray(
+			[
+				$elm$html$Html$Attributes$class('w-[336px] self-center')
+			]),
+		function () {
+			var _v0 = model.I;
+			switch (_v0.$) {
+				case 0:
+					return _List_fromArray(
+						[
+							A2(
+							$elm$html$Html$p,
+							_List_Nil,
+							_List_fromArray(
+								[
+									$elm$html$Html$text('Initial state. You shouldn\'t see this for long...')
+								]))
+						]);
+				case 1:
+					return _List_fromArray(
+						[
+							A2(
+							$elm$html$Html$p,
+							_List_Nil,
+							_List_fromArray(
+								[
+									$elm$html$Html$text('Loading example...')
+								]))
+						]);
+				case 2:
+					var example = _v0.a;
+					return _List_fromArray(
+						[
+							A3($author$project$Classification$viewGriddedImage, model.S, model.v, example.ai),
+							A2(
+							$elm$html$Html$div,
+							_List_fromArray(
+								[
+									$elm$html$Html$Attributes$class('flex flex-row gap-2')
+								]),
+							_List_fromArray(
+								[
+									A2(
+									$author$project$Classification$viewButton,
+									$author$project$Classification$SetUrl(model.t - 1),
+									'Previous'),
+									A2($author$project$Classification$viewButton, $author$project$Classification$GetRandomExample, 'Random'),
+									A2(
+									$author$project$Classification$viewButton,
+									$author$project$Classification$SetUrl(model.t + 1),
+									'Next')
+								])),
+							A2(
+							$elm$html$Html$div,
+							_List_fromArray(
+								[
+									$elm$html$Html$Attributes$class('mt-2')
+								]),
+							_List_fromArray(
+								[
+									A2(
+									$elm$html$Html$p,
+									_List_fromArray(
+										[
+											$elm$html$Html$Attributes$class('font-bold text-gray-800')
+										]),
+									_List_fromArray(
+										[
+											$elm$html$Html$text(
+											$author$project$Classification$viewClass(example.i) + (' (#' + ($elm$core$String$fromInt(model.t) + ')')))
+										]))
+								]))
+						]);
+				default:
+					var err = _v0.a;
+					return _List_fromArray(
+						[
+							$author$project$Classification$viewErr(err)
+						]);
+			}
+		}());
+};
+var $author$project$Classification$Suggestion = F4(
+	function (hypothesis, trait, action, insight) {
+		return {ak: action, ay: hypothesis, aA: insight, a$: trait};
+	});
+var $elm$virtual_dom$VirtualDom$attribute = F2(
+	function (key, value) {
+		return A2(
+			_VirtualDom_attribute,
+			_VirtualDom_noOnOrFormAction(key),
+			_VirtualDom_noJavaScriptOrHtmlUri(value));
+	});
+var $elm$html$Html$Attributes$attribute = $elm$virtual_dom$VirtualDom$attribute;
+var $elm$html$Html$span = _VirtualDom_node('span');
+var $author$project$Classification$bold = function (text) {
+	return A2(
+		$elm$html$Html$span,
+		_List_fromArray(
+			[
+				$elm$html$Html$Attributes$class('font-bold')
+			]),
+		_List_fromArray(
+			[
+				$elm$html$Html$text(text)
+			]));
+};
+var $elm$html$Html$details = _VirtualDom_node('details');
+var $elm$html$Html$li = _VirtualDom_node('li');
+var $elm$html$Html$ol = _VirtualDom_node('ol');
+var $elm$html$Html$summary = _VirtualDom_node('summary');
+var $author$project$Classification$viewExampleButton = F2(
+	function (url, i) {
+		return A2(
+			$elm$html$Html$div,
+			_List_fromArray(
+				[
+					$elm$html$Html$Attributes$class('w-full md:w-36 flex flex-col space-y-1')
+				]),
+			_List_fromArray(
+				[
+					A2(
+					$elm$html$Html$img,
+					_List_fromArray(
+						[
+							$elm$html$Html$Attributes$src(url),
+							$elm$html$Html$Events$onClick(
+							$author$project$Classification$SetUrl(i)),
+							$elm$html$Html$Attributes$class('cursor-pointer')
+						]),
+					_List_Nil),
+					A2(
+					$elm$html$Html$button,
+					_List_fromArray(
+						[
+							$elm$html$Html$Events$onClick(
+							$author$project$Classification$SetUrl(i)),
+							$elm$html$Html$Attributes$class('flex-1 rounded-lg px-2 py-1 transition-colors'),
+							$elm$html$Html$Attributes$class('border border-sky-300 hover:border-sky-400'),
+							$elm$html$Html$Attributes$class('bg-sky-100 hover:bg-sky-200'),
+							$elm$html$Html$Attributes$class('text-gray-700 hover:text-gray-900'),
+							$elm$html$Html$Attributes$class('focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2'),
+							$elm$html$Html$Attributes$class('active:bg-gray-300')
+						]),
+					_List_fromArray(
+						[
+							$elm$html$Html$text(
+							'Example #' + $elm$core$String$fromInt(i))
+						]))
+				]));
+	});
+var $author$project$Classification$viewInstructions = function (example) {
+	var suggestion = function () {
+		switch (example) {
+			case 680:
+				return A4(
+					$author$project$Classification$Suggestion,
+					$elm$html$Html$text(' For example, this blue jay has a distinctive blue wing.'),
+					A2(
+						$elm$html$Html$span,
+						_List_Nil,
+						_List_fromArray(
+							[
+								$elm$html$Html$text(' If you choose the blue wing, you might see feature '),
+								A2(
+								$elm$html$Html$span,
+								_List_fromArray(
+									[
+										$elm$html$Html$Attributes$class('font-mono')
+									]),
+								_List_fromArray(
+									[
+										$elm$html$Html$text('CLIP-24K/20356')
+									])),
+								$elm$html$Html$text(' or '),
+								A2(
+								$elm$html$Html$span,
+								_List_fromArray(
+									[
+										$elm$html$Html$Attributes$class('font-mono')
+									]),
+								_List_fromArray(
+									[
+										$elm$html$Html$text('CLIP-24K/16659')
+									])),
+								$elm$html$Html$text('.')
+							])),
+					A2(
+						$elm$html$Html$span,
+						_List_Nil,
+						_List_fromArray(
+							[
+								$elm$html$Html$text(' Try dragging the slider for '),
+								A2(
+								$elm$html$Html$span,
+								_List_fromArray(
+									[
+										$elm$html$Html$Attributes$class('font-mono')
+									]),
+								_List_fromArray(
+									[
+										$elm$html$Html$text('CLIP-24K/20356')
+									])),
+								$elm$html$Html$text(' to -11.')
+							])),
+					$elm$html$Html$text(' For example, if you suppressed the blue wing, the ViT likely predicted Clark Nutcracker, a similar bird without any blue coloration.'));
+			case 1129:
+				return A4(
+					$author$project$Classification$Suggestion,
+					$elm$html$Html$text(' For example, this warbler has a distinctive broken black necklace.'),
+					$elm$html$Html$text(''),
+					$elm$html$Html$text(''),
+					$elm$html$Html$text(''));
+			case 4139:
+				return A4(
+					$author$project$Classification$Suggestion,
+					$elm$html$Html$text(' For example, this purple finch has a distinctive pink and red coloration on its chest and head.'),
+					$elm$html$Html$text(''),
+					$elm$html$Html$text(''),
+					$elm$html$Html$text(''));
+			case 5099:
+				return A4(
+					$author$project$Classification$Suggestion,
+					$elm$html$Html$text(' For example, this kingbird has a distinctive yellow chest.'),
+					A2(
+						$elm$html$Html$span,
+						_List_Nil,
+						_List_fromArray(
+							[
+								$elm$html$Html$text(' If you choose the patches for its yellow chest, you might see feature '),
+								A2(
+								$elm$html$Html$span,
+								_List_fromArray(
+									[
+										$elm$html$Html$Attributes$class('font-mono')
+									]),
+								_List_fromArray(
+									[
+										$elm$html$Html$text('CLIP-24K/14468')
+									])),
+								$elm$html$Html$text('.')
+							])),
+					A2(
+						$elm$html$Html$span,
+						_List_Nil,
+						_List_fromArray(
+							[
+								$elm$html$Html$text(' Try dragging the slider for '),
+								A2(
+								$elm$html$Html$span,
+								_List_fromArray(
+									[
+										$elm$html$Html$Attributes$class('font-mono')
+									]),
+								_List_fromArray(
+									[
+										$elm$html$Html$text('CLIP-24K/14468')
+									])),
+								$elm$html$Html$text(' to -8.')
+							])),
+					A2(
+						$elm$html$Html$span,
+						_List_Nil,
+						_List_fromArray(
+							[
+								$elm$html$Html$text(' If you suppressed the '),
+								A2(
+								$elm$html$Html$span,
+								_List_fromArray(
+									[
+										$elm$html$Html$Attributes$class('italic')
+									]),
+								_List_fromArray(
+									[
+										$elm$html$Html$text('entire')
+									])),
+								$elm$html$Html$text(' yellow chest, the ViT likely predicted Gray Kingbird, a similar kingbird without any yellow coloration.')
+							])));
+			default:
+				return A4(
+					$author$project$Classification$Suggestion,
+					$elm$html$Html$text(''),
+					$elm$html$Html$text(''),
+					$elm$html$Html$text(''),
+					$elm$html$Html$text(''));
+		}
+	}();
+	return A2(
+		$elm$html$Html$details,
+		_List_fromArray(
+			[
+				A2($elm$html$Html$Attributes$attribute, 'open', '')
+			]),
+		_List_fromArray(
+			[
+				A2(
+				$elm$html$Html$summary,
 				_List_Nil,
 				_List_fromArray(
 					[
-						$elm$html$Html$text('Initial state. You shouldn\'t see this for long...')
-					]));
-		case 1:
-			return A2(
-				$elm$html$Html$p,
-				_List_Nil,
-				_List_fromArray(
-					[
-						$elm$html$Html$text('Loading example...')
-					]));
-		case 2:
-			var example = _v0.a;
-			return A2(
+						A2(
+						$elm$html$Html$span,
+						_List_fromArray(
+							[
+								$elm$html$Html$Attributes$class('cursor-pointer font-bold text-l')
+							]),
+						_List_fromArray(
+							[
+								$elm$html$Html$text('Instructions')
+							])),
+						A2(
+						$elm$html$Html$span,
+						_List_fromArray(
+							[
+								$elm$html$Html$Attributes$class('cursor-pointer italic')
+							]),
+						_List_fromArray(
+							[
+								$elm$html$Html$text(' (click to toggle)')
+							]))
+					])),
+				A2(
 				$elm$html$Html$div,
 				_List_fromArray(
 					[
-						$elm$html$Html$Attributes$class('w-[224px] md:w-[336px]')
+						$elm$html$Html$Attributes$class('md:flex md:gap-6')
 					]),
 				_List_fromArray(
 					[
-						A3($author$project$Classification$viewGriddedImage, model.S, model.u, example.ai),
 						A2(
-						$elm$html$Html$div,
+						$elm$html$Html$ol,
 						_List_fromArray(
 							[
-								$elm$html$Html$Attributes$class('flex flex-row gap-2')
+								$elm$html$Html$Attributes$class('list-decimal pl-4 space-y-1 md:flex-1')
 							]),
 						_List_fromArray(
 							[
 								A2(
-								$author$project$Classification$viewButton,
-								$author$project$Classification$SetUrl(model.x - 1),
-								'Previous'),
-								A2($author$project$Classification$viewButton, $author$project$Classification$GetRandomExample, 'Random'),
+								$elm$html$Html$li,
+								_List_Nil,
+								_List_fromArray(
+									[
+										$elm$html$Html$text('Click any example to see a ViT-powered classification. This is your '),
+										$author$project$Classification$bold('observation'),
+										$elm$html$Html$text('.')
+									])),
 								A2(
-								$author$project$Classification$viewButton,
-								$author$project$Classification$SetUrl(model.x + 1),
-								'Next')
+								$elm$html$Html$li,
+								_List_Nil,
+								_List_fromArray(
+									[
+										$elm$html$Html$text('Think of a possible trait used by the ViT to classify the bird.'),
+										suggestion.ay,
+										$elm$html$Html$text(' This is your '),
+										A2(
+										$elm$html$Html$span,
+										_List_fromArray(
+											[
+												$elm$html$Html$Attributes$class('font-bold')
+											]),
+										_List_fromArray(
+											[
+												$elm$html$Html$text('hypothesis')
+											])),
+										$elm$html$Html$text(' that explains the ViT\'s prediction.')
+									])),
+								A2(
+								$elm$html$Html$li,
+								_List_Nil,
+								_List_fromArray(
+									[
+										$elm$html$Html$text('Click on '),
+										$author$project$Classification$bold('all'),
+										$elm$html$Html$text(' the patches corresponding to the trait. This starts your '),
+										A2(
+										$elm$html$Html$span,
+										_List_fromArray(
+											[
+												$elm$html$Html$Attributes$class('font-bold')
+											]),
+										_List_fromArray(
+											[
+												$elm$html$Html$text('experiment')
+											])),
+										$elm$html$Html$text('.')
+									])),
+								A2(
+								$elm$html$Html$li,
+								_List_Nil,
+								_List_fromArray(
+									[
+										$elm$html$Html$text('A sparse autoencoder (SAE) retrieves semantically similar patches. '),
+										suggestion.a$
+									])),
+								A2(
+								$elm$html$Html$li,
+								_List_Nil,
+								_List_fromArray(
+									[
+										$elm$html$Html$text('Drag the slider to suppress or magnify the presence of that feature in the ViT\'s activation space.'),
+										suggestion.ak
+									])),
+								A2(
+								$elm$html$Html$li,
+								_List_Nil,
+								_List_fromArray(
+									[
+										$elm$html$Html$text('Finally, observe any change in prediction as a result of your experiment.'),
+										suggestion.aA
+									]))
 							])),
 						A2(
 						$elm$html$Html$div,
 						_List_fromArray(
 							[
-								$elm$html$Html$Attributes$class('py-1 md:py-2 lg:py-4')
+								$elm$html$Html$Attributes$class('grid grid-cols-2 sm:grid-cols-4 md:inline-grid md:grid-cols-2 md:items-start lg:grid-cols-4'),
+								$elm$html$Html$Attributes$class('gap-2 mt-4 md:mt-0')
 							]),
 						_List_fromArray(
 							[
-								A2(
-								$elm$html$Html$p,
-								_List_fromArray(
-									[
-										$elm$html$Html$Attributes$class('font-bold text-gray-800')
-									]),
-								_List_fromArray(
-									[
-										$elm$html$Html$text(
-										$author$project$Classification$viewClass(example.i) + (' (Example #' + ($elm$core$String$fromInt(model.x) + ')')))
-									]))
+								A2($author$project$Classification$viewExampleButton, '/docs/assets/contrib/classification/680.webp', 680),
+								A2($author$project$Classification$viewExampleButton, '/docs/assets/contrib/classification/1129.webp', 1129),
+								A2($author$project$Classification$viewExampleButton, '/docs/assets/contrib/classification/4139.webp', 4139),
+								A2($author$project$Classification$viewExampleButton, '/docs/assets/contrib/classification/5099.webp', 5099)
 							]))
-					]));
-		default:
-			var err = _v0.a;
-			return $author$project$Classification$viewErr(err);
-	}
+					]))
+			]));
 };
 var $author$project$Classification$uncurry = F2(
 	function (f, _v0) {
@@ -8783,7 +9155,6 @@ var $elm$html$Html$Attributes$max = $elm$html$Html$Attributes$stringProperty('ma
 var $elm$html$Html$meter = _VirtualDom_node('meter');
 var $elm$html$Html$Attributes$min = $elm$html$Html$Attributes$stringProperty('min');
 var $elm$core$Basics$round = _Basics_round;
-var $elm$html$Html$span = _VirtualDom_node('span');
 var $elm$html$Html$Attributes$value = $elm$html$Html$Attributes$stringProperty('value');
 var $author$project$Classification$viewProb = F2(
 	function (target, prob) {
@@ -8791,7 +9162,7 @@ var $author$project$Classification$viewProb = F2(
 			$elm$html$Html$div,
 			_List_fromArray(
 				[
-					$elm$html$Html$Attributes$class('cursor-pointer hover:underline'),
+					$elm$html$Html$Attributes$class('cursor-pointer text-sky-500 decoration-sky-500 hover:underline'),
 					$elm$html$Html$Events$onClick(
 					$author$project$Classification$ExamineClass(target))
 				]),
@@ -8818,10 +9189,7 @@ var $author$project$Classification$viewProb = F2(
 						[
 							A2(
 							$elm$html$Html$span,
-							_List_fromArray(
-								[
-									$elm$html$Html$Attributes$class('text-gray-700')
-								]),
+							_List_Nil,
 							_List_fromArray(
 								[
 									$elm$html$Html$text(
@@ -8829,10 +9197,7 @@ var $author$project$Classification$viewProb = F2(
 								])),
 							A2(
 							$elm$html$Html$span,
-							_List_fromArray(
-								[
-									$elm$html$Html$Attributes$class('text-gray-900')
-								]),
+							_List_Nil,
 							_List_fromArray(
 								[
 									$elm$html$Html$text(
@@ -8891,7 +9256,7 @@ var $author$project$Classification$viewProbs = F3(
 			$elm$html$Html$div,
 			_List_fromArray(
 				[
-					$elm$html$Html$Attributes$class('pt-1 md:pt-2 lg:pt-4 flex-1')
+					$elm$html$Html$Attributes$class('pt-1 flex-1')
 				]),
 			_List_fromArray(
 				[
@@ -8908,13 +9273,6 @@ var $author$project$Classification$viewProbs = F3(
 					content
 				]));
 	});
-var $elm$html$Html$a = _VirtualDom_node('a');
-var $elm$html$Html$Attributes$href = function (url) {
-	return A2(
-		$elm$html$Html$Attributes$stringProperty,
-		'href',
-		_VirtualDom_noJavaScriptUri(url));
-};
 var $elm$core$Maybe$map = F2(
 	function (f, maybe) {
 		if (!maybe.$) {
@@ -8968,44 +9326,116 @@ var $author$project$Classification$viewSaeExample = F2(
 			$elm$html$Html$div,
 			_List_fromArray(
 				[
-					$elm$html$Html$Attributes$class('flex flex-row gap-2 mt-2')
+					$elm$html$Html$Attributes$class('')
 				]),
-			_Utils_ap(
-				A2($elm$core$List$map, $author$project$Classification$viewImage, example.aj),
+			_List_fromArray(
+				[
+					A2(
+					$elm$html$Html$div,
+					_List_fromArray(
+						[
+							$elm$html$Html$Attributes$class('grid grid-cols-4')
+						]),
+					A2($elm$core$List$map, $author$project$Classification$viewImage, example.aj)),
+					A2(
+					$elm$html$Html$div,
+					_List_fromArray(
+						[
+							$elm$html$Html$Attributes$class('')
+						]),
+					_List_fromArray(
+						[
+							A2(
+							$elm$html$Html$input,
+							_List_fromArray(
+								[
+									$elm$html$Html$Attributes$type_('range'),
+									$elm$html$Html$Attributes$min('-20'),
+									$elm$html$Html$Attributes$max('20'),
+									$elm$html$Html$Attributes$value(
+									$elm$core$String$fromFloat(value)),
+									$elm$html$Html$Events$onInput(
+									$author$project$Classification$SetSlider(example.K))
+								]),
+							_List_Nil),
+							A2(
+							$elm$html$Html$p,
+							_List_Nil,
+							_List_fromArray(
+								[
+									A2(
+									$elm$html$Html$span,
+									_List_fromArray(
+										[
+											$elm$html$Html$Attributes$class('font-mono')
+										]),
+									_List_fromArray(
+										[
+											$elm$html$Html$text(
+											'CLIP-24K/' + $elm$core$String$fromInt(example.K))
+										])),
+									$elm$html$Html$text(
+									': ' + $elm$core$String$fromFloat(value))
+								]))
+						]))
+				]));
+	});
+var $elm$svg$Svg$trustedNode = _VirtualDom_nodeNS('http://www.w3.org/2000/svg');
+var $elm$svg$Svg$circle = $elm$svg$Svg$trustedNode('circle');
+var $elm$svg$Svg$Attributes$class = _VirtualDom_attribute('class');
+var $elm$svg$Svg$Attributes$cx = _VirtualDom_attribute('cx');
+var $elm$svg$Svg$Attributes$cy = _VirtualDom_attribute('cy');
+var $elm$svg$Svg$Attributes$d = _VirtualDom_attribute('d');
+var $elm$svg$Svg$Attributes$fill = _VirtualDom_attribute('fill');
+var $elm$svg$Svg$path = $elm$svg$Svg$trustedNode('path');
+var $elm$svg$Svg$Attributes$r = _VirtualDom_attribute('r');
+var $elm$svg$Svg$Attributes$stroke = _VirtualDom_attribute('stroke');
+var $elm$svg$Svg$Attributes$strokeWidth = _VirtualDom_attribute('stroke-width');
+var $elm$svg$Svg$svg = $elm$svg$Svg$trustedNode('svg');
+var $elm$svg$Svg$Attributes$viewBox = _VirtualDom_attribute('viewBox');
+var $author$project$Classification$viewSpinner = function (text) {
+	return A2(
+		$elm$html$Html$div,
+		_List_fromArray(
+			[
+				$elm$html$Html$Attributes$class('inline-flex items-center px-4 py-2')
+			]),
+		_List_fromArray(
+			[
+				A2(
+				$elm$svg$Svg$svg,
+				_List_fromArray(
+					[
+						$elm$svg$Svg$Attributes$class('animate-spin -ml-1 mr-3 h-5 w-5 text-sky-500'),
+						$elm$svg$Svg$Attributes$viewBox('0 0 24 24')
+					]),
 				_List_fromArray(
 					[
 						A2(
-						$elm$html$Html$div,
+						$elm$svg$Svg$circle,
 						_List_fromArray(
 							[
-								$elm$html$Html$Attributes$class('flex flex-col gap-2')
+								$elm$svg$Svg$Attributes$class('opacity-25'),
+								$elm$svg$Svg$Attributes$cx('12'),
+								$elm$svg$Svg$Attributes$cy('12'),
+								$elm$svg$Svg$Attributes$r('10'),
+								$elm$svg$Svg$Attributes$stroke('currentColor'),
+								$elm$svg$Svg$Attributes$strokeWidth('4')
 							]),
+						_List_Nil),
+						A2(
+						$elm$svg$Svg$path,
 						_List_fromArray(
 							[
-								A2(
-								$elm$html$Html$input,
-								_List_fromArray(
-									[
-										$elm$html$Html$Attributes$type_('range'),
-										$elm$html$Html$Attributes$min('-20'),
-										$elm$html$Html$Attributes$max('20'),
-										$elm$html$Html$Attributes$value(
-										$elm$core$String$fromFloat(value)),
-										$elm$html$Html$Events$onInput(
-										$author$project$Classification$SetSlider(example.K))
-									]),
-								_List_Nil),
-								A2(
-								$elm$html$Html$p,
-								_List_Nil,
-								_List_fromArray(
-									[
-										$elm$html$Html$text(
-										'Latent 24K/' + ($elm$core$String$fromInt(example.K) + (': ' + $elm$core$String$fromFloat(value))))
-									]))
-							]))
-					])));
-	});
+								$elm$svg$Svg$Attributes$class('opacity-25'),
+								$elm$svg$Svg$Attributes$fill('currentColor'),
+								$elm$svg$Svg$Attributes$d('M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z')
+							]),
+						_List_Nil)
+					])),
+				$elm$html$Html$text(text)
+			]));
+};
 var $author$project$Classification$viewSaeExamples = F2(
 	function (examplesLoading, values) {
 		switch (examplesLoading.$) {
@@ -9021,20 +9451,14 @@ var $author$project$Classification$viewSaeExamples = F2(
 							$elm$html$Html$text('Click on the image above to find similar image patches using a sparse autoencoder (SAE).')
 						]));
 			case 1:
-				return A2(
-					$elm$html$Html$p,
-					_List_Nil,
-					_List_fromArray(
-						[
-							$elm$html$Html$text('Loading similar patches...')
-						]));
+				return $author$project$Classification$viewSpinner('Loading similar patches...');
 			case 2:
 				var examples = examplesLoading.a;
 				return A2(
 					$elm$html$Html$div,
 					_List_fromArray(
 						[
-							$elm$html$Html$Attributes$class('p-1 md:px-2 lg:px-4')
+							$elm$html$Html$Attributes$class('p-1')
 						]),
 					_Utils_ap(
 						_List_fromArray(
@@ -9075,19 +9499,7 @@ var $author$project$Classification$viewSaeExamples = F2(
 											[
 												$elm$html$Html$text('these patches')
 											])),
-										$elm$html$Html$text(' below. (Not what you expected? Add more patches and get a larger '),
-										A2(
-										$elm$html$Html$a,
-										_List_fromArray(
-											[
-												$elm$html$Html$Attributes$href('https://simple.wikipedia.org/wiki/Sampling_(statistics)'),
-												$elm$html$Html$Attributes$class('text-blue-500 underline')
-											]),
-										_List_fromArray(
-											[
-												$elm$html$Html$text('sample size')
-											])),
-										$elm$html$Html$text(')')
+										$elm$html$Html$text(' below. (Not what you expected? Add more patches)')
 									]))
 							]),
 						A2(
@@ -9116,14 +9528,14 @@ var $author$project$Classification$view = function (model) {
 		}
 	}();
 	return {
-		a2: _List_fromArray(
+		a7: _List_fromArray(
 			[
 				A2($elm$html$Html$header, _List_Nil, _List_Nil),
 				A2(
 				$elm$html$Html$main_,
 				_List_fromArray(
 					[
-						$elm$html$Html$Attributes$class('w-full min-h-screen p-1 md:p-2 lg:p-4 bg-gray-50 space-y-4')
+						$elm$html$Html$Attributes$class('w-full min-h-screen p-0 md:p-1 lg:p-2 bg-gray-50 space-y-4')
 					]),
 				_List_fromArray(
 					[
@@ -9131,15 +9543,26 @@ var $author$project$Classification$view = function (model) {
 						$elm$html$Html$div,
 						_List_fromArray(
 							[
-								$elm$html$Html$Attributes$class('border border-gray-200 bg-white rounded-lg p-4 space-y-4')
+								$elm$html$Html$Attributes$class('border border-gray-200 bg-white p-2 space-y-4')
 							]),
 						_List_fromArray(
 							[
 								A2(
+								$elm$html$Html$h1,
+								_List_fromArray(
+									[
+										$elm$html$Html$Attributes$class('text-2xl')
+									]),
+								_List_fromArray(
+									[
+										$elm$html$Html$text('SAEs for Scientifically Rigorous Interpretation of Vision Models')
+									])),
+								$author$project$Classification$viewInstructions(model.t),
+								A2(
 								$elm$html$Html$div,
 								_List_fromArray(
 									[
-										$elm$html$Html$Attributes$class('flex flex-row gap-2 items-stretch')
+										$elm$html$Html$Attributes$class('flex flex-col items-stretch')
 									]),
 								_List_fromArray(
 									[
@@ -9158,7 +9581,7 @@ var $author$project$Classification$view = function (model) {
 								$elm$html$Html$div,
 								_List_fromArray(
 									[
-										$elm$html$Html$Attributes$class('flex flex-row justify-between')
+										$elm$html$Html$Attributes$class('')
 									]),
 								_List_fromArray(
 									[
@@ -9168,19 +9591,19 @@ var $author$project$Classification$view = function (model) {
 							]))
 					]))
 			]),
-		bs: 'Image Classification'
+		bw: 'Image Classification'
 	};
 };
 var $author$project$Classification$main = $elm$browser$Browser$application(
 	{
-		be: $author$project$Classification$init,
-		bh: $author$project$Classification$onUrlChange,
-		bi: $author$project$Classification$onUrlRequest,
-		br: function (model) {
+		bi: $author$project$Classification$init,
+		bl: $author$project$Classification$onUrlChange,
+		bm: $author$project$Classification$onUrlRequest,
+		bv: function (model) {
 			return $elm$core$Platform$Sub$none;
 		},
-		bt: $author$project$Classification$update,
-		bu: $author$project$Classification$view
+		bx: $author$project$Classification$update,
+		by: $author$project$Classification$view
 	});
 _Platform_export({'Classification':{'init':$author$project$Classification$main(
 	$elm$json$Json$Decode$succeed(0))(0)}});}(this));
