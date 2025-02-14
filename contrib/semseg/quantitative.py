@@ -435,8 +435,13 @@ def get_latent_lookup(
             "thresholds d_sae n_image -> thresholds d_sae",
             "sum",
         )
-        # Why is this code slow? What ideas do you have to speed up the code inside this for loop? Each iteration takes about 2 minutes, which is 150 x 2 = 5 hours to run. AI!
-        f1_TS = (2 * true_pos_TS) / (2 * true_pos_TS + false_pos_TS + false_neg_TS)
+        # Compute F1 scores for all thresholds and features at once
+        numerator = 2 * true_pos_TS.float()
+        denominator = 2 * true_pos_TS + false_pos_TS + false_neg_TS
+        # Add small epsilon to avoid division by zero
+        f1_TS = numerator / (denominator + 1e-8)
+        
+        # Find best threshold and score for each feature
         f1_S, best_thresh_i_S = f1_TS.max(dim=0)
         best_thresholds_S = thresholds_T[best_thresh_i_S]
 
