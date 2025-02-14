@@ -1445,3 +1445,9 @@ So a couple things:
 
 1. It's really slow. How can I speed it up? Maybe batching, moving to GPU, and speeding it up?
 2. It's not finding any features. This is probably a bug, given that it finds "good" SAE for the first class, but not any of the next ones.
+
+Either it's a bug and I need to fix it, or I need to only pick patches with
+
+One such bug is activation normalizations.
+You need to normalize the activations.
+Just like in the comparison app in saev, you need to load the mean/scalar from disk for DINOv2 activations on IN1K.

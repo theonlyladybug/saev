@@ -9,7 +9,7 @@ import Browser.Navigation
 import Dict
 import Gradio
 import Html
-import Html.Attributes
+import Html.Attributes exposing (class)
 import Html.Events
 import Http
 import Json.Decode as D
@@ -17,10 +17,16 @@ import Json.Encode as E
 import Random
 import Requests
 import Set
+import Svg
+import Svg.Attributes
 import Url
 import Url.Builder
 import Url.Parser exposing ((</>), (<?>))
 import Url.Parser.Query
+
+
+isDevelopment =
+    False
 
 
 main =
@@ -143,7 +149,11 @@ init _ url key =
             , classExampleRequestId = Requests.init
             , saeExamplesRequestId = Requests.init
             , gradio =
-                { host = "https://samuelstevens-saev-image-classification.hf.space" }
+                if isDevelopment then
+                    { host = "http://localhost:7860" }
+
+                else
+                    { host = "https://samuelstevens-saev-image-classification.hf.space" }
             }
     in
     ( model
@@ -465,12 +475,19 @@ type alias QueryParams =
 
 urlParser : Url.Parser.Parser (QueryParams -> a) a
 urlParser =
-    -- Need to change this when I deploy it.
-    Url.Parser.s "SAE-V"
-        </> Url.Parser.s "demos"
-        </> Url.Parser.s "classification"
-        <?> Url.Parser.Query.int "example"
-        |> Url.Parser.map QueryParams
+    if isDevelopment then
+        Url.Parser.s "web"
+            </> Url.Parser.s "apps"
+            </> Url.Parser.s "classification"
+            <?> Url.Parser.Query.int "example"
+            |> Url.Parser.map QueryParams
+
+    else
+        Url.Parser.s "SAE-V"
+            </> Url.Parser.s "demos"
+            </> Url.Parser.s "classification"
+            <?> Url.Parser.Query.int "example"
+            |> Url.Parser.map QueryParams
 
 
 
@@ -623,11 +640,15 @@ view model =
     , body =
         [ Html.header [] []
         , Html.main_
-            [ Html.Attributes.class "w-full min-h-screen p-1 md:p-2 lg:p-4 bg-gray-50 space-y-4" ]
+            [ Html.Attributes.class "w-full min-h-screen p-0 md:p-1 lg:p-2 bg-gray-50 space-y-4" ]
             [ Html.div
-                [ Html.Attributes.class "border border-gray-200 bg-white rounded-lg p-4 space-y-4" ]
-                [ Html.div
-                    [ Html.Attributes.class "flex flex-row gap-2 items-stretch" ]
+                [ Html.Attributes.class "border border-gray-200 bg-white p-2 space-y-4" ]
+                [ Html.h1
+                    [ class "text-2xl" ]
+                    [ Html.text "SAEs for Scientifically Rigorous Interpretation of Vision Models" ]
+                , viewInstructions model.inputExampleIndex
+                , Html.div
+                    [ class "flex flex-col items-stretch" ]
                     [ viewInputExample model
                     , viewProbs "Prediction"
                         "Wait just a second."
@@ -636,9 +657,9 @@ view model =
                         callToAction
                         model.modifiedPredictions
                     ]
-                , Html.div [ Html.Attributes.class "border-t border-gray-200" ] []
+                , Html.div [ class "border-t border-gray-200" ] []
                 , Html.div
-                    [ Html.Attributes.class "flex flex-row justify-between" ]
+                    [ class "" ]
                     [ viewSaeExamples model.saeExamples model.sliders
                     , viewClassExamples model.examinedClass
                     ]
@@ -650,20 +671,22 @@ view model =
 
 viewInputExample : Model -> Html.Html Msg
 viewInputExample model =
-    case model.inputExample of
-        Requests.Initial ->
-            Html.p
-                []
-                [ Html.text "Initial state. You shouldn't see this for long..." ]
+    Html.div
+        [ class "w-[336px] self-center" ]
+        (case model.inputExample of
+            Requests.Initial ->
+                [ Html.p
+                    []
+                    [ Html.text "Initial state. You shouldn't see this for long..." ]
+                ]
 
-        Requests.Loading ->
-            Html.p
-                []
-                [ Html.text "Loading example..." ]
+            Requests.Loading ->
+                [ Html.p
+                    []
+                    [ Html.text "Loading example..." ]
+                ]
 
-        Requests.Loaded example ->
-            Html.div
-                [ Html.Attributes.class "w-[224px] md:w-[336px]" ]
+            Requests.Loaded example ->
                 [ viewGriddedImage
                     model.hoveredPatchIndex
                     model.selectedPatchIndices
@@ -675,12 +698,12 @@ viewInputExample model =
                     , viewButton (SetUrl (model.inputExampleIndex + 1)) "Next"
                     ]
                 , Html.div
-                    [ Html.Attributes.class "py-1 md:py-2 lg:py-4" ]
+                    [ Html.Attributes.class "mt-2" ]
                     [ Html.p
                         [ Html.Attributes.class "font-bold text-gray-800" ]
                         [ Html.text
                             (viewClass example.class
-                                ++ " (Example #"
+                                ++ " (#"
                                 ++ String.fromInt model.inputExampleIndex
                                 ++ ")"
                             )
@@ -688,22 +711,25 @@ viewInputExample model =
                     ]
                 ]
 
-        Requests.Failed err ->
-            viewErr err
+            Requests.Failed err ->
+                [ viewErr err ]
+        )
 
 
 viewGriddedImage : Maybe Int -> Set.Set Int -> String -> Html.Html Msg
 viewGriddedImage hovered selected url =
     Html.div
-        [ Html.Attributes.class "relative inline-block" ]
+        [ class "relative inline-block" ]
         [ Html.div
-            [ Html.Attributes.class "absolute grid grid-rows-[repeat(14,_16px)] grid-cols-[repeat(14,_16px)] md:grid-rows-[repeat(14,_24px)] md:grid-cols-[repeat(14,_24px)]" ]
+            [ class "absolute grid"
+            , class "grid-rows-[repeat(14,_24px)] grid-cols-[repeat(14,_24px)]"
+            ]
             (List.map
                 (viewGridCell hovered selected)
                 (List.range 0 195)
             )
         , Html.img
-            [ Html.Attributes.class "block w-[224px] h-[224px] md:w-[336px] md:h-[336px]"
+            [ class "block w-[336px] h-[336px]"
             , Html.Attributes.src url
             ]
             []
@@ -733,7 +759,7 @@ viewGridCell hovered selected self =
                    )
     in
     Html.div
-        [ Html.Attributes.class "w-[16px] h-[16px] md:w-[24px] md:h-[24px]"
+        [ Html.Attributes.class "w-[24px] h-[24px]"
         , Html.Attributes.class class
         , Html.Events.onMouseEnter (HoverPatch self)
         , Html.Events.onMouseLeave ResetHoveredPatch
@@ -774,7 +800,7 @@ viewProbs title callToAction loadingProbs =
                     viewErr err
     in
     Html.div
-        [ Html.Attributes.class "pt-1 md:pt-2 lg:pt-4 flex-1" ]
+        [ Html.Attributes.class "pt-1 flex-1" ]
         [ Html.h3
             [ Html.Attributes.class "font-bold text-gray-800" ]
             [ Html.text title ]
@@ -785,7 +811,7 @@ viewProbs title callToAction loadingProbs =
 viewProb : Int -> Float -> Html.Html Msg
 viewProb target prob =
     Html.div
-        [ Html.Attributes.class "cursor-pointer hover:underline"
+        [ Html.Attributes.class "cursor-pointer text-sky-500 decoration-sky-500 hover:underline"
         , Html.Events.onClick (ExamineClass target)
         ]
         [ Html.meter
@@ -799,10 +825,10 @@ viewProb target prob =
             [ Html.Attributes.class "flex justify-between"
             ]
             [ Html.span
-                [ Html.Attributes.class "text-gray-700" ]
+                []
                 [ Html.text (viewClass target) ]
             , Html.span
-                [ Html.Attributes.class "text-gray-900" ]
+                []
                 [ Html.text ((prob * 100 |> round |> String.fromInt) ++ "%") ]
             ]
         ]
@@ -817,21 +843,18 @@ viewSaeExamples examplesLoading values =
                 [ Html.text "Click on the image above to find similar image patches using a sparse autoencoder (SAE)." ]
 
         Requests.Loading ->
-            Html.p []
-                [ Html.text "Loading similar patches..." ]
+            viewSpinner "Loading similar patches..."
 
         Requests.Loaded examples ->
-            Html.div [ Html.Attributes.class "p-1 md:px-2 lg:px-4" ]
+            Html.div [ class "p-1" ]
                 ([ Html.h3
-                    [ Html.Attributes.class "font-bold" ]
+                    [ class "font-bold" ]
                     [ Html.text "Similar Examples" ]
                  , Html.p []
-                    [ Html.span [ Html.Attributes.class "bg-rose-600 text-white p-1 rounded" ] [ Html.text "These patches" ]
+                    [ Html.span [ class "bg-rose-600 text-white p-1 rounded" ] [ Html.text "These patches" ]
                     , Html.text " above are like "
-                    , Html.span [ Html.Attributes.class "bg-rose-600 text-white p-1 rounded" ] [ Html.text "these patches" ]
-                    , Html.text " below. (Not what you expected? Add more patches and get a larger "
-                    , Html.a [ Html.Attributes.href "https://simple.wikipedia.org/wiki/Sampling_(statistics)", Html.Attributes.class "text-blue-500 underline" ] [ Html.text "sample size" ]
-                    , Html.text ")"
+                    , Html.span [ class "bg-rose-600 text-white p-1 rounded" ] [ Html.text "these patches" ]
+                    , Html.text " below. (Not what you expected? Add more patches)"
                     ]
                  ]
                     ++ List.filterMap
@@ -846,31 +869,34 @@ viewSaeExamples examplesLoading values =
 viewSaeExample : SaeExample -> Float -> Html.Html Msg
 viewSaeExample example value =
     Html.div
-        [ Html.Attributes.class "flex flex-row gap-2 mt-2" ]
-        (List.map viewImage example.urls
-            ++ [ Html.div
-                    [ Html.Attributes.class "flex flex-col gap-2" ]
-                    [ Html.input
-                        [ Html.Attributes.type_ "range"
-                        , Html.Attributes.min "-20"
-                        , Html.Attributes.max "20"
-                        , Html.Attributes.value (String.fromFloat value)
-                        , Html.Events.onInput (SetSlider example.latent)
-                        ]
-                        []
-                    , Html.p
-                        []
-                        [ Html.text ("Latent 24K/" ++ String.fromInt example.latent ++ ": " ++ String.fromFloat value) ]
-                    ]
-               ]
-        )
+        [ class "" ]
+        [ Html.div
+            [ class "grid grid-cols-4" ]
+            (List.map viewImage example.urls)
+        , Html.div
+            [ class "" ]
+            [ Html.input
+                [ Html.Attributes.type_ "range"
+                , Html.Attributes.min "-20"
+                , Html.Attributes.max "20"
+                , Html.Attributes.value (String.fromFloat value)
+                , Html.Events.onInput (SetSlider example.latent)
+                ]
+                []
+            , Html.p
+                []
+                [ Html.span [ class "font-mono" ] [ Html.text ("CLIP-24K/" ++ String.fromInt example.latent) ]
+                , Html.text (": " ++ String.fromFloat value)
+                ]
+            ]
+        ]
 
 
 viewImage : String -> Html.Html Msg
 viewImage url =
     Html.img
         [ Html.Attributes.src url
-        , Html.Attributes.class "max-w-36 h-auto"
+        , Html.Attributes.class ""
         ]
         []
 
@@ -934,8 +960,210 @@ viewButton onClick title =
         [ Html.text title ]
 
 
+type alias Suggestion =
+    { hypothesis : Html.Html Msg
+    , trait : Html.Html Msg
+    , action : Html.Html Msg
+    , insight : Html.Html Msg
+    }
+
+
+viewInstructions : Int -> Html.Html Msg
+viewInstructions example =
+    let
+        suggestion =
+            case example of
+                680 ->
+                    Suggestion
+                        (Html.text " For example, this blue jay has a distinctive blue wing.")
+                        (Html.span
+                            []
+                            [ Html.text " If you choose the blue wing, you might see feature "
+                            , Html.span [ class "font-mono" ] [ Html.text "CLIP-24K/20356" ]
+                            , Html.text " or "
+                            , Html.span [ class "font-mono" ] [ Html.text "CLIP-24K/16659" ]
+                            , Html.text "."
+                            ]
+                        )
+                        (Html.span
+                            []
+                            [ Html.text " Try dragging the slider for "
+                            , Html.span [ class "font-mono" ] [ Html.text "CLIP-24K/20356" ]
+                            , Html.text " to -11."
+                            ]
+                        )
+                        (Html.text " For example, if you suppressed the blue wing, the ViT likely predicted Clark Nutcracker, a similar bird without any blue coloration.")
+
+                1129 ->
+                    Suggestion
+                        (Html.text " For example, this warbler has a distinctive broken black necklace.")
+                        (Html.text "")
+                        (Html.text "")
+                        (Html.text "")
+
+                4139 ->
+                    Suggestion
+                        (Html.text " For example, this purple finch has a distinctive pink and red coloration on its chest and head.")
+                        (Html.text "")
+                        (Html.text "")
+                        (Html.text "")
+
+                5099 ->
+                    Suggestion
+                        (Html.text " For example, this kingbird has a distinctive yellow chest.")
+                        (Html.span
+                            []
+                            [ Html.text " If you choose the patches for its yellow chest, you might see feature "
+                            , Html.span [ class "font-mono" ] [ Html.text "CLIP-24K/14468" ]
+                            , Html.text "."
+                            ]
+                        )
+                        (Html.span
+                            []
+                            [ Html.text " Try dragging the slider for "
+                            , Html.span [ class "font-mono" ] [ Html.text "CLIP-24K/14468" ]
+                            , Html.text " to -8."
+                            ]
+                        )
+                        (Html.span
+                            []
+                            [ Html.text " If you suppressed the "
+                            , Html.span [ class "italic" ] [ Html.text "entire" ]
+                            , Html.text " yellow chest, the ViT likely predicted Gray Kingbird, a similar kingbird without any yellow coloration."
+                            ]
+                        )
+
+                _ ->
+                    Suggestion
+                        (Html.text "")
+                        (Html.text "")
+                        (Html.text "")
+                        (Html.text "")
+    in
+    Html.details
+        [ Html.Attributes.attribute "open" ""
+        ]
+        [ Html.summary
+            []
+            [ Html.span
+                [ class "cursor-pointer font-bold text-l"
+                ]
+                [ Html.text "Instructions" ]
+            , Html.span
+                [ class "cursor-pointer italic"
+                ]
+                [ Html.text " (click to toggle)" ]
+            ]
+
+        -- Raw
+        , Html.div
+            [ class "md:flex md:gap-6" ]
+            [ Html.ol
+                [ class "list-decimal pl-4 space-y-1 md:flex-1" ]
+                [ Html.li []
+                    [ Html.text "Click any example to see a ViT-powered classification. This is your "
+                    , bold "observation"
+                    , Html.text "."
+                    ]
+                , Html.li []
+                    [ Html.text "Think of a possible trait used by the ViT to classify the bird."
+                    , suggestion.hypothesis
+                    , Html.text " This is your "
+                    , Html.span [ class "font-bold" ] [ Html.text "hypothesis" ]
+                    , Html.text " that explains the ViT's prediction."
+                    ]
+                , Html.li []
+                    [ Html.text "Click on "
+                    , bold "all"
+                    , Html.text " the patches corresponding to the trait. This starts your "
+                    , Html.span [ class "font-bold" ] [ Html.text "experiment" ]
+                    , Html.text "."
+                    ]
+                , Html.li []
+                    [ Html.text "A sparse autoencoder (SAE) retrieves semantically similar patches. "
+                    , suggestion.trait
+                    ]
+                , Html.li []
+                    [ Html.text "Drag the slider to suppress or magnify the presence of that feature in the ViT's activation space."
+                    , suggestion.action
+                    ]
+                , Html.li []
+                    [ Html.text "Finally, observe any change in prediction as a result of your experiment."
+                    , suggestion.insight
+                    ]
+                ]
+            , Html.div
+                [ class "grid grid-cols-2 sm:grid-cols-4 md:inline-grid md:grid-cols-2 md:items-start lg:grid-cols-4"
+                , class "gap-2 mt-4 md:mt-0"
+                ]
+                [ viewExampleButton "/docs/assets/contrib/classification/680.webp" 680
+                , viewExampleButton "/docs/assets/contrib/classification/1129.webp" 1129
+                , viewExampleButton "/docs/assets/contrib/classification/4139.webp" 4139
+                , viewExampleButton "/docs/assets/contrib/classification/5099.webp" 5099
+                ]
+            ]
+        ]
+
+
+viewExampleButton : String -> Int -> Html.Html Msg
+viewExampleButton url i =
+    Html.div
+        [ class "w-full md:w-36 flex flex-col space-y-1" ]
+        -- Added these classes
+        [ Html.img
+            [ Html.Attributes.src url
+            , Html.Events.onClick (SetUrl i)
+            , class "cursor-pointer"
+            ]
+            []
+        , Html.button
+            [ Html.Events.onClick (SetUrl i)
+            , class "flex-1 rounded-lg px-2 py-1 transition-colors"
+            , class "border border-sky-300 hover:border-sky-400"
+            , class "bg-sky-100 hover:bg-sky-200"
+            , class "text-gray-700 hover:text-gray-900"
+            , class "focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2"
+            , class "active:bg-gray-300"
+            ]
+            [ Html.text ("Example #" ++ String.fromInt i) ]
+        ]
+
+
+viewSpinner : String -> Html.Html Msg
+viewSpinner text =
+    Html.div
+        [ class "inline-flex items-center px-4 py-2" ]
+        [ Svg.svg
+            [ Svg.Attributes.class "animate-spin -ml-1 mr-3 h-5 w-5 text-sky-500"
+            , Svg.Attributes.viewBox "0 0 24 24"
+            ]
+            [ Svg.circle
+                [ Svg.Attributes.class "opacity-25"
+                , Svg.Attributes.cx "12"
+                , Svg.Attributes.cy "12"
+                , Svg.Attributes.r "10"
+                , Svg.Attributes.stroke "currentColor"
+                , Svg.Attributes.strokeWidth "4"
+                ]
+                []
+            , Svg.path
+                [ Svg.Attributes.class "opacity-25"
+                , Svg.Attributes.fill "currentColor"
+                , Svg.Attributes.d "M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                ]
+                []
+            ]
+        , Html.text text
+        ]
+
+
 
 -- HELPERS
+
+
+bold : String -> Html.Html Msg
+bold text =
+    Html.span [ class "font-bold" ] [ Html.text text ]
 
 
 uncurry : (a -> b -> c) -> ( a, b ) -> c
