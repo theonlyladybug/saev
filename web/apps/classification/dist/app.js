@@ -5572,7 +5572,7 @@ var $author$project$Classification$Example = F2(
 	});
 var $author$project$Classification$GotInputExample = F2(
 	function (a, b) {
-		return {$: 9, a: a, b: b};
+		return {$: 10, a: a, b: b};
 	});
 var $elm$core$Basics$composeL = F3(
 	function (g, f, x) {
@@ -6982,7 +6982,7 @@ var $author$project$Classification$getInputExample = F3(
 	});
 var $author$project$Classification$GotOriginalPredictions = F2(
 	function (a, b) {
-		return {$: 10, a: a, b: b};
+		return {$: 11, a: a, b: b};
 	});
 var $elm$json$Json$Decode$andThen = _Json_andThen;
 var $elm$json$Json$Decode$fail = _Json_fail;
@@ -7396,7 +7396,7 @@ var $author$project$Classification$init = F3(
 var $elm$core$Platform$Sub$batch = _Platform_batch;
 var $elm$core$Platform$Sub$none = $elm$core$Platform$Sub$batch(_List_Nil);
 var $author$project$Classification$SetExample = function (a) {
-	return {$: 2, a: a};
+	return {$: 3, a: a};
 };
 var $author$project$Classification$onUrlChange = function (url) {
 	var _v0 = A2($elm$url$Url$Parser$parse, $author$project$Classification$urlParser, url);
@@ -7413,9 +7413,17 @@ var $author$project$Classification$onUrlChange = function (url) {
 		return $author$project$Classification$SetExample(0);
 	}
 };
+var $author$project$Classification$GoToSite = function (a) {
+	return {$: 1, a: a};
+};
 var $author$project$Classification$NoOp = {$: 0};
 var $author$project$Classification$onUrlRequest = function (request) {
-	return $author$project$Classification$NoOp;
+	if (!request.$) {
+		return $author$project$Classification$NoOp;
+	} else {
+		var url = request.a;
+		return $author$project$Classification$GoToSite(url);
+	}
 };
 var $author$project$Classification$Examining = function (a) {
 	return {$: 1, a: a};
@@ -7427,23 +7435,7 @@ var $author$project$Requests$Loaded = function (a) {
 	return {$: 2, a: a};
 };
 var $author$project$Classification$SetUrl = function (a) {
-	return {$: 1, a: a};
-};
-var $author$project$Classification$explainGradioError = function (err) {
-	switch (err.$) {
-		case 0:
-			var msg = err.a;
-			return 'Network error: ' + msg;
-		case 2:
-			var msg = err.a;
-			return 'Error decoding JSON: ' + msg;
-		case 1:
-			var msg = err.a;
-			return 'Error parsing API response: ' + msg;
-		default:
-			var msg = err.a;
-			return 'Error in the API: ' + msg;
-	}
+	return {$: 2, a: a};
 };
 var $elm$core$List$filter = F2(
 	function (isGood, list) {
@@ -7568,7 +7560,7 @@ var $elm$random$Random$generate = F2(
 	});
 var $author$project$Classification$GotModifiedPredictions = F2(
 	function (a, b) {
-		return {$: 11, a: a, b: b};
+		return {$: 12, a: a, b: b};
 	});
 var $elm$json$Json$Encode$float = _Json_wrap;
 var $elm$core$Array$fromListHelp = F3(
@@ -7736,7 +7728,7 @@ var $author$project$Classification$getModifiedPredictions = F5(
 	});
 var $author$project$Classification$GotClassExample = F2(
 	function (a, b) {
-		return {$: 13, a: a, b: b};
+		return {$: 14, a: a, b: b};
 	});
 var $author$project$Classification$getRandomClassExample = F3(
 	function (cfg, id, _class) {
@@ -7757,7 +7749,7 @@ var $author$project$Classification$getRandomClassExample = F3(
 	});
 var $author$project$Classification$GotSaeExamples = F2(
 	function (a, b) {
-		return {$: 12, a: a, b: b};
+		return {$: 13, a: a, b: b};
 	});
 var $author$project$Classification$SaeExampleLatent = function (a) {
 	return {$: 2, a: a};
@@ -7815,6 +7807,7 @@ var $author$project$Requests$isStale = F2(
 		var last = _v1;
 		return _Utils_cmp(id, last) < 0;
 	});
+var $elm$browser$Browser$Navigation$load = _Browser_load;
 var $elm$core$Dict$member = F2(
 	function (key, dict) {
 		var _v0 = A2($elm$core$Dict$get, key, dict);
@@ -8146,6 +8139,11 @@ var $author$project$Classification$update = F2(
 			case 0:
 				return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
 			case 1:
+				var url = msg.a;
+				return _Utils_Tuple2(
+					model,
+					$elm$browser$Browser$Navigation$load(url));
+			case 2:
 				var i = msg.a;
 				var url = A2(
 					$elm$url$Url$Builder$relative,
@@ -8157,7 +8155,7 @@ var $author$project$Classification$update = F2(
 				return _Utils_Tuple2(
 					model,
 					A2($elm$browser$Browser$Navigation$pushUrl, model.ab, url));
-			case 2:
+			case 3:
 				var i = msg.a;
 				var originalPredictionsNextId = $author$project$Requests$next(model.M);
 				var inputExampleNextId = $author$project$Requests$next(model.J);
@@ -8172,13 +8170,13 @@ var $author$project$Classification$update = F2(
 								A3($author$project$Classification$getInputExample, model.s, inputExampleNextId, example),
 								A3($author$project$Classification$getOriginalPredictions, model.s, originalPredictionsNextId, example)
 							])));
-			case 3:
+			case 4:
 				return _Utils_Tuple2(
 					_Utils_update(
 						model,
 						{l: $author$project$Classification$NotExamining}),
 					A2($elm$random$Random$generate, $author$project$Classification$SetUrl, $author$project$Classification$randomExample));
-			case 4:
+			case 5:
 				var i = msg.a;
 				return _Utils_Tuple2(
 					_Utils_update(
@@ -8187,13 +8185,13 @@ var $author$project$Classification$update = F2(
 							S: $elm$core$Maybe$Just(i)
 						}),
 					$elm$core$Platform$Cmd$none);
-			case 5:
+			case 6:
 				return _Utils_Tuple2(
 					_Utils_update(
 						model,
 						{S: $elm$core$Maybe$Nothing}),
 					$elm$core$Platform$Cmd$none);
-			case 9:
+			case 10:
 				var id = msg.a;
 				var result = msg.b;
 				if (A2($author$project$Requests$isStale, id, model.J)) {
@@ -8214,13 +8212,12 @@ var $author$project$Classification$update = F2(
 							_Utils_update(
 								model,
 								{
-									I: $author$project$Requests$Failed(
-										$author$project$Classification$explainGradioError(err))
+									I: $author$project$Requests$Failed(err)
 								}),
 							$elm$core$Platform$Cmd$none);
 					}
 				}
-			case 10:
+			case 11:
 				var id = msg.a;
 				var result = msg.b;
 				if (A2($author$project$Requests$isStale, id, model.M)) {
@@ -8241,13 +8238,12 @@ var $author$project$Classification$update = F2(
 							_Utils_update(
 								model,
 								{
-									L: $author$project$Requests$Failed(
-										$author$project$Classification$explainGradioError(err))
+									L: $author$project$Requests$Failed(err)
 								}),
 							$elm$core$Platform$Cmd$none);
 					}
 				}
-			case 11:
+			case 12:
 				var id = msg.a;
 				var result = msg.b;
 				if (A2($author$project$Requests$isStale, id, model.U)) {
@@ -8268,13 +8264,12 @@ var $author$project$Classification$update = F2(
 							_Utils_update(
 								model,
 								{
-									D: $author$project$Requests$Failed(
-										$author$project$Classification$explainGradioError(err))
+									D: $author$project$Requests$Failed(err)
 								}),
 							$elm$core$Platform$Cmd$none);
 					}
 				}
-			case 6:
+			case 7:
 				var i = msg.a;
 				var saeExamplesNextId = $author$project$Requests$next(model.V);
 				var patchIndices = A2($elm$core$Set$member, i, model.v) ? A2($elm$core$Set$remove, i, model.v) : A2($elm$core$Set$insert, i, model.v);
@@ -8283,7 +8278,7 @@ var $author$project$Classification$update = F2(
 						model,
 						{A: $author$project$Requests$Loading, V: saeExamplesNextId, v: patchIndices}),
 					A4($author$project$Classification$getSaeExamples, model.s, saeExamplesNextId, model.t, patchIndices));
-			case 12:
+			case 13:
 				var id = msg.a;
 				var result = msg.b;
 				if (A2($author$project$Requests$isStale, id, model.V)) {
@@ -8313,13 +8308,12 @@ var $author$project$Classification$update = F2(
 							_Utils_update(
 								model,
 								{
-									A: $author$project$Requests$Failed(
-										$author$project$Classification$explainGradioError(err))
+									A: $author$project$Requests$Failed(err)
 								}),
 							$elm$core$Platform$Cmd$none);
 					}
 				}
-			case 7:
+			case 8:
 				var i = msg.a;
 				var str = msg.b;
 				var _v5 = $elm$core$String$toFloat(str);
@@ -8335,7 +8329,7 @@ var $author$project$Classification$update = F2(
 				} else {
 					return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
 				}
-			case 8:
+			case 9:
 				var _class = msg.a;
 				var id = $author$project$Requests$next(model.R);
 				return _Utils_Tuple2(
@@ -8452,8 +8446,7 @@ var $author$project$Classification$update = F2(
 									l: $author$project$Classification$Examining(
 										{
 											i: -1,
-											r: $author$project$Requests$Failed(
-												$author$project$Classification$explainGradioError(err))
+											r: $author$project$Requests$Failed(err)
 										})
 								}),
 							$elm$core$Platform$Cmd$none);
@@ -8489,7 +8482,73 @@ var $author$project$Classification$viewClass = function (_class) {
 		'Unknown class: ' + $elm$core$String$fromInt(_class),
 		A2($elm$core$Array$get, _class, $author$project$Classification$classNames));
 };
-var $elm$html$Html$button = _VirtualDom_node('button');
+var $elm$html$Html$a = _VirtualDom_node('a');
+var $elm$html$Html$Attributes$href = function (url) {
+	return A2(
+		$elm$html$Html$Attributes$stringProperty,
+		'href',
+		_VirtualDom_noJavaScriptUri(url));
+};
+var $elm$html$Html$span = _VirtualDom_node('span');
+var $author$project$Classification$explainGradioError = function (err) {
+	var githubLink = A2(
+		$elm$html$Html$a,
+		_List_fromArray(
+			[
+				$elm$html$Html$Attributes$href('https://github.com/OSU-NLP-Group/SAE-V/issues/new'),
+				$elm$html$Html$Attributes$class('text-sky-500 hover:underline')
+			]),
+		_List_fromArray(
+			[
+				$elm$html$Html$text('GitHub')
+			]));
+	switch (err.$) {
+		case 0:
+			var msg = err.a;
+			return A2(
+				$elm$html$Html$span,
+				_List_Nil,
+				_List_fromArray(
+					[
+						$elm$html$Html$text('Network error: ' + (msg + '. Try refreshing the page. If that doesn\'t work, reach out on ')),
+						githubLink,
+						$elm$html$Html$text('.')
+					]));
+		case 2:
+			var msg = err.a;
+			return A2(
+				$elm$html$Html$span,
+				_List_Nil,
+				_List_fromArray(
+					[
+						$elm$html$Html$text('Error decoding JSON. You can try refreshing the page, but it\'s probably a bug. Please reach out on '),
+						githubLink,
+						$elm$html$Html$text('.')
+					]));
+		case 1:
+			var msg = err.a;
+			return A2(
+				$elm$html$Html$span,
+				_List_Nil,
+				_List_fromArray(
+					[
+						$elm$html$Html$text('Error parsing API response: ' + (msg + '. This is typically due to server load. Refresh the page, and if that doesn\'t work, reach out on ')),
+						githubLink,
+						$elm$html$Html$text('.')
+					]));
+		default:
+			var msg = err.a;
+			return A2(
+				$elm$html$Html$span,
+				_List_Nil,
+				_List_fromArray(
+					[
+						$elm$html$Html$text('Error in the API: ' + (msg + '. You can try refreshing the page, but it\'s probably a bug. Please reach out on ')),
+						githubLink,
+						$elm$html$Html$text('.')
+					]));
+	}
+};
 var $elm$html$Html$p = _VirtualDom_node('p');
 var $author$project$Classification$viewErr = function (err) {
 	return A2(
@@ -8500,7 +8559,6 @@ var $author$project$Classification$viewErr = function (err) {
 			]),
 		_List_fromArray(
 			[
-				A2($elm$html$Html$button, _List_Nil, _List_Nil),
 				A2(
 				$elm$html$Html$h3,
 				_List_fromArray(
@@ -8519,7 +8577,7 @@ var $author$project$Classification$viewErr = function (err) {
 					]),
 				_List_fromArray(
 					[
-						$elm$html$Html$text(err)
+						$author$project$Classification$explainGradioError(err)
 					]))
 			]));
 };
@@ -8544,7 +8602,6 @@ var $elm$svg$Svg$Attributes$d = _VirtualDom_attribute('d');
 var $elm$svg$Svg$Attributes$fill = _VirtualDom_attribute('fill');
 var $elm$svg$Svg$trustedNode = _VirtualDom_nodeNS('http://www.w3.org/2000/svg');
 var $elm$svg$Svg$path = $elm$svg$Svg$trustedNode('path');
-var $elm$html$Html$span = _VirtualDom_node('span');
 var $elm$svg$Svg$svg = $elm$svg$Svg$trustedNode('svg');
 var $elm$svg$Svg$Attributes$viewBox = _VirtualDom_attribute('viewBox');
 var $author$project$Classification$viewSpinner = function (text) {
@@ -8667,7 +8724,8 @@ var $author$project$Classification$viewClassExamples = function (examined) {
 		}
 	}
 };
-var $author$project$Classification$GetRandomExample = {$: 3};
+var $author$project$Classification$GetRandomExample = {$: 4};
+var $elm$html$Html$button = _VirtualDom_node('button');
 var $elm$virtual_dom$VirtualDom$Normal = function (a) {
 	return {$: 0, a: a};
 };
@@ -8705,11 +8763,11 @@ var $author$project$Classification$viewButton = F2(
 				]));
 	});
 var $author$project$Classification$HoverPatch = function (a) {
-	return {$: 4, a: a};
+	return {$: 5, a: a};
 };
-var $author$project$Classification$ResetHoveredPatch = {$: 5};
+var $author$project$Classification$ResetHoveredPatch = {$: 6};
 var $author$project$Classification$ToggleSelectedPatch = function (a) {
-	return {$: 6, a: a};
+	return {$: 7, a: a};
 };
 var $elm$html$Html$Events$onMouseEnter = function (msg) {
 	return A2(
@@ -9205,7 +9263,7 @@ var $author$project$Classification$uncurry = F2(
 		return A2(f, a, b);
 	});
 var $author$project$Classification$ExamineClass = function (a) {
-	return {$: 8, a: a};
+	return {$: 9, a: a};
 };
 var $elm$core$String$fromFloat = _String_fromNumber;
 var $elm$html$Html$Attributes$max = $elm$html$Html$Attributes$stringProperty('max');
@@ -9336,7 +9394,7 @@ var $elm$core$Maybe$map = F2(
 	});
 var $author$project$Classification$SetSlider = F2(
 	function (a, b) {
-		return {$: 7, a: a, b: b};
+		return {$: 8, a: a, b: b};
 	});
 var $elm$html$Html$input = _VirtualDom_node('input');
 var $elm$html$Html$Events$alwaysStop = function (x) {
@@ -9454,7 +9512,7 @@ var $author$project$Classification$viewSaeExamples = F2(
 					$elm$html$Html$div,
 					_List_fromArray(
 						[
-							$elm$html$Html$Attributes$class('p-1')
+							$elm$html$Html$Attributes$class('p-1 lg:max-w-3xl')
 						]),
 					_Utils_ap(
 						_List_fromArray(
@@ -9579,7 +9637,8 @@ var $author$project$Classification$view = function (model) {
 								_List_fromArray(
 									[
 										$elm$html$Html$Attributes$class('flex flex-col'),
-										$elm$html$Html$Attributes$class('md:flex-row md:justify-between md:items-start')
+										$elm$html$Html$Attributes$class('md:flex-row md:justify-between md:items-start'),
+										$elm$html$Html$Attributes$class('lg:justify-around')
 									]),
 								_List_fromArray(
 									[

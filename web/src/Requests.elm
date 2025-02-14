@@ -44,14 +44,14 @@ isStale (Id id) (Id last) =
 -- Requested
 
 
-type Requested a
+type Requested a e
     = Initial
     | Loading
     | Loaded a
-    | Failed String
+    | Failed e
 
 
-map : (a -> b) -> Requested a -> Requested b
+map : (a -> b) -> Requested a e -> Requested b e
 map fn requested =
     case requested of
         Initial ->

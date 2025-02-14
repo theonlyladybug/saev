@@ -46,6 +46,7 @@ main =
 
 type Msg
     = NoOp
+    | GoToSite String
     | SetUrl Int
     | SetExample Int
     | GetRandomExample
@@ -70,16 +71,16 @@ type alias Model =
     { -- Browser
       key : Browser.Navigation.Key
     , inputExampleIndex : Int
-    , inputExample : Requests.Requested Example
+    , inputExample : Requests.Requested Example Gradio.Error
     , hoveredPatchIndex : Maybe Int
     , selectedPatchIndices : Set.Set Int
-    , saeExamples : Requests.Requested (List SaeExample)
+    , saeExamples : Requests.Requested (List SaeExample) Gradio.Error
     , sliders : Dict.Dict Int Float
     , examinedClass : ExaminedClass
 
     -- ML stuff
-    , originalPredictions : Requests.Requested (List Float)
-    , modifiedPredictions : Requests.Requested (List Float)
+    , originalPredictions : Requests.Requested (List Float) Gradio.Error
+    , modifiedPredictions : Requests.Requested (List Float) Gradio.Error
 
     -- APIs
     , gradio : Gradio.Config
@@ -95,7 +96,7 @@ type ExaminedClass
     = NotExamining
     | Examining
         { class : Int
-        , examples : Requests.Requested (List Example)
+        , examples : Requests.Requested (List Example) Gradio.Error
         }
 
 
@@ -174,6 +175,9 @@ update msg model =
         NoOp ->
             ( model, Cmd.none )
 
+        GoToSite url ->
+            ( model, Browser.Navigation.load url )
+
         SetUrl i ->
             let
                 url =
@@ -227,7 +231,7 @@ update msg model =
                         ( { model | inputExample = Requests.Loaded example }, Cmd.none )
 
                     Err err ->
-                        ( { model | inputExample = Requests.Failed (explainGradioError err) }, Cmd.none )
+                        ( { model | inputExample = Requests.Failed err }, Cmd.none )
 
         GotOriginalPredictions id result ->
             if Requests.isStale id model.originalPredictionsRequestId then
@@ -240,7 +244,7 @@ update msg model =
 
                     Err err ->
                         ( { model
-                            | originalPredictions = Requests.Failed (explainGradioError err)
+                            | originalPredictions = Requests.Failed err
                           }
                         , Cmd.none
                         )
@@ -256,7 +260,7 @@ update msg model =
 
                     Err err ->
                         ( { model
-                            | modifiedPredictions = Requests.Failed (explainGradioError err)
+                            | modifiedPredictions = Requests.Failed err
                           }
                         , Cmd.none
                         )
@@ -305,7 +309,7 @@ update msg model =
                         )
 
                     Err err ->
-                        ( { model | saeExamples = Requests.Failed (explainGradioError err) }, Cmd.none )
+                        ( { model | saeExamples = Requests.Failed err }, Cmd.none )
 
         SetSlider i str ->
             case String.toFloat str of
@@ -441,7 +445,7 @@ update msg model =
                             | examinedClass =
                                 Examining
                                     { class = -1
-                                    , examples = Requests.Failed (explainGradioError err)
+                                    , examples = Requests.Failed err
                                     }
                           }
                         , Cmd.none
@@ -450,7 +454,12 @@ update msg model =
 
 onUrlRequest : Browser.UrlRequest -> Msg
 onUrlRequest request =
-    NoOp
+    case request of
+        Browser.Internal _ ->
+            NoOp
+
+        Browser.External url ->
+            GoToSite url
 
 
 onUrlChange : Url.Url -> Msg
@@ -494,20 +503,48 @@ urlParser =
 -- API
 
 
-explainGradioError : Gradio.Error -> String
+explainGradioError : Gradio.Error -> Html.Html Msg
 explainGradioError err =
+    let
+        githubLink =
+            Html.a
+                [ Html.Attributes.href "https://github.com/OSU-NLP-Group/SAE-V/issues/new"
+                , class "text-sky-500 hover:underline"
+                ]
+                [ Html.text "GitHub" ]
+    in
     case err of
         Gradio.NetworkError msg ->
-            "Network error: " ++ msg
+            Html.span
+                []
+                [ Html.text ("Network error: " ++ msg ++ ". Try refreshing the page. If that doesn't work, reach out on ")
+                , githubLink
+                , Html.text "."
+                ]
 
         Gradio.JsonError msg ->
-            "Error decoding JSON: " ++ msg
+            Html.span
+                []
+                [ Html.text "Error decoding JSON. You can try refreshing the page, but it's probably a bug. Please reach out on "
+                , githubLink
+                , Html.text "."
+                ]
 
         Gradio.ParsingError msg ->
-            "Error parsing API response: " ++ msg
+            Html.span
+                []
+                [ Html.text ("Error parsing API response: " ++ msg ++ ". This is typically due to server load. Refresh the page, and if that doesn't work, reach out on ")
+                , githubLink
+                , Html.text "."
+                ]
 
         Gradio.ApiError msg ->
-            "Error in the API: " ++ msg
+            Html.span
+                []
+                [ Html.text ("Error in the API: " ++ msg ++ ". You can try refreshing the page, but it's probably a bug. Please reach out on ")
+                , githubLink
+                , Html.text "."
+                ]
 
 
 getInputExample : Gradio.Config -> Requests.Id -> Int -> Cmd Msg
@@ -661,6 +698,7 @@ view model =
                 , Html.div
                     [ class "flex flex-col"
                     , class "md:flex-row md:justify-between md:items-start"
+                    , class "lg:justify-around"
                     ]
                     [ viewSaeExamples model.saeExamples model.sliders
                     , viewClassExamples model.examinedClass
@@ -764,7 +802,7 @@ viewGridCell hovered selected self =
         []
 
 
-viewProbs : String -> String -> Requests.Requested (List Float) -> Html.Html Msg
+viewProbs : String -> String -> Requests.Requested (List Float) Gradio.Error -> Html.Html Msg
 viewProbs title callToAction loadingProbs =
     let
         content =
@@ -828,7 +866,7 @@ viewProb target prob =
         ]
 
 
-viewSaeExamples : Requests.Requested (List SaeExample) -> Dict.Dict Int Float -> Html.Html Msg
+viewSaeExamples : Requests.Requested (List SaeExample) Gradio.Error -> Dict.Dict Int Float -> Html.Html Msg
 viewSaeExamples examplesLoading values =
     case examplesLoading of
         Requests.Initial ->
@@ -841,7 +879,7 @@ viewSaeExamples examplesLoading values =
 
         Requests.Loaded examples ->
             Html.div
-                [ class "p-1" ]
+                [ class "p-1 lg:max-w-3xl" ]
                 ([ Html.h3
                     [ class "font-bold" ]
                     [ Html.text "Similar Examples" ]
@@ -898,19 +936,16 @@ viewImage url =
         []
 
 
-viewErr : String -> Html.Html Msg
+viewErr : Gradio.Error -> Html.Html Msg
 viewErr err =
     Html.div
         [ Html.Attributes.class "relative rounded-lg border border-red-200 bg-red-50 p-4" ]
-        [ Html.button
-            []
-            []
-        , Html.h3
+        [ Html.h3
             [ Html.Attributes.class "font-bold text-red-800" ]
             [ Html.text "Error" ]
         , Html.p
             [ Html.Attributes.class "text-red-700" ]
-            [ Html.text err ]
+            [ explainGradioError err ]
         ]
 
 
