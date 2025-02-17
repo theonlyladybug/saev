@@ -20,7 +20,7 @@ from torch import Tensor
 
 import saev.activations
 
-from . import config
+from . import config, transforms
 
 logger = logging.getLogger(__name__)
 
@@ -279,7 +279,7 @@ def make_models(
 
 
 def get_dataloader(cfg: config.Train, *, is_train: bool):
-    img_transform = saev.activations.make_img_transform("clip", model_ckpt)
+    img_transform = transforms.for_training(model_ckpt)
 
     if is_train:
         shuffle = True

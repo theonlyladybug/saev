@@ -1465,3 +1465,13 @@ There are several different screen sizes to try.
 5. Full macbook
 
 I think this covers the important stuff.
+
+# 02/16/2025
+
+Classification app to do:
+
+* [done] add a "toggle highlights" button
+* make it so the highlights turn on/off when you hover w a mouse over the images
+* [done] change the patches to be all red (no legend needed)
+* [done] Add classnames to the images in similar patches
+* Add examples of covering a trait.

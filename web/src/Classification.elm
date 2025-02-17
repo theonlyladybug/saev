@@ -54,12 +54,13 @@ type Msg
     | ResetHoveredPatch
     | ToggleSelectedPatch Int
     | SetSlider Int String
+    | ToggleHighlights Int
     | ExamineClass Int
       -- API responses
     | GotInputExample Requests.Id (Result Gradio.Error Example)
     | GotOriginalPredictions Requests.Id (Result Gradio.Error (List Float))
     | GotModifiedPredictions Requests.Id (Result Gradio.Error (List Float))
-    | GotSaeExamples Requests.Id (Result Gradio.Error (List SaeExampleResult))
+    | GotSaeLatents Requests.Id (Result Gradio.Error (List SaeLatent))
     | GotClassExample Requests.Id (Result Gradio.Error Example)
 
 
@@ -74,9 +75,10 @@ type alias Model =
     , inputExample : Requests.Requested Example Gradio.Error
     , hoveredPatchIndex : Maybe Int
     , selectedPatchIndices : Set.Set Int
-    , saeExamples : Requests.Requested (List SaeExample) Gradio.Error
+    , saeLatents : Requests.Requested (List SaeLatent) Gradio.Error
     , sliders : Dict.Dict Int Float
     , examinedClass : ExaminedClass
+    , toggles : Dict.Dict Int Bool
 
     -- ML stuff
     , originalPredictions : Requests.Requested (List Float) Gradio.Error
@@ -88,7 +90,7 @@ type alias Model =
     , originalPredictionsRequestId : Requests.Id
     , modifiedPredictionsRequestId : Requests.Id
     , classExampleRequestId : Requests.Id
-    , saeExamplesRequestId : Requests.Id
+    , saeLatentsRequestId : Requests.Id
     }
 
 
@@ -100,15 +102,22 @@ type ExaminedClass
         }
 
 
+type alias SaeLatent =
+    { latent : Int
+    , examples : List HighlightedExample
+    }
+
+
 type alias Example =
-    { url : String
+    { original : Gradio.Base64Image
     , class : Int
     }
 
 
-type alias SaeExample =
-    { latent : Int
-    , urls : List String
+type alias HighlightedExample =
+    { original : Gradio.Base64Image
+    , highlighted : Gradio.Base64Image
+    , class : Int
     }
 
 
@@ -135,9 +144,10 @@ init _ url key =
             , inputExample = Requests.Loading
             , hoveredPatchIndex = Nothing
             , selectedPatchIndices = Set.empty
-            , saeExamples = Requests.Initial
+            , saeLatents = Requests.Initial
             , sliders = Dict.empty
             , examinedClass = NotExamining
+            , toggles = Dict.empty
 
             -- ML
             , originalPredictions = Requests.Loading
@@ -148,7 +158,7 @@ init _ url key =
             , originalPredictionsRequestId = Requests.init
             , modifiedPredictionsRequestId = Requests.init
             , classExampleRequestId = Requests.init
-            , saeExamplesRequestId = Requests.init
+            , saeLatentsRequestId = Requests.init
             , gradio =
                 if isDevelopment then
                     { host = "http://localhost:7860" }
@@ -200,7 +210,7 @@ update msg model =
                 | inputExampleIndex = example
                 , inputExample = Requests.Loading
                 , selectedPatchIndices = Set.empty
-                , saeExamples = Requests.Initial
+                , saeLatents = Requests.Initial
                 , originalPredictions = Requests.Loading
                 , modifiedPredictions = Requests.Initial
                 , inputExampleRequestId = inputExampleNextId
@@ -274,42 +284,45 @@ update msg model =
                     else
                         Set.insert i model.selectedPatchIndices
 
-                saeExamplesNextId =
-                    Requests.next model.saeExamplesRequestId
+                saeLatentsNextId =
+                    Requests.next model.saeLatentsRequestId
             in
             ( { model
                 | selectedPatchIndices = patchIndices
-                , saeExamplesRequestId = saeExamplesNextId
-                , saeExamples = Requests.Loading
+                , saeLatentsRequestId = saeLatentsNextId
+                , saeLatents = Requests.Loading
               }
-            , getSaeExamples model.gradio saeExamplesNextId model.inputExampleIndex patchIndices
+            , getSaeLatents model.gradio saeLatentsNextId model.inputExampleIndex patchIndices
             )
 
-        GotSaeExamples id result ->
-            if Requests.isStale id model.saeExamplesRequestId then
+        GotSaeLatents id result ->
+            if Requests.isStale id model.saeLatentsRequestId then
                 ( model, Cmd.none )
 
             else
                 case result of
-                    Ok results ->
+                    Ok latents ->
                         let
-                            latents =
-                                parseSaeExampleResults results
-
                             sliders =
                                 latents
                                     |> List.map (\latent -> ( latent.latent, 0.0 ))
                                     |> Dict.fromList
+
+                            toggles =
+                                latents
+                                    |> List.map (\latent -> ( latent.latent, True ))
+                                    |> Dict.fromList
                         in
                         ( { model
-                            | saeExamples = Requests.Loaded latents
+                            | saeLatents = Requests.Loaded latents
                             , sliders = sliders
+                            , toggles = toggles
                           }
                         , Cmd.none
                         )
 
                     Err err ->
-                        ( { model | saeExamples = Requests.Failed err }, Cmd.none )
+                        ( { model | saeLatents = Requests.Failed err }, Cmd.none )
 
         SetSlider i str ->
             case String.toFloat str of
@@ -335,6 +348,21 @@ update msg model =
 
                 Nothing ->
                     ( model, Cmd.none )
+
+        ToggleHighlights latent ->
+            let
+                toggles =
+                    Dict.update latent
+                        -- If missing, assume it's highlighted
+                        (Maybe.withDefault True
+                            -- Flip the toggle
+                            >> not
+                            -- Needs to be a Maybe for Dict.update
+                            >> Just
+                        )
+                        model.toggles
+            in
+            ( { model | toggles = toggles }, Cmd.none )
 
         ExamineClass class ->
             let
@@ -525,7 +553,7 @@ explainGradioError err =
         Gradio.JsonError msg ->
             Html.span
                 []
-                [ Html.text "Error decoding JSON. You can try refreshing the page, but it's probably a bug. Please reach out on "
+                [ Html.text ("Error decoding JSON: " ++ msg ++ ". You can try refreshing the page, but it's likely a bug. Please reach out on ")
                 , githubLink
                 , Html.text "."
                 ]
@@ -541,7 +569,15 @@ explainGradioError err =
         Gradio.ApiError msg ->
             Html.span
                 []
-                [ Html.text ("Error in the API: " ++ msg ++ ". You can try refreshing the page, but it's probably a bug. Please reach out on ")
+                [ Html.text ("Error in the API: " ++ msg ++ ". You can try refreshing the page, but it's likely a bug. Please reach out on ")
+                , githubLink
+                , Html.text "."
+                ]
+
+        Gradio.UserError msg ->
+            Html.span
+                []
+                [ Html.text ("You did something wrong: " ++ msg ++ ". Try refreshing the page, but it's likely a bug. Please reach out on ")
                 , githubLink
                 , Html.text "."
                 ]
@@ -550,12 +586,9 @@ explainGradioError err =
 getInputExample : Gradio.Config -> Requests.Id -> Int -> Cmd Msg
 getInputExample cfg id img =
     Gradio.get cfg
-        "get-image"
+        "get-img"
         [ E.int img ]
-        (D.map2 Example
-            (D.index 0 imgUrlDecoder)
-            (D.index 1 D.int)
-        )
+        (Gradio.decodeOne exampleDecoder)
         (GotInputExample id)
 
 
@@ -610,15 +643,47 @@ labelsDecoder =
         )
 
 
-getSaeExamples : Gradio.Config -> Requests.Id -> Int -> Set.Set Int -> Cmd Msg
-getSaeExamples cfg id img patches =
+getSaeLatents : Gradio.Config -> Requests.Id -> Int -> Set.Set Int -> Cmd Msg
+getSaeLatents cfg id img patches =
     Gradio.get cfg
-        "get-sae-examples"
+        "get-sae-latents"
         [ E.int img
         , Set.toList patches |> E.list E.int
         ]
-        (D.list saeExampleResultDecoder)
-        (GotSaeExamples id)
+        (Gradio.decodeOne
+            (D.list
+                (D.map2 SaeLatent
+                    (D.field "latent" D.int)
+                    (D.field "examples" (D.list highlightedExampleDecoder))
+                )
+            )
+        )
+        (GotSaeLatents id)
+
+
+exampleDecoder : D.Decoder Example
+exampleDecoder =
+    D.map2 Example
+        (D.field "orig_url" Gradio.base64ImageDecoder)
+        (D.field "target" D.int)
+
+
+highlightedExampleDecoder : D.Decoder HighlightedExample
+highlightedExampleDecoder =
+    D.map3 HighlightedExample
+        (D.field "orig_url" Gradio.base64ImageDecoder)
+        (D.field "highlighted_url" Gradio.base64ImageDecoder)
+        (D.field "target" D.int)
+
+
+imgUrlDecoder : D.Decoder String
+imgUrlDecoder =
+    D.field "url" D.string
+        |> D.map (String.replace "gradio_api/gradio_api" "gradio_api")
+        |> D.map (String.replace "gra/gradio_api" "gradio_api")
+        |> D.map (String.replace "gradio_ap/gradio_api" "gradio_api")
+        |> D.map (String.replace "gradio_api/ca/gradio_api" "gradio_api")
+        |> D.map (String.replace "gradio_api/call/gradio_api" "gradio_api")
 
 
 type SaeExampleResult
@@ -636,25 +701,12 @@ saeExampleResultDecoder =
         ]
 
 
-imgUrlDecoder : D.Decoder String
-imgUrlDecoder =
-    D.field "url" D.string
-        |> D.map (String.replace "gradio_api/gradio_api" "gradio_api")
-        |> D.map (String.replace "gra/gradio_api" "gradio_api")
-        |> D.map (String.replace "gradio_ap/gradio_api" "gradio_api")
-        |> D.map (String.replace "gradio_api/ca/gradio_api" "gradio_api")
-        |> D.map (String.replace "gradio_api/call/gradio_api" "gradio_api")
-
-
 getRandomClassExample : Gradio.Config -> Requests.Id -> Int -> Cmd Msg
 getRandomClassExample cfg id class =
     Gradio.get cfg
-        "get-random-class-image"
+        "get-random-class-img"
         [ E.int class ]
-        (D.map2 Example
-            (D.index 0 imgUrlDecoder)
-            (D.succeed class)
-        )
+        (Gradio.decodeOne exampleDecoder)
         (GotClassExample id)
 
 
@@ -666,7 +718,7 @@ view : Model -> Browser.Document Msg
 view model =
     let
         callToAction =
-            case model.saeExamples of
+            case model.saeLatents of
                 Requests.Loaded _ ->
                     "Drag one or more sliders below."
 
@@ -700,7 +752,7 @@ view model =
                     , class "md:flex-row md:justify-between md:items-start"
                     , class "lg:justify-around"
                     ]
-                    [ viewSaeExamples model.saeExamples model.sliders
+                    [ viewSaeLatents model.saeLatents model.toggles model.sliders
                     , viewClassExamples model.examinedClass
                     ]
                 ]
@@ -724,7 +776,7 @@ viewInputExample model =
                 [ viewGriddedImage
                     model.hoveredPatchIndex
                     model.selectedPatchIndices
-                    example.url
+                    example.original
                 , Html.div
                     [ Html.Attributes.class "flex flex-row gap-1" ]
                     [ viewButton (SetUrl (model.inputExampleIndex - 1)) "Previous"
@@ -750,8 +802,8 @@ viewInputExample model =
         )
 
 
-viewGriddedImage : Maybe Int -> Set.Set Int -> String -> Html.Html Msg
-viewGriddedImage hovered selected url =
+viewGriddedImage : Maybe Int -> Set.Set Int -> Gradio.Base64Image -> Html.Html Msg
+viewGriddedImage hovered selected img =
     Html.div
         [ class "relative inline-block" ]
         [ Html.div
@@ -764,7 +816,7 @@ viewGriddedImage hovered selected url =
             )
         , Html.img
             [ class "block w-[336px] h-[336px]"
-            , Html.Attributes.src url
+            , Html.Attributes.src (Gradio.base64ImageToString img)
             ]
             []
         ]
@@ -866,8 +918,8 @@ viewProb target prob =
         ]
 
 
-viewSaeExamples : Requests.Requested (List SaeExample) Gradio.Error -> Dict.Dict Int Float -> Html.Html Msg
-viewSaeExamples examplesLoading values =
+viewSaeLatents : Requests.Requested (List SaeLatent) Gradio.Error -> Dict.Dict Int Bool -> Dict.Dict Int Float -> Html.Html Msg
+viewSaeLatents examplesLoading toggles values =
     case examplesLoading of
         Requests.Initial ->
             Html.p
@@ -877,7 +929,7 @@ viewSaeExamples examplesLoading values =
         Requests.Loading ->
             viewSpinner "Loading similar patches"
 
-        Requests.Loaded examples ->
+        Requests.Loaded latents ->
             Html.div
                 [ class "p-1 lg:max-w-3xl" ]
                 ([ Html.h3
@@ -888,52 +940,86 @@ viewSaeExamples examplesLoading values =
                     , Html.span [ class "bg-rose-600 text-white p-1 rounded" ] [ Html.text "red patches" ]
                     , Html.text " above are like "
                     , Html.span [ class "bg-rose-600 text-white p-1 rounded" ] [ Html.text "highlighted patches" ]
-                    , Html.text " below. (Not what you expected? Add more patches)"
+                    , Html.text " below. (Not what you expected? Add more patches.)"
                     ]
                  ]
                     ++ List.filterMap
-                        (\example -> Maybe.map (\f -> viewSaeExample example f) (Dict.get example.latent values))
-                        examples
+                        (\latent ->
+                            Maybe.map2
+                                (viewSaeLatent latent)
+                                (Dict.get latent.latent toggles)
+                                (Dict.get latent.latent values)
+                        )
+                        latents
                 )
 
         Requests.Failed err ->
             viewErr err
 
 
-viewSaeExample : SaeExample -> Float -> Html.Html Msg
-viewSaeExample example value =
+viewSaeLatent : SaeLatent -> Bool -> Float -> Html.Html Msg
+viewSaeLatent latent highlighted value =
     Html.div
         [ class "border-b border-gray-300 my-2 pb-2" ]
         [ Html.div
             [ class "grid grid-cols-2 gap-1"
             , class "sm:grid-cols-4"
             ]
-            (List.map viewImage example.urls)
+            (List.map
+                (\ex ->
+                    if highlighted then
+                        viewExample ex.highlighted ex.class
+
+                    else
+                        viewExample ex.original ex.class
+                )
+                latent.examples
+            )
         , Html.div
-            [ class "" ]
-            [ Html.input
-                [ Html.Attributes.type_ "range"
-                , Html.Attributes.min "-20"
-                , Html.Attributes.max "20"
-                , Html.Attributes.value (String.fromFloat value)
-                , Html.Events.onInput (SetSlider example.latent)
+            [ class "sm:flex sm:items-center sm:justify-between sm:space-x-3 sm:mt-1" ]
+            [ -- Slider + latent label
+              Html.div
+                [ class "inline-flex items-center" ]
+                [ Html.input
+                    [ Html.Attributes.type_ "range"
+                    , Html.Attributes.min "-20"
+                    , Html.Attributes.max "20"
+                    , Html.Attributes.value (String.fromFloat value)
+                    , Html.Events.onInput (SetSlider latent.latent)
+                    ]
+                    []
+                , Html.label
+                    [ class "ms-3 text-sm font-medium text-gray-900 dark:text-gray-300" ]
+                    [ Html.span [ class "font-mono" ] [ Html.text ("CLIP-24K/" ++ String.fromInt latent.latent) ]
+                    , Html.text (": " ++ viewSliderValue value)
+                    ]
                 ]
-                []
-            , Html.p
-                []
-                [ Html.span [ class "font-mono" ] [ Html.text ("CLIP-24K/" ++ String.fromInt example.latent) ]
-                , Html.text (": " ++ String.fromFloat value)
-                ]
+            , viewToggle "Highlights" highlighted (ToggleHighlights latent.latent)
             ]
         ]
 
 
-viewImage : String -> Html.Html Msg
-viewImage url =
-    Html.img
-        [ Html.Attributes.src url
-        ]
+viewSliderValue : Float -> String
+viewSliderValue value =
+    if value > 0 then
+        "+" ++ String.fromFloat value
+
+    else
+        String.fromFloat value
+
+
+viewExample : Gradio.Base64Image -> Int -> Html.Html Msg
+viewExample img class =
+    Html.figure
         []
+        [ Html.img
+            [ Html.Attributes.src (Gradio.base64ImageToString img)
+            ]
+            []
+        , Html.figcaption
+            []
+            [ Html.text (viewClass class) ]
+        ]
 
 
 viewErr : Gradio.Error -> Html.Html Msg
@@ -976,7 +1062,11 @@ viewClassExamples examined =
                             , Html.Attributes.class "md:grid-cols-3"
                             , Html.Attributes.class "lg:w-[32rem]"
                             ]
-                            (examplesLoaded |> List.reverse |> List.take 9 |> List.map (.url >> viewImage))
+                            (examplesLoaded
+                                |> List.reverse
+                                |> List.take 9
+                                |> List.map (\ex -> viewExample ex.original ex.class)
+                            )
                         ]
 
                 Requests.Failed err ->
@@ -997,85 +1087,14 @@ viewButton onClick title =
         [ Html.text title ]
 
 
-type alias Suggestion =
-    { hypothesis : Html.Html Msg
-    , trait : Html.Html Msg
-    , action : Html.Html Msg
-    , insight : Html.Html Msg
-    }
-
-
 viewInstructions : Int -> Html.Html Msg
-viewInstructions example =
+viewInstructions current =
     let
-        suggestion =
-            case example of
-                680 ->
-                    Suggestion
-                        (Html.text " For example, this blue jay has a distinctive blue wing.")
-                        (Html.span
-                            []
-                            [ Html.text " If you choose the blue wing, you might see feature "
-                            , Html.span [ class "font-mono" ] [ Html.text "CLIP-24K/20356" ]
-                            , Html.text " or "
-                            , Html.span [ class "font-mono" ] [ Html.text "CLIP-24K/16659" ]
-                            , Html.text "."
-                            ]
-                        )
-                        (Html.span
-                            []
-                            [ Html.text " Try dragging the slider for "
-                            , Html.span [ class "font-mono" ] [ Html.text "CLIP-24K/20356" ]
-                            , Html.text " to -11."
-                            ]
-                        )
-                        (Html.text " For example, if you suppressed the blue wing, the ViT likely predicted Clark Nutcracker, a similar bird without any blue coloration.")
-
-                1129 ->
-                    Suggestion
-                        (Html.text " For example, this warbler has a distinctive broken black necklace.")
-                        (Html.text "")
-                        (Html.text "")
-                        (Html.text "")
-
-                4139 ->
-                    Suggestion
-                        (Html.text " For example, this purple finch has a distinctive pink and red coloration on its chest and head.")
-                        (Html.text "")
-                        (Html.text "")
-                        (Html.text "")
-
-                5099 ->
-                    Suggestion
-                        (Html.text " For example, this kingbird has a distinctive yellow chest.")
-                        (Html.span
-                            []
-                            [ Html.text " If you choose the patches for its yellow chest, you might see feature "
-                            , Html.span [ class "font-mono" ] [ Html.text "CLIP-24K/14468" ]
-                            , Html.text "."
-                            ]
-                        )
-                        (Html.span
-                            []
-                            [ Html.text " Try dragging the slider for "
-                            , Html.span [ class "font-mono" ] [ Html.text "CLIP-24K/14468" ]
-                            , Html.text " to -8."
-                            ]
-                        )
-                        (Html.span
-                            []
-                            [ Html.text " If you suppressed the "
-                            , Html.span [ class "italic" ] [ Html.text "entire" ]
-                            , Html.text " yellow chest, the ViT likely predicted Gray Kingbird, a similar kingbird without any yellow coloration."
-                            ]
-                        )
-
-                _ ->
-                    Suggestion
-                        (Html.text "")
-                        (Html.text "")
-                        (Html.text "")
-                        (Html.text "")
+        guided =
+            guidedExamples
+                |> List.filter (\g -> current == g.index)
+                |> List.head
+                |> Maybe.withDefault missingGuidedExample
     in
     Html.details
         [ Html.Attributes.attribute "open" ""
@@ -1104,7 +1123,7 @@ viewInstructions example =
                     ]
                 , Html.li []
                     [ Html.text "Think of a possible trait used by the ViT to classify the bird."
-                    , suggestion.hypothesis
+                    , guided.hypothesis
                     , Html.text " This is your "
                     , Html.span [ class "font-bold" ] [ Html.text "hypothesis" ]
                     , Html.text " that explains the ViT's prediction."
@@ -1114,47 +1133,51 @@ viewInstructions example =
                     , bold "all"
                     , Html.text " the patches corresponding to the trait. This starts your "
                     , Html.span [ class "font-bold" ] [ Html.text "experiment" ]
-                    , Html.text "."
+                    , Html.text ". See the highlighted patches in the example."
                     ]
                 , Html.li []
                     [ Html.text "A sparse autoencoder (SAE) retrieves semantically similar patches. "
-                    , suggestion.trait
+                    , guided.trait
                     ]
                 , Html.li []
                     [ Html.text "Drag the slider to suppress or magnify the presence of that feature in the ViT's activation space."
-                    , suggestion.action
+                    , guided.action
                     ]
                 , Html.li []
                     [ Html.text "Finally, observe any change in prediction as a result of your experiment."
-                    , suggestion.insight
+                    , guided.insight
                     ]
                 ]
             , Html.div
                 [ class "grid grid-cols-2 sm:grid-cols-4 md:inline-grid md:grid-cols-2 md:items-start lg:grid-cols-4"
                 , class "gap-1 mt-4 md:mt-0"
                 ]
-                [ viewExampleButton "/SAE-V/assets/contrib/classification/680.webp" 680
-                , viewExampleButton "/SAE-V/assets/contrib/classification/1129.webp" 1129
-                , viewExampleButton "/SAE-V/assets/contrib/classification/4139.webp" 4139
-                , viewExampleButton "/SAE-V/assets/contrib/classification/5099.webp" 5099
-                ]
+                (List.map
+                    (viewGuidedExampleButton current)
+                    guidedExamples
+                )
             ]
         ]
 
 
-viewExampleButton : String -> Int -> Html.Html Msg
-viewExampleButton url i =
+viewGuidedExampleButton : Int -> GuidedExample -> Html.Html Msg
+viewGuidedExampleButton current example =
     Html.div
         [ class "w-full md:w-36 flex flex-col space-y-1" ]
-        -- Added these classes
         [ Html.img
-            [ Html.Attributes.src url
-            , Html.Events.onClick (SetUrl i)
+            [ Html.Attributes.src
+                (if example.index == current then
+                    example.highlighted
+
+                 else
+                    example.original
+                )
+            , Html.Events.onClick (SetUrl example.index)
             , class "cursor-pointer"
             ]
             []
         , Html.button
-            [ Html.Events.onClick (SetUrl i)
+            [ Html.Events.onClick (SetUrl example.index)
             , class "flex-1 rounded-lg px-2 py-1 transition-colors"
             , class "border border-sky-300 hover:border-sky-400"
             , class "bg-sky-100 hover:bg-sky-200"
@@ -1162,7 +1185,7 @@ viewExampleButton url i =
             , class "focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2"
             , class "active:bg-gray-300"
             ]
-            [ Html.text ("Example #" ++ String.fromInt i) ]
+            [ Html.text ("Example #" ++ String.fromInt example.index) ]
         ]
 
 
@@ -1190,6 +1213,33 @@ viewSpinner text =
         ]
 
 
+viewToggle : String -> Bool -> Msg -> Html.Html Msg
+viewToggle text active onToggle =
+    -- https://flowbite.com/docs/forms/toggle/
+    Html.label
+        [ class "inline-flex items-center cursor-pointer" ]
+        [ Html.input
+            [ Html.Attributes.type_ "checkbox"
+            , Html.Attributes.checked active
+            , Html.Events.onClick onToggle
+            , class "sr-only peer"
+            ]
+            []
+        , Html.div
+            [ class "relative w-11 h-6 bg-gray-200 rounded-full peer "
+            , class "peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300"
+            , class "rtl:peer-checked:after:-translate-x-full"
+            , class "after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all"
+            , class "dark:peer-focus:ring-blue-800 dark:bg-gray-700 dark:border-gray-600 dark:peer-checked:bg-blue-600"
+            , class "peer-checked:after:translate-x-full peer-checked:after:border-white peer-checked:bg-blue-600"
+            ]
+            []
+        , Html.span
+            [ class "ms-3 text-sm font-medium text-gray-900 dark:text-gray-300" ]
+            [ Html.text text ]
+        ]
+
+
 
 -- HELPERS
 
@@ -1202,48 +1252,6 @@ bold text =
 uncurry : (a -> b -> c) -> ( a, b ) -> c
 uncurry f ( a, b ) =
     f a b
-
-
-parseSaeExampleResults : List SaeExampleResult -> List SaeExample
-parseSaeExampleResults results =
-    let
-        ( _, _, parsed ) =
-            parseSaeExampleResultsHelper results [] []
-    in
-    parsed
-
-
-parseSaeExampleResultsHelper : List SaeExampleResult -> List (Maybe String) -> List SaeExample -> ( List SaeExampleResult, List (Maybe String), List SaeExample )
-parseSaeExampleResultsHelper unparsed urls parsed =
-    case unparsed of
-        [] ->
-            ( [], urls, parsed )
-
-        (SaeExampleUrl url) :: rest ->
-            parseSaeExampleResultsHelper
-                rest
-                (urls ++ [ Just url ])
-                parsed
-
-        (SaeExampleLatent latent) :: rest ->
-            parseSaeExampleResultsHelper
-                rest
-                (List.drop nSaeExamplesPerLatent urls)
-                (parsed
-                    ++ [ { latent = latent
-                         , urls =
-                            urls
-                                |> List.take nSaeExamplesPerLatent
-                                |> List.filterMap identity
-                         }
-                       ]
-                )
-
-        SaeExampleMissing :: rest ->
-            parseSaeExampleResultsHelper
-                rest
-                (urls ++ [ Nothing ])
-                parsed
 
 
 viewClass : Int -> String
@@ -1271,6 +1279,129 @@ randomExample =
 
 classNames : Array.Array String
 classNames =
-    [ "Acadian_Flycatcher", "American_Crow", "American_Goldfinch", "American_Pipit", "American_Redstart", "American_Three_toed_Woodpecker", "Anna_Hummingbird", "Artic_Tern", "Baird_Sparrow", "Baltimore_Oriole", "Bank_Swallow", "Barn_Swallow", "Bay_breasted_Warbler", "Belted_Kingfisher", "Bewick_Wren", "Black_Tern", "Black_and_white_Warbler", "Black_billed_Cuckoo", "Black_capped_Vireo", "Black_footed_Albatross", "Black_throated_Blue_Warbler", "Black_throated_Sparrow", "Blue_Grosbeak", "Blue_Jay", "Blue_headed_Vireo", "Blue_winged_Warbler", "Boat_tailed_Grackle", "Bobolink", "Bohemian_Waxwing", "Brandt_Cormorant", "Brewer_Blackbird", "Brewer_Sparrow", "Bronzed_Cowbird", "Brown_Creeper", "Brown_Pelican", "Brown_Thrasher", "Cactus_Wren", "California_Gull", "Canada_Warbler", "Cape_Glossy_Starling", "Cape_May_Warbler", "Cardinal", "Carolina_Wren", "Caspian_Tern", "Cedar_Waxwing", "Cerulean_Warbler", "Chestnut_sided_Warbler", "Chipping_Sparrow", "Chuck_will_Widow", "Clark_Nutcracker", "Clay_colored_Sparrow", "Cliff_Swallow", "Common_Raven", "Common_Tern", "Common_Yellowthroat", "Crested_Auklet", "Dark_eyed_Junco", "Downy_Woodpecker", "Eared_Grebe", "Eastern_Towhee", "Elegant_Tern", "European_Goldfinch", "Evening_Grosbeak", "Field_Sparrow", "Fish_Crow", "Florida_Jay", "Forsters_Tern", "Fox_Sparrow", "Frigatebird", "Gadwall", "Geococcyx", "Glaucous_winged_Gull", "Golden_winged_Warbler", "Grasshopper_Sparrow", "Gray_Catbird", "Gray_Kingbird", "Gray_crowned_Rosy_Finch", "Great_Crested_Flycatcher", "Great_Grey_Shrike", "Green_Jay", "Green_Kingfisher", "Green_Violetear", "Green_tailed_Towhee", "Groove_billed_Ani", "Harris_Sparrow", "Heermann_Gull", "Henslow_Sparrow", "Herring_Gull", "Hooded_Merganser", "Hooded_Oriole", "Hooded_Warbler", "Horned_Grebe", "Horned_Lark", "Horned_Puffin", "House_Sparrow", "House_Wren", "Indigo_Bunting", "Ivory_Gull", "Kentucky_Warbler", "Laysan_Albatross", "Lazuli_Bunting", "Le_Conte_Sparrow", "Least_Auklet", "Least_Flycatcher", "Least_Tern", "Lincoln_Sparrow", "Loggerhead_Shrike", "Long_tailed_Jaeger", "Louisiana_Waterthrush", "Magnolia_Warbler", "Mallard", "Mangrove_Cuckoo", "Marsh_Wren", "Mockingbird", "Mourning_Warbler", "Myrtle_Warbler", "Nashville_Warbler", "Nelson_Sharp_tailed_Sparrow", "Nighthawk", "Northern_Flicker", "Northern_Fulmar", "Northern_Waterthrush", "Olive_sided_Flycatcher", "Orange_crowned_Warbler", "Orchard_Oriole", "Ovenbird", "Pacific_Loon", "Painted_Bunting", "Palm_Warbler", "Parakeet_Auklet", "Pelagic_Cormorant", "Philadelphia_Vireo", "Pied_Kingfisher", "Pied_billed_Grebe", "Pigeon_Guillemot", "Pileated_Woodpecker", "Pine_Grosbeak", "Pine_Warbler", "Pomarine_Jaeger", "Prairie_Warbler", "Prothonotary_Warbler", "Purple_Finch", "Red_bellied_Woodpecker", "Red_breasted_Merganser", "Red_cockaded_Woodpecker", "Red_eyed_Vireo", "Red_faced_Cormorant", "Red_headed_Woodpecker", "Red_legged_Kittiwake", "Red_winged_Blackbird", "Rhinoceros_Auklet", "Ring_billed_Gull", "Ringed_Kingfisher", "Rock_Wren", "Rose_breasted_Grosbeak", "Ruby_throated_Hummingbird", "Rufous_Hummingbird", "Rusty_Blackbird", "Sage_Thrasher", "Savannah_Sparrow", "Sayornis", "Scarlet_Tanager", "Scissor_tailed_Flycatcher", "Scott_Oriole", "Seaside_Sparrow", "Shiny_Cowbird", "Slaty_backed_Gull", "Song_Sparrow", "Sooty_Albatross", "Spotted_Catbird", "Summer_Tanager", "Swainson_Warbler", "Tennessee_Warbler", "Tree_Sparrow", "Tree_Swallow", "Tropical_Kingbird", "Vermilion_Flycatcher", "Vesper_Sparrow", "Warbling_Vireo", "Western_Grebe", "Western_Gull", "Western_Meadowlark", "Western_Wood_Pewee", "Whip_poor_Will", "White_Pelican", "White_breasted_Kingfisher", "White_breasted_Nuthatch", "White_crowned_Sparrow", "White_eyed_Vireo", "White_necked_Raven", "White_throated_Sparrow", "Wilson_Warbler", "Winter_Wren", "Worm_eating_Warbler", "Yellow_Warbler", "Yellow_bellied_Flycatcher", "Yellow_billed_Cuckoo", "Yellow_breasted_Chat", "Yellow_headed_Blackbird", "Yellow_throated_Vireo" ]
+    [ "Acadian_Flycatcher", "American_Crow", "American_Goldfinch", "American_Pipit", "American_Redstart", "American_Three_toed_Woodpecker", "Anna_Hummingbird", "Artic_Tern", "Baird_Sparrow", "Baltimore_Oriole", "Bank_Swallow", "Barn_Swallow", "Bay_breasted_Warbler", "Belted_Kingfisher", "Bewick_Wren", "Black_Tern", "Black_and_white_Warbler", "Black-Billed_Cuckoo", "Black-Capped_Vireo", "Black-Footed_Albatross", "Black-Throated_Blue_Warbler", "Black-Throated_Sparrow", "Blue_Grosbeak", "Blue_Jay", "Blue_headed_Vireo", "Blue_winged_Warbler", "Boat_tailed_Grackle", "Bobolink", "Bohemian_Waxwing", "Brandt_Cormorant", "Brewer_Blackbird", "Brewer_Sparrow", "Bronzed_Cowbird", "Brown_Creeper", "Brown_Pelican", "Brown_Thrasher", "Cactus_Wren", "California_Gull", "Canada_Warbler", "Cape_Glossy_Starling", "Cape_May_Warbler", "Cardinal", "Carolina_Wren", "Caspian_Tern", "Cedar_Waxwing", "Cerulean_Warbler", "Chestnut_sided_Warbler", "Chipping_Sparrow", "Chuck_will_Widow", "Clark_Nutcracker", "Clay-Colored_Sparrow", "Cliff_Swallow", "Common_Raven", "Common_Tern", "Common_Yellowthroat", "Crested_Auklet", "Dark_eyed_Junco", "Downy_Woodpecker", "Eared_Grebe", "Eastern_Towhee", "Elegant_Tern", "European_Goldfinch", "Evening_Grosbeak", "Field_Sparrow", "Fish_Crow", "Florida_Jay", "Forsters_Tern", "Fox_Sparrow", "Frigatebird", "Gadwall", "Geococcyx", "Glaucous_winged_Gull", "Golden_winged_Warbler", "Grasshopper_Sparrow", "Gray_Catbird", "Gray_Kingbird", "Gray_crowned_Rosy_Finch", "Great_Crested_Flycatcher", "Great_Grey_Shrike", "Green_Jay", "Green_Kingfisher", "Green_Violetear", "Green_tailed_Towhee", "Groove_billed_Ani", "Harris_Sparrow", "Heermann_Gull", "Henslow_Sparrow", "Herring_Gull", "Hooded_Merganser", "Hooded_Oriole", "Hooded_Warbler", "Horned_Grebe", "Horned_Lark", "Horned_Puffin", "House_Sparrow", "House_Wren", "Indigo_Bunting", "Ivory_Gull", "Kentucky_Warbler", "Laysan_Albatross", "Lazuli_Bunting", "Le_Conte_Sparrow", "Least_Auklet", "Least_Flycatcher", "Least_Tern", "Lincoln_Sparrow", "Loggerhead_Shrike", "Long_tailed_Jaeger", "Louisiana_Waterthrush", "Magnolia_Warbler", "Mallard", "Mangrove_Cuckoo", "Marsh_Wren", "Mockingbird", "Mourning_Warbler", "Myrtle_Warbler", "Nashville_Warbler", "Nelson_Sharp_tailed_Sparrow", "Nighthawk", "Northern_Flicker", "Northern_Fulmar", "Northern_Waterthrush", "Olive_sided_Flycatcher", "Orange_crowned_Warbler", "Orchard_Oriole", "Ovenbird", "Pacific_Loon", "Painted_Bunting", "Palm_Warbler", "Parakeet_Auklet", "Pelagic_Cormorant", "Philadelphia_Vireo", "Pied_Kingfisher", "Pied_billed_Grebe", "Pigeon_Guillemot", "Pileated_Woodpecker", "Pine_Grosbeak", "Pine_Warbler", "Pomarine_Jaeger", "Prairie_Warbler", "Prothonotary_Warbler", "Purple_Finch", "Red-Bellied_Woodpecker", "Red_breasted_Merganser", "Red_cockaded_Woodpecker", "Red-Eyed_Vireo", "Red_faced_Cormorant", "Red_headed_Woodpecker", "Red_legged_Kittiwake", "Red-Winged_Blackbird", "Rhinoceros_Auklet", "Ring_billed_Gull", "Ringed_Kingfisher", "Rock_Wren", "Rose-Breasted_Grosbeak", "Ruby-Throated_Hummingbird", "Rufous_Hummingbird", "Rusty_Blackbird", "Sage_Thrasher", "Savannah_Sparrow", "Sayornis", "Scarlet_Tanager", "Scissor-Tailed_Flycatcher", "Scott_Oriole", "Seaside_Sparrow", "Shiny_Cowbird", "Slaty_backed_Gull", "Song_Sparrow", "Sooty_Albatross", "Spotted_Catbird", "Summer_Tanager", "Swainson_Warbler", "Tennessee_Warbler", "Tree_Sparrow", "Tree_Swallow", "Tropical_Kingbird", "Vermilion_Flycatcher", "Vesper_Sparrow", "Warbling_Vireo", "Western_Grebe", "Western_Gull", "Western_Meadowlark", "Western_Wood_Pewee", "Whip_poor_Will", "White_Pelican", "White_breasted_Kingfisher", "White-Breasted_Nuthatch", "White-Crowned_Sparrow", "White-Eyed_Vireo", "White-Necked_Raven", "White_throated_Sparrow", "Wilson_Warbler", "Winter_Wren", "Worm_eating_Warbler", "Yellow_Warbler", "Yellow-Bellied_Flycatcher", "Yellow-Billed_Cuckoo", "Yellow-Breasted_Chat", "Yellow-Headed_Blackbird", "Yellow-Throated_Vireo" ]
         |> List.map (String.replace "_" " ")
         |> Array.fromList
+
+
+type alias GuidedExample =
+    { index : Int
+    , original : String
+    , highlighted : String
+    , hypothesis : Html.Html Msg
+    , trait : Html.Html Msg
+    , action : Html.Html Msg
+    , insight : Html.Html Msg
+    }
+
+
+guidedExamples : List GuidedExample
+guidedExamples =
+    [ { index = 680
+      , original = "/SAE-V/assets/contrib/classification/680.webp"
+      , highlighted = "/SAE-V/assets/contrib/classification/680-wing-highlighted.webp"
+      , hypothesis = Html.text " For example, this blue jay has a distinctive blue wing."
+      , trait =
+            Html.span
+                []
+                [ Html.text " If you choose the blue wing, you might see feature "
+                , Html.span [ class "font-mono" ] [ Html.text "CLIP-24K/20356" ]
+                , Html.text "."
+                ]
+      , action =
+            Html.span
+                []
+                [ Html.text " Try dragging the slider for "
+                , Html.span [ class "font-mono" ] [ Html.text "CLIP-24K/20356" ]
+                , Html.text " to -11."
+                ]
+      , insight = Html.text " For example, if you suppressed the blue wing, the ViT likely predicted Clark Nutcracker, a similar bird without any blue coloration."
+      }
+    , { index = 972
+      , original = "/SAE-V/assets/contrib/classification/972.webp"
+      , highlighted = "/SAE-V/assets/contrib/classification/972-breast-highlighted.webp"
+      , hypothesis = Html.text " For example, this brown creeper has a notably white breast and underside."
+      , trait =
+            Html.span
+                []
+                [ Html.text " If you choose the white breast, you might see feature "
+                , Html.span [ class "font-mono" ] [ Html.text "CLIP-24K/9292" ]
+                , Html.text "."
+                ]
+      , action =
+            Html.span
+                []
+                [ Html.text " Try dragging the slider for "
+                , Html.span [ class "font-mono" ] [ Html.text "CLIP-24K/9292" ]
+                , Html.text " to -14."
+                ]
+      , insight = Html.text " For example, if you suppressed the white breast, the ViT likely predicted Song Sparrow, a similar bird with a speckled, rather than white, breast."
+      }
+    , { index = 1129
+      , original = "/SAE-V/assets/contrib/classification/1129.webp"
+      , highlighted = "/SAE-V/assets/contrib/classification/1129-necklace-highlighted.webp"
+      , hypothesis = Html.text " For example, this warbler has a distinctive broken black necklace."
+      , trait =
+            Html.span
+                []
+                [ Html.text "If you choose all the patches with necklace, you might see "
+                , Html.span [ class "font-mono" ] [ Html.text "CLIP-24K/20376" ]
+                , Html.text "."
+                ]
+      , action =
+            Html.span
+                []
+                [ Html.text " Try dragging the slider for "
+                , Html.span [ class "font-mono" ] [ Html.text "CLIP-24K/20376" ]
+                , Html.text " to -12."
+                ]
+      , insight = Html.text " If you suppressed the entire necklace, the ViT likely predicted Wilson Warbler, a similar bird with a plain yellow breast without any necklace."
+      }
+
+    -- , { index = 4139
+    --   , original = "/SAE-V/assets/contrib/classification/4139.webp"
+    --   , highlighted = "/SAE-V/assets/contrib/classification/4139-chest-highlighted.webp"
+    --   , hypothesis = Html.text " For example, this purple finch has a distinctive pink and red coloration on its chest and head."
+    --   , trait = Html.text ""
+    --   , action = Html.text ""
+    --   , insight = Html.text ""
+    --   }
+    , { index = 5099
+      , original = "/SAE-V/assets/contrib/classification/5099.webp"
+      , highlighted = "/SAE-V/assets/contrib/classification/5099-chest-highlighted.webp"
+      , hypothesis = Html.text " For example, this kingbird has a distinctive yellow chest."
+      , trait =
+            Html.span
+                []
+                [ Html.text " If you choose the patches for its yellow chest, you might see feature "
+                , Html.span [ class "font-mono" ] [ Html.text "CLIP-24K/14468" ]
+                , Html.text "."
+                ]
+      , action =
+            Html.span
+                []
+                [ Html.text " Try dragging the slider for "
+                , Html.span [ class "font-mono" ] [ Html.text "CLIP-24K/14468" ]
+                , Html.text " to -8."
+                ]
+      , insight =
+            Html.span
+                []
+                [ Html.text " If you suppressed the "
+                , Html.span [ class "italic" ] [ Html.text "entire" ]
+                , Html.text " yellow chest, the ViT likely predicted Gray Kingbird, a similar kingbird without any yellow coloration."
+                ]
+      }
+    ]
+
+
+missingGuidedExample : GuidedExample
+missingGuidedExample =
+    { index = -1
+    , original = ""
+    , highlighted = ""
+    , hypothesis = Html.text ""
+    , trait = Html.text ""
+    , action = Html.text ""
+    , insight = Html.text ""
+    }

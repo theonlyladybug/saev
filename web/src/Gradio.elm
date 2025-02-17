@@ -30,6 +30,7 @@ type Error
     | ParsingError String
     | JsonError String
     | ApiError String
+    | UserError String
 
 
 type Base64Image

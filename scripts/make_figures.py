@@ -224,22 +224,15 @@ def make_figure_classification(
     probs_before: dict[str, float] = {},
     probs_after: dict[str, float] = {},
 ):
-    import einops.layers.torch
-    from torchvision.transforms import v2
-
+    import contrib.classification.transforms
     import saev.activations
     import saev.config
 
-    to_array = v2.Compose([
-        v2.Resize((512, 512), interpolation=v2.InterpolationMode.NEAREST),
-        v2.CenterCrop((448, 448)),
-        v2.ToImage(),
-        einops.layers.torch.Rearrange("channels width height -> width height channels"),
-    ])
+    transform = contrib.classification.transforms.for_figures()
 
     dataset = saev.activations.ImageFolder(
         "/research/nfs_su_809/workspace/stevens.994/datasets/cub2011/test",
-        transform=to_array,
+        transform=transform,
     )
     img_arr = dataset[example_i]["image"]
 
@@ -263,6 +256,9 @@ def make_figure_classification(
     bool_patches = [i in highlighted_i for i in range(196)]
     highlighted_img = add_highlights(Image.fromarray(img_arr.numpy()), bool_patches)
     highlighted_img.save(os.path.join(out, f"cub200_highlighted_img{example_i}.png"))
+
+    if not probs_before:
+        return
 
     probs_before = {
         key.replace("\\n", "\n"): value for key, value in probs_before.items()
