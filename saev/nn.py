@@ -80,11 +80,8 @@ class SparseAutoencoder(torch.nn.Module):
             + self.b_enc
         )
         f_x = torch.nn.functional.relu(h_pre)
+        x_hat = self.decode(f_x)
 
-        x_hat = (
-            einops.einsum(f_x, self.W_dec, "... d_sae, d_sae d_vit -> ... d_vit")
-            + self.b_dec
-        )
         # Some values of x and x_hat can be very large. We can calculate a safe MSE
         mse_loss = safe_mse(x_hat, x)
 
@@ -96,6 +93,15 @@ class SparseAutoencoder(torch.nn.Module):
         ghost_loss = torch.zeros_like(mse_loss)
 
         return x_hat, f_x, Loss(mse_loss, sparsity_loss, ghost_loss, l0, l1)
+
+    def decode(
+        self, f_x: Float[Tensor, "batch d_sae"]
+    ) -> Float[Tensor, "batch d_model"]:
+        x_hat = (
+            einops.einsum(f_x, self.W_dec, "... d_sae, d_sae d_vit -> ... d_vit")
+            + self.b_dec
+        )
+        return x_hat
 
     @torch.no_grad()
     def init_b_dec(self, vit_acts: Float[Tensor, "n d_vit"]):
