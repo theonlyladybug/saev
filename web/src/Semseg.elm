@@ -1186,7 +1186,7 @@ guidedExamples =
       , concept =
             Html.span
                 []
-                [ Html.text "For example, try selecting the patches for the painting in the middle of the wall. You might see the "
+                [ Html.text "For example, try selecting the patches for the toilet. You might see the "
                 , Html.span [ class "font-mono" ] [ Html.text "DINOv2-24K/5876" ]
                 , Html.text " or "
                 , Html.span [ class "font-mono" ] [ Html.text "DINOv2-24K/10875" ]
@@ -1200,7 +1200,7 @@ guidedExamples =
       , concept =
             Html.span
                 []
-                [ Html.text "For example, try selecting the patches for the painting in the middle of the wall. You might see the "
+                [ Html.text "For example, try selecting the patches for the bed cover in the middle of the image. You might see the "
                 , Html.span [ class "font-mono" ] [ Html.text "DINOv2-24K/18834" ]
                 , Html.text " SAE feature."
                 ]

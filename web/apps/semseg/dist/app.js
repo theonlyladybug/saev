@@ -8851,7 +8851,7 @@ var $author$project$Semseg$guidedExamples = _List_fromArray(
 			_List_Nil,
 			_List_fromArray(
 				[
-					$elm$html$Html$text('For example, try selecting the patches for the painting in the middle of the wall. You might see the '),
+					$elm$html$Html$text('For example, try selecting the patches for the toilet. You might see the '),
 					A2(
 					$elm$html$Html$span,
 					_List_fromArray(
@@ -8886,7 +8886,7 @@ var $author$project$Semseg$guidedExamples = _List_fromArray(
 			_List_Nil,
 			_List_fromArray(
 				[
-					$elm$html$Html$text('For example, try selecting the patches for the painting in the middle of the wall. You might see the '),
+					$elm$html$Html$text('For example, try selecting the patches for the bed cover in the middle of the image. You might see the '),
 					A2(
 					$elm$html$Html$span,
 					_List_fromArray(
