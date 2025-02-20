@@ -31,7 +31,7 @@ import Url.Parser.Query
 
 
 isProduction =
-    False
+    True
 
 
 main =

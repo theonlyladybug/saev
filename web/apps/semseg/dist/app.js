@@ -7305,7 +7305,7 @@ var $author$project$Semseg$getExample = F3(
 	});
 var $author$project$Requests$Id = $elm$core$Basics$identity;
 var $author$project$Requests$init = 0;
-var $author$project$Semseg$isProduction = false;
+var $author$project$Semseg$isProduction = true;
 var $author$project$Requests$next = function (_v0) {
 	var id = _v0;
 	return id + 1;
