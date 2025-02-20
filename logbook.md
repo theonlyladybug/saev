@@ -1474,4 +1474,29 @@ Classification app to do:
 * make it so the highlights turn on/off when you hover w a mouse over the images
 * [done] change the patches to be all red (no legend needed)
 * [done] Add classnames to the images in similar patches
-* Add examples of covering a trait.
+* [done] Add examples of covering a trait.
+
+# 02/19/2025
+
+I chated with Dan Rubenstein about distinguishing birds, dichtomous keys, and other topics.
+
+Some notes of interest:
+
+Dan really wanted to upload various images of zebras, horses and other equids and see which sparse features BioCLIP used during its classification.
+This kind of interface is quite general and could be done with BioCLIP + SAE + SVM (I think).
+But this would be a pretty tough web demo and I don't know if I can prioritize it.
+
+As examples of genera that are similar save for a few traits:
+
+* MacArthur's warblers are all the exact same body shape but have distinct coloring.
+* European tits are also the same body shape but have different coloring.
+
+I would love to compare INTR, Finer-CAM, Prompt-CAM, SAE-based classifiers, and Tory Petersen's published field guides.
+
+Some other stuff:
+
+Heterogenous summation vs gestalt classification: SAEs+SVMs are heterogenous summation models, while a dense ViT + linear layer is a gestalt classifier.
+
+If we could reliably extract traits, then we could write a decision tree (by hand) for predicting age and sex, which would be awesome for conservation.
+
+

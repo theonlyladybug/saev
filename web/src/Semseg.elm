@@ -19,12 +19,19 @@ import Json.Encode as E
 import Parser exposing ((|.), (|=))
 import Random
 import Requests
+import Semseg.Examples
 import Set
+import Svg
+import Svg.Attributes
 import Task
 import Url
 import Url.Builder
 import Url.Parser exposing ((</>), (<?>))
 import Url.Parser.Query
+
+
+isProduction =
+    False
 
 
 main =
@@ -52,6 +59,7 @@ type Msg
     | ToggleSelectedPatch Int
     | ResetSelectedPatches
     | SetSlider Int String
+    | ToggleHighlights Int
       -- API responses
     | GotExample Requests.Id (Result Gradio.Error Example)
     | GotSaeLatents Requests.Id (Result Gradio.Error (List SaeLatent))
@@ -75,18 +83,19 @@ type ImageUploaderMsg
 type alias Model =
     { key : Browser.Navigation.Key
     , ade20kIndex : Maybe Int
-    , example : Requests.Requested Example
+    , example : Requests.Requested Example Gradio.Error
     , imageUploaderHover : Bool
     , hoveredPatchIndex : Maybe Int
     , selectedPatchIndices : Set.Set Int
-    , saeLatents : Requests.Requested (List SaeLatent)
+    , saeLatents : Requests.Requested (List SaeLatent) Gradio.Error
 
     -- Semantic segmenations
-    , origPreds : Requests.Requested Example
-    , modPreds : Requests.Requested Example
+    , origPreds : Requests.Requested Example Gradio.Error
+    , modPreds : Requests.Requested Example Gradio.Error
 
     -- UI
     , sliders : Dict.Dict Int Float
+    , toggles : Dict.Dict Int Bool
 
     -- API
     , gradio : Gradio.Config
@@ -95,10 +104,6 @@ type alias Model =
     , origPredsReqId : Requests.Id
     , modPredsReqId : Requests.Id
     }
-
-
-type alias VitKey =
-    String
 
 
 type alias SaeLatent =
@@ -115,7 +120,7 @@ type alias Example =
 
 
 type alias HighlightedExample =
-    { original : Gradio.Base64Image
+    { image : Gradio.Base64Image
     , highlighted : Gradio.Base64Image
     , labels : Gradio.Base64Image
     , classes : Set.Set Int
@@ -126,7 +131,11 @@ init : () -> Url.Url -> Browser.Navigation.Key -> ( Model, Cmd Msg )
 init _ url key =
     let
         gradio =
-            { host = "https://samuelstevens-saev-semantic-segmentation.hf.space" }
+            if isProduction then
+                { host = "https://samuelstevens-saev-semantic-segmentation.hf.space" }
+
+            else
+                { host = "http://localhost:7860" }
 
         ( ade20kIndex, cmd ) =
             case Maybe.andThen .index (Url.Parser.parse urlParser url) of
@@ -161,6 +170,7 @@ init _ url key =
 
             -- UI
             , sliders = Dict.empty
+            , toggles = Dict.empty
 
             -- API
             , gradio = gradio
@@ -303,6 +313,21 @@ update msg model =
                 Nothing ->
                     ( model, Cmd.none )
 
+        ToggleHighlights latent ->
+            let
+                toggles =
+                    Dict.update latent
+                        -- If missing, assume it's highlighted
+                        (Maybe.withDefault True
+                            -- Flip the toggle
+                            >> not
+                            -- Needs to be a Maybe for Dict.update
+                            >> Just
+                        )
+                        model.toggles
+            in
+            ( { model | toggles = toggles }, Cmd.none )
+
         GotExample id result ->
             if Requests.isStale id model.exampleReqId then
                 ( model, Cmd.none )
@@ -322,7 +347,7 @@ update msg model =
                         )
 
                     Err err ->
-                        ( { model | example = Requests.Failed (explainGradioError err) }
+                        ( { model | example = Requests.Failed err }
                         , Cmd.none
                         )
 
@@ -339,11 +364,22 @@ update msg model =
                                     |> List.map .latent
                                     |> List.map (\latent -> ( latent, 0.0 ))
                                     |> Dict.fromList
+
+                            toggles =
+                                latents
+                                    |> List.map (\latent -> ( latent.latent, True ))
+                                    |> Dict.fromList
                         in
-                        ( { model | saeLatents = Requests.Loaded latents, sliders = sliders }, Cmd.none )
+                        ( { model
+                            | saeLatents = Requests.Loaded latents
+                            , toggles = toggles
+                            , sliders = sliders
+                          }
+                        , Cmd.none
+                        )
 
                     Err err ->
-                        ( { model | saeLatents = Requests.Failed (explainGradioError err) }, Cmd.none )
+                        ( { model | saeLatents = Requests.Failed err }, Cmd.none )
 
         GotOrigPreds id result ->
             if Requests.isStale id model.origPredsReqId then
@@ -356,7 +392,7 @@ update msg model =
 
                     Err err ->
                         ( { model
-                            | origPreds = Requests.Failed (explainGradioError err)
+                            | origPreds = Requests.Failed err
                           }
                         , Cmd.none
                         )
@@ -372,7 +408,7 @@ update msg model =
 
                     Err err ->
                         ( { model
-                            | modPreds = Requests.Failed (explainGradioError err)
+                            | modPreds = Requests.Failed err
                           }
                         , Cmd.none
                         )
@@ -422,7 +458,7 @@ imageUploaderUpdate model msg =
                     )
 
                 Nothing ->
-                    ( { model | example = Requests.Failed "Uploaded image was not base64." }
+                    ( { model | example = Requests.Failed (Gradio.UserError "Uploaded image was not base64.") }
                     , Cmd.none
                     )
 
@@ -447,32 +483,75 @@ type alias QueryParams =
 
 urlParser : Url.Parser.Parser (QueryParams -> a) a
 urlParser =
-    -- Need to change this when I deploy it.
-    Url.Parser.s "SAE-V"
-        </> Url.Parser.s "demos"
-        </> Url.Parser.s "semseg"
-        <?> Url.Parser.Query.int "example"
-        |> Url.Parser.map QueryParams
+    if isProduction then
+        Url.Parser.s "SAE-V"
+            </> Url.Parser.s "demos"
+            </> Url.Parser.s "semseg"
+            <?> Url.Parser.Query.int "example"
+            |> Url.Parser.map QueryParams
+
+    else
+        Url.Parser.s "web"
+            </> Url.Parser.s "apps"
+            </> Url.Parser.s "semseg"
+            <?> Url.Parser.Query.int "example"
+            |> Url.Parser.map QueryParams
 
 
 
 -- API
 
 
-explainGradioError : Gradio.Error -> String
+explainGradioError : Gradio.Error -> Html.Html Msg
 explainGradioError err =
+    let
+        githubLink =
+            Html.a
+                [ Html.Attributes.href "https://github.com/OSU-NLP-Group/SAE-V/issues/new"
+                , class "text-sky-500 hover:underline"
+                ]
+                [ Html.text "GitHub" ]
+    in
     case err of
         Gradio.NetworkError msg ->
-            "Network error: " ++ msg
+            Html.span
+                []
+                [ Html.text ("Network error: " ++ msg ++ ". Try refreshing the page. If that doesn't work, reach out on ")
+                , githubLink
+                , Html.text "."
+                ]
 
         Gradio.JsonError msg ->
-            "Error decoding JSON: " ++ msg
+            Html.span
+                []
+                [ Html.text "Error decoding JSON. You can try refreshing the page, but it's probably a bug. Please reach out on "
+                , githubLink
+                , Html.text "."
+                ]
 
         Gradio.ParsingError msg ->
-            "Error parsing API response: " ++ msg
+            Html.span
+                []
+                [ Html.text ("Error parsing API response: " ++ msg ++ ". This is typically due to server load. Refresh the page, and if that doesn't work, reach out on ")
+                , githubLink
+                , Html.text "."
+                ]
 
         Gradio.ApiError msg ->
-            "Error in the API: " ++ msg
+            Html.span
+                []
+                [ Html.text ("Error in the API: " ++ msg ++ ". You can try refreshing the page, but it's probably a bug. Please reach out on ")
+                , githubLink
+                , Html.text "."
+                ]
+
+        Gradio.UserError msg ->
+            Html.span
+                []
+                [ Html.text ("User Error: " ++ msg ++ ". You can refresh the page or retry whatever you were doing. Please reach out on ")
+                , githubLink
+                , Html.text " if you cannot resolve it."
+                ]
 
 
 encodeArgs : List E.Value -> E.Value
@@ -562,17 +641,17 @@ view : Model -> Browser.Document Msg
 view model =
     { title = "Semantic Segmentation"
     , body =
-        [ Html.header [] []
-        , Html.main_
-            [ class "w-full min-h-screen p-1 md:p-2 lg:p-4 bg-gray-50 space-y-4" ]
-            [ Html.h2
-                []
-                [ Html.text "SAEs for Scientifically Rigorous Interpretation of Semantic Segmentation Models" ]
+        [ Html.main_
+            [ class "w-full min-h-screen space-y-4 bg-gray-50 p-1 xs:p-2 lg:p-4" ]
+            [ Html.h1
+                [ class "font-bold text-2xl" ]
+                [ Html.text "SAEs for Scientifically Rigorous Interpretation of Vision Models" ]
+            , viewInstructions model.example
             , viewControls model.ade20kIndex
             , div
-                [ class "flex flex-row" ]
+                [ class "flex flex-col gap-1 lg:flex-row xl:flex-col" ]
                 [ div
-                    [ class "grid lg:grid-cols-[336px_336px] gap-1" ]
+                    [ class "grid gap-1 md:grid-cols-[336px_336px] xl:grid-cols-[336px_336px_336px_336px]" ]
                     [ viewGriddedImage model
                         (Requests.map .image model.example)
                         "Input Image"
@@ -595,37 +674,117 @@ view model =
                             "Modify the ViT's representations using the sliders."
                         )
                     ]
-                , div
-                    [ class "" ]
-                    [ viewSaeLatents
-                        model.selectedPatchIndices
-                        model.saeLatents
-                        model.sliders
-                    , Set.empty
-                        |> Set.union (getClasses model.example)
-                        |> Set.union (getClasses model.origPreds)
-                        |> Set.union (getClasses model.modPreds)
-                        |> viewLegend
-                    ]
+                , Set.empty
+                    |> Set.union (getClasses model.example)
+                    |> Set.union (getClasses model.origPreds)
+                    |> Set.union (getClasses model.modPreds)
+                    |> viewLegend
                 ]
+            , viewSaeLatents
+                model.saeLatents
+                model.toggles
+                model.sliders
             ]
         ]
     }
 
 
-viewErr : String -> Html.Html Msg
+viewErr : Gradio.Error -> Html.Html Msg
 viewErr err =
     div
         [ class "relative rounded-lg border border-red-200 bg-red-50 p-4 m-4" ]
-        [ Html.button
-            []
-            []
-        , Html.h3
+        [ Html.h3
             [ class "font-bold text-red-800" ]
             [ Html.text "Error" ]
         , Html.p
             [ class "text-red-700" ]
-            [ Html.text err ]
+            [ explainGradioError err ]
+        ]
+
+
+viewInstructions : Requests.Requested Example Gradio.Error -> Html.Html Msg
+viewInstructions current =
+    let
+        guided =
+            case current of
+                Requests.Loaded example ->
+                    guidedExamples
+                        |> List.filter (\g -> example.image == g.image)
+                        |> List.head
+                        |> Maybe.withDefault missingGuidedExample
+
+                _ ->
+                    missingGuidedExample
+    in
+    Html.details
+        [ Html.Attributes.attribute "open" ""
+        ]
+        [ Html.summary
+            []
+            [ Html.span
+                [ class "cursor-pointer font-bold text-l"
+                ]
+                [ Html.text "Instructions" ]
+            , Html.span
+                [ class "cursor-pointer italic"
+                ]
+                [ Html.text " (click to toggle)" ]
+            ]
+
+        -- Raw
+        , Html.div
+            [ class "md:flex md:gap-6" ]
+            [ Html.ol
+                [ class "list-decimal pl-4 space-y-1 md:flex-1" ]
+                [ Html.li []
+                    [ Html.text "Click any example to see a DINOv2-powered segmentation."
+                    ]
+                , Html.li []
+                    [ Html.text "Can you selectively modify how the model interprets just one semantic element?"
+                    ]
+                , Html.li []
+                    [ Html.text "Click on all the patches for a given concept and observe which SAE feature are most activated by these patches. "
+                    , guided.concept
+                    ]
+                , Html.li []
+                    [ Html.text ("Test for feature independence: suppress this feature across ALL patches in the entire image by changing the slider to " ++ String.fromInt guided.recommendedValue ++ ".")
+                    ]
+                , Html.li []
+                    [ Html.text ("If SAE features were not pseudo-orthogonal, this global modification would cause widespread disruption." ++ guided.change)
+                    ]
+                ]
+            , Html.div
+                [ class "grid grid-cols-2 sm:grid-cols-4 md:inline-grid md:grid-cols-2 md:items-start xl:grid-cols-4"
+                , class "gap-1 mt-4 md:mt-0"
+                ]
+                (List.map
+                    viewGuidedExampleButton
+                    guidedExamples
+                )
+            ]
+        ]
+
+
+viewGuidedExampleButton : GuidedExample -> Html.Html Msg
+viewGuidedExampleButton example =
+    Html.div
+        [ class "w-full md:w-36 flex flex-col space-y-1" ]
+        [ Html.img
+            [ Html.Attributes.src (Gradio.base64ImageToString example.image)
+            , Html.Events.onClick (SetUrl example.index)
+            , class "cursor-pointer"
+            ]
+            []
+        , Html.button
+            [ Html.Events.onClick (SetUrl example.index)
+            , class "flex-1 rounded-lg px-2 py-1 transition-colors"
+            , class "border border-sky-300 hover:border-sky-400"
+            , class "bg-sky-100 hover:bg-sky-200"
+            , class "text-gray-700 hover:text-gray-900"
+            , class "focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2"
+            , class "active:bg-gray-300"
+            ]
+            [ Html.text ("Example #" ++ String.fromInt example.index) ]
         ]
 
 
@@ -649,7 +808,7 @@ viewControls ade20kIndex =
         [ prevButton
         , viewButton GetRandomExample "Random" True
         , nextButton
-        , viewButton (ImageUploader Upload) "Upload Image" True
+        , viewButton (ImageUploader Upload) "Upload" True
 
         -- , viewButton (ResetPatches) "Reset Patches" True
         ]
@@ -673,12 +832,12 @@ viewButton onClick title enabled =
         [ Html.text title ]
 
 
-viewGriddedImage : Model -> Requests.Requested Gradio.Base64Image -> String -> String -> Html.Html Msg
+viewGriddedImage : Model -> Requests.Requested Gradio.Base64Image Gradio.Error -> String -> String -> Html.Html Msg
 viewGriddedImage model reqImage title callToAction =
     case reqImage of
         Requests.Initial ->
             div
-                []
+                [ class "text-center" ]
                 [ Html.p
                     [ class "text-center" ]
                     [ Html.text title ]
@@ -689,29 +848,38 @@ viewGriddedImage model reqImage title callToAction =
 
         Requests.Loading ->
             div
-                []
+                [ class "text-center" ]
                 [ Html.p
                     [ class "text-center" ]
                     [ Html.text title ]
-                , Html.p
-                    [ class "italic" ]
-                    [ Html.text "Loading..." ]
+                , viewSpinner "Loading"
                 ]
 
         Requests.Failed err ->
             viewErr err
 
         Requests.Loaded image ->
-            div []
+            div
+                [ class "text-center" ]
                 [ Html.p
-                    [ class "text-center" ]
-                    [ Html.text title ]
+                    [ class "flex flex-row justify-center items-center gap-1" ]
+                    [ Html.span
+                        [ class "" ]
+                        [ Html.text title ]
+                    , Html.a
+                        [ Html.Attributes.href (Gradio.base64ImageToString image)
+                        , Html.Attributes.target "_blank"
+                        , Html.Attributes.rel "noopener noreferrer"
+                        , class "text-blue-600 underline text-sm italic"
+                        ]
+                        [ Html.text "Open Image" ]
+                    ]
                 , div
                     [ class "relative inline-block" ]
                     [ div
                         [ class "absolute grid"
                         , class "grid-rows-[repeat(16,_14px)] grid-cols-[repeat(16,_14px)]"
-                        , class "lg:grid-rows-[repeat(16,_21px)] lg:grid-cols-[repeat(16,_21px)]"
+                        , class "xs:grid-rows-[repeat(16,_21px)] xs:grid-cols-[repeat(16,_21px)]"
                         ]
                         (List.map
                             (viewGridCell model.hoveredPatchIndex model.selectedPatchIndices)
@@ -720,7 +888,7 @@ viewGriddedImage model reqImage title callToAction =
                     , Html.img
                         [ class "block"
                         , class "w-[224px] h-[224px]"
-                        , class "lg:w-[336px] lg:h-[336px]"
+                        , class "xs:w-[336px] xs:h-[336px]"
                         , Html.Attributes.src (Gradio.base64ImageToString image)
                         , Html.Attributes.style "image-rendering" "pixelated"
                         ]
@@ -752,7 +920,7 @@ viewGridCell hovered selected self =
                    )
     in
     div
-        ([ class "w-[14px] h-[14px] lg:w-[21px] lg:h-[21px]"
+        ([ class "w-[14px] h-[14px] sm:w-[21px] sm:h-[21px]"
          , Html.Events.onMouseEnter (HoverPatch self)
          , Html.Events.onMouseLeave ResetHoveredPatch
          , Html.Events.onClick (ToggleSelectedPatch self)
@@ -766,9 +934,11 @@ viewLegend : Set.Set Int -> Html.Html Msg
 viewLegend classes =
     div
         [ Html.Attributes.id "legend" ]
-        [ Html.p [] [ Html.text "Legend" ]
+        [ Html.p
+            [ class "font-bold text-l" ]
+            [ Html.text "Legend" ]
         , div
-            []
+            [ class "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-4" ]
             (Set.toList classes
                 |> List.sort
                 |> List.filter (\x -> x > 0)
@@ -809,69 +979,134 @@ viewClassIcon cls =
         ]
 
 
-viewSaeLatents : Set.Set Int -> Requests.Requested (List SaeLatent) -> Dict.Dict Int Float -> Html.Html Msg
-viewSaeLatents selected requestedLatents values =
+viewSaeLatents : Requests.Requested (List SaeLatent) Gradio.Error -> Dict.Dict Int Bool -> Dict.Dict Int Float -> Html.Html Msg
+viewSaeLatents requestedLatents toggles values =
     case requestedLatents of
         Requests.Initial ->
-            Html.p []
-                [ Html.text "Click on the image above to explain model predictions." ]
+            Html.p [ class "italic" ]
+                [ Html.text "Click on the image above to find similar image patches using a "
+                , Html.a
+                    []
+                    [ Html.text "sparse autoencoder (SAE)" ]
+                , Html.text "."
+                ]
 
         Requests.Loading ->
-            Html.p []
-                [ Html.text "Loading similar patches..." ]
+            viewSpinner "Loading similar patches"
 
         Requests.Failed err ->
             viewErr err
 
         Requests.Loaded latents ->
-            div []
+            div
+                [ class "grid grid-cols-1 gap-2 lg:grid-cols-2" ]
                 (List.filterMap
-                    (\latent -> Maybe.map (\f -> viewSaeLatent latent f) (Dict.get latent.latent values))
+                    (\latent ->
+                        Maybe.map2
+                            (viewSaeLatent latent)
+                            (Dict.get latent.latent toggles)
+                            (Dict.get latent.latent values)
+                    )
                     latents
                 )
 
 
-viewSaeLatent : SaeLatent -> Float -> Html.Html Msg
-viewSaeLatent latent value =
+viewSaeLatent : SaeLatent -> Bool -> Float -> Html.Html Msg
+viewSaeLatent latent highlighted value =
     div
         []
         [ div
             [ class "grid grid-cols-4" ]
-            (List.map viewHighlightedExample latent.examples)
-        , div
-            [ class "" ]
-            [ Html.input
-                [ Html.Attributes.type_ "range"
-                , Html.Attributes.min "-10"
-                , Html.Attributes.max "10"
-                , Html.Attributes.step "0.2"
-                , Html.Attributes.value (String.fromFloat value)
-                , Html.Events.onInput (SetSlider latent.latent)
+            (List.map
+                (\ex ->
+                    if highlighted then
+                        viewExample ex.highlighted
+
+                    else
+                        viewExample ex.image
+                )
+                latent.examples
+            )
+        , Html.div
+            [ class "sm:flex sm:items-center sm:justify-between sm:space-x-3 sm:mt-1" ]
+            [ -- Slider + latent label
+              Html.div
+                [ class "inline-flex items-center" ]
+                [ Html.input
+                    [ Html.Attributes.type_ "range"
+                    , Html.Attributes.min "-10"
+                    , Html.Attributes.max "10"
+                    , Html.Attributes.value (String.fromFloat value)
+                    , Html.Events.onInput (SetSlider latent.latent)
+                    , class "md:max-w-24 lg:max-w-36"
+                    ]
+                    []
+                , Html.label
+                    [ class "ms-3 text-sm font-medium text-gray-900 dark:text-gray-300" ]
+                    [ Html.span [ class "font-mono" ] [ Html.text ("DINOv2-24K/" ++ String.fromInt latent.latent) ]
+                    , Html.text (": " ++ viewSliderValue value)
+                    ]
                 ]
-                []
-            , Html.p
-                [ class "gap-1" ]
-                [ Html.span [] [ Html.text ("Latent 24K/" ++ String.fromInt latent.latent) ]
-                , Html.span [] [ Html.text ("Value:" ++ String.fromFloat value) ]
-                ]
+            , viewToggle "Highlights" highlighted (ToggleHighlights latent.latent)
             ]
         ]
 
 
-viewHighlightedExample : HighlightedExample -> Html.Html Msg
-viewHighlightedExample { original, highlighted } =
+viewSliderValue : Float -> String
+viewSliderValue value =
+    if value > 0 then
+        "+" ++ String.fromFloat value
+
+    else
+        String.fromFloat value
+
+
+viewExample : Gradio.Base64Image -> Html.Html Msg
+viewExample img =
     Html.img
-        [ Html.Attributes.src (Gradio.base64ImageToString highlighted)
-        , class "max-w-36 h-auto"
+        [ Html.Attributes.src (Gradio.base64ImageToString img)
+        , class "w-full h-auto"
         ]
         []
+
+
+viewToggle : String -> Bool -> Msg -> Html.Html Msg
+viewToggle text active onToggle =
+    -- https://flowbite.com/docs/forms/toggle/
+    Html.label
+        [ class "inline-flex items-center cursor-pointer" ]
+        [ Html.input
+            [ Html.Attributes.type_ "checkbox"
+            , Html.Attributes.checked active
+            , Html.Events.onClick onToggle
+            , class "sr-only peer"
+            ]
+            []
+        , Html.div
+            [ class "relative w-11 h-6 bg-gray-200 rounded-full peer "
+            , class "peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300"
+            , class "rtl:peer-checked:after:-translate-x-full"
+            , class "after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all"
+            , class "dark:peer-focus:ring-blue-800 dark:bg-gray-700 dark:border-gray-600 dark:peer-checked:bg-blue-600"
+            , class "peer-checked:after:translate-x-full peer-checked:after:border-white peer-checked:bg-blue-600"
+            ]
+            []
+        , Html.span
+            [ class "ms-3 text-sm font-medium text-gray-900 dark:text-gray-300" ]
+            [ Html.text text ]
+        ]
 
 
 
 -- HELPERS
 
 
-getClasses : Requests.Requested Example -> Set.Set Int
+bold : String -> Html.Html Msg
+bold text =
+    Html.span [ class "font-bold" ] [ Html.text text ]
+
+
+getClasses : Requests.Requested Example Gradio.Error -> Set.Set Int
 getClasses example =
     case example of
         Requests.Loading ->
@@ -885,6 +1120,104 @@ getClasses example =
 
         Requests.Loaded { classes } ->
             classes
+
+
+viewSpinner : String -> Html.Html Msg
+viewSpinner text =
+    Html.div
+        [ class "flex flex-row items-center gap-2" ]
+        [ Svg.svg
+            [ Svg.Attributes.class "w-8 h-8 text-gray-200 fill-blue-600 animate-spin"
+            , Svg.Attributes.viewBox "0 0 100 101"
+            , Svg.Attributes.fill "none"
+            ]
+            [ Svg.path
+                [ Svg.Attributes.d "M100 50.5908C100 78.2051 77.6142 100.591 50 100.591C22.3858 100.591 0 78.2051 0 50.5908C0 22.9766 22.3858 0.59082 50 0.59082C77.6142 0.59082 100 22.9766 100 50.5908ZM9.08144 50.5908C9.08144 73.1895 27.4013 91.5094 50 91.5094C72.5987 91.5094 90.9186 73.1895 90.9186 50.5908C90.9186 27.9921 72.5987 9.67226 50 9.67226C27.4013 9.67226 9.08144 27.9921 9.08144 50.5908Z"
+                , Svg.Attributes.fill "currentColor"
+                ]
+                []
+            , Svg.path
+                [ Svg.Attributes.d "M93.9676 39.0409C96.393 38.4038 97.8624 35.9116 97.0079 33.5539C95.2932 28.8227 92.871 24.3692 89.8167 20.348C85.8452 15.1192 80.8826 10.7238 75.2124 7.41289C69.5422 4.10194 63.2754 1.94025 56.7698 1.05124C51.7666 0.367541 46.6976 0.446843 41.7345 1.27873C39.2613 1.69328 37.813 4.19778 38.4501 6.62326C39.0873 9.04874 41.5694 10.4717 44.0505 10.1071C47.8511 9.54855 51.7191 9.52689 55.5402 10.0491C60.8642 10.7766 65.9928 12.5457 70.6331 15.2552C75.2735 17.9648 79.3347 21.5619 82.5849 25.841C84.9175 28.9121 86.7997 32.2913 88.1811 35.8758C89.083 38.2158 91.5421 39.6781 93.9676 39.0409Z"
+                , Svg.Attributes.fill "currentFill"
+                ]
+                []
+            ]
+        , Html.span [ class "italic text-gray-600" ] [ Html.text text ]
+        ]
+
+
+type alias GuidedExample =
+    { index : Int
+    , image : Gradio.Base64Image
+    , concept : Html.Html Msg
+    , recommendedValue : Int
+    , change : String
+    }
+
+
+guidedExamples : List GuidedExample
+guidedExamples =
+    [ { index = 1872
+      , image = Semseg.Examples.image1872
+      , concept =
+            Html.span
+                []
+                [ Html.text "For example, try selecting a couple patches over the car in the bottom left corner. You might see the "
+                , Html.span [ class "font-mono" ] [ Html.text "DINOv2-24K/7235" ]
+                , Html.text " SAE feature."
+                ]
+      , recommendedValue = -6
+      , change = "Instead, only the 'car, auto' (class 21) class is removed. Other predictions, like the buildings, are unchanged."
+      }
+    , { index = 1633
+      , image = Semseg.Examples.image1633
+      , concept =
+            Html.span
+                []
+                [ Html.text "For example, try selecting the patches for the painting in the middle of the wall. You might see the "
+                , Html.span [ class "font-mono" ] [ Html.text "DINOv2-24K/16446" ]
+                , Html.text " SAE feature."
+                ]
+      , recommendedValue = -5
+      , change = "Instead, only the 'painting, picture' (class 23) class is removed. Other predictions, like the floor, are unchanged."
+      }
+    , { index = 1099
+      , image = Semseg.Examples.image1099
+      , concept =
+            Html.span
+                []
+                [ Html.text "For example, try selecting the patches for the painting in the middle of the wall. You might see the "
+                , Html.span [ class "font-mono" ] [ Html.text "DINOv2-24K/5876" ]
+                , Html.text " or "
+                , Html.span [ class "font-mono" ] [ Html.text "DINOv2-24K/10875" ]
+                , Html.text " SAE features."
+                ]
+      , recommendedValue = -2
+      , change = "Instead, only the 'toilet, can' (class 66) class is removed. Other predictions, like the floor, are unchanged."
+      }
+    , { index = 1117
+      , image = Semseg.Examples.image1117
+      , concept =
+            Html.span
+                []
+                [ Html.text "For example, try selecting the patches for the painting in the middle of the wall. You might see the "
+                , Html.span [ class "font-mono" ] [ Html.text "DINOv2-24K/18834" ]
+                , Html.text " SAE feature."
+                ]
+      , recommendedValue = -2
+      , change = "Instead, only the 'bed' (class 8) class is removed. Other predictions, like the painting, are unchanged."
+      }
+    ]
+
+
+missingGuidedExample : GuidedExample
+missingGuidedExample =
+    { index = -1
+    , image = Gradio.base64ImageEmpty
+    , concept = Html.text ""
+    , change = ""
+    , recommendedValue = -8
+    }
 
 
 

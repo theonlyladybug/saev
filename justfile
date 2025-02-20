@@ -19,7 +19,7 @@ clean:
 
 build-semseg: fmt
     cd web && elm make src/Semseg.elm --output apps/semseg/dist/app.js --optimize
-    cd web && tailwindcss --input apps/semseg/main.css --output apps/semseg/dist/main.css
+    cd web && tailwindcss --input apps/semseg/main.css --output apps/semseg/dist/main.css --minify
 
 build-classification: fmt
     cd web && elm make src/Classification.elm --output apps/classification/dist/app.js --optimize
