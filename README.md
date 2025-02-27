@@ -46,6 +46,21 @@ python -m saev activations \
 data:imagenet-dataset
 ```
 
+Below are steps largely overlapping with the document, but maintained a log below to retrace anything I made changes.
+### Step 1: Saving activations
+- added `cache_dir` into `config.Activations` (for ViT checkpoint) and `config.ImagenetDataset`.
+```
+python -m saev activations \
+--model-family clip \  
+--model-ckpt ViT-B-32/openai \   
+--d-vit 768 \
+--n-patches-per-img 49  \
+--layers -2 \
+--dump-to /media/data/yiran/saev_data \
+--n-patches-per-shard 2_4000_000 \
+data:imagenet-dataset
+```
+
 I recommend using the [llms.txt](https://samuelstevens.me/saev/llms.txt) file as a way to use any LLM provider to ask questions.
 For example, you can run `curl https://samuelstevens.me/saev/llms.txt | pbcopy` on macOS to copy the text, then paste it into [https://claude.ai](https://claude.ai) and ask any question you have.
 

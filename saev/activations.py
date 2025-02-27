@@ -332,8 +332,7 @@ def make_img_transform(cfg: config.Activations) -> Callable:
             v2.ToDtype(torch.float32, scale=True),
             v2.Normalize(mean=[0.4850, 0.4560, 0.4060], std=[0.2290, 0.2240, 0.2250]),
         ])
-
-    elif model_family == "moondream2":
+    elif cfg.model_family == "mae":
         from torchvision.transforms import v2
 
         # Assume fixed image ratio, 378x378
