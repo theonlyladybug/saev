@@ -12,5 +12,6 @@ logs/
 tmp/
 .coverage
 saev.egg-info/
+uv.lock
 elm-stuff/
 data/
