@@ -10,7 +10,7 @@ import beartype
 import einops
 import numpy as np
 import torch
-from jaxtyping import Float, Int, jaxtyped
+from jaxtyping import Float, Int, jaxtyped, UInt8, Bool
 from torch import Tensor
 
 import saev.helpers
@@ -428,7 +428,6 @@ def get_latent_lookup(
         )
 
         # We only want to consider patches where a certain proportion (typically 80%) of the pixels are the same label.
-        # Filter patch_labels based on cfg.label_threshold. AI!
         breakpoint()
 
         unique_classes = torch.unique(labels_B)
@@ -498,6 +497,23 @@ def get_latent_lookup(
         latent_lookup[class_id] = topk_latents[0].item()
 
     return latent_lookup
+
+
+@jaxtyped(typechecker=beartype.beartype)
+def get_patch_mask(
+    pixel_labels: UInt8[Tensor, "n patch_px"], threshold: float
+) -> Bool[Tensor, " n"]:
+    """
+    Create a mask for patches where at least threshold proportion of pixels have the same label.
+
+    Args:
+        pixel_labels: Tensor of shape [n, patch_pixels] with pixel labels
+        threshold: Minimum proportion of pixels with same label
+
+    Returns:
+        Tensor of shape [n] with True for patches that pass the threshold
+    """
+    # Implement this function. AI!
 
 
 @jaxtyped(typechecker=beartype.beartype)
