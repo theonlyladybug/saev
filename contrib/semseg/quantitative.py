@@ -212,9 +212,23 @@ def eval_rand_vec(
         orig_logits = clf(orig_acts[:, 1:, :])
         orig_preds.append(argmax_logits(orig_logits).cpu())
 
+        # Create a custom hook for this batch
+        def current_hook(module, inputs, outputs):
+            x = outputs[:, patches, :]
+            x = hook(x, current_batch=batch)
+            outputs[:, patches, :] = x
+            return outputs
+            
+        # Register the hook for this batch
+        patches = hooked_vit.get_patches(cfg.n_patches_per_img)
+        handle = hooked_vit.get_residuals()[cfg.vit_layer - 1].register_forward_hook(current_hook)
+        
         mod_acts = hooked_vit(x_BCWH)
         mod_logits = clf(mod_acts[:, 1:, :])
         mod_preds.append(argmax_logits(mod_logits).cpu())
+        
+        # Remove the hook after use
+        handle.remove()
 
     # Concatenate all predictions
     orig_preds = torch.cat(orig_preds, dim=0)
@@ -320,17 +334,24 @@ def eval_auto_feat(
     @jaxtyped(typechecker=beartype.beartype)
     def hook(
         x_BPD: Float[Tensor, "batch patches dim"],
+        current_batch=None,
     ) -> Float[Tensor, "batch patches dim"]:
-        batch_size, _, _ = x_BPD.shape
+        batch_size, n_patches, _ = x_BPD.shape
         x_hat_BPD, f_x_BPS, _ = sae(x_BPD)
 
         err_BPD = x_BPD - x_hat_BPD
 
-        latents = latent_lookup[batch["patch_labels"].view(batch_size, -1).int()]
-        breakpoint()
-        # This certainly won't work.
-        values = unscaled(cfg.scale, top_values[latents].max().item())
-        f_x_BPS[:, latents + 1] = values
+        # Get patch labels and reshape to match batch_size x patches
+        patch_labels = current_batch["patch_labels"].view(batch_size, n_patches).int().to(cfg.device)
+        
+        # For each patch, look up the latent to modify based on its class
+        for b in range(batch_size):
+            for p in range(n_patches):
+                class_id = patch_labels[b, p].item()
+                if class_id > 0 and class_id < 151:  # Valid class ID
+                    latent = latent_lookup[class_id]
+                    value = unscaled(cfg.scale, top_values[latent].max().item())
+                    f_x_BPS[b, p, latent] = value
 
         # Reproduce the SAE forward pass after f_x
         mod_x_hat_BPD = sae.decode(f_x_BPS)
@@ -428,15 +449,25 @@ def get_latent_lookup(
         )
 
         # We only want to consider patches where a certain proportion (typically 80%) of the pixels are the same label.
-        breakpoint()
+        # Reshape pixel labels to match patch_labels for filtering
+        batch_size, w, h, patch_pixels = pixel_labels_BWHP.shape
+        pixel_labels_BP = pixel_labels_BWHP.reshape(batch_size, w * h, patch_pixels)
+        pixel_labels_BP = pixel_labels_BP.reshape(-1, patch_pixels)
+        
+        # Create mask for patches that meet the threshold
+        valid_mask = get_patch_mask(pixel_labels_BP, cfg.label_threshold)
+        
+        # Filter patch labels to only include those meeting the threshold
+        filtered_labels_B = patch_labels_B[valid_mask]
+        filtered_sae_acts_BS = sae_acts_BS[valid_mask]
 
-        unique_classes = torch.unique(labels_B)
+        unique_classes = torch.unique(filtered_labels_B)
 
         for class_id in unique_classes:
             if class_id == 0:  # Skip background/null class if needed
                 continue
 
-            class_mask_B = labels_B == class_id
+            class_mask_B = filtered_labels_B == class_id
 
             # Skip if no patches of this class
             if not torch.any(class_mask_B):
@@ -445,7 +476,7 @@ def get_latent_lookup(
             # Process all thresholds at once
             # Create binary activation masks for all thresholds
             binary_activations_TBS = (
-                sae_acts_BS[None, :, :] > thresholds_T[:, None, None]
+                filtered_sae_acts_BS[None, :, :] > thresholds_T[:, None, None]
             )
 
             # Compute TP, FP, FN for all thresholds and features at once
@@ -513,7 +544,25 @@ def get_patch_mask(
     Returns:
         Tensor of shape [n] with True for patches that pass the threshold
     """
-    # Implement this function. AI!
+    # For each patch, count occurrences of each unique label
+    n_patches = pixel_labels.shape[0]
+    mask = torch.zeros(n_patches, dtype=torch.bool, device=pixel_labels.device)
+    
+    for i in range(n_patches):
+        # Get unique labels and their counts for this patch
+        patch = pixel_labels[i]
+        unique_labels, counts = torch.unique(patch, return_counts=True)
+        
+        # Find the most common label and its proportion
+        max_count = counts.max()
+        total_pixels = patch.numel()
+        proportion = max_count.float() / total_pixels
+        
+        # Mark patch as valid if proportion meets threshold
+        if proportion >= threshold:
+            mask[i] = True
+            
+    return mask
 
 
 @jaxtyped(typechecker=beartype.beartype)
