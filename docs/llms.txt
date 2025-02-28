@@ -203,10 +203,10 @@ Choose one of the checkpoints in the dropdown and click through the different ne
 
 Briefly, you need to:
 
-1. Download a checkpoint
-2. Get the code
-3. Load the checkpoint
-4. Get activations
+1. Download a checkpoint.
+2. Get the code.
+3. Load the checkpoint.
+4. Get activations.
 
 Details are below.
 
@@ -224,7 +224,24 @@ wget https://huggingface.co/osunlp/SAE_CLIP_24K_ViT-B-16_IN1K/resolve/main/sae.p
 
 ## Get the Code
 
-[TODO: document this process]
+The easiest way to do this is to clone the code:
+
+```
+git clone https://github.com/OSU-NLP-Group/SAE-V
+```
+
+You can also install the package from git if you use uv (not sure about pip or cuda):
+
+```sh
+uv add git+https://github.com/OSU-NLP-Group/SAE-V
+```
+
+Or clone it and install it as an editable with pip, lik `pip install -e .` in your virtual environment.
+
+Then you can do things like `from saev import ...`.
+
+.. note::
+  If you struggle to get `saev` installed, open an issue on [GitHub](https://github.com/OSU-NLP-Group/SAE-V) and I will figure out how to make it easier.
 
 ## Load the Checkpoint
 
@@ -1798,8 +1815,8 @@ Classes
     `top_values: jaxtyping.Float[Tensor, 'd_sae k n_patches_per_img']`
     :
 
-Namespace contrib
-=================
+Module contrib
+==============
 
 Sub-modules
 -----------
@@ -1945,11 +1962,9 @@ uv run scripts/preprint/make_figures.py classification \
 Sub-modules
 -----------
 * contrib.classification.config
-* contrib.classification.download_caltech101
-* contrib.classification.download_cub
-* contrib.classification.download_flowers
-* contrib.classification.interactive
+* contrib.classification.download
 * contrib.classification.training
+* contrib.classification.transforms
 
 Module contrib.classification.config
 ====================================
@@ -2001,8 +2016,17 @@ Classes
     `weight_decay: float`
     :   Weight decay  for AdamW.
 
-Module contrib.classification.download_caltech101
-=================================================
+Namespace contrib.classification.download
+=========================================
+
+Sub-modules
+-----------
+* contrib.classification.download.download_caltech101
+* contrib.classification.download.download_cub
+* contrib.classification.download.download_flowers
+
+Module contrib.classification.download.download_caltech101
+==========================================================
 A script to download the Caltech101 dataset for use as an saev.activations.ImageFolderDataset.
 
 ```sh
@@ -2012,7 +2036,7 @@ uv run contrib/classification/download_flowers.py --help
 Functions
 ---------
 
-`main(args: contrib.classification.download_caltech101.Args)`
+`main(args: contrib.classification.download.download_caltech101.Args)`
 :   Download Caltech 101.
 
 Classes
@@ -2032,13 +2056,13 @@ Classes
     `seed: int`
     :   Random seed used to generate split.
 
-Module contrib.classification.download_cub
-==========================================
+Module contrib.classification.download.download_cub
+===================================================
 
 Functions
 ---------
 
-`main(args: contrib.classification.download_cub.Args)`
+`main(args: contrib.classification.download.download_cub.Args)`
 :   Download CUB-200-2011.
 
 Classes
@@ -2064,8 +2088,8 @@ Classes
     `seed: int`
     :   Random seed used to generate split.
 
-Module contrib.classification.download_flowers
-==============================================
+Module contrib.classification.download.download_flowers
+=======================================================
 A script to download the Flowers102 dataset.
 
 ```sh
@@ -2075,7 +2099,7 @@ uv run contrib/classification/download_flowers.py --help
 Functions
 ---------
 
-`main(args: contrib.classification.download_flowers.Args)`
+`main(args: contrib.classification.download.download_flowers.Args)`
 :   Download NeWT.
 
 Classes
@@ -2091,9 +2115,6 @@ Classes
 
     `dir: str`
     :   Where to save data.
-
-Module contrib.classification.interactive
-=========================================
 
 Module contrib.classification.training
 ======================================
@@ -2162,6 +2183,33 @@ Classes
 
     `n_classes: int`
     :
+
+Module contrib.classification.transforms
+========================================
+Contains the transforms used in every spot:
+
+* Training
+* Making figures
+* Web app
+
+For both figures and the webapp, the transform is:
+
+1. Resize the image so that the shortest size is 512 pixels.
+2. Take the middle 448x448 as a crop
+
+This gives us object-centric images that are 448x448 (fixed pixel size is important for the web app) and not distorted.
+
+Functions
+---------
+
+`for_figures()`
+:   
+
+`for_training(vit_ckpt: str)`
+:   
+
+`for_webapp(img: PIL.Image.Image) ‑> PIL.Image.Image`
+:
 
 Namespace contrib.semprobe
 ==========================
@@ -2364,10 +2412,16 @@ Functions
 Classes
 -------
 
-`Quantitative(sae_ckpt: str = './checkpoints/sae.pt', seg_ckpt: str = './checkpoints/contrib/semseg/best.pt', top_values: str = './data/sort_by_patch/top_values.pt', vit_family: Literal['clip', 'siglip', 'dinov2', 'moondream2'] = 'dinov2', vit_ckpt: str = 'dinov2_vitb14_reg', vit_layer: int = 11, n_patches_per_img: int = 256, cls_token: bool = True, imgs: saev.config.Ade20kDataset = <factory>, batch_size: int = 128, n_workers: int = 32, scale: float = -2.0, top_k: int = 3, device: str = 'cuda', dump_to: str = './logs/contrib/semseg/quantitative', seed: int = 42)`
-:   Quantitative(sae_ckpt: str = './checkpoints/sae.pt', seg_ckpt: str = './checkpoints/contrib/semseg/best.pt', top_values: str = './data/sort_by_patch/top_values.pt', vit_family: Literal['clip', 'siglip', 'dinov2', 'moondream2'] = 'dinov2', vit_ckpt: str = 'dinov2_vitb14_reg', vit_layer: int = 11, n_patches_per_img: int = 256, cls_token: bool = True, imgs: saev.config.Ade20kDataset = <factory>, batch_size: int = 128, n_workers: int = 32, scale: float = -2.0, top_k: int = 3, device: str = 'cuda', dump_to: str = './logs/contrib/semseg/quantitative', seed: int = 42)
+`Quantitative(sae_ckpt: str = './checkpoints/sae.pt', seg_ckpt: str = './checkpoints/contrib/semseg/best.pt', top_values: str = './data/sort_by_patch/top_values.pt', sparsity: str = './data/sort_by_patch/sparsity.pt', act_mean: str = './data/contrib/semseg/dinov2_imagenet1k_mean.pt', act_norm: float = 2.0181241035461426, vit_family: Literal['clip', 'siglip', 'dinov2', 'moondream2'] = 'dinov2', vit_ckpt: str = 'dinov2_vitb14_reg', vit_layer: int = 11, n_patches_per_img: int = 256, cls_token: bool = True, imgs: saev.config.Ade20kDataset = <factory>, batch_size: int = 128, n_workers: int = 32, scale: float = -2.0, top_k: int = 3, device: str = 'cuda', dump_to: str = './logs/contrib/semseg/quantitative', seed: int = 42)`
+:   Quantitative(sae_ckpt: str = './checkpoints/sae.pt', seg_ckpt: str = './checkpoints/contrib/semseg/best.pt', top_values: str = './data/sort_by_patch/top_values.pt', sparsity: str = './data/sort_by_patch/sparsity.pt', act_mean: str = './data/contrib/semseg/dinov2_imagenet1k_mean.pt', act_norm: float = 2.0181241035461426, vit_family: Literal['clip', 'siglip', 'dinov2', 'moondream2'] = 'dinov2', vit_ckpt: str = 'dinov2_vitb14_reg', vit_layer: int = 11, n_patches_per_img: int = 256, cls_token: bool = True, imgs: saev.config.Ade20kDataset = <factory>, batch_size: int = 128, n_workers: int = 32, scale: float = -2.0, top_k: int = 3, device: str = 'cuda', dump_to: str = './logs/contrib/semseg/quantitative', seed: int = 42)
 
     ### Class variables
+
+    `act_mean: str`
+    :   Where to load activation mean from.
+
+    `act_norm: float`
+    :   How much to scale activations such that average dataset norm is approximately sqrt(d_vit).
 
     `batch_size: int`
     :   Batch size for inference.
@@ -2383,6 +2437,9 @@ Classes
 
     `imgs: saev.config.Ade20kDataset`
     :   Data configuration for ADE20K dataset.
+
+    `max_freq`
+    :   Maximum frequency. Any feature that fires more than this is ignored.
 
     `n_patches_per_img: int`
     :   Number of ViT patches per image (depends on model).
@@ -2401,6 +2458,9 @@ Classes
 
     `seg_ckpt: str`
     :   Path to trained segmentation head.
+
+    `sparsity: str`
+    :   Path to sparsity.pt file generated by `saev visuals`.
 
     `top_k: int`
     :   Number of latents to show.
@@ -2553,7 +2613,15 @@ Functions
         Report containing intervention results, including per-class changes
 
 `get_latent_lookup(cfg: contrib.semseg.config.Quantitative, sae: saev.nn.SparseAutoencoder, dataloader) ‑> jaxtyping.Int[Tensor, '151']`
-:   
+:   Dimension key:
+    
+    * B: batch dimension
+    * P: patches per image
+    * D: ViT hidden dimension
+    * S: SAE feature dimension
+    * T: threshold dimension
+    * C: class dimension
+    * L: layer dimension
 
 `get_patch_i(i: jaxtyping.Int[Tensor, 'batch width height'], n_patches_per_img: int) ‑> jaxtyping.Int[Tensor, 'batch width height']`
 :   
