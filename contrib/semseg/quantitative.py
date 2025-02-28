@@ -10,7 +10,7 @@ import beartype
 import einops
 import numpy as np
 import torch
-from jaxtyping import Float, Int, jaxtyped, UInt8, Bool
+from jaxtyping import Bool, Float, Int, UInt8, jaxtyped
 from torch import Tensor
 
 import saev.helpers
@@ -437,7 +437,7 @@ def get_latent_lookup(
     for batch in saev.helpers.progress(dataloader, every=1):
         x_BCWH = batch["image"].to(cfg.device)
         _, vit_acts_BLPD = recorded_vit(x_BCWH)
-        # breakpoint()
+
         # Normalize activations
         vit_acts_BPD = (
             vit_acts_BLPD[:, 0, 1:, :].to(cfg.device).clamp(-1e-5, 1e5) - act_mean
@@ -449,32 +449,29 @@ def get_latent_lookup(
             sae_acts_BPS, "batch patches d_sae -> (batch patches) d_sae"
         )
 
+        pw, ph = cfg.patch_size_px
         patch_labels_B = batch["patch_labels"].to(cfg.device).reshape(-1)
-        pixel_labels_BWHP = einops.rearrange(
+        pixel_labels_BP = einops.rearrange(
             batch["pixel_labels"].to(cfg.device),
-            "batch (w pw) (h ph) -> batch w h (pw ph)",
+            "batch (w pw) (h ph) -> (batch w h) (pw ph)",
+            pw=pw,
+            ph=ph,
         )
-
-        # We only want to consider patches where a certain proportion (typically 80%) of the pixels are the same label.
-        # Reshape pixel labels to match patch_labels for filtering
-        batch_size, w, h, patch_pixels = pixel_labels_BWHP.shape
-        pixel_labels_BP = pixel_labels_BWHP.reshape(batch_size, w * h, patch_pixels)
-        pixel_labels_BP = pixel_labels_BP.reshape(-1, patch_pixels)
 
         # Create mask for patches that meet the threshold
         valid_mask = get_patch_mask(pixel_labels_BP, cfg.label_threshold)
 
         # Filter patch labels to only include those meeting the threshold
-        filtered_labels_B = patch_labels_B[valid_mask]
-        filtered_sae_acts_BS = sae_acts_BS[valid_mask]
+        patch_labels_B = patch_labels_B[valid_mask]
+        sae_acts_BS = sae_acts_BS[valid_mask]
 
-        unique_classes = torch.unique(filtered_labels_B)
+        unique_classes = torch.unique(patch_labels_B)
 
         for class_id in unique_classes:
             if class_id == 0:  # Skip background/null class if needed
                 continue
 
-            class_mask_B = filtered_labels_B == class_id
+            class_mask_B = patch_labels_B == class_id
 
             # Skip if no patches of this class
             if not torch.any(class_mask_B):
@@ -483,7 +480,7 @@ def get_latent_lookup(
             # Process all thresholds at once
             # Create binary activation masks for all thresholds
             binary_activations_TBS = (
-                filtered_sae_acts_BS[None, :, :] > thresholds_T[:, None, None]
+                sae_acts_BS[None, :, :] > thresholds_T[:, None, None]
             )
 
             # Compute TP, FP, FN for all thresholds and features at once
@@ -521,7 +518,10 @@ def get_latent_lookup(
         # Add small epsilon to avoid division by zero
         f1_TS = (2 * tp_TS) / (2 * tp_TS + fp_TS + fn_TS + 1e-10)
 
+        # Calculate precision and recall as well for each threshold. AI!
+
         f1_S, best_thresh_i_S = f1_TS.max(dim=0)
+        breakpoint()
         f1_S = torch.where(mask_S, f1_S, torch.tensor(-1.0, device=f1_S.device))
         best_thresholds_S = thresholds_T[best_thresh_i_S]
 
@@ -552,19 +552,16 @@ def get_patch_mask(
         Tensor of shape [n] with True for patches that pass the threshold
     """
     # For each patch, count occurrences of each unique label
-    n_patches, patch_pixels = pixel_labels_NP.shape
-    mask_N = torch.zeros(n_patches, dtype=torch.bool, device=pixel_labels_NP.device)
+    _, patch_pixels = pixel_labels_NP.shape
 
     mode_N = pixel_labels_NP.mode(axis=-1).values
 
     # Count occurrences of the mode value in each patch using vectorized operations
-    counts_N = (pixel_labels_NP == mode_N.unsqueeze(1)).sum(dim=1).float()
+    counts_N = (pixel_labels_NP == mode_N[:, None]).sum(dim=1)
 
     # Calculate proportion and create mask
-    proportions_N = counts_N / patch_pixels
-    mask_N = proportions_N >= threshold
-
-    return mask
+    mask_N = (counts_N / patch_pixels) >= threshold
+    return mask_N
 
 
 @jaxtyped(typechecker=beartype.beartype)
