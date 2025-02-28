@@ -556,12 +556,15 @@ def get_patch_mask(
     mask_N = torch.zeros(n_patches, dtype=torch.bool, device=pixel_labels_NP.device)
 
     mode_N = pixel_labels_NP.mode(axis=-1).values
-    
-    # Count occurrences of the mode value in each patch
-    counts_N = torch.zeros(n_patches, dtype=torch.float32, device=pixel_labels_NP.device)
+
+    # Count occurrences of the mode value in each patch.
+    # Calculate these counts with a vectorized op instead of a for loop. AI!
+    counts_N = torch.zeros(
+        n_patches, dtype=torch.float32, device=pixel_labels_NP.device
+    )
     for i in range(n_patches):
         counts_N[i] = (pixel_labels_NP[i] == mode_N[i]).sum().float()
-    
+
     # Calculate proportion and create mask
     proportions_N = counts_N / patch_pixels
     mask_N = proportions_N >= threshold
