@@ -545,7 +545,7 @@ def get_patch_mask(
     Create a mask for patches where at least threshold proportion of pixels have the same label.
 
     Args:
-        pixel_labels: Tensor of shape [n, patch_pixels] with pixel labels
+        pixel_labels_NP: Tensor of shape [n, patch_pixels] with pixel labels
         threshold: Minimum proportion of pixels with same label
 
     Returns:
@@ -556,22 +556,15 @@ def get_patch_mask(
     mask_N = torch.zeros(n_patches, dtype=torch.bool, device=pixel_labels_NP.device)
 
     mode_N = pixel_labels_NP.mode(axis=-1).values
-    # counts_N = (counts of mode_N in each patch in pixel_labels_NP)
-    # Do the above line. AI!
-
+    
+    # Count occurrences of the mode value in each patch
+    counts_N = torch.zeros(n_patches, dtype=torch.float32, device=pixel_labels_NP.device)
     for i in range(n_patches):
-        # Get unique labels and their counts for this patch
-        patch = pixel_labels[i]
-        unique_labels, counts = torch.unique(patch, return_counts=True)
-
-        # Find the most common label and its proportion
-        max_count = counts.max()
-        total_pixels = patch.numel()
-        proportion = max_count.float() / total_pixels
-
-        # Mark patch as valid if proportion meets threshold
-        if proportion >= threshold:
-            mask[i] = True
+        counts_N[i] = (pixel_labels_NP[i] == mode_N[i]).sum().float()
+    
+    # Calculate proportion and create mask
+    proportions_N = counts_N / patch_pixels
+    mask_N = proportions_N >= threshold
 
     return mask
 
