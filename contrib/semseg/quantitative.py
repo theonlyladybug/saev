@@ -218,15 +218,17 @@ def eval_rand_vec(
             x = hook(x, current_batch=batch)
             outputs[:, patches, :] = x
             return outputs
-            
+
         # Register the hook for this batch
         patches = hooked_vit.get_patches(cfg.n_patches_per_img)
-        handle = hooked_vit.get_residuals()[cfg.vit_layer - 1].register_forward_hook(current_hook)
-        
+        handle = hooked_vit.get_residuals()[cfg.vit_layer - 1].register_forward_hook(
+            current_hook
+        )
+
         mod_acts = hooked_vit(x_BCWH)
         mod_logits = clf(mod_acts[:, 1:, :])
         mod_preds.append(argmax_logits(mod_logits).cpu())
-        
+
         # Remove the hook after use
         handle.remove()
 
@@ -342,8 +344,13 @@ def eval_auto_feat(
         err_BPD = x_BPD - x_hat_BPD
 
         # Get patch labels and reshape to match batch_size x patches
-        patch_labels = current_batch["patch_labels"].view(batch_size, n_patches).int().to(cfg.device)
-        
+        patch_labels = (
+            current_batch["patch_labels"]
+            .view(batch_size, n_patches)
+            .int()
+            .to(cfg.device)
+        )
+
         # For each patch, look up the latent to modify based on its class
         for b in range(batch_size):
             for p in range(n_patches):
@@ -453,10 +460,10 @@ def get_latent_lookup(
         batch_size, w, h, patch_pixels = pixel_labels_BWHP.shape
         pixel_labels_BP = pixel_labels_BWHP.reshape(batch_size, w * h, patch_pixels)
         pixel_labels_BP = pixel_labels_BP.reshape(-1, patch_pixels)
-        
+
         # Create mask for patches that meet the threshold
         valid_mask = get_patch_mask(pixel_labels_BP, cfg.label_threshold)
-        
+
         # Filter patch labels to only include those meeting the threshold
         filtered_labels_B = patch_labels_B[valid_mask]
         filtered_sae_acts_BS = sae_acts_BS[valid_mask]
@@ -532,7 +539,7 @@ def get_latent_lookup(
 
 @jaxtyped(typechecker=beartype.beartype)
 def get_patch_mask(
-    pixel_labels: UInt8[Tensor, "n patch_px"], threshold: float
+    pixel_labels_NP: UInt8[Tensor, "n patch_px"], threshold: float
 ) -> Bool[Tensor, " n"]:
     """
     Create a mask for patches where at least threshold proportion of pixels have the same label.
@@ -545,23 +552,27 @@ def get_patch_mask(
         Tensor of shape [n] with True for patches that pass the threshold
     """
     # For each patch, count occurrences of each unique label
-    n_patches = pixel_labels.shape[0]
-    mask = torch.zeros(n_patches, dtype=torch.bool, device=pixel_labels.device)
-    
+    n_patches, patch_pixels = pixel_labels_NP.shape
+    mask_N = torch.zeros(n_patches, dtype=torch.bool, device=pixel_labels_NP.device)
+
+    mode_N = pixel_labels_NP.mode(axis=-1).values
+    # counts_N = (counts of mode_N in each patch in pixel_labels_NP)
+    # Do the above line. AI!
+
     for i in range(n_patches):
         # Get unique labels and their counts for this patch
         patch = pixel_labels[i]
         unique_labels, counts = torch.unique(patch, return_counts=True)
-        
+
         # Find the most common label and its proportion
         max_count = counts.max()
         total_pixels = patch.numel()
         proportion = max_count.float() / total_pixels
-        
+
         # Mark patch as valid if proportion meets threshold
         if proportion >= threshold:
             mask[i] = True
-            
+
     return mask
 
 
