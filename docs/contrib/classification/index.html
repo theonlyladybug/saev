@@ -64,8 +64,8 @@ a CLIP ViT-B/16, from the 12th layer, on the Caltech-101 dataset. We use an arbi
 <h2 id="record-cub-200-2011-activations">Record CUB-200-2011 Activations</h2>
 <p>For each <code>$SPLIT</code> in "train" and "test":</p>
 <pre><code class="language-sh">uv run python -m saev activations \
-  --model-family clip \
-  --model-ckpt ViT-B-16/openai \
+  --vit-family clip \
+  --vit-ckpt ViT-B-16/openai \
   --d-vit 768 \
   --n-patches-per-img 196 \
   --layers -2 -1 \
@@ -136,25 +136,17 @@ If you do, the most likley classification is a lotus, which is popular in Japane
 <dd>
 <div class="desc"></div>
 </dd>
-<dt><code class="name"><a title="contrib.classification.download_caltech101" href="download_caltech101.html">contrib.classification.download_caltech101</a></code></dt>
-<dd>
-<div class="desc"><p>A script to download the Caltech101 dataset for use as an saev.activations.ImageFolderDataset …</p></div>
-</dd>
-<dt><code class="name"><a title="contrib.classification.download_cub" href="download_cub.html">contrib.classification.download_cub</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt><code class="name"><a title="contrib.classification.download_flowers" href="download_flowers.html">contrib.classification.download_flowers</a></code></dt>
-<dd>
-<div class="desc"><p>A script to download the Flowers102 dataset …</p></div>
-</dd>
-<dt><code class="name"><a title="contrib.classification.interactive" href="interactive.html">contrib.classification.interactive</a></code></dt>
+<dt><code class="name"><a title="contrib.classification.download" href="download/index.html">contrib.classification.download</a></code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
 <dt><code class="name"><a title="contrib.classification.training" href="training.html">contrib.classification.training</a></code></dt>
 <dd>
 <div class="desc"><p>Train a linear probe on [CLS] activations from a ViT.</p></div>
+</dd>
+<dt><code class="name"><a title="contrib.classification.transforms" href="transforms.html">contrib.classification.transforms</a></code></dt>
+<dd>
+<div class="desc"><p>Contains the transforms used in every spot: …</p></div>
 </dd>
 </dl>
 </section>
@@ -188,11 +180,9 @@ If you do, the most likley classification is a lotus, which is popular in Japane
 <li><h3><a href="#header-submodules">Sub-modules</a></h3>
 <ul>
 <li><code><a title="contrib.classification.config" href="config.html">contrib.classification.config</a></code></li>
-<li><code><a title="contrib.classification.download_caltech101" href="download_caltech101.html">contrib.classification.download_caltech101</a></code></li>
-<li><code><a title="contrib.classification.download_cub" href="download_cub.html">contrib.classification.download_cub</a></code></li>
-<li><code><a title="contrib.classification.download_flowers" href="download_flowers.html">contrib.classification.download_flowers</a></code></li>
-<li><code><a title="contrib.classification.interactive" href="interactive.html">contrib.classification.interactive</a></code></li>
+<li><code><a title="contrib.classification.download" href="download/index.html">contrib.classification.download</a></code></li>
 <li><code><a title="contrib.classification.training" href="training.html">contrib.classification.training</a></code></li>
+<li><code><a title="contrib.classification.transforms" href="transforms.html">contrib.classification.transforms</a></code></li>
 </ul>
 </li>
 </ul>

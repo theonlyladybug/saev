@@ -95,13 +95,37 @@ hljs.highlightAll();
 <span>def <span class="ident">get_latent_lookup</span></span>(<span>cfg: <a title="contrib.semseg.config.Quantitative" href="config.html#contrib.semseg.config.Quantitative">Quantitative</a>,<br>sae: <a title="saev.nn.SparseAutoencoder" href="../../saev/nn.html#saev.nn.SparseAutoencoder">SparseAutoencoder</a>,<br>dataloader) ‑> jaxtyping.Int[Tensor, '151']</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Dimension key:</p>
+<ul>
+<li>B: batch dimension</li>
+<li>P: patches per image</li>
+<li>D: ViT hidden dimension</li>
+<li>S: SAE feature dimension</li>
+<li>T: threshold dimension</li>
+<li>C: class dimension</li>
+<li>L: layer dimension</li>
+</ul></div>
 </dd>
 <dt id="contrib.semseg.quantitative.get_patch_i"><code class="name flex">
 <span>def <span class="ident">get_patch_i</span></span>(<span>i: jaxtyping.Int[Tensor, 'batch width height'], n_patches_per_img: int) ‑> jaxtyping.Int[Tensor, 'batch width height']</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
+</dd>
+<dt id="contrib.semseg.quantitative.get_patch_mask"><code class="name flex">
+<span>def <span class="ident">get_patch_mask</span></span>(<span>pixel_labels_NP: jaxtyping.UInt8[Tensor, 'n patch_px'], threshold: float) ‑> jaxtyping.Bool[Tensor, 'n']</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Create a mask for patches where at least threshold proportion of pixels have the same label.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>pixel_labels_NP</code></strong></dt>
+<dd>Tensor of shape [n, patch_pixels] with pixel labels</dd>
+<dt><strong><code>threshold</code></strong></dt>
+<dd>Minimum proportion of pixels with same label</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Tensor of shape [n] with True for patches that pass the threshold</p></div>
 </dd>
 <dt id="contrib.semseg.quantitative.main"><code class="name flex">
 <span>def <span class="ident">main</span></span>(<span>cfg: <a title="contrib.semseg.config.Quantitative" href="config.html#contrib.semseg.config.Quantitative">Quantitative</a>)</span>
@@ -393,6 +417,7 @@ def target_change_std(self) -&gt; float:
 <li><code><a title="contrib.semseg.quantitative.eval_rand_vec" href="#contrib.semseg.quantitative.eval_rand_vec">eval_rand_vec</a></code></li>
 <li><code><a title="contrib.semseg.quantitative.get_latent_lookup" href="#contrib.semseg.quantitative.get_latent_lookup">get_latent_lookup</a></code></li>
 <li><code><a title="contrib.semseg.quantitative.get_patch_i" href="#contrib.semseg.quantitative.get_patch_i">get_patch_i</a></code></li>
+<li><code><a title="contrib.semseg.quantitative.get_patch_mask" href="#contrib.semseg.quantitative.get_patch_mask">get_patch_mask</a></code></li>
 <li><code><a title="contrib.semseg.quantitative.main" href="#contrib.semseg.quantitative.main">main</a></code></li>
 <li><code><a title="contrib.semseg.quantitative.map_range" href="#contrib.semseg.quantitative.map_range">map_range</a></code></li>
 <li><code><a title="contrib.semseg.quantitative.register_hook" href="#contrib.semseg.quantitative.register_hook">register_hook</a></code></li>

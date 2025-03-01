@@ -932,11 +932,11 @@ class ShardWriter:
         if cfg.cls_token:
             n_patches_per_img += 1
         self.n_imgs_per_shard = (
-            cfg.n_patches_per_shard // len(cfg.layers) // n_patches_per_img
+            cfg.n_patches_per_shard // len(cfg.vit_layers) // n_patches_per_img
         )
         self.shape = (
             self.n_imgs_per_shard,
-            len(cfg.layers),
+            len(cfg.vit_layers),
             n_patches_per_img,
             cfg.d_vit,
         )
@@ -1012,7 +1012,7 @@ class Metadata:
         return cls(
             cfg.vit_family,
             cfg.vit_ckpt,
-            tuple(cfg.layers),
+            tuple(cfg.vit_layers),
             cfg.n_patches_per_img,
             cfg.cls_token,
             cfg.d_vit,
