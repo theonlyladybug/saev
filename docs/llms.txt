@@ -372,10 +372,10 @@ Functions
 :   Args:
         cfg: Config for activations.
 
-`make_img_transform(model_family: str, model_ckpt: str) ‑> <class 'collections.abc.Callable'>`
+`make_img_transform(vit_family: str, vit_ckpt: str) ‑> <class 'collections.abc.Callable'>`
 :   
 
-`make_vit(model_family: str, model_ckpt: str)`
+`make_vit(vit_family: str, vit_ckpt: str)`
 :   
 
 `setup(cfg: saev.config.Activations)`
@@ -428,7 +428,7 @@ Classes
     `samples: list[saev.activations.Ade20k.Sample]`
     :
 
-`Clip(model_ckpt: str)`
+`Clip(vit_ckpt: str)`
 :   Base class for all neural network modules.
     
     Your models should also subclass this class.
@@ -533,7 +533,7 @@ Classes
         
         So we divide by self.scalar which is the datasets (approximate) L2 mean before normalization divided by sqrt(d_vit).
 
-`DinoV2(model_ckpt: str)`
+`DinoV2(vit_ckpt: str)`
 :   Base class for all neural network modules.
     
     Your models should also subclass this class.
@@ -656,8 +656,8 @@ Classes
 
     * saev.app.data.VipsImagenet
 
-`Metadata(model_family: str, model_ckpt: str, layers: tuple[int, ...], n_patches_per_img: int, cls_token: bool, d_vit: int, seed: int, n_imgs: int, n_patches_per_shard: int, data: str)`
-:   Metadata(model_family: str, model_ckpt: str, layers: tuple[int, ...], n_patches_per_img: int, cls_token: bool, d_vit: int, seed: int, n_imgs: int, n_patches_per_shard: int, data: str)
+`Metadata(vit_family: str, vit_ckpt: str, layers: tuple[int, ...], n_patches_per_img: int, cls_token: bool, d_vit: int, seed: int, n_imgs: int, n_patches_per_shard: int, data: str)`
+:   Metadata(vit_family: str, vit_ckpt: str, layers: tuple[int, ...], n_patches_per_img: int, cls_token: bool, d_vit: int, seed: int, n_imgs: int, n_patches_per_shard: int, data: str)
 
     ### Class variables
 
@@ -673,12 +673,6 @@ Classes
     `layers: tuple[int, ...]`
     :
 
-    `model_ckpt: str`
-    :
-
-    `model_family: str`
-    :
-
     `n_imgs: int`
     :
 
@@ -689,6 +683,12 @@ Classes
     :
 
     `seed: int`
+    :
+
+    `vit_ckpt: str`
+    :
+
+    `vit_family: str`
     :
 
     ### Static methods
@@ -709,7 +709,7 @@ Classes
     `dump(self, fpath)`
     :
 
-`Moondream2(model_ckpt: str)`
+`Moondream2(vit_ckpt: str)`
 :   Moondream2 has 14x14 pixel patches. For a 378x378 image (as we use here), this is 27x27 patches for a total of 729, with no [CLS] token.
     
     Initialize internal Module state, shared by both nn.Module and ScriptModule.
@@ -830,7 +830,7 @@ Classes
     `next_shard(self) ‑> None`
     :
 
-`Siglip(model_ckpt: str)`
+`Siglip(vit_ckpt: str)`
 :   Base class for all neural network modules.
     
     Your models should also subclass this class.
@@ -1030,7 +1030,7 @@ Functions
 Classes
 -------
 
-`Activations(data: saev.config.ImagenetDataset | saev.config.ImageFolderDataset | saev.config.Ade20kDataset = <factory>, dump_to: str = './shards', model_family: Literal['clip', 'siglip', 'dinov2', 'moondream2'] = 'clip', model_ckpt: str = 'ViT-L-14/openai', vit_batch_size: int = 1024, n_workers: int = 8, d_vit: int = 1024, layers: list[int] = <factory>, n_patches_per_img: int = 256, cls_token: bool = True, n_patches_per_shard: int = 2400000, seed: int = 42, ssl: bool = True, device: str = 'cuda', slurm: bool = False, slurm_acct: str = 'PAS2136', log_to: str = './logs')`
+`Activations(data: saev.config.ImagenetDataset | saev.config.ImageFolderDataset | saev.config.Ade20kDataset = <factory>, dump_to: str = './shards', vit_family: Literal['clip', 'siglip', 'dinov2', 'moondream2'] = 'clip', vit_ckpt: str = 'ViT-L-14/openai', vit_batch_size: int = 1024, n_workers: int = 8, d_vit: int = 1024, vit_layers: list[int] = <factory>, n_patches_per_img: int = 256, cls_token: bool = True, n_patches_per_shard: int = 2400000, seed: int = 42, ssl: bool = True, device: str = 'cuda', slurm: bool = False, slurm_acct: str = 'PAS2136', log_to: str = './logs')`
 :   Configuration for calculating and saving ViT activations.
 
     ### Class variables
@@ -1050,17 +1050,8 @@ Classes
     `dump_to: str`
     :   Where to write shards.
 
-    `layers: list[int]`
-    :   Which layers to save. By default, the second-to-last layer.
-
     `log_to: str`
     :   Where to log Slurm job stdout/stderr.
-
-    `model_ckpt: str`
-    :   Specific model checkpoint.
-
-    `model_family: Literal['clip', 'siglip', 'dinov2', 'moondream2']`
-    :   Which model family.
 
     `n_patches_per_img: int`
     :   Number of ViT patches per image (depends on model).
@@ -1085,6 +1076,15 @@ Classes
 
     `vit_batch_size: int`
     :   Batch size for ViT inference.
+
+    `vit_ckpt: str`
+    :   Specific model checkpoint.
+
+    `vit_family: Literal['clip', 'siglip', 'dinov2', 'moondream2']`
+    :   Which model family.
+
+    `vit_layers: list[int]`
+    :   Which layers to save. By default, the second-to-last layer.
 
 `Ade20kDataset(root: str = './data/ade20k', split: Literal['training', 'validation'] = 'training')`
 :   
@@ -2457,8 +2457,8 @@ Functions
 Classes
 -------
 
-`Quantitative(sae_ckpt: str = './checkpoints/sae.pt', seg_ckpt: str = './checkpoints/contrib/semseg/best.pt', top_values: str = './data/sort_by_patch/top_values.pt', sparsity: str = './data/sort_by_patch/sparsity.pt', act_mean: str = './data/contrib/semseg/dinov2_imagenet1k_mean.pt', act_norm: float = 2.0181241035461426, vit_family: Literal['clip', 'siglip', 'dinov2', 'moondream2'] = 'dinov2', vit_ckpt: str = 'dinov2_vitb14_reg', vit_layer: int = 11, n_patches_per_img: int = 256, cls_token: bool = True, imgs: saev.config.Ade20kDataset = <factory>, batch_size: int = 128, n_workers: int = 32, scale: float = -2.0, top_k: int = 3, device: str = 'cuda', dump_to: str = './logs/contrib/semseg/quantitative', seed: int = 42)`
-:   Quantitative(sae_ckpt: str = './checkpoints/sae.pt', seg_ckpt: str = './checkpoints/contrib/semseg/best.pt', top_values: str = './data/sort_by_patch/top_values.pt', sparsity: str = './data/sort_by_patch/sparsity.pt', act_mean: str = './data/contrib/semseg/dinov2_imagenet1k_mean.pt', act_norm: float = 2.0181241035461426, vit_family: Literal['clip', 'siglip', 'dinov2', 'moondream2'] = 'dinov2', vit_ckpt: str = 'dinov2_vitb14_reg', vit_layer: int = 11, n_patches_per_img: int = 256, cls_token: bool = True, imgs: saev.config.Ade20kDataset = <factory>, batch_size: int = 128, n_workers: int = 32, scale: float = -2.0, top_k: int = 3, device: str = 'cuda', dump_to: str = './logs/contrib/semseg/quantitative', seed: int = 42)
+`Quantitative(sae_ckpt: str = './checkpoints/sae.pt', seg_ckpt: str = './checkpoints/contrib/semseg/best.pt', top_values: str = './data/sort_by_patch/top_values.pt', sparsity: str = './data/sort_by_patch/sparsity.pt', act_mean: str = './data/contrib/semseg/dinov2_imagenet1k_mean.pt', act_norm: float = 2.0181241035461426, label_threshold: float = 0.9, vit_family: Literal['clip', 'siglip', 'dinov2', 'moondream2'] = 'dinov2', vit_ckpt: str = 'dinov2_vitb14_reg', vit_layer: int = 11, patch_size_px: tuple[int, int] = (14, 14), n_patches_per_img: int = 256, cls_token: bool = True, imgs: saev.config.Ade20kDataset = <factory>, batch_size: int = 128, n_workers: int = 32, scale: float = -2.0, top_k: int = 3, device: str = 'cuda', dump_to: str = './logs/contrib/semseg/quantitative', seed: int = 42)`
+:   Quantitative(sae_ckpt: str = './checkpoints/sae.pt', seg_ckpt: str = './checkpoints/contrib/semseg/best.pt', top_values: str = './data/sort_by_patch/top_values.pt', sparsity: str = './data/sort_by_patch/sparsity.pt', act_mean: str = './data/contrib/semseg/dinov2_imagenet1k_mean.pt', act_norm: float = 2.0181241035461426, label_threshold: float = 0.9, vit_family: Literal['clip', 'siglip', 'dinov2', 'moondream2'] = 'dinov2', vit_ckpt: str = 'dinov2_vitb14_reg', vit_layer: int = 11, patch_size_px: tuple[int, int] = (14, 14), n_patches_per_img: int = 256, cls_token: bool = True, imgs: saev.config.Ade20kDataset = <factory>, batch_size: int = 128, n_workers: int = 32, scale: float = -2.0, top_k: int = 3, device: str = 'cuda', dump_to: str = './logs/contrib/semseg/quantitative', seed: int = 42)
 
     ### Class variables
 
@@ -2483,6 +2483,9 @@ Classes
     `imgs: saev.config.Ade20kDataset`
     :   Data configuration for ADE20K dataset.
 
+    `label_threshold: float`
+    :   Proportion of pixels that must have the same label to consider a given patch when calculating F1.
+
     `max_freq`
     :   Maximum frequency. Any feature that fires more than this is ignored.
 
@@ -2491,6 +2494,9 @@ Classes
 
     `n_workers: int`
     :   Number of dataloader workers.
+
+    `patch_size_px: tuple[int, int]`
+    :   ViT patch size.
 
     `sae_ckpt: str`
     :   Path to trained SAE checkpoint.
@@ -2670,6 +2676,16 @@ Functions
 
 `get_patch_i(i: jaxtyping.Int[Tensor, 'batch width height'], n_patches_per_img: int) ‑> jaxtyping.Int[Tensor, 'batch width height']`
 :   
+
+`get_patch_mask(pixel_labels_NP: jaxtyping.UInt8[Tensor, 'n patch_px'], threshold: float) ‑> jaxtyping.Bool[Tensor, 'n']`
+:   Create a mask for patches where at least threshold proportion of pixels have the same label.
+    
+    Args:
+        pixel_labels_NP: Tensor of shape [n, patch_pixels] with pixel labels
+        threshold: Minimum proportion of pixels with same label
+    
+    Returns:
+        Tensor of shape [n] with True for patches that pass the threshold
 
 `main(cfg: contrib.semseg.config.Quantitative)`
 :   Main entry point for quantitative evaluation.
