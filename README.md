@@ -6,6 +6,7 @@ This is the codebase used for our preprint "Sparse Autoencoders for Scientifical
 
 * [arXiv preprint](https://arxiv.org/abs/2502.06755)
 * [Huggingface Models](https://huggingface.co/collections/osunlp/sae-v-67ab8c4fdf179d117db28195)
+* [API Docs](https://osu-nlp-group.github.io/SAE-V/saev)
 * [Demos](https://osu-nlp-group.github.io/SAE-V/#demos)
 
 ## About
