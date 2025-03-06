@@ -48,6 +48,7 @@ dev-dependencies = [
     "gradio>=3.36.1",
     "pyvips>=2.2.3",
     "huggingface-hub>=0.26.5",
+    "ipykernel>=6.29.5",
 ]
 
 [tool.pytest.ini_options]

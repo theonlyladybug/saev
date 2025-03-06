@@ -26,7 +26,7 @@ from jaxtyping import Float, jaxtyped
 from PIL import Image
 from torch import Tensor
 
-from . import config, helpers
+from saev import config, helpers
 
 log_format = "[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s"
 logging.basicConfig(level=logging.INFO, format=log_format)

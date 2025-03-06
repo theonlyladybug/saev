@@ -16,3 +16,4 @@ uv.lock
 elm-stuff/
 data/
 uv.lock
+.locks/

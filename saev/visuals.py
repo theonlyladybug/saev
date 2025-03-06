@@ -442,7 +442,7 @@ def main(cfg: config.Visuals):
     Args:
         cfg: Configuration object.
     """
-
+    print("cfg", cfg)
     try:
         top_values = safe_load(cfg.top_values_fpath)
         sparsity = safe_load(cfg.sparsity_fpath)
@@ -612,5 +612,4 @@ def test_online_quantile_estimation(true: float, percentile: float):
 
 if __name__ == "__main__":
     import tyro
-
     tyro.cli(test_online_quantile_estimation)

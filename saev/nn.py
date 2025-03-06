@@ -14,7 +14,7 @@ import torch
 from jaxtyping import Float, jaxtyped
 from torch import Tensor
 
-from . import config
+from saev import config
 
 
 class Loss(typing.NamedTuple):
