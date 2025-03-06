@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.9.20"
+__generated_with = "0.9.32"
 app = marimo.App(
     width="medium",
     css_file="/home/stevens.994/.config/marimo/custom.css",
@@ -18,8 +18,9 @@ def __():
     import matplotlib.pyplot as plt
     import numpy as np
     import polars as pl
-    import wandb
     from jaxtyping import Float, jaxtyped
+
+    import wandb
 
     return Float, alt, beartype, jaxtyped, json, mo, np, os, pl, plt, wandb
 
@@ -31,21 +32,31 @@ def __(mo):
 
 
 @app.cell
-def __(tag_input):
-    tag_input
+def __(mo, tag_input):
+    mo.vstack([
+        mo.md(
+            "Look at [WandB](https://wandb.ai/samuelstevens/saev/table) to pick your tag."
+        ),
+        tag_input,
+    ])
     return
 
 
 @app.cell
-def __(alt, df, mo):
+def __(alt, df, mo, pl):
     chart = mo.ui.altair_chart(
         alt.Chart(
-            df.select(
+            df.filter(
+                pl.col("config/data/shard_root")
+                == "/local/scratch/stevens.994/cache/saev/724b1b7be995ef7212d64640fec2885737a706a33b8e5a18f7f323223bd43af1/"
+            ).select(
                 "summary/eval/l0",
                 "summary/losses/mse",
                 "id",
                 "config/sae/sparsity_coeff",
                 "config/lr",
+                "config/sae/d_sae",
+                "model_key",
             )
         )
         .mark_point()
@@ -54,7 +65,9 @@ def __(alt, df, mo):
             y=alt.Y("summary/losses/mse"),
             tooltip=["id", "config/lr"],
             color="config/lr:Q",
-            shape="config/sae/sparsity_coeff:N",
+            # shape="config/sae/sparsity_coeff:N",
+            shape="config/sae/d_sae:N",
+            # shape="model_key",
         )
     )
     chart
@@ -104,7 +117,7 @@ def __(chart, df, mo, np, plot_dist, plt):
     ):
         plot_dist(
             freqs.astype(float),
-            (-6.0, 0.0),
+            (-1.0, 1.0),
             values.astype(float),
             (-2.0, 2.0),
             scatter_ax,
@@ -270,17 +283,20 @@ def __(
             })
 
             row.update(**{f"config/{key}": value for key, value in run.config.items()})
-
-            with open(
-                os.path.join(row["config/data/shard_root"], "metadata.json")
-            ) as fd:
-                metadata = json.load(fd)
+            try:
+                with open(
+                    os.path.join(row["config/data/shard_root"], "metadata.json")
+                ) as fd:
+                    metadata = json.load(fd)
+            except FileNotFoundError:
+                print(f"Bad run {run.id}: missing metadata.json")
+                continue
 
             row["model_key"] = get_model_key(metadata)
 
             data_key = get_data_key(metadata)
             if data_key is None:
-                print("Bad run: {run.id}")
+                print(f"Bad run {run.id}: unknown data.")
                 continue
             row["data_key"] = data_key
 
@@ -288,7 +304,7 @@ def __(
             rows.append(row)
 
         if not rows:
-            return None
+            raise ValueError("No runs found.")
 
         df = pl.DataFrame(rows).with_columns(
             (pl.col("config/sae/d_vit") * pl.col("config/sae/exp_factor")).alias(
@@ -305,18 +321,23 @@ def __(
 def __(beartype):
     @beartype.beartype
     def get_model_key(metadata: dict[str, object]) -> str | None:
-        family, ckpt = metadata["model_family"], metadata["model_ckpt"]
+        family, ckpt = metadata["vit_family"], metadata["vit_ckpt"]
         if family == "dinov2" and ckpt == "dinov2_vitb14_reg":
             return "DINOv2 ViT-B/14"
         if family == "clip" and ckpt == "ViT-B-16/openai":
             return "CLIP ViT-B/16"
+        if family == "clip" and ckpt == "hf-hub:imageomics/bioclip":
+            return "BioCLIP ViT-B/16"
 
         print(f"Unknown model: {(family, ckpt)}")
         return None
 
     @beartype.beartype
     def get_data_key(metadata: dict[str, object]) -> str | None:
-        if "train_mini" in metadata["data"] and "Inat21Dataset" in metadata["data"]:
+        if (
+            "train_mini" in metadata["data"]
+            and "ImageFolderDataset" in metadata["data"]
+        ):
             return "iNat21"
 
         if "train" in metadata["data"] and "Imagenet" in metadata["data"]:
@@ -369,7 +390,18 @@ def __(Float, json, np, os):
 
 @app.cell
 def __(df):
-    df
+    df.drop(
+        "config/log_every",
+        "config/slurm_acct",
+        "config/device",
+        "config/n_workers",
+        "config/wandb_project",
+        "config/track",
+        "config/slurm",
+        "config/log_to",
+        "config/ckpt_path",
+        "config/sae/ghost_grads",
+    )
     return
 
 

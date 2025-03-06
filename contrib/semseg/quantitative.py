@@ -10,7 +10,7 @@ import beartype
 import einops
 import numpy as np
 import torch
-from jaxtyping import Float, Int, jaxtyped
+from jaxtyping import Bool, Float, Int, UInt8, jaxtyped
 from torch import Tensor
 
 import saev.helpers
@@ -212,9 +212,25 @@ def eval_rand_vec(
         orig_logits = clf(orig_acts[:, 1:, :])
         orig_preds.append(argmax_logits(orig_logits).cpu())
 
+        # Create a custom hook for this batch
+        def current_hook(module, inputs, outputs):
+            x = outputs[:, patches, :]
+            x = hook(x, current_batch=batch)
+            outputs[:, patches, :] = x
+            return outputs
+
+        # Register the hook for this batch
+        patches = hooked_vit.get_patches(cfg.n_patches_per_img)
+        handle = hooked_vit.get_residuals()[cfg.vit_layer - 1].register_forward_hook(
+            current_hook
+        )
+
         mod_acts = hooked_vit(x_BCWH)
         mod_logits = clf(mod_acts[:, 1:, :])
         mod_preds.append(argmax_logits(mod_logits).cpu())
+
+        # Remove the hook after use
+        handle.remove()
 
     # Concatenate all predictions
     orig_preds = torch.cat(orig_preds, dim=0)
@@ -320,17 +336,29 @@ def eval_auto_feat(
     @jaxtyped(typechecker=beartype.beartype)
     def hook(
         x_BPD: Float[Tensor, "batch patches dim"],
+        current_batch=None,
     ) -> Float[Tensor, "batch patches dim"]:
-        batch_size, _, _ = x_BPD.shape
+        batch_size, n_patches, _ = x_BPD.shape
         x_hat_BPD, f_x_BPS, _ = sae(x_BPD)
 
         err_BPD = x_BPD - x_hat_BPD
 
-        latents = latent_lookup[batch["patch_labels"].view(batch_size, -1).int()]
-        breakpoint()
-        # This certainly won't work.
-        values = unscaled(cfg.scale, top_values[latents].max().item())
-        f_x_BPS[:, latents + 1] = values
+        # Get patch labels and reshape to match batch_size x patches
+        patch_labels = (
+            current_batch["patch_labels"]
+            .view(batch_size, n_patches)
+            .int()
+            .to(cfg.device)
+        )
+
+        # For each patch, look up the latent to modify based on its class
+        for b in range(batch_size):
+            for p in range(n_patches):
+                class_id = patch_labels[b, p].item()
+                if class_id > 0 and class_id < 151:  # Valid class ID
+                    latent = latent_lookup[class_id]
+                    value = unscaled(cfg.scale, top_values[latent].max().item())
+                    f_x_BPS[b, p, latent] = value
 
         # Reproduce the SAE forward pass after f_x
         mod_x_hat_BPD = sae.decode(f_x_BPS)
@@ -371,74 +399,131 @@ def eval_auto_feat(
 def get_latent_lookup(
     cfg: config.Quantitative, sae: saev.nn.SparseAutoencoder, dataloader
 ) -> Int[Tensor, "151"]:
+    """
+    Dimension key:
+
+    * B: batch dimension
+    * P: patches per image
+    * D: ViT hidden dimension
+    * S: SAE feature dimension
+    * T: threshold dimension
+    * C: class dimension
+    * L: layer dimension
+    """
+    act_mean = torch.load(cfg.act_mean, weights_only=True, map_location=cfg.device)
+
     latent_lookup = torch.zeros((151,), dtype=int)
-    thresholds = [0, 0.1, 0.3, 1.0]
+    thresholds_T = torch.tensor([0, 0.1, 0.3, 1.0], device=cfg.device)
 
     vit = saev.activations.make_vit(cfg.vit_family, cfg.vit_ckpt).to(cfg.device)
     recorded_vit = saev.activations.RecordedVisionTransformer(
-        vit, cfg.n_patches_per_img, cfg.cls_token, [cfg.vit_layer]
+        vit, cfg.n_patches_per_img, cfg.cls_token, [cfg.vit_layer - 1]
     )
 
-    thresholds_T = torch.tensor(thresholds, device=cfg.device)
-    pred_labels_TSN = torch.zeros(
-        (
-            len(thresholds),
-            sae.cfg.d_sae,
-            len(dataloader.dataset) * cfg.n_patches_per_img,
-        ),
-        dtype=torch.uint8,
+    tp_counts_CTS = torch.zeros(
+        (151, len(thresholds_T), sae.cfg.d_sae), dtype=torch.int32, device=cfg.device
     )
-    true_labels_N = torch.zeros(
-        (len(dataloader.dataset) * cfg.n_patches_per_img), dtype=torch.uint8
+    fp_counts_CTS = torch.zeros(
+        (151, len(thresholds_T), sae.cfg.d_sae), dtype=torch.int32, device=cfg.device
+    )
+    fn_counts_CTS = torch.zeros(
+        (151, len(thresholds_T), sae.cfg.d_sae), dtype=torch.int32, device=cfg.device
     )
 
-    for batch in saev.helpers.progress(dataloader):
+    # Load sparsity and set up frequency mask.
+    sparsity_S = torch.load(cfg.sparsity, weights_only=True, map_location="cpu")
+    mask_S = (sparsity_S < cfg.max_freq).to(cfg.device)
+
+    for batch in saev.helpers.progress(dataloader, every=1):
         x_BCWH = batch["image"].to(cfg.device)
         _, vit_acts_BLPD = recorded_vit(x_BCWH)
-        _, sae_acts_BPS, _ = sae(vit_acts_BLPD[:, 0, 1:, :].to(cfg.device))
-        sae_acts_SN = einops.rearrange(
-            sae_acts_BPS, "batch patches d_sae -> d_sae (batch patches)"
+
+        # Normalize activations
+        vit_acts_BPD = (
+            vit_acts_BLPD[:, 0, 1:, :].to(cfg.device).clamp(-1e-5, 1e5) - act_mean
+        ) / cfg.act_norm
+        _, sae_acts_BPS, _ = sae(vit_acts_BPD)
+
+        # Merge batch and patches dimensions for easier processing
+        sae_acts_BS = einops.rearrange(
+            sae_acts_BPS, "batch patches d_sae -> (batch patches) d_sae"
         )
 
-        # TODO: i is basically arange(min, min + batch size * patches per img). Simplify to that.
-        i = batch["index"][:, None, None].expand(batch["patch_labels"].shape)
-        i = get_patch_i(i, cfg.n_patches_per_img).view(-1)
-        true_labels_N[i] = batch["patch_labels"].view(-1)
-
-        # Predictions for each latent is 1 for sae_acts_SI[latent] > threshold, 0 otherwise.
-        pred_labels_TSN[:, :, i] = (sae_acts_SN[None] > thresholds_T[:, None, None]).to(
-            "cpu", torch.uint8
+        pw, ph = cfg.patch_size_px
+        patch_labels_B = batch["patch_labels"].to(cfg.device).reshape(-1)
+        pixel_labels_BP = einops.rearrange(
+            batch["pixel_labels"].to(cfg.device),
+            "batch (w pw) (h ph) -> (batch w h) (pw ph)",
+            pw=pw,
+            ph=ph,
         )
 
-    logger.info("Made %d predictions.", len(true_labels_N))
-    lookup = {}
+        # Create mask for patches that meet the threshold
+        valid_mask = get_patch_mask(pixel_labels_BP, cfg.label_threshold)
+
+        # Filter patch labels to only include those meeting the threshold
+        patch_labels_B = patch_labels_B[valid_mask]
+        sae_acts_BS = sae_acts_BS[valid_mask]
+
+        unique_classes = torch.unique(patch_labels_B)
+
+        for class_id in unique_classes:
+            if class_id == 0:  # Skip background/null class if needed
+                continue
+
+            class_mask_B = patch_labels_B == class_id
+
+            # Skip if no patches of this class
+            if not torch.any(class_mask_B):
+                continue
+
+            # Process all thresholds at once
+            # Create binary activation masks for all thresholds
+            binary_activations_TBS = (
+                sae_acts_BS[None, :, :] > thresholds_T[:, None, None]
+            )
+
+            # Compute TP, FP, FN for all thresholds and features at once
+            # Each has shape: [thresholds, features] = [T, S]
+
+            # True Positives: activation is 1 AND patch is this class
+            tp_TS = torch.sum(
+                binary_activations_TBS & class_mask_B[None, :, None], dim=1
+            )
+            tp_counts_CTS[class_id] += tp_TS
+
+            # False Positives: activation is 1 BUT patch is NOT this class
+            fp_TS = torch.sum(
+                binary_activations_TBS & ~class_mask_B[None, :, None], dim=1
+            )
+            fp_counts_CTS[class_id] += fp_TS
+
+            # False Negatives: activation is 0 BUT patch IS this class
+            fn_TS = torch.sum(
+                (~binary_activations_TBS) & class_mask_B[None, :, None], dim=1
+            )
+            fn_counts_CTS[class_id] += fn_TS
+
+    class_lookup = {}
     with open(os.path.join(cfg.imgs.root, "objectInfo150.txt")) as fd:
         for row in csv.DictReader(fd, delimiter="\t"):
-            lookup[int(row["Idx"])] = row["Name"]
+            class_lookup[int(row["Idx"])] = row["Name"]
 
-    for class_id, class_name in saev.helpers.progress(lookup.items()):
-        is_class = true_labels_N == class_id
-        is_not_class = ~is_class
-        print(class_id, class_name, is_class.sum(), is_not_class.sum())
+    for class_id, class_name in saev.helpers.progress(class_lookup.items()):
+        # Compute F1 scores: 2*TP / (2*TP + FP + FN)
+        tp_TS = tp_counts_CTS[class_id]
+        fp_TS = fp_counts_CTS[class_id]
+        fn_TS = fn_counts_CTS[class_id]
 
-        is_right = pred_labels_TSN == true_labels_N
-        is_wrong = ~is_right
-        logger.info("Got masks for '%s' (%d).", class_name, class_id)
+        # Add small epsilon to avoid division by zero
+        f1_TS = (2 * tp_TS) / (2 * tp_TS + fp_TS + fn_TS + 1e-10)
 
-        true_pos_TS = einops.reduce(
-            is_right & is_class, "thresholds d_sae patches -> thresholds d_sae", "sum"
-        )
-        false_pos_TS = einops.reduce(
-            is_wrong & is_class, "thresholds d_sae n_image -> thresholds d_sae", "sum"
-        )
-        false_neg_TS = einops.reduce(
-            is_wrong & is_not_class,
-            "thresholds d_sae n_image -> thresholds d_sae",
-            "sum",
-        )
-        # Why is this code slow? What ideas do you have to speed up the code inside this for loop? Each iteration takes about 2 minutes, which is 150 x 2 = 5 hours to run.
-        f1_TS = (2 * true_pos_TS) / (2 * true_pos_TS + false_pos_TS + false_neg_TS)
+        # Calculate precision and recall for each threshold
+        precision_TS = tp_TS / (tp_TS + fp_TS + 1e-10)  # TP / (TP + FP)
+        recall_TS = tp_TS / (tp_TS + fn_TS + 1e-10)     # TP / (TP + FN)
+
         f1_S, best_thresh_i_S = f1_TS.max(dim=0)
+        f1_S = torch.where(mask_S, f1_S, torch.tensor(-1.0, device=f1_S.device))
         best_thresholds_S = thresholds_T[best_thresh_i_S]
 
         # Get top performing features
@@ -451,6 +536,33 @@ def get_latent_lookup(
         latent_lookup[class_id] = topk_latents[0].item()
 
     return latent_lookup
+
+
+@jaxtyped(typechecker=beartype.beartype)
+def get_patch_mask(
+    pixel_labels_NP: UInt8[Tensor, "n patch_px"], threshold: float
+) -> Bool[Tensor, " n"]:
+    """
+    Create a mask for patches where at least threshold proportion of pixels have the same label.
+
+    Args:
+        pixel_labels_NP: Tensor of shape [n, patch_pixels] with pixel labels
+        threshold: Minimum proportion of pixels with same label
+
+    Returns:
+        Tensor of shape [n] with True for patches that pass the threshold
+    """
+    # For each patch, count occurrences of each unique label
+    _, patch_pixels = pixel_labels_NP.shape
+
+    mode_N = pixel_labels_NP.mode(axis=-1).values
+
+    # Count occurrences of the mode value in each patch using vectorized operations
+    counts_N = (pixel_labels_NP == mode_N[:, None]).sum(dim=1)
+
+    # Calculate proportion and create mask
+    mask_N = (counts_N / patch_pixels) >= threshold
+    return mask_N
 
 
 @jaxtyped(typechecker=beartype.beartype)

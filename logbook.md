@@ -1452,6 +1452,8 @@ One such bug is activation normalizations.
 You need to normalize the activations.
 Just like in the comparison app in saev, you need to load the mean/scalar from disk for DINOv2 activations on IN1K.
 
+TODO TODO TODO
+
 # 02/14/2025
 
 Happy Valentine's Day!
@@ -1499,4 +1501,16 @@ Heterogenous summation vs gestalt classification: SAEs+SVMs are heterogenous sum
 
 If we could reliably extract traits, then we could write a decision tree (by hand) for predicting age and sex, which would be awesome for conservation.
 
+# 02/28/2025
 
+There are tons of features for "trees" present in the SAEs.
+For example, look at example 553 in ADE20K validation and selec the bottom right trees.
+There are four different "tree" features (6097, 4299, 7110, 7648) that all look like great semantic features to me.
+Of course we don't get good recall.
+
+Same thing for toilets.
+Look at example 1099 and select the toilet.
+5876, 10875, and 15002 are all porcelain or tile.
+I wonder what their precision is like.
+
+But I am surprised that we don't have good precision.

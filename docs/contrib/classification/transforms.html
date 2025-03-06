@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
 <meta name="generator" content="pdoc3 0.11.3">
-<title>contrib API documentation</title>
-<meta name="description" content="">
+<title>contrib.classification.transforms API documentation</title>
+<meta name="description" content="Contains the transforms used in every spot: …">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/sanitize.min.css" integrity="sha512-y1dtMcuvtTMJc1yPgEqF0ZjQbhnc/bFhyvIyVNb9Zk5mIGtqVaAB1Ttl28su8AvFMOY0EwRbAe+HCLqj6W7/KA==" crossorigin>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/typography.min.css" integrity="sha512-Y1DYSb995BAfxobCkKepB1BqJJTPrOp3zPL74AWFugHHmmdcvO+C48WLrUOlhGMc0QG7AE3f7gmvvcrmX2fDoA==" crossorigin>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css" crossorigin>
@@ -24,30 +24,48 @@ hljs.highlightAll();
 <main>
 <article id="content">
 <header>
-<h1 class="title">Package <code>contrib</code></h1>
+<h1 class="title">Module <code>contrib.classification.transforms</code></h1>
 </header>
 <section id="section-intro">
+<p>Contains the transforms used in every spot:</p>
+<ul>
+<li>Training</li>
+<li>Making figures</li>
+<li>Web app</li>
+</ul>
+<p>For both figures and the webapp, the transform is:</p>
+<ol>
+<li>Resize the image so that the shortest size is 512 pixels.</li>
+<li>Take the middle 448x448 as a crop</li>
+</ol>
+<p>This gives us object-centric images that are 448x448 (fixed pixel size is important for the web app) and not distorted.</p>
 </section>
 <section>
-<h2 class="section-title" id="header-submodules">Sub-modules</h2>
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
-<dt><code class="name"><a title="contrib.classification" href="classification/index.html">contrib.classification</a></code></dt>
-<dd>
-<div class="desc"><p>Reproduce …</p></div>
-</dd>
-<dt><code class="name"><a title="contrib.semprobe" href="semprobe/index.html">contrib.semprobe</a></code></dt>
+<dt id="contrib.classification.transforms.for_figures"><code class="name flex">
+<span>def <span class="ident">for_figures</span></span>(<span>)</span>
+</code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
-<dt><code class="name"><a title="contrib.semseg" href="semseg/index.html">contrib.semseg</a></code></dt>
+<dt id="contrib.classification.transforms.for_training"><code class="name flex">
+<span>def <span class="ident">for_training</span></span>(<span>vit_ckpt: str)</span>
+</code></dt>
 <dd>
-<div class="desc"><p>Interpret and manipulate semantic segmentation models using SAEs …</p></div>
+<div class="desc"></div>
+</dd>
+<dt id="contrib.classification.transforms.for_webapp"><code class="name flex">
+<span>def <span class="ident">for_webapp</span></span>(<span>img: PIL.Image.Image) ‑> PIL.Image.Image</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
 </dd>
 </dl>
-</section>
-<section>
-</section>
-<section>
 </section>
 <section>
 </section>
@@ -57,11 +75,16 @@ hljs.highlightAll();
 <ul></ul>
 </div>
 <ul id="index">
-<li><h3><a href="#header-submodules">Sub-modules</a></h3>
+<li><h3>Super-module</h3>
 <ul>
-<li><code><a title="contrib.classification" href="classification/index.html">contrib.classification</a></code></li>
-<li><code><a title="contrib.semprobe" href="semprobe/index.html">contrib.semprobe</a></code></li>
-<li><code><a title="contrib.semseg" href="semseg/index.html">contrib.semseg</a></code></li>
+<li><code><a title="contrib.classification" href="index.html">contrib.classification</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-functions">Functions</a></h3>
+<ul class="">
+<li><code><a title="contrib.classification.transforms.for_figures" href="#contrib.classification.transforms.for_figures">for_figures</a></code></li>
+<li><code><a title="contrib.classification.transforms.for_training" href="#contrib.classification.transforms.for_training">for_training</a></code></li>
+<li><code><a title="contrib.classification.transforms.for_webapp" href="#contrib.classification.transforms.for_webapp">for_webapp</a></code></li>
 </ul>
 </li>
 </ul>

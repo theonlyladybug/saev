@@ -15,8 +15,9 @@ def __():
     import numpy as np
     import polars as pl
     import torch
+    import tqdm
 
-    return json, mo, np, os, pl, plt, random, torch
+    return json, mo, np, os, pl, plt, random, torch, tqdm
 
 
 @app.cell
@@ -83,16 +84,20 @@ def __(
     sort_by_freq_btn,
     sort_by_latent_btn,
     sort_by_value_btn,
+    tqdm,
     webapp_dir,
 ):
     def get_neurons() -> list[dict]:
         rows = []
-        for name in os.listdir(f"{webapp_dir}/neurons"):
+        for name in tqdm.tqdm(list(os.listdir(f"{webapp_dir}/neurons"))):
             if not name.isdigit():
                 continue
-
-            with open(f"{webapp_dir}/neurons/{name}/metadata.json") as fd:
-                rows.append(json.load(fd))
+            try:
+                with open(f"{webapp_dir}/neurons/{name}/metadata.json") as fd:
+                    rows.append(json.load(fd))
+            except FileNotFoundError:
+                print(f"Missing metadata.json for neuron {name}.")
+                continue
             # rows.append({"neuron": int(name)})
         return rows
 
@@ -168,7 +173,7 @@ def __():
 def __(get_i, mo, neurons):
     def display_info(log10_freq: float, log10_value: float, neuron: int):
         return mo.md(
-            f"Neuron {neuron} ({get_i()}/{len(neurons)}; {get_i() / len(neurons) * 100:.1f}%) | Frequency: {10** log10_freq * 100:.3f}% of inputs | Mean Value: {10** log10_value:.3f}"
+            f"Neuron {neuron} ({get_i()}/{len(neurons)}; {get_i() / len(neurons) * 100:.1f}%) | Frequency: {10**log10_freq * 100:.3f}% of inputs | Mean Value: {10**log10_value:.3f}"
         )
 
     return (display_info,)
@@ -359,6 +364,26 @@ def __(mo):
 def __(mo):
     value_slider = mo.ui.range_slider(start=-3, stop=1, step=0.1, value=[-0.75, 1.0])
     return (value_slider,)
+
+
+@app.cell
+def __():
+    return
+
+
+@app.cell
+def __():
+    return
+
+
+@app.cell
+def __():
+    return
+
+
+@app.cell
+def __():
+    return
 
 
 @app.cell

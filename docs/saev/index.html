@@ -54,8 +54,8 @@ hljs.highlightAll();
 <p>Run <code>uv run python -m saev activations --help</code> to see all the configuration.</p>
 <p>In practice, you might run:</p>
 <pre><code class="language-sh">uv run python -m saev activations \
-  --model-group clip \
-  --model-ckpt ViT-B-32/openai \
+  --vit-family clip \
+  --vit-ckpt ViT-B-32/openai \
   --d-vit 768 \
   --n-patches-per-img 49 \
   --layers -2 \
@@ -179,10 +179,10 @@ Choose one of the checkpoints in the dropdown and click through the different ne
 <h1 id="inference-instructions">Inference Instructions</h1>
 <p>Briefly, you need to:</p>
 <ol>
-<li>Download a checkpoint</li>
-<li>Get the code</li>
-<li>Load the checkpoint</li>
-<li>Get activations</li>
+<li>Download a checkpoint.</li>
+<li>Get the code.</li>
+<li>Load the checkpoint.</li>
+<li>Get activations.</li>
 </ol>
 <p>Details are below.</p>
 <h2 id="download-a-checkpoint">Download a Checkpoint</h2>
@@ -192,11 +192,61 @@ Choose one of the checkpoints in the dropdown and click through the different ne
 <pre><code class="language-sh">wget https://huggingface.co/osunlp/SAE_CLIP_24K_ViT-B-16_IN1K/resolve/main/sae.pt
 </code></pre>
 <h2 id="get-the-code">Get the Code</h2>
-<p>[TODO: document this process]</p>
+<p>The easiest way to do this is to clone the code:</p>
+<pre><code>git clone https://github.com/OSU-NLP-Group/SAE-V
+</code></pre>
+<p>You can also install the package from git if you use uv (not sure about pip or cuda):</p>
+<pre><code class="language-sh">uv add git+https://github.com/OSU-NLP-Group/SAE-V
+</code></pre>
+<p>Or clone it and install it as an editable with pip, lik <code>pip install -e .</code> in your virtual environment.</p>
+<p>Then you can do things like <code>from <a title="saev" href="#saev">saev</a> import &hellip;</code>.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>If you struggle to get <code><a title="saev" href="#saev">saev</a></code> installed, open an issue on <a href="https://github.com/OSU-NLP-Group/SAE-V">GitHub</a> and I will figure out how to make it easier.</p>
+</div>
 <h2 id="load-the-checkpoint">Load the Checkpoint</h2>
-<p>[TODO: document this process]</p>
+<pre><code class="language-py">import saev.nn
+
+sae = saev.nn.load(&quot;PATH_TO_YOUR_SAE_CKPT.pt&quot;)
+</code></pre>
+<p>Now you have a pretrained SAE.</p>
 <h2 id="get-activations">Get Activations</h2>
-<p>[TODO: document this process]</p>
+<p>This is the hardest part.
+We need to:</p>
+<ol>
+<li>Pass an image into a ViT</li>
+<li>Record the dense ViT activations at the same layer that the SAE was trained on.</li>
+<li>Pass the activations into the SAE to get sparse activations.</li>
+<li>Do something interesting with the sparse SAE activations.</li>
+</ol>
+<p>There are examples of this in the demo code: for <a href="https://huggingface.co/spaces/samuelstevens/saev-image-classification/blob/main/app.py#L318">classification</a> and <a href="https://huggingface.co/spaces/samuelstevens/saev-semantic-segmentation/blob/main/app.py#L222">semantic segmentation</a>.
+If the permalinks change, you are looking for the <code>get_sae_latents()</code> functions in both files.</p>
+<p>Below is example code to do it using the <code><a title="saev" href="#saev">saev</a></code> package.</p>
+<pre><code class="language-py">import saev.nn
+import saev.activations
+
+img_transform = saev.activations.make_img_transform(&quot;clip&quot;, &quot;ViT-B-16/openai&quot;)
+
+vit = saev.activations.make_vit(&quot;clip&quot;, &quot;ViT-B-16/openai&quot;)
+recorded_vit = saev.activations.RecordedVisionTransformer(vit, 196, True, [10])
+
+img = Image.open(&quot;example.jpg&quot;)
+
+x = img_transform(img)
+# Add a batch dimension
+x = x[None, ...]
+_, vit_acts = recorded_vit(x)
+# Re-select the only element in the batch, and ignore the CLS token.
+vit_acts = vit_acts[0, 1:, :]
+
+x_hat, f_x, loss = sae(vit_acts)
+</code></pre>
+<p>Now you have the reconstructed x (<code>x_hat</code>) and the sparse representation of all patches in the image (<code>f_x</code>).</p>
+<p>You might select the dimensions with maximal values for each patch and see what other images are maximimally activating.</p>
+<div class="admonition todo">
+<p class="admonition-title">TODO</p>
+<p>Provide documentation for how get maximally activating images.</p>
+</div>
 </section>
 <section>
 <h2 class="section-title" id="header-submodules">Sub-modules</h2>

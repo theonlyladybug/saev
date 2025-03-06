@@ -102,7 +102,7 @@ class RecordedVisionTransformer(torch.nn.Module):
     @property
     def activations(self) -> Float[Tensor, "batch n_layers all_patches dim"]:
         if self._storage is None:
-            raise RuntimeError("First call model()")
+            raise RuntimeError("First call forward()")
         return self._storage.cpu()
 
     def forward(
@@ -115,17 +115,17 @@ class RecordedVisionTransformer(torch.nn.Module):
 
 @jaxtyped(typechecker=beartype.beartype)
 class Clip(torch.nn.Module):
-    def __init__(self, model_ckpt: str):
+    def __init__(self, vit_ckpt: str):
         super().__init__()
 
         import open_clip
 
-        if model_ckpt.startswith("hf-hub:"):
+        if vit_ckpt.startswith("hf-hub:"):
             clip, _ = open_clip.create_model_from_pretrained(
-                model_ckpt, cache_dir=helpers.get_cache_dir()
+                vit_ckpt, cache_dir=helpers.get_cache_dir()
             )
         else:
-            arch, ckpt = model_ckpt.split("/")
+            arch, ckpt = vit_ckpt.split("/")
             clip, _ = open_clip.create_model_from_pretrained(
                 arch, pretrained=ckpt, cache_dir=helpers.get_cache_dir()
             )
@@ -137,7 +137,7 @@ class Clip(torch.nn.Module):
 
         assert not isinstance(self.model, open_clip.timm_model.TimmModel)
 
-        self.name = f"clip/{model_ckpt}"
+        self.name = f"clip/{vit_ckpt}"
 
     def get_residuals(self) -> list[torch.nn.Module]:
         return self.model.transformer.resblocks
@@ -154,17 +154,17 @@ class Clip(torch.nn.Module):
 
 @jaxtyped(typechecker=beartype.beartype)
 class Siglip(torch.nn.Module):
-    def __init__(self, model_ckpt: str):
+    def __init__(self, vit_ckpt: str):
         super().__init__()
 
         import open_clip
 
-        if model_ckpt.startswith("hf-hub:"):
+        if vit_ckpt.startswith("hf-hub:"):
             clip, _ = open_clip.create_model_from_pretrained(
-                model_ckpt, cache_dir=helpers.get_cache_dir()
+                vit_ckpt, cache_dir=helpers.get_cache_dir()
             )
         else:
-            arch, ckpt = model_ckpt.split("/")
+            arch, ckpt = vit_ckpt.split("/")
             clip, _ = open_clip.create_model_from_pretrained(
                 arch, pretrained=ckpt, cache_dir=helpers.get_cache_dir()
             )
@@ -191,11 +191,11 @@ class Siglip(torch.nn.Module):
 
 @jaxtyped(typechecker=beartype.beartype)
 class DinoV2(torch.nn.Module):
-    def __init__(self, model_ckpt: str):
+    def __init__(self, vit_ckpt: str):
         super().__init__()
 
-        self.model = torch.hub.load("facebookresearch/dinov2", model_ckpt)
-        self.name = f"dinov2/{model_ckpt}"
+        self.model = torch.hub.load("facebookresearch/dinov2", vit_ckpt)
+        self.name = f"dinov2/{vit_ckpt}"
 
     def get_residuals(self) -> list[torch.nn.Module]:
         return self.model.blocks
@@ -225,15 +225,15 @@ class Moondream2(torch.nn.Module):
     Moondream2 has 14x14 pixel patches. For a 378x378 image (as we use here), this is 27x27 patches for a total of 729, with no [CLS] token.
     """
 
-    def __init__(self, model_ckpt: str):
+    def __init__(self, vit_ckpt: str):
         super().__init__()
 
         import transformers
 
-        model_id, revision = model_ckpt.split(":")
+        vit_id, revision = vit_ckpt.split(":")
 
         mllm = transformers.AutoModelForCausalLM.from_pretrained(
-            model_id, revision=revision, trust_remote_code=True
+            vit_id, revision=revision, trust_remote_code=True
         )
         self.model = mllm.vision_encoder.encoder.model.visual
 
@@ -251,17 +251,17 @@ class Moondream2(torch.nn.Module):
 
 
 @beartype.beartype
-def make_vit(model_family: str, model_ckpt: str):
-    if model_family == "clip":
-        return Clip(model_ckpt)
-    elif model_family == "siglip":
-        return Siglip(model_ckpt)
-    elif model_family == "dinov2":
-        return DinoV2(model_ckpt)
-    elif model_family == "moondream2":
-        return Moondream2(model_ckpt)
+def make_vit(vit_family: str, vit_ckpt: str):
+    if vit_family == "clip":
+        return Clip(vit_ckpt)
+    elif vit_family == "siglip":
+        return Siglip(vit_ckpt)
+    elif vit_family == "dinov2":
+        return DinoV2(vit_ckpt)
+    elif vit_family == "moondream2":
+        return Moondream2(vit_ckpt)
     else:
-        typing.assert_never(model_family)
+        typing.assert_never(vit_family)
 
 
 # @beartype.beartype
@@ -306,22 +306,22 @@ def make_vit(model_family: str, model_ckpt: str):
 #     else:
 #         typing.assert_never(model_family)
 @beartype.beartype
-def make_img_transform(cfg: config.Activations) -> Callable:
-    if cfg.model_family == "clip" or cfg.model_family == "siglip":
+def make_img_transform(vit_family: str, vit_ckpt: str) -> Callable:
+    if vit_family == "clip" or vit_family == "siglip":
         import open_clip
 
-        if cfg.model_ckpt.startswith("hf-hub:"):
+        if vit_ckpt.startswith("hf-hub:"):
             _, img_transform = open_clip.create_model_from_pretrained(
-                cfg.model_ckpt, cache_dir=cfg.cache_dir
+                vit_ckpt, cache_dir=helpers.get_cache_dir()
             )
         else:
-            arch, ckpt = cfg.model_ckpt.split("/")
+            arch, ckpt = vit_ckpt.split("/")
             _, img_transform = open_clip.create_model_from_pretrained(
                 arch, pretrained=ckpt, cache_dir=cfg.cache_dir
             )
         return img_transform
 
-    elif cfg.model_family == "dinov2":
+    elif vit_family == "dinov2":
         from torchvision.transforms import v2
 
         return v2.Compose([
@@ -332,7 +332,8 @@ def make_img_transform(cfg: config.Activations) -> Callable:
             v2.ToDtype(torch.float32, scale=True),
             v2.Normalize(mean=[0.4850, 0.4560, 0.4060], std=[0.2290, 0.2240, 0.2250]),
         ])
-    elif cfg.model_family == "mae":
+
+    elif vit_family == "moondream2":
         from torchvision.transforms import v2
 
         # Assume fixed image ratio, 378x378
@@ -343,7 +344,7 @@ def make_img_transform(cfg: config.Activations) -> Callable:
             v2.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
         ])
     else:
-        typing.assert_never(cfg.model_family)
+        typing.assert_never(vit_family)
 
 
 ###############
@@ -919,9 +920,11 @@ def worker_fn(cfg: config.Activations):
 
     logger = logging.getLogger("dump")
 
-    vit = WrappedVisionTransformer(cfg)
-    # img_transform = make_img_transform(cfg.model_family, cfg.model_ckpt)
-    img_transform = make_img_transform(cfg)
+    vit = make_vit(cfg.vit_family, cfg.vit_ckpt).to(cfg.device)
+    vit = RecordedVisionTransformer(
+        vit, cfg.n_patches_per_img, cfg.cls_token, cfg.vit_layers
+    )
+    img_transform = make_img_transform(cfg.vit_family, cfg.vit_ckpt)
     dataloader = get_dataloader(cfg, img_transform=img_transform)
 
     writer = ShardWriter(cfg)
@@ -973,11 +976,11 @@ class ShardWriter:
         if cfg.cls_token:
             n_patches_per_img += 1
         self.n_imgs_per_shard = (
-            cfg.n_patches_per_shard // len(cfg.layers) // n_patches_per_img
+            cfg.n_patches_per_shard // len(cfg.vit_layers) // n_patches_per_img
         )
         self.shape = (
             self.n_imgs_per_shard,
-            len(cfg.layers),
+            len(cfg.vit_layers),
             n_patches_per_img,
             cfg.d_vit,
         )
@@ -1037,8 +1040,8 @@ class ShardWriter:
 @beartype.beartype
 @dataclasses.dataclass(frozen=True)
 class Metadata:
-    model_family: str
-    model_ckpt: str
+    vit_family: str
+    vit_ckpt: str
     layers: tuple[int, ...]
     n_patches_per_img: int
     cls_token: bool
@@ -1051,9 +1054,9 @@ class Metadata:
     @classmethod
     def from_cfg(cls, cfg: config.Activations) -> "Metadata":
         return cls(
-            cfg.model_family,
-            cfg.model_ckpt,
-            tuple(cfg.layers),
+            cfg.vit_family,
+            cfg.vit_ckpt,
+            tuple(cfg.vit_layers),
             cfg.n_patches_per_img,
             cfg.cls_token,
             cfg.d_vit,

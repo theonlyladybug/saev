@@ -1,7 +1,13 @@
 # saev - Sparse Auto-Encoders for Vision
 
 Implementation of sparse autoencoders (SAEs) for vision transformers (ViTs) in PyTorch.
-Used in our [preprint](https://arxiv.org/abs/2502.06755) on SAEs for scientifically rigorous interpretation of vision models.
+
+This is the codebase used for our preprint "Sparse Autoencoders for Scientifically Rigorous Interpretation of Vision Models"
+
+* [arXiv preprint](https://arxiv.org/abs/2502.06755)
+* [Huggingface Models](https://huggingface.co/collections/osunlp/sae-v-67ab8c4fdf179d117db28195)
+* [API Docs](https://osu-nlp-group.github.io/SAE-V/saev)
+* [Demos](https://osu-nlp-group.github.io/SAE-V/#demos)
 
 ## About
 
@@ -12,7 +18,7 @@ Originally forked from [HugoFry](https://github.com/HugoFry/mats_sae_training_fo
 
 Read [logbook.md](logbook.md) for a detailed log of my thought process.
 
-See [related-work.md](related-work.md) for a list of works training SAEs on vision models.
+See [related-work.md](saev/related-work.md) for a list of works training SAEs on vision models.
 Please open an issue or a PR if there is missing work.
 
 ## Installation
@@ -27,7 +33,7 @@ The first invocation should create a virtual environment and show a help message
 
 ## Using `saev`
 
-See the [docs](https://osu-nlp-group.github.io/saev/) for an overview.
+See the [docs](https://osu-nlp-group.github.io/SAE-V/saev) for an overview.
 
 I recommend using the [llms.txt](https://osu-nlp-group.github.io/saev/llms.txt) file as a way to use any LLM provider to ask questions.
 For example, you can run `curl https://osu-nlp-group.github.io/saev/llms.txt | pbcopy` on macOS to copy the text, then paste it into [https://claude.ai](https://claude.ai) and ask any question you have.
@@ -70,3 +76,5 @@ For example, you can run `curl https://samuelstevens.me/saev/llms.txt | pbcopy` 
 2. Train models on ViT-L/14 datasets.
 3. Semantic segmentation baseline with linear probe.
 4. ADE20K experiment to demonstrate faithfulness.
+I recommend using the [llms.txt](https://osu-nlp-group.github.io/SAE-V/llms.txt) file as a way to use any LLM provider to ask questions.
+For example, you can run `curl https://osu-nlp-group.github.io/SAE-V/llms.txt | pbcopy` on macOS to copy the text, then paste it into [https://claude.ai](https://claude.ai) and ask any question you have.

@@ -14,7 +14,7 @@ from . import activations, config
 @pytest.mark.slow
 def test_dataloader_batches():
     cfg = config.Activations(
-        model_ckpt="ViT-B-32/openai",
+        vit_ckpt="ViT-B-32/openai",
         d_vit=768,
         layers=[-2, -1],
         n_patches_per_img=49,
@@ -37,7 +37,7 @@ def test_shard_writer_and_dataset_e2e():
     with tempfile.TemporaryDirectory() as tmpdir:
         cfg = config.Activations(
             model_org="timm",
-            model_ckpt="hf_hub:timm/test_vit3.r160_in1k",
+            vit_ckpt="hf_hub:timm/test_vit3.r160_in1k",
             d_vit=96,
             n_patches_per_img=100,
             layers=[-2, -1],

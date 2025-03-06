@@ -93,9 +93,9 @@ class Config:
             n_patches = 256
 
         return config.Activations(
-            model_family=self.vit_family,
-            model_ckpt=self.vit_ckpt,
-            layers=[-2],
+            vit_family=self.vit_family,
+            vit_ckpt=self.vit_ckpt,
+            vit_layers=[-2],
             n_patches_per_img=n_patches,
         )</code></pre>
 </details>
@@ -146,9 +146,9 @@ def wrapped_cfg(self) -&gt; config.Activations:
         n_patches = 256
 
     return config.Activations(
-        model_family=self.vit_family,
-        model_ckpt=self.vit_ckpt,
-        layers=[-2],
+        vit_family=self.vit_family,
+        vit_ckpt=self.vit_ckpt,
+        vit_layers=[-2],
         n_patches_per_img=n_patches,
     )</code></pre>
 </details>

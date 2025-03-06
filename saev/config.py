@@ -92,9 +92,9 @@ class Activations:
     """Which dataset to use."""
     dump_to: str = os.path.join(".", "shards")
     """Where to write shards."""
-    model_family: typing.Literal["clip", "siglip", "dinov2", "moondream2"] = "clip"
+    vit_family: typing.Literal["clip", "siglip", "dinov2", "moondream2"] = "clip"
     """Which model family."""
-    model_ckpt: str = "ViT-L-14/openai"
+    vit_ckpt: str = "ViT-L-14/openai"
     """Specific model checkpoint."""
     cache_dir: str = "/media/data/yiran/hf_cache/hubs"
     """Specific cache directory to store model and data caches"""
@@ -104,7 +104,7 @@ class Activations:
     """Number of dataloader workers."""
     d_vit: int = 1024
     """Dimension of the ViT activations (depends on model)."""
-    layers: list[int] = dataclasses.field(default_factory=lambda: [-2])
+    vit_layers: list[int] = dataclasses.field(default_factory=lambda: [-2])
     """Which layers to save. By default, the second-to-last layer."""
     n_patches_per_img: int = 256
     """Number of ViT patches per image (depends on model)."""

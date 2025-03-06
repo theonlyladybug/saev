@@ -28,8 +28,8 @@ In practice, you might run:
 
 ```sh
 uv run python -m saev activations \
-  --model-group clip \
-  --model-ckpt ViT-B-32/openai \
+  --vit-family clip \
+  --vit-ckpt ViT-B-32/openai \
   --d-vit 768 \
   --n-patches-per-img 49 \
   --layers -2 \
